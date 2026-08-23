@@ -238,7 +238,14 @@ Per-year parts are also the natural post-hoc partition.
 
 ---
 
-## S3 — First breakdowns (2026-07, 7,557,018 CLEAN trips at `signal_sec >= 35100`)
+## 💀 S3 IS DEAD — read S5 first (2026-08-23)
+
+**Everything in S3 below was measured on ONE MONTH (2026-07) and did not survive the full
+post-2020 pass (387.8M trips).** 2026 is the single year whose top `eff_open` bands read positive;
+S3b generalised from it. The section is kept verbatim as the record of the mistake, not as a
+result. ⚠ Do not quote S3.
+
+## S3 — First breakdowns (2026-07, 7,557,018 CLEAN trips at `signal_sec >= 35100`) — 💀 VOID
 
 ⚠ One month. mc = 0, so PF and the bp figures are **attribution, not portfolio**. **No costs
 modelled** — at a 30-second hold, a bp is not a lot of room. Everything below is a direction to
@@ -370,3 +377,119 @@ drawdown bucket — the tail is not tradeable regardless.
    moves to 09:45.
 5. **The volume trend pair** (`vol_slope_*` / `vol_r_*`) is recorded but untested — it is the half
    of the Hitchhiker thesis nothing above touches.
+
+
+---
+
+# S5 — THE FULL POST-2020 BASE PASS (2026-08-23)
+
+`data/longhiker_trips_v1/y{2020..2026}/` — **387,833,933 trips** over **1,164,334 candidate
+ticker-days**, 119 GB, 73 min. Raw PF is 0.996-1.015 every single year: a raw state sampler is a
+coin flip, as it should be. Everything below is the clean book, `signal_sec >= 35100`
+(342.9M trips).
+
+## 💀 S5a — `eff_open` carries NO edge at any level
+
+The S3b headline ("the edge lives at eff_open >= 0.6") is **withdrawn**. Fine bands × year,
+mean h5m bp:
+
+| band | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | **pooled** | n |
+|---|---|---|---|---|---|---|---|---|---|
+| 0.30-0.35 | −0.05 | −0.46 | −0.01 | −0.62 | −0.05 | −0.17 | +0.02 | **−0.19** | 118.6M |
+| 0.55-0.60 | −0.22 | −1.71 | +1.13 | −0.22 | −2.01 | −0.95 | +0.33 | **−0.55** | 15.0M |
+| 0.60-0.65 | −1.26 | −1.27 | +1.76 | −0.33 | +0.45 | −1.78 | −0.00 | **−0.41** | 10.4M |
+| 0.70-0.80 | −1.14 | −2.19 | +1.08 | −0.86 | −1.30 | −1.10 | +0.45 | **−0.75** | 8.6M |
+| 0.80-0.90 | −0.97 | −1.84 | −0.55 | −0.79 | −0.29 | −1.61 | +0.78 | **−0.81** | 4.2M |
+| 0.90+ | +0.27 | +0.36 | +0.64 | +0.43 | −1.74 | −1.46 | +1.50 | **−0.07** | 2.5M |
+
+Every band negative pooled; no rise at the top; the high bands are negative in 5 of 7 years.
+**💀 THE METHOD LESSON: a cutoff was put on the table off one month.** The year table existed to
+prevent exactly that and was not run first (`feedback_journal_tables_not_prose`).
+
+Nor does the horizon structure survive — the "momentum dies at 10m" claim was also 2026-only:
+
+| yr | n | h30s | h1m | h5m | h10m | h20m |
+|---|---|---|---|---|---|---|
+| 2020 | 41.7M | +0.03 | +0.03 | −0.36 | −0.31 | −1.09 |
+| 2021 | 49.1M | −0.08 | −0.01 | −0.58 | −0.65 | −1.22 |
+| 2022 | 45.6M | 0.00 | −0.01 | +0.06 | −0.15 | −0.09 |
+| 2023 | 45.6M | −0.06 | −0.08 | −0.55 | −1.12 | −1.62 |
+| 2024 | 46.5M | −0.03 | −0.07 | −0.41 | −0.39 | −0.46 |
+| 2025 | 62.9M | −0.03 | −0.06 | −0.62 | −1.42 | −2.02 |
+| 2026 | 51.5M | +0.06 | +0.02 | +0.18 | +0.54 | +0.45 |
+
+A small uniform negative drift, no horizon shape. ⭐ **2026 is the outlier year in every table so
+far** — worth remembering before any future smoke test is run on recent data.
+
+The 09:40-09:45 lookahead slice flips sign year to year (−3.91 to +2.39 bp h5m) with no systematic
+direction, so the universe lookahead is not manufacturing a phantom edge — but it is not harmless
+either, just noisy. Keep the `signal_sec >= 35100` control on every headline.
+
+## S5b — ⭐ The density cut (user, 2026-08-23) INVERTS the table
+
+Trading only dense tape was the hypothesis: *"sparse rises will inevitably be faded."* The data
+says the opposite, at every gap horizon, in every year.
+
+| cut | keeps | h5m |
+|---|---|---|
+| whole clean book | 100% | −0.34 bp |
+| `gap_600 < 30` | 4.1% | −4.19 bp |
+| `gap_1200 < 60` | 3.9% | −3.17 bp |
+| **`gap_60 < 4`** | **5.3%** | **−5.90 bp** |
+| `gap_60 = 0` | 3.0% | −8.80 bp |
+
+⚠ **The disproportion test does NOT fire here.** Rule 3 catches a filter that changes a *tiny*
+slice yet moves the result hugely. This one *discards 94.7% of the book* — a large effect from a
+large change is ordinary, not suspicious.
+
+`eff_open` × year under `gap_60 < 4`, pooled: −4.29 / −5.89 / −10.11 / −12.59 / −29.23 / −52.99 bp
+from the 0.30-0.40 band to 0.80+. **And it is BROAD, not a tail** — median and win rate move with
+the mean, which is what separates a real effect from three fat trades:
+
+| eff_open (dense) | n | mean bp | **median bp** | **win %** |
+|---|---|---|---|---|
+| 0.30-0.40 | 11,192,759 | −4.29 | −1.36 | 48.79 |
+| 0.50-0.60 | 1,701,676 | −10.11 | −3.24 | 47.62 |
+| 0.70-0.80 | 182,921 | −29.23 | −2.82 | 48.28 |
+| 0.80+ | 56,285 | −52.99 | **−17.67** | **43.28** |
+
+(whole-book control: median pinned at +0.13 to −0.07, win 49.4-49.8% across the same bands)
+
+## S5c — ⭐⭐ …but the VOLATILITY control dissolves it
+
+At matched `volat_20m`, `eff_open` barely matters. Dense book, **median** h5m bp:
+
+| volat_20m | eff 0.30-0.40 | 0.40-0.50 | 0.50-0.60 | 0.60-0.70 | 0.70+ |
+|---|---|---|---|---|---|
+| **< 20bp** | **+0.18** | +0.02 | +0.35 | **+0.73** | +0.45 |
+| 20-40 | −1.59 | −3.84 | −3.99 | −6.99 | −0.82 |
+| 40-80 | −17.51 | −21.59 | −34.52 | −43.26 | −21.53 |
+| **80bp+** | −99.65 | −104.32 | −126.93 | −121.42 | **−169.92** |
+
+The gradient **down** the volatility axis is 100-500× the gradient **across** the efficiency axis.
+Holding eff flat at 0.30-0.40 (T9) the volatility gradient survives intact (+0.62 → −76.71 in the
+09:45-10:00 bucket) while the time-of-day gradient is second-order.
+
+⭐⭐ **THE DENSITY CUT WORKS BY SELECTING HIGH-VOLATILITY TAPE, WHICH IS THE OPPOSITE OF ITS
+INTENT.** `gap_60 < 4` requires a print in ~every one of the last 60 seconds; under an
+`eff_open >= 0.3` gate that is not "a calm liquid mega-cap", it is "a name in a violent move right
+now" — mean `volat_20m` in the dense subset is **35-91 bp** against **17-25 bp** for the whole book.
+
+**So the single dominant signal in 388M trips is: 1s-tape volatility predicts NEGATIVE 5-minute
+forward return, monotonically and hugely.** Every other feature examined so far is a proxy for it —
+`dd` (ρ 0.78 with volat), the gap cut, and `eff_open` weakly. That is a fade signal, not a
+Hitchhiker signal.
+
+## S5d — Where the Hitchhiker actually shows up
+
+Exactly one cell: **dense AND calm** — `gap_60 < 4` × `volat_20m < 20bp` × `eff_open 0.60-0.70`,
+median **+0.73 bp** on n = 263,200. Positive, year-stable-ish, and far too small to trade at a 5m
+horizon. That is the honest answer to *"do high efficiency ratios give an edge in momentum
+trading"* on this universe: **no, not at this horizon.**
+
+## S5e — What is NOT yet tested
+
+`highs_20m_since_lo_*` (the reseat family), the `dd_20m_w{40,20,10}` spread, and the volume-trend
+pair `vol_slope_*` / `vol_r_*` have not had the full-period year audit — their S3 readings are
+void along with the rest of S3. ⚠ Test each **at matched volatility**, or the volatility signal
+will impersonate every one of them.
