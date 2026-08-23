@@ -1680,3 +1680,46 @@ explained it: the `gap_60 < 4` door plus the eight-voice roster have already ext
 what it measures. **B++ and B+ have never been touched by the roster**, so they are
 where the feature should have the most room. Test `inten_60 >= q50` and `pers_1200`
 there as segment-level filters, with the random control.
+
+
+---
+
+## ⚠⚠ EVERY RESULT ABOVE WAS COMPUTED ON **NANOSECOND** BARS — 2026-08-22
+
+The 1s corpus was rebuilt at **MILLISECOND** timestamp precision on 2026-08-22 to
+match the live feed, and the nanosecond corpus was **deleted**. Every figure above
+predates that. **Results from here on use ms bars.**
+
+**The mechanism.** The live Massive WebSocket carries ms timestamps; the tape
+carries ns. The 1s row filter compares `sip - participant <= 50ms`, so ms
+truncation widens that cap to an effective 51ms — admitting ~23,233 trades/day
+that the ns rule rejects, and **zero** the other way (measured over 85.8M trades).
+Those extra trades create bars in seconds that previously had **none**: measured
+on 2026-06-09, **+2,736 present-bars gained, 0 lost**, out of 31.1M.
+
+### ⚠ Why this needs more thought here than it did for FlushFader
+
+FlushFader's ns→ms impact was measured and is negligible (256 of 260 book trades
+identical). **Those numbers do not transfer to Snoozer**, because Snoozer's
+load-bearing feature is a different kind of quantity:
+
+⭐ **`gaps` is a count of ABSENT SECONDS**, and ms truncation's whole effect is to
+turn absent seconds into present ones. It acts on `gaps` *directly*, not through
+a chain of averages the way it acts on a vwap or a slope. `volat_open30/60` and
+`shape` are ratio/dispersion measures and should be far less sensitive.
+
+**Bounding it:** +2,736 present-bars spread over 12,453 ticker-days is ~0.22
+extra present-seconds per ticker-day, of which the last hour is roughly 1/6.5 —
+so on the order of **0.03 seconds** against `gaps` thresholds of **500–2,000**
+(and the regime-dependent 500 / 2000 split). Five orders of magnitude of headroom,
+so the conclusions above should be safe.
+
+⚠ **But that is an argument, not a measurement.** The ns corpus is deleted, so the
+ns↔ms comparison can no longer be run directly; reproducing it means rebuilding
+from `data/bulk/trades` with `build_all_1s_bars.fsx --ns-precision` into a
+separate `TE_1S_OUT_DIR` (~13 h — the builder refuses to mix precisions in one
+corpus). **Do not compare a new ms-era number against an ns-era one above without
+re-running the baseline.**
+
+See `data/intraday_1s_slim/PRECISION.txt` and the matching note at the end of
+`flushfader_results.md`.
