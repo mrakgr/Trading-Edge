@@ -703,3 +703,103 @@ PF rises mechanically when trips are cut.
 ⭐ And the decay is the thing to watch above all: if the effect is ~10× weaker in 2025-2026 than in
 2020-2023, then a stack fitted on the pooled book is fitted mostly on years we will never trade.
 **Weight every future breakdown toward 2025-2026, or run them as the holdout.**
+
+---
+
+# S8 — DENSITY, VOLATILITY, AND WHAT IS ACTUALLY INDEPENDENT (2026-08-23)
+
+## ⭐⭐ S8a — The density effect's SIGN FLIPS with volatility
+
+`gap_60` × `volat_20m`, **median `r30s` bp** (full 342.9M book):
+
+| volat_20m | gap 0 | 1-3 | 4-9 | 10-29 | 30-49 | 50+ | n (M) |
+|---|---|---|---|---|---|---|---|
+| **< 20bp** | **+0.18** | +0.15 | +0.12 | +0.12 | +0.08 | **0.00** | 246.8 |
+| **20-40** | **+0.39** | +0.17 | +0.28 | +0.21 | +0.17 | **+0.15** | 68.9 |
+| 40-80 | **−0.80** | −0.30 | −0.18 | +0.24 | +0.20 | **+0.48** | 22.0 |
+| 80bp+ | **−5.45** | −4.36 | −1.32 | −0.43 | +0.48 | **+1.06** | 5.2 |
+
+win% `r30s` tracks it exactly — v1: **50.68 → 48.65** as tape thins; v4: **48.72 → 50.15** as it thins.
+
+⭐ **You were right, in the regime that matters.** On calm and moderate tape — `volat_20m < 40bp`,
+which is **315.7M of 342.9M trips (92%)** — denser tape is monotonically better, and sparse tape
+takes the edge to exactly zero. The momentum pattern does not survive on sparse tape, precisely as
+you said.
+
+⚠ And it inverts above 40bp: there, dense tape is the *worst* cell. That is why S5b read the way it
+did — I cut on `gap_60 < 4` **pooled**, which mixes a regime where density helps with one where it
+hurts, then read the result at a horizon the system does not trade. Two errors compounding.
+
+**Pooled over volatility, `gap_60` is year-stable** (median `r30s`):
+
+| gap_60 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | win% 2020→2026 |
+|---|---|---|---|---|---|---|---|---|
+| 1-3 | +0.36 | +0.14 | +0.06 | +0.09 | +0.13 | +0.08 | +0.04 | 50.93 → 50.05 |
+| 4-9 | +0.31 | +0.18 | +0.15 | +0.08 | +0.14 | +0.09 | +0.03 | 50.87 → 49.85 |
+| 10-29 | +0.23 | +0.17 | +0.15 | +0.15 | +0.12 | +0.10 | +0.06 | 50.38 → 49.78 |
+| 30-49 | +0.12 | +0.12 | +0.07 | +0.07 | +0.06 | +0.03 | +0.03 | 49.72 → 49.36 |
+| **50+** | +0.09 | +0.07 | +0.03 | +0.02 | +0.02 | +0.01 | +0.01 | 49.44 → **48.73** |
+
+Positive in 7/7 years for every band, monotone in density in every year, and the win-rate ladder is
+monotone in all seven. ⚠ `gap_60 = 0` is NOT the best row pooled (+0.18/−0.16/…) because it is where
+the volatile-dense cells concentrate — the useful cut is a **band**, roughly `1 <= gap_60 < 30`,
+not "as dense as possible".
+
+## ⭐⭐ S8b — Volatility is an INVERTED U with a hard year-stable ceiling
+
+Fine bands × year, **median `r30s` bp**:
+
+| volat_20m | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | yrs +ve |
+|---|---|---|---|---|---|---|---|---|
+| < 10bp | +0.06 | +0.08 | +0.03 | +0.04 | +0.05 | +0.04 | +0.03 | 7/7 |
+| 10-15 | +0.17 | +0.21 | +0.09 | +0.16 | +0.09 | +0.09 | +0.08 | 7/7 |
+| 15-20 | +0.27 | +0.31 | +0.09 | +0.17 | +0.16 | +0.07 | +0.07 | 7/7 |
+| **20-30** | **+0.30** | **+0.32** | **+0.25** | **+0.24** | **+0.20** | +0.05 | +0.08 | **7/7** |
+| **30-40** | **+0.33** | **+0.32** | **+0.35** | +0.19 | **+0.35** | +0.01 | +0.14 | **7/7** |
+| 40-60 | +0.41 | −0.04 | +0.69 | +0.33 | +0.20 | +0.03 | −0.01 | 5/7 |
+| 60-80 | +0.18 | −0.60 | +1.25 | +0.57 | +0.76 | −0.13 | −0.47 | 4/7 |
+| 80-120 | +0.82 | −1.85 | +0.37 | −0.55 | +0.19 | −0.35 | −1.11 | 3/7 |
+| **120bp+** | −3.70 | −6.23 | −0.57 | −3.42 | −2.63 | −4.92 | −1.85 | **0/7** |
+
+⭐ **`volat_20m >= 120bp` is negative in ALL SEVEN YEARS** — the cleanest veto found so far, and it
+is a *ceiling*, not a floor. The peak sits at **20-40bp**, and both tails are worse. FlushFader's
+40bp volatility **floor** does not transfer: this system wants the opposite end of that scale.
+
+## ⭐ S8c — The correlation test: `gap_60` is genuinely independent of `eff_open`
+
+|  | eff_open | gap_60 | volat_20m | dd_20m | bars_present | vol_r_300 | ols_r_300 | eff_20m |
+|---|---|---|---|---|---|---|---|---|
+| **eff_open** | 1.00 | **0.04** | **0.10** | −0.17 | **−0.40** | 0.01 | 0.25 | 0.39 |
+| **gap_60** | 0.04 | 1.00 | **−0.14** | −0.17 | −0.11 | −0.08 | −0.04 | −0.12 |
+| **volat_20m** | 0.10 | −0.14 | 1.00 | **0.80** | −0.19 | −0.00 | 0.02 | 0.05 |
+
+⭐ **`ρ(gap_60, eff_open) = 0.04`** — as close to orthogonal as anything in this study. `gap_60` is
+also nearly independent of volatility (−0.14) and of the volume trend (−0.08). It is new
+information, not a restatement.
+
+⚠ But ρ is not what decides it (`feedback_high_correlation_proves_nothing` — ρ lives in the bulk, a
+gate lives in the tail). **The substitution test is S8a itself:** if `gap_60` were a volatility
+proxy, its row would flatten once volatility is held fixed. Instead the gradient stays strong *and
+reverses sign* between the 20-40 and 40-80 bands — something no proxy can do. `gap_60` earns its
+place.
+
+⚠⚠ **`ρ(eff_open, bars_present) = −0.40`** is the span-drift warning made numeric: `eff_open` is
+substantially a *time-of-day* variable. Any spec that uses it must carry `eff_open_slots` or a
+session-time control alongside.
+
+## S8d — The spec as it now stands (⚠ NOT yet a system)
+
+Everything below passed a 7-year audit at the production exit, and every effect is **sub-basis-point**:
+
+| lever | direction | evidence |
+|---|---|---|
+| `volat_20m` band | 20-40bp peak; **hard ceiling 120bp** | S8b, 7/7 and 0/7 |
+| `gap_60` band | roughly `1-29`; sparse tape kills it below 40bp volat | S8a, 7/7 |
+| `ddz = dd_20m/volat_20m` | LOW | S7c, monotone 7/7 |
+| `vol_r_300` | not collapsing (`> −0.1`), not surging | S6d |
+| `eff_open` | high, ⚠ carries a time-of-day confound | S6a |
+
+⚠ The next step is the **iso-trip-controlled stack** (`feedback_iso_trip_control_for_stacked_features`):
+each lever added must beat both the previous stack tightened to the same trip count AND a random
+subsample of it. And per S7d, **weight 2025-2026 or hold them out** — every lever here is weaker in
+the two most recent years than in 2020-2023.
