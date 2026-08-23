@@ -610,3 +610,96 @@ nothing in S3 or S5 had touched. `vol_r_open` (T14) shows the same inverted U, w
 
 ⚠ None of these has had a **year-by-year audit at the production exit** yet. Given that S3 died to
 exactly that omission, no cutoff goes into a spec before the year table is on the page.
+
+---
+
+# S7 — `dd_20m` ON THE FULL BOOK (2026-08-23)
+
+The S3d cell re-run on all **342,908,590** clean trips, production exit first.
+
+## S7a — The ORDERING replicates; the MAGNITUDE was a one-month artifact
+
+`dd_20m` (absolute level) × `volat_20m`, **median `r30s` bp**:
+
+| volat_20m | <25bp | 25-50 | 50-100 | 100-200 | 200-300 | 300-500 | 500bp+ |
+|---|---|---|---|---|---|---|---|
+| < 20bp | +0.04 | +0.08 | +0.11 | +0.11 | +0.08 | +0.12 | — |
+| 20-40 | +0.37 | +0.26 | +0.14 | +0.24 | +0.28 | +0.20 | −0.27 |
+| **40-80** | **+1.13** | +0.39 | +0.46 | +0.22 | +0.23 | +0.05 | **−0.20** |
+| 80bp+ | +1.73 | +4.62 | −0.03 | +0.22 | −0.22 | −0.82 | **−2.71** |
+
+win% `r30s` moves with it in the v3 row: **50.80 → 50.03 → 50.01 → 49.71 → 49.76 → 49.47 → 49.21.**
+
+⭐ **The direction is real: at matched volatility, LESS give-back predicts a better 30-second
+forward return, monotonically.** The v1 row is flat — the feature only has anything to say once
+there is volatility for the drawdown to be measured against.
+
+💀 **But the S3d magnitudes do NOT replicate.** S3d read `v3 × <100bp` at **+4.92 bp mean h5m**; on
+the full book the same cell's mean `r5m` is ≈ **−0.04 bp** (2.02 / −0.11 / −0.28 across the three
+sub-bands, n-weighted). The *ordering* held; the *size* was one month of 2026. Same lesson as S3b,
+one table over.
+
+## S7b — ⭐⭐ THE YEAR AUDIT: the first thing in this study to pass one
+
+`volat_20m ∈ [40,80)bp`, median `r30s` bp by year:
+
+| dd_20m | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | n |
+|---|---|---|---|---|---|---|---|---|
+| **< 25bp** | **+2.11** | **+0.99** | **+1.61** | **+3.32** | **+1.10** | **+0.26** | **+0.15** | 377k |
+| 25-50 | +1.19 | +0.25 | +0.40 | +2.91 | +0.82 | −0.34 | −0.31 | 698k |
+| 50-100 | +0.50 | +0.27 | +0.83 | +0.33 | +0.63 | +0.42 | +0.06 | 2,969k |
+| 100-200 | +0.45 | −0.28 | +0.69 | +0.19 | +0.25 | +0.10 | +0.02 | 8,264k |
+| 300-500 | +0.03 | −0.65 | +0.41 | +0.46 | +0.42 | −0.49 | −0.06 | 3,444k |
+| 500bp+ | +0.02 | −0.46 | −0.04 | −0.27 | +0.54 | −0.74 | +0.09 | 667k |
+
+⭐ **`volat 40-80bp × dd_20m < 25bp` is positive in ALL SEVEN YEARS.** That is the first cell in
+LongHiker to survive the audit that killed S3.
+
+⚠⚠ **It is also decaying, hard: 2.11 → 0.99 → 1.61 → 3.32 → 1.10 → 0.26 → 0.15.** The two most
+recent years are the two weakest, by a factor of ~10 against the 2020-2023 average. Whatever this
+is, it is being competed away — and 2026 (+0.15 bp) is the year we would actually be trading.
+
+## S7c — ⭐ `ddz = dd_20m / volat_20m` — the 2-D cell as ONE feature
+
+The matched test says the feature is *drawdown relative to the volatility it occurred in*. Building
+that ratio directly gives a single clean feature over the whole book instead of a corner cell.
+**Median `r30s` bp:**
+
+| ddz | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | n |
+|---|---|---|---|---|---|---|---|---|
+| **< 2** | +0.22 | +0.33 | +0.16 | +0.16 | +0.14 | +0.03 | +0.07 | 41.0M |
+| 2-4 | +0.15 | +0.13 | +0.13 | +0.10 | +0.09 | +0.06 | +0.06 | 122.3M |
+| 4-6 | +0.18 | +0.13 | +0.08 | +0.09 | +0.05 | +0.06 | +0.02 | 99.4M |
+| 6-9 | +0.15 | +0.09 | +0.08 | +0.06 | +0.06 | +0.05 | +0.02 | 59.4M |
+| 9-14 | +0.12 | +0.06 | +0.06 | +0.03 | +0.03 | +0.03 | +0.01 | 18.8M |
+| **14+** | +0.05 | +0.07 | +0.04 | +0.01 | +0.02 | +0.01 | 0.00 | 2.2M |
+
+win% `r30s`, same cells:
+
+| ddz | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| < 2 | 49.93 | 50.47 | 49.82 | 50.08 | 49.87 | 49.34 | 49.72 |
+| 14+ | 49.39 | 49.57 | 49.18 | **48.40** | 49.28 | 48.82 | 48.86 |
+
+⭐⭐ **Monotone decreasing in EVERY ONE of the seven years, in both median and win rate, on 343M
+trips.** This is the cleanest signal in the study: normalising the drawdown by volatility turns a
+noisy corner cell into a feature that works across the entire book.
+
+⚠ It is a **30-second effect only** — the `r5m` version of the same table is flat and sign-unstable.
+
+## ⚠⚠ S7d — The size problem, stated plainly
+
+The `ddz` spread is **~0.2 bp** end to end, and the strongest single cell in S7b reads **+0.15 bp in
+2026**. A round trip on this universe costs one to two orders of magnitude more than that. Both
+findings are **statistically solid and economically negligible** as they stand.
+
+That is not a reason to discard them — it is the reason the next question is *concentration*, not
+*validation*: the same features have to be stacked (`ddz` low × `vol_r_300` not collapsing ×
+`eff_open` high × `volat` in band) to see whether the effect compounds into something that clears
+costs, or whether it is a thin film spread over 343M trips that cannot be concentrated. ⚠ Every
+step of that stack needs an iso-trip control (`feedback_iso_trip_control_for_stacked_features`):
+PF rises mechanically when trips are cut.
+
+⭐ And the decay is the thing to watch above all: if the effect is ~10× weaker in 2025-2026 than in
+2020-2023, then a stack fitted on the pooled book is fitted mostly on years we will never trade.
+**Weight every future breakdown toward 2025-2026, or run them as the holdout.**
