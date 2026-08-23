@@ -165,7 +165,11 @@ Directory.CreateDirectory outDir |> ignore
 // ⚠⚠ MIXING PRECISIONS INSIDE ONE CORPUS IS UNDETECTABLE AFTERWARDS — the files
 // look identical and only the trade counts differ, by ~0.02%. The corpus carries
 // a PRECISION.txt marker; refuse to write into one built the other way.
-let precisionMarker = Path.Combine(outDir, "PRECISION.txt")
+// ⚠ The marker must travel WITH THE DATA — a corpus can be copied, or pointed at
+// via TE_1S_OUT_DIR, and the guard is worthless if it lives somewhere else. The
+// human-readable write-up is docs/archive/1s_corpus_precision.md; this is just
+// the one-word flag the builder keys on.
+let precisionMarker = Path.Combine(outDir, ".precision")
 let markerSaysMs =
     File.Exists precisionMarker && (File.ReadAllText precisionMarker).Contains "MILLISECOND"
 let existingDays = Directory.GetFiles(outDir, "*.parquet").Length
@@ -180,6 +184,10 @@ if existingDays > 0 then
         eprintfn "   Refusing to add ms days to it. Set TE_1S_OUT_DIR elsewhere."
         exit 1
     | _ -> ()
+// Stamp the corpus so it is self-describing from the first day written.
+if not (File.Exists precisionMarker) then
+    File.WriteAllText(precisionMarker,
+        (match precision with Bars.Millisecond -> "MILLISECOND" | Bars.Nanosecond -> "NANOSECOND") + "\n")
 
 // SSD spill dir for the per-day sort (keep any DuckDB spill off the HDD).
 let spillDir = Path.Combine(outDir, ".duckdb_tmp")
