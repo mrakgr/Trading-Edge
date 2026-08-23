@@ -493,3 +493,120 @@ trading"* on this universe: **no, not at this horizon.**
 pair `vol_slope_*` / `vol_r_*` have not had the full-period year audit — their S3 readings are
 void along with the rest of S3. ⚠ Test each **at matched volatility**, or the volatility signal
 will impersonate every one of them.
+
+---
+
+# S6 — THE FEATURE AUDIT AT MATCHED VOLATILITY (2026-08-23)
+
+Off `data/longhiker_study_v1.parquet` — a **narrow projection** of the base pass (same 342,908,590
+clean trips, ~40 columns instead of 128, returns precomputed as FLOAT, 23 GB). Not a sample: every
+table below is the full book. Built because S5 needed six scans of 119 GB and this one costs 86 s.
+
+## ⭐⭐ S6a — THE HORIZON WAS THE WHOLE STORY (user's catch)
+
+Every table in S5 reported **h5m**. The system's actual exit is the **30-bar timestop** (`r30s`),
+and it behaves completely differently. Whole clean book, **median `r30s` bp**:
+
+| volat_20m | eff 0.30-0.40 | 0.40-0.50 | 0.50-0.60 | 0.60-0.70 | 0.70+ |
+|---|---|---|---|---|---|
+| < 20bp | +0.06 | +0.08 | +0.14 | +0.15 | +0.13 |
+| 20-40 | +0.16 | +0.18 | +0.30 | +0.28 | **+0.50** |
+| 40-80 | +0.13 | +0.24 | +0.34 | +0.48 | **+0.61** |
+| 80bp+ | **−1.30** | −0.78 | −0.99 | −0.04 | **+0.54** |
+
+…against the same cells at **median `r5m`**:
+
+| volat_20m | eff 0.30-0.40 | 0.40-0.50 | 0.50-0.60 | 0.60-0.70 | 0.70+ |
+|---|---|---|---|---|---|
+| < 20bp | +0.18 | +0.23 | +0.31 | +0.24 | +0.06 |
+| 20-40 | +0.09 | −0.12 | −0.07 | −0.02 | +0.25 |
+| 40-80 | −2.16 | −2.60 | −2.47 | −1.87 | −1.15 |
+| 80bp+ | **−32.22** | −23.25 | −28.61 | −18.95 | −12.30 |
+
+⭐⭐ **At 30 seconds `eff_open` is monotone-POSITIVE in every volatility band, and win rate rises
+with it too** (v3: 49.56 → 50.32%; v4: 49.13 → 50.00%). ⭐ **`eff_open`'s real job is rescuing the
+HIGH-volatility cells**: v4 runs −1.30 → **+0.54** across the eff axis — the one place in this whole
+study where it is unambiguously load-bearing.
+
+**So the structure is: momentum persists for ~30 seconds and has reversed by 5 minutes.** S5's
+"volatility predicts negative forward returns" is a 5-minute statement, not a 30-second one. The
+volatility fade only bites the production exit in the `80bp+` band.
+
+💀 **METHOD LESSON, the second in one session:** S5 was written up entirely on a horizon the system
+does not trade. **Always table the production exit first**, and the counterfactual marks beside it.
+
+⚠⚠ **BUT THE MAGNITUDES ARE ~0.5 bp.** That is far below any realistic spread + fee on this
+universe. Nothing here is tradeable as it stands; it is a *direction*, and the question it poses is
+whether the effect can be concentrated by an order of magnitude, not whether to trade it.
+
+⚠ Under `gap_60 < 4` the production exit still holds in the calm bands (v1 +0.13→+0.29, v2
++0.30→+0.57) but v3/v4 go negative — density hurts once volatility is high, even at 30 s.
+
+## S6b — The reseat family at matched volatility
+
+`highs_20m_since_lo_1200`, **median `r30s` bp**:
+
+| volat_20m | 0 | 1-4 | 5-14 | 15-39 | 40-99 | 100-299 | 300+ |
+|---|---|---|---|---|---|---|---|
+| < 20bp | +0.02 | +0.02 | +0.03 | +0.04 | +0.07 | +0.13 | **+0.20** |
+| 20-40 | +0.16 | +0.22 | +0.12 | +0.17 | +0.18 | +0.32 | −0.01 |
+| 40-80 | +0.04 | **+0.93** | +0.59 | +0.30 | +0.39 | −0.23 | **−4.42** |
+| 80bp+ | +0.32 | +6.79 | −0.47 | +0.13 | −0.94 | **−4.88** | −3.34 |
+
+⭐ **The sign of the reseat feature is CONDITIONAL ON VOLATILITY** — and it flips:
+- **calm tape (< 20bp)**: monotone RISING in extension, +0.02 → +0.20. More 20m highs is better.
+- **volatile tape (40bp+)**: peaks at a *fresh* reseat (1-4) and collapses at extension, −4.42.
+
+That reconciles the S3 reading (which pooled volatility and saw only the volatile half). ⚠ The
+`v4 × 1-4` cell reading +6.79 is **n = 9,000** — noise, do not quote it.
+
+## S6c — The drawdown spread `dd_20m_w10 / dd_20m`
+
+**Median `r30s`** is essentially FLAT across the ratio inside every volatility band (v1 +0.10 →
++0.06, v2 +0.33 → +0.14, v3 non-monotone). At `r5m` there is a gradient in the volatile bands —
+v3 −8.67 → −0.88, v4 −51.36 → −16.34 as the ratio goes 0→1.
+
+⚠⚠ **BUT THE RATIO IS NOT INTERPRETABLE AS WRITTEN.** `dd_20m_w10/dd_20m ≈ 1` was supposed to mean
+"the damage is happening now", but it is *also* what a move with **no drawdown at all** produces —
+both windows near zero, ratio ≈ 1. The `~1` bucket holds 94.2M of 145M v1 trips, so it is dominated
+by clean moves, not fresh damage. **The ratio must be crossed with the LEVEL `dd_20m` before it
+means anything**, and that is not yet done. Verdict on the max-window family: **not yet earned, and
+not yet refuted.**
+
+## S6d — ⭐ The volume trend: the first feature that works as a VETO
+
+`vol_r_300` (signed Pearson of ln(volume) vs bar index over 5m), **median `r30s` bp**:
+
+| volat_20m | < −0.3 | −0.3..−0.1 | −0.1..0.1 | 0.1..0.3 | > 0.3 |
+|---|---|---|---|---|---|
+| < 20bp | +0.01 | +0.04 | +0.09 | +0.10 | +0.01 |
+| 20-40 | +0.14 | +0.14 | +0.24 | +0.33 | **+0.37** |
+| 40-80 | **−3.20** | +0.04 | +0.33 | +0.23 | −0.81 |
+| 80bp+ | **−12.82** | −1.72 | +0.06 | −0.37 | **−4.10** |
+
+Win rate at the production exit agrees: the `< −0.3` column reads **47.09%** (v3) and **46.49%**
+(v4) against ~49.8% for the body.
+
+⭐ **COLLAPSING PARTICIPATION IS THE STRONGEST SINGLE NEGATIVE IN THE STUDY** at the production
+exit — −3.20 bp at v3 and −12.82 bp at v4, roughly 10-25× the size of the positive eff_open effect.
+⭐ **SURGING participation is ALSO bad at high volatility** (`> 0.3`: −0.81, −4.10) — the shape is
+an inverted U, not a ramp. So the Hitchhiker's "price up AND volume up" is only half right: what you
+want is **steady** participation, and what kills you is participation falling out from under a
+volatile move.
+
+This is the first feature whose effect size is materially larger than eff_open's, and it is the one
+nothing in S3 or S5 had touched. `vol_r_open` (T14) shows the same inverted U, weaker.
+
+## S6e — Standing
+
+| feature | verdict at the production exit |
+|---|---|
+| `eff_open` | ⭐ weakly POSITIVE, monotone in every volat band, ~0.5 bp. Rescues the 80bp+ cells. |
+| `volat_20m` | fade only in the `80bp+` band at 30 s; dominates at 5 m |
+| `gap_60 < 4` | ❌ hurts once volat is high; selects volatile tape, not calm tape |
+| `highs_20m_since_lo_*` | ⭐ sign FLIPS with volatility — rises in calm tape, collapses in volatile |
+| `dd_20m_w10/dd_20m` | ⚠ uninterpretable alone — must be crossed with the `dd_20m` level |
+| **`vol_r_300`** | ⭐⭐ **strongest effect found; an inverted U. Use as a VETO on collapsing volume.** |
+
+⚠ None of these has had a **year-by-year audit at the production exit** yet. Given that S3 died to
+exactly that omission, no cutoff goes into a spec before the year table is on the page.
