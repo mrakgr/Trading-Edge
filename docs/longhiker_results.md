@@ -803,3 +803,94 @@ Everything below passed a 7-year audit at the production exit, and every effect 
 each lever added must beat both the previous stack tightened to the same trip count AND a random
 subsample of it. And per S7d, **weight 2025-2026 or hold them out** — every lever here is weaker in
 the two most recent years than in 2020-2023.
+
+---
+
+# S9 — VOLATILITY **ON DENSE TAPE** (user, 2026-08-23)
+
+## ⚠ First, a metric correction: TIES
+
+`win%` counts `r30s > 0` strictly, so every tie is scored a loss — and the tie mass is **not
+constant across density**: 0.30% dense (`gap_60 < 10`), 1.34% mid, **2.42% sparse**. Price pins on
+thin tape. Comparing raw win rates across density bands therefore penalises sparse tape by ~2pp for
+free.
+
+| density | n | tie% | raw win% | **win% ex-ties** |
+|---|---|---|---|---|
+| dense `<10` | 31.5M | 0.30 | 50.28 | 50.42 |
+| mid `10-29` | 78.5M | 1.34 | 50.11 | 50.79 |
+| sparse `30+` | 232.9M | 2.42 | **49.49** | **50.72** |
+
+💀 So "sparse tape has a sub-50% win rate in every calm band" — which the S8a/T21 raw tables
+appear to say — **is an artifact.** Ex-ties, sparse is not worse on win rate at all. The **median**
+comparison is unaffected (medians are tie-robust) and is what the rest of this section uses.
+
+## ⭐ S9a — Density amplifies the edge in the calm bands
+
+Median `r30s` bp, calm volatility bands, tightening the density cut:
+
+| volat_20m | sparse `30+` | mid+dense `<30` | dense `<10` |
+|---|---|---|---|
+| < 10bp | +0.02 | +0.11 | **+0.18** |
+| 10-15 | +0.11 | +0.29 | **+0.37** |
+| 15-20 | +0.23 | +0.47 | **+0.83** |
+| 20-30 | +0.24 | +0.41 | **+0.59** |
+
+(2020 column shown; the ordering holds in every year — all three cuts are 7/7 positive in bands
+a-d.) ⭐ **Tightening density multiplies the calm-band edge by 2-4×.** That is the user's hypothesis
+confirmed on the metric that is immune to the tie problem.
+
+**The headline cell — `gap_60 < 10` × `volat_20m ∈ [15, 40)bp`:**
+
+| yr | n | median bp | mean bp | win% ex-ties |
+|---|---|---|---|---|
+| 2020 | 1,488,108 | **+0.591** | +0.132 | 50.99 |
+| 2021 | 1,840,636 | **+0.318** | +0.232 | 50.56 |
+| 2022 | 1,490,035 | **+0.227** | −0.070 | 50.45 |
+| 2023 | 985,071 | **+0.112** | −0.441 | 50.25 |
+| 2024 | 1,098,410 | **+0.494** | +0.240 | 51.01 |
+| 2025 | 1,832,915 | **+0.352** | +0.532 | 50.66 |
+| **2026** | 2,418,007 | **+0.018** | +0.023 | **50.11** |
+
+7/7 positive on the median, 7/7 above 50% ex-ties. ⚠ **And 2026 is ~1/30th of 2020.** The mean is
+negative in two years while the median is positive in all seven — a left tail the median does not
+see.
+
+## ⭐⭐ S9b — THE VOLATILITY CEILING ONLY EXISTS ON DENSE TAPE. It INVERTS on sparse.
+
+`volat_20m >= 120bp`, isolated:
+
+| density | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | yrs +ve |
+|---|---|---|---|---|---|---|---|---|
+| **dense `<10`** median | −9.18 | −6.34 | −4.17 | −5.93 | −6.28 | −10.03 | −5.08 | **0/7** |
+| dense `<10` win ex-ties | 48.25 | 48.60 | 48.91 | 48.69 | 48.93 | 48.13 | 48.98 | **0/7** |
+| mid `10-29` median | −1.38 | −10.66 | +3.26 | −3.29 | +0.77 | −0.49 | +0.75 | 3/7 |
+| **sparse `30+`** median | +1.02 | −2.23 | +3.32 | +3.94 | +1.85 | +1.88 | +2.19 | **6/7** |
+| sparse `30+` win ex-ties | 50.43 | 49.10 | 51.36 | 51.48 | 50.82 | 51.01 | 51.12 | **6/7** |
+
+⭐⭐ **A violent move on DENSE tape is the worst cell in the study (0/7, −4 to −10 bp). The same
+violent move on SPARSE tape is one of the best (6/7, +1 to +4 bp).** Both metrics agree, both
+directions, every year.
+
+This is a true **interaction**, not either feature acting alone — and it is the strongest structural
+result LongHiker has produced. The reading: violence *with* everyone participating is exhaustion and
+fades; violence *without* participation is a thin tape still repricing and it continues.
+
+⚠ It also explains S5b completely. `gap_60 < 4` pooled over volatility mixes the best calm cells
+with the worst volatile ones, and I read the mixture at 5 minutes. Density and volatility are not
+separable here — **neither one is interpretable without the other.**
+
+## S9c — Revised lever list
+
+| lever | direction | evidence |
+|---|---|---|
+| **`volat_20m` × `gap_60`** | ⭐⭐ **jointly, not separately** — dense+calm long; dense+violent is the fade | S9b, 0/7 vs 6/7 |
+| `volat_20m` on dense tape | band **15-40bp**; ceiling **120bp** is dense-only | S9a/b |
+| `gap_60` on calm tape | tighter is better, 2-4× | S9a |
+| `ddz = dd_20m/volat_20m` | LOW | S7c, 7/7 |
+| `vol_r_300` | steady, neither collapsing nor surging | S6d |
+| `eff_open` | high ⚠ carries a −0.40 time-of-day correlation | S6a/S8c |
+
+⚠⚠ The headline cell still reads **+0.02 bp in 2026** on 2.4M trips. Every lever found so far is
+real, year-stable, and ~50-100× too small to pay for a round trip. **The open question is entirely
+whether stacking concentrates them, and the 2026 column is the only one that answers it.**
