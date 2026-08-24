@@ -1418,3 +1418,95 @@ which this study had recorded and did not apply).
 ⚠ **Every trip-pooled table in S3-S14 is now suspect** and must be re-read at the ticker-day level
 before anything is quoted. The features may still order correctly — high VR still beats low VR at
 the day level in 5 of 7 years — but the *magnitudes and win rates are not what was reported*.
+
+---
+
+# S16 — 2026 BY MONTH, AND EARLY vs LATE IN THE RUN (user, 2026-08-24)
+
+## ⚠ First, a correction to S15's framing (user)
+
+S15 called the trip-weighting "pyramiding". **It is not** — every position is an independent
+30-present-bar hold, closed on its own clock, not size added to a runner. The accurate statement is
+narrower and still holds:
+
+- ✅ **The P&L is real.** If every signal is sized identically, the realised total *is* the
+  trip-weighted number. Nothing is fake.
+- ⚠ **The significance was overstated.** 6,100 trips are 565 ticker-days at 8.5-13 trips each; the
+  independent draw is the ticker-day, so `n` for any confidence statement is ~110/year, not ~900.
+- ⚠ **The risk is concentrated.** The typical qualifying day loses; the aggregate is carried by the
+  minority of days that keep printing new highs — which is also *why* those days generate more
+  trips.
+
+## S16a — 2026, month by month
+
+| month | trips | ticker-days | med r30s | mean | win% ex-ties | worst | best |
+|---|---|---|---|---|---|---|---|
+| 2026-01 | 104 | 14 | −9.53 | −10.79 | 44.66 | −147.69 | +96.69 |
+| 2026-02 | 104 | 12 | +2.21 | −7.81 | 52.88 | −222.60 | +113.91 |
+| 2026-03 | 134 | 10 | +8.75 | +8.54 | 54.89 | −165.85 | +198.03 |
+| 2026-04 | 21 | 4 | −1.98 | +0.39 | 47.62 | −37.01 | +64.52 |
+| 2026-05 | 96 | 13 | −5.29 | −14.88 | 48.96 | −203.47 | +78.68 |
+| 2026-06 | 258 | 24 | +6.15 | +7.95 | 55.08 | −147.73 | +136.07 |
+| 2026-07 | 128 | 19 | −6.30 | −5.13 | 44.53 | −133.94 | +127.22 |
+| 2026-08 | 65 | 11 | −14.09 | −18.93 | 34.92 | −107.36 | +126.19 |
+
+3 of 8 months positive, no within-year trend — it alternates. ⚠⚠ **But look at the ticker-day
+column: 4 to 24 per month.** A monthly figure here rests on ~10 independent episodes, so the
+month-to-month scatter is almost entirely noise and nothing should be read into any single month.
+The year as a whole (107 ticker-days) is the smallest unit worth interpreting, and it reads
+trip-weighted −2.25 / equal-weight-day −15.47 / 37.4% days up.
+
+## ⭐⭐ S16b — EARLY beats LATE, and it is the first cell that survives equal-weighting
+
+`highs_20m_since_lo_1200` on this rung = **which number-in-sequence this new 20m high is**. ⚠ Note
+the distribution: almost everything is ≥ 21, most ≥ 51 — because on an `eff_open > 0.70` name a new
+20m *low* essentially never prints (S11b), so the counter is anchored at the open and just
+accumulates. It is therefore "how many 20m highs so far today", closer to a run-maturity clock than
+to a leg counter.
+
+**Trip-pooled:**
+
+| sequence | trips | ticker-days | med r30s | win% ex-ties | med r5m |
+|---|---|---|---|---|---|
+| 21-50 | 1,008 | 222 | **+12.20** | **60.80** | +0.02 |
+| 51+ | 5,989 | 516 | +10.48 | 57.00 | −1.93 |
+
+**⭐ Equal-weight by ticker-day — the honest unit:**
+
+| sequence | ticker-days | med day | mean day | % days up |
+|---|---|---|---|---|
+| **21-50** | 222 | **+2.61** | −0.29 | **52.70%** |
+| 51+ | 516 | **−6.87** | −9.93 | **43.02%** |
+
+⭐⭐ **The early band is the first cell in this entire study that is not negative once
+equal-weighted** (+2.61 median day, 52.7% of days up) while the late band is clearly negative. The
+user's hypothesis — early trades in the run beat late ones — is confirmed, and it is confirmed on
+the weighting that S15 showed to be the load-bearing one.
+
+**Year control (trip-pooled median):**
+
+| sequence | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| **21-50** | +11.44 | +41.35 | +25.45 | +18.14 | +12.13 | +7.18 | **+0.01** |
+| 51+ | +15.43 | +8.32 | +15.88 | +16.93 | +13.52 | +9.46 | **−0.68** |
+
+21-50 is positive in **7/7 years** (2026 only just, at +0.01). ⚠ But it is thin: 63-179 trips and
+~32 ticker-days per year. Directional, not decisive.
+
+## ⭐ S16c — The exit change this implies (user's proposal)
+
+S12 already concluded the exit is the whole system; S16b says the same thing from the other side —
+the edge lives early in the run and decays as the run matures, which a **fixed 30-bar timestop
+cannot exploit**. The user's proposal is the right shape:
+
+> exit at the **1m low**, OR when **no new high has printed in the last 30-60s** — probably both.
+
+⚠ This cannot be answered post-hoc: `fwd_vwap_*` are fixed-horizon marks, and a trailing/decay exit
+needs per-bar state after the fill. It is an engine change (an exit-condition block in
+`IntradaySystem`, plus counterfactual exit marks so several variants can be compared from one run),
+followed by another base pass.
+
+⭐ Worth doing as **counterfactual marks rather than a hard exit** — record, for every trip, the
+fill price at (a) the first new 1m low after entry, (b) the first bar with no new high in the last
+{30, 60} seconds, and (c) the existing 30-bar timestop. One run then answers every combination,
+which is the same discipline that made `fwd_vwap_*` worth carrying.
