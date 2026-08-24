@@ -356,6 +356,26 @@ type LhPosition =
       mutable Fwd300: float
       mutable Fwd600: float
       mutable Fwd1200: float
+      // ----- ⭐ COUNTERFACTUAL EXIT MARKS (user, 2026-08-24). S12 and S16b both
+      // say the exit is the system: the edge lives early in the run and a fixed
+      // 30-bar timestop cannot follow it. Each mark is the fill price at the
+      // first bar a GLOBAL tape condition fires strictly after this trip's fill
+      // bar, on the aux-mark discipline (detect at the close, fill NEXT bar).
+      //
+      // ⭐ RECORDED, NOT ENFORCED — exactly like fwd_vwap_*. One base pass then
+      // answers every exit rule AND every intersection of them in SQL, instead
+      // of one pass per rule. px = nan / sec = -1 when the condition never
+      // fired before the day ended.
+      mutable ExLoPx: float          // first new 1m LOW after the fill
+      mutable ExLoSec: int
+      mutable ExNoHi60_30Px: float   // first bar with NO new 1m high for >= 30s
+      mutable ExNoHi60_30Sec: int
+      mutable ExNoHi60_60Px: float   // ... >= 60s
+      mutable ExNoHi60_60Sec: int
+      mutable ExNoHi1200_30Px: float // first bar with NO new 20m high for >= 30s
+      mutable ExNoHi1200_30Sec: int
+      mutable ExNoHi1200_60Px: float // ... >= 60s
+      mutable ExNoHi1200_60Sec: int
       mutable BarsHeld: int      // present bars from the fill bar to the exit-fill bar
       mutable State: LhPosState }
 
@@ -374,6 +394,16 @@ type IntradayConfig =
       /// ⭐ THE EXIT: present bars held after the fill bar. 30 = the user's
       /// timestop. The fill is AT that bar's vwap (see header).
       HoldBars: int
+      /// ⭐ Fire ONLY on bars that print a NEW EXTREME in one of the tracked
+      /// channels (user, 2026-08-24) — a new {1,2,5,10,20}m high OR low. The
+      /// intermediate bars, which are ~88% of the book, are dropped.
+      ///
+      /// ⚠ This SHRINKS but does not remove the S15 weighting problem: a day
+      /// that keeps making new highs still produces more trips than one that
+      /// does not, so the trip count remains outcome-correlated. It cuts the
+      /// multiplier (~8-13 trips/ticker-day toward ~1-2), it does not change the
+      /// mechanism. Keep reporting the equal-weight-by-ticker-day figure.
+      SignalOnExtremesOnly: bool
       /// Fire only every Nth qualifying bar per (ticker, day). 1 = every bar
       /// (the design). > 1 is a UNIFORM SUBSAMPLE of the same signal set —
       /// unbiased for means, and the escape hatch if a full-period run's trip
@@ -435,6 +465,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable exitCur = 0                      // first trip not yet exited
     /// One cursor per forward horizon, same order as FWD_SECS.
     let fwdCur = Array.zeroCreate<int> 6
+    // ⭐ EXIT MARKS. Each condition is GLOBAL (a property of the tape, not of a
+    // position), and each position's mark is simply the first firing strictly
+    // after its own fill. Since positions are appended in fill order, the marks
+    // also fill in that order — so one monotone cursor per mark is enough, the
+    // same O(1) argument the forward marks use.
+    let exCur = Array.zeroCreate<int> 5
+    /// Index up to which positions satisfied each condition as of `exReadySec`,
+    /// and the bar that was evaluated. The one-bar lag IS the fill discipline:
+    /// qualify at the close, fill at the NEXT present bar.
+    let exReady = Array.zeroCreate<int> 5
+    let exReadySec = Array.create 5 -1
 
     // ----- bar-level sums + OLS, all sharing ONE ring -----
     let dv10   = DvSum 10
@@ -537,6 +578,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable dv0945Tape = 0.0
     let mutable barsPresent = 0                  // ALSO the present-bar index clock (1-based)
     let mutable openPx = nan
+    /// the PREVIOUS present bar's etSec — the exit marks' one-bar fill lag
+    let mutable prevEtSec = -1
     let mutable sinceLastSignal = 0              // the SignalStride counter
 
     let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
@@ -645,15 +688,34 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 lastLoSec.[i] <- bar.etSec
                 hiSinceLo.[i] <- 0
             | _ -> ()
+        let mutable isExtreme = false
+        for i in 0 .. CHANS.Length - 1 do
+            if lastLoSec.[i] = bar.etSec then isExtreme <- true
         let isNewHi1200 =
             match priorMax.[CH1200] with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         for i in 0 .. CHANS.Length - 1 do
             match priorMax.[i] with
-            | ValueSome hi when bar.vwap > hi -> lastHiSec.[i] <- bar.etSec
+            | ValueSome hi when bar.vwap > hi -> lastHiSec.[i] <- bar.etSec; isExtreme <- true
             | _ -> ()
         if isNewHi1200 then
             for i in 0 .. CHANS.Length - 1 do
                 hiSinceLo.[i] <- hiSinceLo.[i] + 1
+
+        // ===== 3b. EXIT MARKS pending from the previous bar, filled at THIS
+        // bar's vwap. ⚠ `EntrySec < firedAt` is strict, so a trip filled on the
+        // very bar the condition fired is NOT marked by it — the mark must be
+        // strictly after the fill, like every other counterfactual here.
+        for m in 0 .. 4 do
+            if exReadySec.[m] = prevEtSec && prevEtSec >= 0 then
+                while exCur.[m] < exReady.[m] do
+                    let p = all.[exCur.[m]]
+                    (match m with
+                     | 0 -> p.ExLoPx <- bar.vwap;          p.ExLoSec <- bar.etSec
+                     | 1 -> p.ExNoHi60_30Px <- bar.vwap;   p.ExNoHi60_30Sec <- bar.etSec
+                     | 2 -> p.ExNoHi60_60Px <- bar.vwap;   p.ExNoHi60_60Sec <- bar.etSec
+                     | 3 -> p.ExNoHi1200_30Px <- bar.vwap; p.ExNoHi1200_30Sec <- bar.etSec
+                     | _ -> p.ExNoHi1200_60Px <- bar.vwap; p.ExNoHi1200_60Sec <- bar.etSec)
+                    exCur.[m] <- exCur.[m] + 1
 
         // ===== 4. forward marks — one monotone cursor per horizon =====
         // Marks are filled for EXITED trips too: the whole point of recording
@@ -722,7 +784,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              || (match ew40.State with ValueSome v -> v >= cfg.MinVolat20m | ValueNone -> false))
             && (Double.IsPositiveInfinity cfg.MaxVolat20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVolat20m | ValueNone -> true))
-        if inWindow && effOk && floorsOk && volatOk && bar.etSec < mocSec && this.HasSlot then
+        let extremeOk = not cfg.SignalOnExtremesOnly || isExtreme
+        if inWindow && effOk && floorsOk && volatOk && extremeOk && bar.etSec < mocSec && this.HasSlot then
             sinceLastSignal <- sinceLastSignal + 1
             if cfg.SignalStride <= 1 || sinceLastSignal >= cfg.SignalStride then
                 sinceLastSignal <- 0
@@ -860,8 +923,45 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Fwd300 = nan
                           Fwd600 = nan
                           Fwd1200 = nan
+                          ExLoPx = nan; ExLoSec = -1
+                          ExNoHi60_30Px = nan; ExNoHi60_30Sec = -1
+                          ExNoHi60_60Px = nan; ExNoHi60_60Sec = -1
+                          ExNoHi1200_30Px = nan; ExNoHi1200_30Sec = -1
+                          ExNoHi1200_60Px = nan; ExNoHi1200_60Sec = -1
                           BarsHeld = 0
                           State = Holding }
+
+        // ===== 8. evaluate the EXIT CONDITIONS on this bar's closed state.
+        // ⚠ LAST, after the entry: the conditions read lastHiSec/lastLoSec, which
+        // step 3 already updated, and a trip filled on this bar must not be
+        // marked by a condition this bar — the strict `<` in 3b guarantees that.
+        // A window whose extreme has never printed (lastHiSec = -1) cannot fire a
+        // "no new high for Ns" condition; that is silence, not a stale high.
+        // ⭐⭐ THE ANCHOR IS max(lastHigh, THIS TRIP'S OWN FILL), not the last high
+        // alone. A global "no new 20m high for 30s" is TRUE almost always — most
+        // bars are nowhere near a 20m high — so a trip entered on a 1m LOW would
+        // have fired it on the very next bar (measured: median 5s from fill).
+        // That is not a trailing exit, it is an immediate one. Anchoring on the
+        // fill makes it mean what it should for ANY entry: "30 seconds have
+        // passed WITHOUT A NEW HIGH SINCE I GOT IN".
+        //
+        // ⚠ Still one monotone cursor per mark: EntrySec rises with the index, so
+        // max(lastHiSec, EntrySec) rises too and the elapsed time falls — the
+        // condition therefore holds on a PREFIX of the unmarked positions, which
+        // is exactly what the while-loop requires.
+        let inline qualify (m: int) (pred: LhPosition -> bool) =
+            let mutable j = exCur.[m]
+            while j < all.Count && all.[j].EntrySec < bar.etSec && pred all.[j] do j <- j + 1
+            exReady.[m] <- j
+            exReadySec.[m] <- bar.etSec
+        let inline noHiSince (i: int) (secs: int) (p: LhPosition) =
+            bar.etSec - (max lastHiSec.[i] p.EntrySec) >= secs
+        qualify 0 (fun _ -> lastLoSec.[0] = bar.etSec)
+        qualify 1 (noHiSince 0 30)
+        qualify 2 (noHiSince 0 60)
+        qualify 3 (noHiSince CH1200 30)
+        qualify 4 (noHiSince CH1200 60)
+        prevEtSec <- bar.etSec
 
     /// Close the day: every trip still holding exits at the final bar's vwap.
     /// Unfilled forward marks stay nan — the day simply ended first, and NULL is

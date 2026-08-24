@@ -48,6 +48,10 @@ let defaultConfig =
         { MinEffOpen      = 0.3        // ⭐ the user's level: efficiency-since-the-open >= 0.3
           MinEffOpenSlots = 4          // 3 slot returns ~= 90s of dense tape
           HoldBars        = 30         // ⭐ the timestop, in present bars
+          SignalOnExtremesOnly = true  // ⭐ user, 2026-08-24: only new-extreme bars.
+                                       // The intermediate bars are ~88% of the book and are
+                                       // no longer of interest; dropping them also cuts the
+                                       // corpus and the run time by roughly that much.
           SignalStride    = 1          // every qualifying bar (the design)
           DvFloor60       = 100_000.0  // >= $100k over the trailing 60 present bars
           TcFloor60       = 60.0       // >= 60 trades over the same window (1/sec — kills
@@ -200,6 +204,11 @@ CREATE TABLE trips (
     open_at_signal INTEGER,
     fwd_vwap_30 DOUBLE, fwd_vwap_60 DOUBLE, fwd_vwap_120 DOUBLE,
     fwd_vwap_300 DOUBLE, fwd_vwap_600 DOUBLE, fwd_vwap_1200 DOUBLE,
+    ex_lo_px DOUBLE, ex_lo_sec INTEGER,
+    ex_nohi60_30_px DOUBLE, ex_nohi60_30_sec INTEGER,
+    ex_nohi60_60_px DOUBLE, ex_nohi60_60_sec INTEGER,
+    ex_nohi1200_30_px DOUBLE, ex_nohi1200_30_sec INTEGER,
+    ex_nohi1200_60_px DOUBLE, ex_nohi1200_60_sec INTEGER,
     exit_sec INTEGER, exit_px DOUBLE, exit_reason VARCHAR,
     ret_exit DOUBLE, bars_held INTEGER,
     close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_d DOUBLE,
@@ -294,6 +303,15 @@ type TripSink(outDir: string) =
             i p.OpenAtSignal
             f p.Fwd30; f p.Fwd60; f p.Fwd120
             f p.Fwd300; f p.Fwd600; f p.Fwd1200
+            // ⚠ an unfired mark writes NULL for the sec too, not -1 — a sentinel
+            // integer would silently average into any SQL that forgot to exclude it
+            let inline exSec (px: float) (sec: int) =
+                if Double.IsNaN px then row.AppendNullValue() |> ignore else row.AppendValue sec |> ignore
+            f p.ExLoPx; exSec p.ExLoPx p.ExLoSec
+            f p.ExNoHi60_30Px; exSec p.ExNoHi60_30Px p.ExNoHi60_30Sec
+            f p.ExNoHi60_60Px; exSec p.ExNoHi60_60Px p.ExNoHi60_60Sec
+            f p.ExNoHi1200_30Px; exSec p.ExNoHi1200_30Px p.ExNoHi1200_30Sec
+            f p.ExNoHi1200_60Px; exSec p.ExNoHi1200_60Px p.ExNoHi1200_60Sec
             i exitSec; f exitPx; s reason
             f (if p.EntryPx > 0.0 then exitPx / p.EntryPx - 1.0 else nan)
             i p.BarsHeld

@@ -23,6 +23,7 @@ type Args =
     | Min_Eff_Open of float
     | Min_Eff_Open_Slots of int
     | Hold_Bars of int
+    | Signal_On_Extremes_Only of bool
     | Signal_Stride of int
     // ----- per-bar liquidity floors -----
     | Dv_Floor_60 of float
@@ -56,6 +57,7 @@ type Args =
             | Min_Eff_Open _ -> "⭐ THE SYSTEM: enter on EVERY present bar whose efficiency-ratio-since-the-opening-slot is >= this. SIGNED (long only). Default 0.3. A cold eff_open FAILS. ⚠ eff_open is NOT span-free — always condition breakdowns on eff_open_slots."
             | Min_Eff_Open_Slots _ -> "Completed 30-bar slots required before eff_open is warm. Default 4 (3 slot returns ~= 90s of dense tape)."
             | Hold_Bars _ -> "⭐ THE EXIT: a pure TIMESTOP — exit this many PRESENT bars after the fill bar, at that bar's vwap. Default 30. The fwd_vwap_* columns answer every other horizon post-hoc, so do NOT sweep this by re-running."
+            | Signal_On_Extremes_Only _ -> "⭐ Fire ONLY on bars printing a NEW EXTREME in a tracked channel (a new {1,2,5,10,20}m high OR low). Default true — the intermediate bars are ~88%% of the book. ⚠ This shrinks but does not remove the trip-count weighting problem (S15): a day making more new highs still yields more trips."
             | Signal_Stride _ -> "Fire only every Nth qualifying bar per (ticker,day). Default 1 = every bar (the design). > 1 is a UNIFORM SUBSAMPLE — unbiased for means, but ⚠ never report a stride run as a book."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars. Default 100000. 0 = off."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print. 0 = off."
@@ -95,6 +97,7 @@ let main argv =
                     MinEffOpen       = parsed.GetResult(Min_Eff_Open,       defaultValue = d.Intraday.MinEffOpen)
                     MinEffOpenSlots  = parsed.GetResult(Min_Eff_Open_Slots, defaultValue = d.Intraday.MinEffOpenSlots)
                     HoldBars         = parsed.GetResult(Hold_Bars,          defaultValue = d.Intraday.HoldBars)
+                    SignalOnExtremesOnly = parsed.GetResult(Signal_On_Extremes_Only, defaultValue = d.Intraday.SignalOnExtremesOnly)
                     SignalStride     = parsed.GetResult(Signal_Stride,      defaultValue = d.Intraday.SignalStride)
                     DvFloor60        = parsed.GetResult(Dv_Floor_60,        defaultValue = d.Intraday.DvFloor60)
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
@@ -134,6 +137,8 @@ let main argv =
     printfn "  ENTRY       = EVERY bar with eff_open >= %.2f (>= %d slots warm)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.MinEffOpen ic.MinEffOpenSlots (ic.DvFloor60 / 1e3) ic.TcFloor60
     printfn "  EXIT        = TIMESTOP %d present bars after the fill, at that bar's vwap  |  MOC backstop" ic.HoldBars
+    printfn "  exit marks  = 1m-low | no-new-1m-high 30s/60s | no-new-20m-high 30s/60s   (RECORDED, not enforced)"
+    printfn "  signal bars = %s" (if ic.SignalOnExtremesOnly then "⭐ NEW EXTREMES ONLY (new {1,2,5,10,20}m high or low)" else "every qualifying bar")
     if ic.SignalStride > 1 then
         printfn "  ⚠ STRIDE    = every %dth qualifying bar (UNIFORM SUBSAMPLE — not a book)" ic.SignalStride
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s   [record-first]"

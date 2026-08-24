@@ -1510,3 +1510,64 @@ followed by another base pass.
 fill price at (a) the first new 1m low after entry, (b) the first bar with no new high in the last
 {30, 60} seconds, and (c) the existing 30-bar timestop. One run then answers every combination,
 which is the same discipline that made `fwd_vwap_*` worth carrying.
+
+---
+
+# S17 — EXIT MARKS, THE EXTREMES GATE, AND THE 09:50 HYBRID (user, 2026-08-24)
+
+## ⭐ S17a — The open variants already existed
+
+`volat_open`, `vr2_open`, `vr4_open` and `eff_open` are **all recorded in the base pass already**.
+Only `volat_open` was missing from the study file — my omission when projecting it, not an engine
+gap. So the user's hybrid needs **no engine change**:
+
+```sql
+-- before 09:50:30 the 20m features are structurally cold (volat_20m/eff_20m warm at
+-- 41 slots = 1,230 present bars ~= 20.5 min after 09:30), so use the anchored ones
+case when signal_sec < 35430 then volat_open else volat_20m end
+case when signal_sec < 35430 then vr4_open   else vr4_roll  end
+```
+
+⚠ The two halves are **not the same statistic** — anchored features grow their window all session
+and carry the time-of-day defect S10b measured (`corr(ddz, bars_present) = +0.51`). A hybrid column
+is therefore discontinuous at 09:50:30 by construction, and any breakdown on it must carry
+`signal_sec` so the seam is visible. It is the right operational choice; it is not a free one.
+
+## S17b — The extremes-only gate
+
+`SignalOnExtremesOnly` (default **true**): a bar opens a trip only if it prints a new
+{1,2,5,10,20}m **high or low**. Measured on 2026-08-20: **323,368 → 29,990 trips**, 344.7 → 32.0 per
+ticker-day — a 10.8× cut, matching the 88% "none" rung from S11a.
+
+⚠⚠ **This shrinks but does not remove the S15 problem.** A day that keeps making new highs still
+produces more trips than one that does not, so the trip count stays outcome-correlated. It reduces
+the multiplier, not the mechanism. **Keep reporting equal-weight-by-ticker-day.**
+
+## ⭐ S17c — Counterfactual exit marks
+
+Five new marks, each recorded as (px, sec) and **never enforced** — the `fwd_vwap_*` discipline, so
+one base pass answers every exit rule and every intersection of them:
+
+| mark | condition |
+|---|---|
+| `ex_lo` | first new **1m low** after the fill |
+| `ex_nohi60_30` / `_60` | first bar with **no new 1m high** for ≥ 30 s / 60 s |
+| `ex_nohi1200_30` / `_60` | first bar with **no new 20m high** for ≥ 30 s / 60 s |
+
+💀 **A design bug the smoke test caught.** The first version anchored on `lastHiSec` alone. But "no
+new 20m high for 30 s" is TRUE almost always — most bars are nowhere near a 20m high — so a trip
+entered on a 1m *low* fired it on the next bar: **median 5 seconds from fill.** That is an immediate
+exit wearing a trailing exit's name.
+
+⭐ The fix anchors on **`max(lastHigh, this trip's own fill)`**, so the rule means what it should for
+any entry: *"30 seconds have passed without a new high since I got in."* Median fill-to-mark went
+5-6 s → **34-36 s** (30 s rules), **65-69 s** (60 s rules), **85 s** (1m low).
+
+⚠ Still one monotone cursor per mark, so it stays O(1) per bar: `EntrySec` rises with the index, so
+`max(lastHiSec, EntrySec)` rises and the elapsed time falls — the condition holds on a **prefix** of
+the unmarked positions, which is exactly what the cursor requires.
+
+Invariants verified on all 29,990 trips of the smoke day: no mark at or before its trip's fill, `60s`
+never before `30s`, no mark firing sooner than its own window, px/sec null-agreement, no
+non-positive prices. ⚠ An unfired mark writes **NULL for the second too**, not a `-1` sentinel that
+would silently average into any query that forgot to exclude it.
