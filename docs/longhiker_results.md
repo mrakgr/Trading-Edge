@@ -1661,3 +1661,49 @@ a different weighting of the same stream should look like.
 the extremes-only signal gate, and entries from **09:45** (the candidate table's knowability floor —
 ⭐ it is the *universe*, not feature warmth, that sets the start; `volat_20m` is live from slot 1 and
 `vr4_roll` is 91% available at 09:45).
+
+
+---
+
+# S19 — μ² WAS AN ASSUMPTION, AND IT LEAKED DRIFT (user, 2026-08-24)
+
+The user asked what `μ` is in the EWMA autocorrelation. It is `EWMA(r)`, the exponentially-weighted
+mean return — and answering it exposed that using **μ² for both halves of the numerator** is not a
+definition but an **assumption**.
+
+```
+Cov(r_t, r_{t−k}) = E[r_t·r_{t−k}] − E[r_t]·E[r_{t−k}]
+```
+
+Collapsing `E[r_t]·E[r_{t−k}]` to `μ²` presumes the mean is the same at `t` and at `t−k` — true
+under stationarity, **false for a stock whose drift is changing**, which is the only kind this
+system trades. The windowed `AutoCorrMa` never took that shortcut (it tracks the paired sums `A_k`
+and `B_k` explicitly); the first EWMA version did.
+
+**Measured at hl = 40**, shipped vs a paired-mean reference:
+
+| stream | μ² shortcut | paired means | diff |
+|---|---|---|---|
+| AR(1) φ=.35, constant drift | +0.41199 | +0.41134 | 6.5e-04 |
+| AR(1) φ=.35, no drift | +0.41155 | +0.41134 | 2.1e-04 |
+| drift flips +2% → −2% | +0.04304 | +0.08331 | −4.0e-02 |
+| **drift ramps 0 → 5%** | **+0.18016** | **+0.09772** | **+8.2e-02** |
+
+⚠⚠ Under a stationary mean the shortcut is free. **Under a ramping drift it inflates ρ₁ by ~2×** —
+the same drift-leak that mean-centering exists to prevent, reintroduced through the back door. A
+trending stock's drift is precisely non-stationary, so this would have made `ac1_ewma` look like a
+trend feature for the worst possible reason.
+
+⭐ **Fixed** by tracking `E_A[r_t]` and `E_B[r_{t−k}]` as their own EWMAs, pushed at the same
+instant as the product so all three share one support exactly. The denominator keeps the
+full-stream variance, matching `AutoCorrMa`'s convention. After the fix the class matches the paired
+reference to **0.00e+00** on all four streams, and the whole validation suite still passes (AR(1)
+recovery ρ₁ 0.3470; VR identities to 2.5e-05 / 1.4e-04; i.i.d. control ρ₁ −0.0044, VR 0.9953,
+eff +0.0050).
+
+⚠ `EwmaEffMa` and `EwmaVarRatioMa` are **unaffected** — neither has a cross-moment, so neither has
+two means to reconcile. Only the three `ac*_ewma` columns changed.
+
+💀 The base pass was killed 10 minutes in and restarted rather than ship a feature with a known
+drift-leak. Cheap next to discovering it in a breakdown three sections later — which, on the record
+of S3b / S5 / S7c / S15, is exactly where it would have surfaced.

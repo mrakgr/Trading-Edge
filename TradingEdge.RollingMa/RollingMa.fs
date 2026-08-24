@@ -1344,17 +1344,33 @@ type EwmaVarRatioMa(halfLife: float, q: int, minCount: int) =
         e1.Reset(); e2.Reset(); f1.Reset(); f2.Reset()
         Array.fill ring 0 q 0.0; n <- 0; pos <- 0
 
-/// ⭐ Autocorrelation as an EWMA: (E[r_t·r_{t−k}] − μ²) / (E[r²] − μ²).
+/// ⭐ Autocorrelation as an EWMA:
+///     ρ_k = ( E[r_t·r_{t−k}] − E_A[r_t]·E_B[r_{t−k}] ) / ( E[r²] − μ² )
+///
 /// ⚠ MEAN-CENTERED for the same reason the windowed version is — the uncentered
 /// form is biased upward by drift and would rediscover the efficiency ratio.
-/// ⚠ The cross-moment stream starts k pushes after the level stream, so the
-/// supports differ slightly early; condition on `.Count`.
+///
+/// ⚠⚠ THE TWO MEANS IN THE NUMERATOR ARE TRACKED SEPARATELY, on exactly the
+/// product's own support. Collapsing them to μ² assumes the mean is the same at
+/// t and at t−k — true under stationarity, and FALSE for a stock whose drift is
+/// changing, which is the only kind this system trades. Measured at hl = 40:
+///
+///     stationary mean          shortcut vs paired   2e-4 .. 6e-4   (free)
+///     drift ramping 0 -> 5%%    +0.180 vs +0.098     8e-2           (~2x)
+///
+/// The shortcut inflates ρ on a ramping drift — the same drift-leak that
+/// centering exists to prevent, reintroduced through the back door. E_A and E_B
+/// are pushed at the same instant as the product, so all three share one support
+/// exactly. The DENOMINATOR keeps the full-stream variance, matching AutoCorrMa's
+/// convention (numerator over the m−k pairs, denominator over all m).
 [<Sealed>]
 type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
     do if maxLag < 1 then invalidArg "maxLag" "maxLag must be >= 1"
     let e1 = EmaHlMa halfLife
     let e2 = EmaHlMa halfLife
     let ck = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)
+    let mA = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)   // E_A[r_t]
+    let mB = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)   // E_B[r_{t−k}]
     let ring = Array.zeroCreate<float> (maxLag + 1)
     let mutable n = 0
     let mutable pos = 0
@@ -1364,7 +1380,11 @@ type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
     member _.MaxLag = maxLag
     member _.Push (r: float) =
         for k in 1 .. maxLag do
-            if n >= k then ck.[k].Push (r * at (k - 1))
+            if n >= k then
+                let lagged = at (k - 1)
+                ck.[k].Push (r * lagged)
+                mA.[k].Push r
+                mB.[k].Push lagged
         ring.[pos] <- r
         pos <- (pos + 1) % (maxLag + 1)
         n <- n + 1
@@ -1372,12 +1392,14 @@ type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
         e2.Push (r * r)
     member _.Rho (k: int) =
         if k < 1 || k > maxLag || n < minCount then nan else
-        match e1.State, e2.State, ck.[k].State with
-        | ValueSome m1, ValueSome m2, ValueSome c ->
+        match e1.State, e2.State, ck.[k].State, mA.[k].State, mB.[k].State with
+        | ValueSome m1, ValueSome m2, ValueSome c, ValueSome a, ValueSome b ->
             let den = m2 - m1 * m1
-            if not (den > 0.0) then nan else (c - m1 * m1) / den
+            if not (den > 0.0) then nan else (c - a * b) / den
         | _ -> nan
     member _.Reset () =
         e1.Reset(); e2.Reset()
         for e in ck do e.Reset()
+        for e in mA do e.Reset()
+        for e in mB do e.Reset()
         Array.fill ring 0 (maxLag + 1) 0.0; n <- 0; pos <- 0
