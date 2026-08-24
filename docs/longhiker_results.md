@@ -1571,3 +1571,93 @@ Invariants verified on all 29,990 trips of the smoke day: no mark at or before i
 never before `30s`, no mark firing sooner than its own window, px/sec null-agreement, no
 non-positive prices. ⚠ An unfired mark writes **NULL for the second too**, not a `-1` sentinel that
 would silently average into any query that forgot to exclude it.
+
+---
+
+# S18 — EWMA FORMS OF eff, VR AND AUTOCORRELATION (user, 2026-08-24)
+
+## ⚠ First, a correction: `eff_20m` was never an EWMA
+
+```fsharp
+let ew40 = EmaHlMa 40.0          // volat_20m   ← THE EWMA
+let slotLag40 = LagMa<float> 40  // eff_20m numerator
+let slotAbs40 = SumMa 40         // eff_20m denominator   ← a HARD window
+```
+
+`volat_20m` is the EWMA; `eff_20m` is a hard 40-slot window with an explicit
+`Count = WindowSize` guard. That is precisely why one is live from slot 1 and the other is still
+**89% null 29 minutes into the session** — slots count PRESENT bars and a typical name yields ~1
+slot per *minute*, not 2, so a "20m" window needs ~40 wall-clock minutes.
+
+**Half-life:** `EmaHlMa 40.0` = **40 slots** ≈ 1,200 present bars ≈ 20 min. So `volat_20m`'s
+half-life really is 20m and `volat_10m`'s is 10m — the naming is half-life-based and consistent.
+⚠ Mean lag is 40/ln2 ≈ **57.7 slots**, so its memory is *longer* than a 40-slot window's.
+
+**Initialization:** ⭐ NOT an SMA-style fill. `EmaHlMa` carries a decayed numerator/denominator pair
+and reads `num/den`, the correctly normalised weighted mean over whatever history exists — after one
+push `State = x₁` exactly. (A plain `EmaMa` seeded on the first value would still be 59% seed 30
+pushes in at hl = 40.)
+
+⚠ But *correct* ≠ *precise*: at 5 slots it is an honest mean of 5 noisy values and **not the same
+statistic** it becomes at 100. ⭐ That finally explains S3a's unexplained
+`ρ(volat_20m, volat_10m, volat_open) = 0.992-0.998` — early in the session the three are
+arithmetically nearly the same number, and the entry window is concentrated at 09:45-10:00, so they
+never get the chance to diverge.
+
+## ⭐⭐ S18a — The telescoping insight (user)
+
+The windowed eff numerator `ln(V_t / V_{t−40})` is **exactly** `Σ r_k` over the same span, because
+log returns telescope. Written as a sum it becomes EWMA-able; written as a two-endpoint difference
+it cannot be. Same statistic, one representation admits exponential weighting and the other does
+not. Verified to 2e-15.
+
+⭐ **And the bias correction cancels.** `EwmaEffMa` reads `EWMA(r)/EWMA(|r|)`, and both halves carry
+the *same* `den` — so the ratio is `num_r / num_abs` and is **exactly unbiased from the first push**,
+with no warm-up term at all. The denominator is not even accumulated. This is the one construction
+where EmaHlMa's correction costs nothing and buys everything.
+
+## S18b — Three new classes
+
+`EwmaEffMa(hl)`, `EwmaVarRatioMa(hl, q)`, `EwmaAutoCorrMa(hl, maxLag)` — all on the same signed
+slot-return stream as their windowed twins, so a pair differs **only in its weighting**, which is
+what makes it a control rather than two unrelated numbers.
+
+⚠ Unlike eff, the bias correction does **not** cancel for VR or autocorrelation — a variance is
+`E[x²] − E[x]²` and the normaliser enters the two terms differently — so those moments go through
+full bias-corrected `EmaHlMa`s. Two honest caveats: no Bessel correction (biases largely cancel in
+the VR *ratio* at a shared half-life), and the q-sum / cross-moment streams start a few pushes after
+the level stream. Band on them; do not quote them as significance tests.
+
+**Validation** (`EwmaTrend_Test.fsx`), four ways:
+
+| check | result |
+|---|---|
+| `EwmaEffMa(hl=1e7)` vs unweighted `Σr/Σ\|r\|` | rel err 2.5e-07 |
+| telescoping: `Σr` vs `ln(V_n/V_0)` | rel err 2.0e-15 |
+| planted AR(1) φ=0.35 → recovered ρ₁ | +0.3470 |
+| `VR(2)` vs the identity `1 + ρ₁` | rel err 5.4e-05 |
+| `VR(4)` vs `1 + 2(0.75ρ₁+0.50ρ₂+0.25ρ₃)` | rel err 7.1e-05 |
+| **i.i.d. control** | ρ₁ −0.0044, VR 0.9953, eff +0.0050 |
+
+⭐ The i.i.d. control is the one that matters — without it, a bug that says "trending" about
+everything passes every other check.
+
+## S18c — Measured effect on warm-up (2026-08-20, 25,963 trips)
+
+| feature | % null |
+|---|---|
+| **`eff_ewma_20m`** | **0.00** |
+| `eff_20m` (windowed) | **54.21** |
+| `vr4_ewma` / `vr4_roll` | 0.62 / 0.62 |
+| `ac1_ewma` / `ac1_roll` | 0.62 / 0.00 |
+
+Bounds hold (`|eff| ≤ 1`, `|ρ| ≤ 1`, `VR > 0`, zero violations). Correlation with the windowed
+originals: eff **0.786**, vr4 0.856, vr2 0.871, ac1 0.838 — related but not redundant, which is what
+a different weighting of the same stream should look like.
+
+## S18d — Base pass v4
+
+`data/longhiker_trips_v4/` carries, in one run: the EWMA twins, the five counterfactual exit marks,
+the extremes-only signal gate, and entries from **09:45** (the candidate table's knowability floor —
+⭐ it is the *universe*, not feature warmth, that sets the start; `volat_20m` is live from slot 1 and
+`vr4_roll` is 91% available at 09:45).

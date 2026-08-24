@@ -61,7 +61,15 @@ let defaultConfig =
           MaxConcurrent   = 0          // ⭐ SAMPLER
           SlotBars        = 30
           SessionStartSec = 34200      // 09:30 — features fold from the RTH open
-          EntryStartSec   = 34800      // ⭐ 09:40 (user) — see the Intraday.fs header
+          EntryStartSec   = 35100      // ⭐ 09:45 — THE KNOWABILITY FLOOR (user, 2026-08-24).
+                                       // The candidate universe gates on tape over
+                                       // [09:30,09:45), so an earlier entry makes the
+                                       // UNIVERSE ITSELF a lookahead. Nothing about
+                                       // feature warmth forces this second — volat_20m is
+                                       // an EWMA and is live from slot 1, and vr4_roll
+                                       // needs only 7 slot returns (91% available at
+                                       // 09:45, 100% by 09:48). It is the universe, not
+                                       // the features, that sets the start.
           EntryEndSec     = 57000      // 15:50: a 30-bar hold needs almost no room, and the
                                        // afternoon is exactly where a momentum study must be
                                        // able to look. `signal_sec` is recorded — narrow it
@@ -171,6 +179,9 @@ CREATE TABLE trips (
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     volat_20m DOUBLE, volat_10m DOUBLE, volat_open DOUBLE, slot_count INTEGER,
     eff_20m DOUBLE, eff_10m DOUBLE, eff_open DOUBLE, eff_open_slots INTEGER,
+    eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
+    vr2_ewma DOUBLE, vr4_ewma DOUBLE,
+    ac1_ewma DOUBLE, ac2_ewma DOUBLE, ac3_ewma DOUBLE,
     ac1_open DOUBLE, ac2_open DOUBLE, ac3_open DOUBLE,
     ac1_roll DOUBLE, ac2_roll DOUBLE, ac3_roll DOUBLE,
     vr2_open DOUBLE, vr4_open DOUBLE, vr2_roll DOUBLE, vr4_roll DOUBLE,
@@ -270,6 +281,9 @@ type TripSink(outDir: string) =
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.Volat20m; f p.Volat10m; f p.VolatOpen; i p.SlotCount
             f p.Eff20m; f p.Eff10m; f p.EffOpen; i p.EffOpenSlots
+            f p.EffEwma20m; f p.EffEwma10m
+            f p.Vr2Ewma; f p.Vr4Ewma
+            f p.Ac1Ewma; f p.Ac2Ewma; f p.Ac3Ewma
             f p.Ac1Open; f p.Ac2Open; f p.Ac3Open
             f p.Ac1Roll; f p.Ac2Roll; f p.Ac3Roll
             f p.Vr2Open; f p.Vr4Open; f p.Vr2Roll; f p.Vr4Roll

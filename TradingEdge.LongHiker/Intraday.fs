@@ -199,6 +199,20 @@ type LhPosition =
       //
       // ⚠ These are MEAN-CENTERED (see AutoCorrMa). Uncentered autocorrelation is
       // biased upward by drift and would merely rediscover eff_open.
+      // ----- ⭐ EWMA TWINS (user, 2026-08-24). Same slot-return stream, exponential
+      // weights instead of a hard window, so there is NO warm-up cliff: eff_20m
+      // is still ~89%% null 29 minutes in (it needs a full 40-slot window and a
+      // typical name yields ~1 slot per MINUTE, not 2), while these are live from
+      // the third return. Half-lives 40 and 20 slots, matching volat_20m/10m.
+      // ⭐ eff_ewma's bias correction cancels exactly (both halves carry the same
+      // denominator), so it is unbiased from the first push. -----
+      EffEwma20m: float
+      EffEwma10m: float
+      Vr2Ewma: float
+      Vr4Ewma: float
+      Ac1Ewma: float
+      Ac2Ewma: float
+      Ac3Ewma: float
       Ac1Open: float             // lag-1/2/3 autocorrelation of slot returns
       Ac2Open: float
       Ac3Open: float
@@ -539,6 +553,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let ddRun10m = MaxMa 20                      // -> dd_10m (20-slot reference high)
     // ⭐ the trend-persistence block — one signed slot-return stream, six
     // consumers, each anchored/rolling pair sharing one implementation.
+    let effEwma20m = EwmaEffMa 40.0        // hl 40 slots ~ 20m, matching volat_20m
+    let effEwma10m = EwmaEffMa 20.0
+    let vr2Ewma = EwmaVarRatioMa(40.0, 2)
+    let vr4Ewma = EwmaVarRatioMa(40.0, 4)
+    let acEwma = EwmaAutoCorrMa(40.0, 3)
     let acOpen = AutoCorrMa(0, 3)
     let acRoll = AutoCorrMa(40, 3)
     let vr2Open = VarianceRatioMa(0, 2)
@@ -646,6 +665,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  // persistence measure read the volatility stream instead.
                  let r = log (v / pv)
                  let ar = abs r
+                 effEwma20m.Push r; effEwma10m.Push r
+                 vr2Ewma.Push r; vr4Ewma.Push r; acEwma.Push r
                  acOpen.Push r; acRoll.Push r
                  vr2Open.Push r; vr4Open.Push r; vr2Roll.Push r; vr4Roll.Push r
                  spOpen.Push r; spRoll.Push r
@@ -816,6 +837,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                              | _ -> nan)
                           EffOpen = effOpen
                           EffOpenSlots = slotCount
+                          EffEwma20m = effEwma20m.Value
+                          EffEwma10m = effEwma10m.Value
+                          Vr2Ewma = vr2Ewma.Value
+                          Vr4Ewma = vr4Ewma.Value
+                          Ac1Ewma = acEwma.Rho 1
+                          Ac2Ewma = acEwma.Rho 2
+                          Ac3Ewma = acEwma.Rho 3
                           Ac1Open = acOpen.Rho 1
                           Ac2Open = acOpen.Rho 2
                           Ac3Open = acOpen.Rho 3

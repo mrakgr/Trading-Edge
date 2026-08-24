@@ -1246,3 +1246,138 @@ type SignPersistMa(windowSize: int) =
     member _.Reset () =
         Array.fill outcomes 0 capPairs 0y
         pairs <- 0; pos <- 0; nCon <- 0; nDis <- 0; prev <- nan; run <- 0
+
+// ===========================================================================
+// ⭐⭐ EWMA FORMS OF THE TREND STATISTICS (user, 2026-08-24)
+//
+// The windowed versions have a warm-up cliff: eff_20m needs a FULL 40-slot
+// window and is still ~89% null 29 minutes into the session, because slots count
+// PRESENT bars and a typical name yields ~1 slot per minute, not 2. The EWMA
+// forms have no window to fill — they are live from the first few returns and
+// their effective span grows smoothly toward the half-life instead of switching
+// on at a boundary.
+//
+// ⭐ ALL THREE CONSUME THE SIGNED SLOT-RETURN STREAM, exactly like their windowed
+// twins, so a twin pair differs ONLY in its weighting. That is what makes the
+// pair a control rather than two unrelated numbers.
+// ===========================================================================
+
+/// ⭐ Kaufman efficiency as an EWMA: EWMA(r) / EWMA(|r|).
+///
+/// ⭐⭐ THE KEY IDENTITY (user, 2026-08-24): the windowed numerator
+/// `ln(V_t / V_{t−n})` is EXACTLY `Σ r_k` over the same span, because the log
+/// returns telescope. Written as a sum it becomes EWMA-able; written as a
+/// two-endpoint difference it cannot be. Same statistic, one representation
+/// admits exponential weighting and the other does not.
+///
+/// ⭐ AND THE BIAS CORRECTION CANCELS. EmaHlMa reads `num/den`; here both halves
+/// carry the SAME `den`, so the ratio is `num_r / num_abs` and is exactly
+/// unbiased from the first push — no warm-up term at all. This is the one
+/// construction where the correction costs nothing and buys everything, so the
+/// denominator is not even accumulated.
+///
+/// Bounded to [−1,1] by the triangle inequality (the weights are positive).
+/// nan below `minCount` pushes or on a zero path.
+[<Sealed>]
+type EwmaEffMa(halfLife: float, minCount: int) =
+    let alpha = 1.0 - 0.5 ** (1.0 / halfLife)
+    let mutable numR = 0.0      // Σ decayed α·r
+    let mutable numA = 0.0      // Σ decayed α·|r|
+    let mutable n = 0
+    new(halfLife) = EwmaEffMa(halfLife, 3)
+    member _.Count = n
+    member _.HalfLife = halfLife
+    member _.Push (r: float) =
+        numR <- (1.0 - alpha) * numR + alpha * r
+        numA <- (1.0 - alpha) * numA + alpha * abs r
+        n <- n + 1
+    member _.Value = if n < minCount || not (numA > 0.0) then nan else numR / numA
+    member _.Reset () = numR <- 0.0; numA <- 0.0; n <- 0
+
+/// ⭐ The variance ratio as an EWMA: Var_ewma(q-sum) / (q · Var_ewma(1-step)).
+///
+/// ⚠ UNLIKE EwmaEffMa THE BIAS CORRECTION DOES NOT CANCEL HERE — a variance is
+/// `E[x²] − E[x]²`, so the normalising denominator enters the two terms
+/// differently. Both moments therefore go through a full bias-corrected EmaHlMa
+/// rather than a bare decayed sum.
+///
+/// ⚠ Two honest caveats, neither fatal for a feature you BAND on:
+///   1. no Bessel correction, so each variance is biased low; at a shared
+///      half-life the numerator and denominator biases largely cancel in the
+///      ratio.
+///   2. the q-sum stream starts q−1 pushes after the 1-step stream, so very
+///      early the two moments rest on slightly different supports.
+/// Condition on `.Count`. Do not quote it as a significance test.
+[<Sealed>]
+type EwmaVarRatioMa(halfLife: float, q: int, minCount: int) =
+    do if q < 2 then invalidArg "q" "q must be >= 2"
+    let e1 = EmaHlMa halfLife       // E[r]
+    let e2 = EmaHlMa halfLife       // E[r²]
+    let f1 = EmaHlMa halfLife       // E[R]
+    let f2 = EmaHlMa halfLife       // E[R²]
+    let ring = Array.zeroCreate<float> q
+    let mutable n = 0
+    let mutable pos = 0
+    new(halfLife, q) = EwmaVarRatioMa(halfLife, q, q + 3)
+    member _.Count = n
+    member _.Q = q
+    member _.Push (r: float) =
+        ring.[pos] <- r
+        pos <- (pos + 1) % q
+        n <- n + 1
+        e1.Push r
+        e2.Push (r * r)
+        if n >= q then
+            let mutable s = 0.0
+            for v in ring do s <- s + v      // the whole ring IS the last q returns
+            f1.Push s
+            f2.Push (s * s)
+    member _.Value =
+        if n < minCount then nan else
+        match e1.State, e2.State, f1.State, f2.State with
+        | ValueSome m1, ValueSome m2, ValueSome n1, ValueSome n2 ->
+            let var1 = m2 - m1 * m1
+            let varq = n2 - n1 * n1
+            if not (var1 > 0.0) then nan else varq / (float q * var1)
+        | _ -> nan
+    member _.Reset () =
+        e1.Reset(); e2.Reset(); f1.Reset(); f2.Reset()
+        Array.fill ring 0 q 0.0; n <- 0; pos <- 0
+
+/// ⭐ Autocorrelation as an EWMA: (E[r_t·r_{t−k}] − μ²) / (E[r²] − μ²).
+/// ⚠ MEAN-CENTERED for the same reason the windowed version is — the uncentered
+/// form is biased upward by drift and would rediscover the efficiency ratio.
+/// ⚠ The cross-moment stream starts k pushes after the level stream, so the
+/// supports differ slightly early; condition on `.Count`.
+[<Sealed>]
+type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
+    do if maxLag < 1 then invalidArg "maxLag" "maxLag must be >= 1"
+    let e1 = EmaHlMa halfLife
+    let e2 = EmaHlMa halfLife
+    let ck = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)
+    let ring = Array.zeroCreate<float> (maxLag + 1)
+    let mutable n = 0
+    let mutable pos = 0
+    let at (back: int) = ring.[((pos - 1 - back) % (maxLag + 1) + (maxLag + 1)) % (maxLag + 1)]
+    new(halfLife, maxLag) = EwmaAutoCorrMa(halfLife, maxLag, maxLag + 4)
+    member _.Count = n
+    member _.MaxLag = maxLag
+    member _.Push (r: float) =
+        for k in 1 .. maxLag do
+            if n >= k then ck.[k].Push (r * at (k - 1))
+        ring.[pos] <- r
+        pos <- (pos + 1) % (maxLag + 1)
+        n <- n + 1
+        e1.Push r
+        e2.Push (r * r)
+    member _.Rho (k: int) =
+        if k < 1 || k > maxLag || n < minCount then nan else
+        match e1.State, e2.State, ck.[k].State with
+        | ValueSome m1, ValueSome m2, ValueSome c ->
+            let den = m2 - m1 * m1
+            if not (den > 0.0) then nan else (c - m1 * m1) / den
+        | _ -> nan
+    member _.Reset () =
+        e1.Reset(); e2.Reset()
+        for e in ck do e.Reset()
+        Array.fill ring 0 (maxLag + 1) 0.0; n <- 0; pos <- 0
