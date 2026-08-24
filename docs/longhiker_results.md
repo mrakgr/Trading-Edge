@@ -982,3 +982,109 @@ read the wrong horizon, **S7c** read an uncontrolled confound. Each time the art
 *monotone, year-stable and huge* — none of those properties distinguishes a signal from a
 confound. The only things that have caught it are the year table, the production-exit table, and
 the time control. Run all three before anything is called a feature.
+
+---
+
+# S11 — HIGHS vs DIPS, UNDER THE NEW STANDING DEFAULTS (user, 2026-08-24)
+
+## ⭐ The standing filter, from here on
+
+```sql
+entry_px > 1  AND  gap_60 < 4  AND  eff_open > 0.70      -- always
+volat_20m ∈ [0.004, 0.008)                                -- the focus band; varied elsewhere
+```
+
+Price above $1 (sub-$1 is fee-dead on every EU-accessible route), dense tape, and a smoothly
+trending open. Study file: `data/longhiker_study_v2.parquet` (28 GB, same 342.9M clean rows, adds
+the **full** `secs_since_hi/lo` ladder — v1 carried only the 60 and 1200 rungs and could not answer
+this question at all).
+
+⭐ `secs_since_{hi,lo}_N = 0` **means this bar printed that extreme** (the engine stamps
+`lastHiSec`/`lastLoSec` in step 3, before the signal is captured in step 7), so the ladder is a pure
+equality test with no reconstruction.
+
+⚠ **n is thin under the exact defaults: 37,623 trips over 7 years** (~5,400/yr). Everything below is
+therefore run twice — the user's cut, and `gap_60 < 30` (419,527) as the wider check that carries
+the year and time controls.
+
+## ⭐⭐ S11a — Buying new 20m HIGHS beats buying dips, decisively
+
+**User defaults (`gap_60 < 4`), inclusive form:**
+
+| event | n | med r30s | mean r30s | win% ex-ties | med r1m | med r5m |
+|---|---|---|---|---|---|---|
+| **20m HIGH** | 3,561 | **+5.75** | **+10.34** | **53.43** | +6.32 | −24.07 |
+| *ALL (baseline)* | 37,623 | +2.63 | +2.11 | 51.50 | +1.85 | −20.68 |
+| 1m low | 1,691 | **−1.23** | −12.84 | 49.29 | −5.28 | −36.46 |
+| 2m low | 552 | +1.68 | −14.89 | 51.91 | −9.54 | −26.62 |
+| 5m low | 45 | +23.31 | +4.72 | 68.89 | — | — |
+| 10m low | **0** | — | — | — | — | — |
+| 20m low | **0** | — | — | — | — | — |
+
+**Wider check (`gap_60 < 30`), where the n is real:**
+
+| event | n | med r30s | mean r30s | win% ex-ties | med r5m |
+|---|---|---|---|---|---|
+| **20m HIGH** | 32,834 | **+5.51** | **+6.99** | **54.26** | −5.10 |
+| *ALL (baseline)* | 419,527 | +0.98 | +0.33 | 50.97 | −3.93 |
+| 1m low | 16,044 | **−2.77** | −5.95 | 47.96 | −6.63 |
+| 2m low | 6,196 | **−3.55** | −6.08 | 47.52 | −3.18 |
+| 5m low | 425 | **−11.77** | −10.08 | 43.16 | −35.08 |
+
+⭐⭐ **The answer is unambiguous: buy the high, not the dip.** In a strongly trending stock the dip
+is monotone-worse the deeper it goes (−2.77 → −3.55 → −11.77), and the 20m high beats the baseline
+by **4.5 bp** and beats the 1m dip by **8.3 bp** on the median, with a 6.3pp win-rate gap.
+The mutually-exclusive ladder says the same thing and adds that *every* high rung is positive
+(H20m +5.45, H2m +6.86, H1m +4.14) while *every* low rung is negative.
+
+## ⚠ S11b — 10m and 20m lows DO NOT EXIST in this population
+
+Zero trips, at both density cuts. That is not a data problem — it is what `eff_open > 0.70` means:
+a stock trending that smoothly off the open does not print a new 10m or 20m low. **The "buy the deep
+dip" branch of the question is structurally unanswerable inside this filter**, and the fact that the
+event never occurs is itself the answer for anyone waiting to buy one.
+
+## ⭐ S11c — Year audit (wider cut, median `r30s` bp)
+
+| rung | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | yrs +ve |
+|---|---|---|---|---|---|---|---|---|
+| **H20m** | +5.68 | +5.52 | +5.31 | +4.23 | +9.14 | +6.22 | **+1.64** | **7/7** |
+| H1m | +11.16 | +2.22 | +0.72 | +3.55 | +2.27 | +9.53 | +2.12 | **7/7** |
+| H2m | +8.25 | −5.36 | +15.96 | +17.37 | +11.98 | −6.87 | −3.83 | 4/7 |
+| none | −0.01 | −0.83 | +1.31 | +1.56 | +1.99 | +1.54 | +0.12 | 5/7 |
+| L1m | −5.80 | −0.34 | +0.64 | −2.95 | +0.21 | −2.77 | −6.63 | 2/7 |
+| L2m | −4.23 | +1.90 | −4.58 | −13.25 | −5.05 | +1.25 | −2.34 | 2/7 |
+
+⭐ **H20m is positive in all seven years** on 32,834 trips. ⚠ 2026 is again the weakest (+1.64
+against a 5-9 bp body) — the decay is in this result too.
+
+## ⭐ S11d — Time control
+
+87% of the H20m population sits in the 09:45-10:00 bucket, so the rung and the clock are heavily
+confounded. Inside that bucket, the ordering survives intact:
+
+| rung | t1 09:45-10 | n |
+|---|---|---|
+| **H20m** | **+5.64** | 28,711 |
+| none | +0.87 | — |
+| L1m | −0.94 | — |
+| L5m | −11.19 | — |
+
+The +4.8 bp gap over the baseline is *within* one time bucket, so it is not the clock.
+
+## ⚠⚠ S11e — It is a 30-SECOND effect and it reverses hard
+
+`med r5m` for the 20m-high rung is **−5.10** (wider cut) and **−24.07** (strict cut) against +5.5 at
+30 seconds. The continuation is real and it is *brief*: hold the 20m-high entry five minutes and you
+give back everything and more. Consistent with S6a — momentum persists ~30 s and has reversed by
+5 m. **Any spec built on this must exit fast, and exit timing is the dominant risk, not entry
+selection.**
+
+## S11f — Standing
+
+⭐ **This is the first result in LongHiker with a magnitude worth discussing** — +5.5 bp median at
+the production exit is ~10× everything in S6-S10. It is still not obviously past a round trip on
+this universe, and 2026 reads +1.64, but it is the first cell in the right order of magnitude.
+
+⚠ Not yet done: costs, the iso-trip control against a random subsample of the same size, and the
+volat sweep (the user's stated intent to vary that axis — 40-80bp is the focus band, not a result).
