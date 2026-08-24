@@ -1237,7 +1237,14 @@ year table, production exit, time bucket — before any of them is called a feat
 
 ---
 
-# S14 — THE VARIANCE RATIO ON THE 20m-HIGH RUNG (2026-08-24)
+# ⚠⚠ S14 IS TRIP-WEIGHTED — read S15 first (2026-08-24)
+
+Every number in S14 pools TRIPS. On this rung the trip count per ticker-day is itself an
+**outcome variable** (a day that keeps making new 20m highs is a day that went up), so trip-pooling
+weights days by how well they went. Equal-weighted by ticker-day the cell **loses money in every
+year, including the good ones.** S14 is kept as the record; S15 is the correction.
+
+# S14 — THE VARIANCE RATIO ON THE 20m-HIGH RUNG (2026-08-24) — ⚠ TRIP-WEIGHTED
 
 Base pass **v2** (`data/longhiker_trips_v2/`, 387,832,933 trips — ⚠ trip counts identical to v1 in
 all seven years, as adding recorded columns must be). Study file `longhiker_study_v3.parquet`
@@ -1317,3 +1324,97 @@ nothing if 2026 is the truth rather than the exception.
 ⭐ Note what did NOT break: `ac1_roll` in [0.2, 0.35] is **7/7 positive including 2026** (+13.95 /
 +6.24 / +4.83 / +9.18 / +11.93 / +8.73 / **+5.30**). Weaker than VR's best cell in 2020-2025, but it
 is the only persistence measure still standing in the most recent year.
+
+---
+
+# 🛑 S15 — THE TRIP COUNT IS AN OUTCOME VARIABLE (2026-08-24)
+
+The user asked whether one big losing trade was skewing 2026. It is not — and answering it exposed a
+much larger problem that applies to **every trip-pooled table in this document**.
+
+## S15a — Not a tail, and not a partial year
+
+**Outlier check** (peak cell = 20m high × `vr4_roll` 1.1-1.6):
+
+| set | n | median | mean | win% ex-ties |
+|---|---|---|---|---|
+| 2026 raw | 910 | −0.13 | −2.25 | 49.89 |
+| 2026 ex-top-20 | 890 | +0.53 | −0.41 | 50.45 |
+| 2020-2025 raw | 6,100 | +12.81 | +17.36 | 58.73 |
+| 2020-2025 ex-top-20 | 6,080 | +12.39 | +17.21 | 58.74 |
+
+Trimming the 20 most extreme trades moves nothing. ⭐ It could not have: the headline was already a
+**median** and a win rate, and neither is movable by a handful of trades.
+
+**Partial-year test** — restrict *every* year to Jan-Aug, the months 2026 has:
+
+| yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| median r30s | +15.13 | +17.08 | +17.23 | +17.67 | +15.14 | +11.09 | **−0.13** |
+| win% ex-ties | 61.19 | 59.65 | 60.69 | 62.65 | 61.87 | 58.95 | **49.89** |
+
+💀 **The partial-year hypothesis is dead.** Like for like, 2026 still collapses.
+
+## 🛑🛑 S15b — But the real problem is the weighting
+
+The cell holds 7,010 trips — spread over only **565 ticker-days in 2020-2025** (91-119 per year) at
+**8.5-13.1 trips per ticker-day**. And the trip count per day is not incidental:
+
+| yr | corr(trips that day, that day's mean return) | mean day, k ≥ 10 | mean day, k < 10 |
+|---|---|---|---|
+| 2020 | **+0.47** | +26.15 | −25.70 |
+| 2021 | **+0.46** | +41.27 | −40.32 |
+| 2022 | +0.33 | +18.05 | −13.52 |
+| 2023 | +0.37 | +21.00 | −28.65 |
+| 2024 | +0.29 | +17.74 | −28.14 |
+| 2025 | +0.34 | +21.52 | −27.98 |
+| 2026 | +0.27 | +9.02 | −25.92 |
+
+⚠⚠ **Days that produce more trips are days that win — mechanically.** A trip fires on every bar
+that prints a new 20m high; a stock that keeps printing new 20m highs is a stock that keeps going
+up. **The trip count IS an outcome variable.** Pooling trips therefore weights each day by how well
+it went, roughly 10:1 in favour of the winners.
+
+Both weightings, side by side:
+
+| era | ticker-days | trips | **equal-weight day** | trip-weighted | % days up |
+|---|---|---|---|---|---|
+| 2020-2025 | 565 | 6,100 | **−8.48** | **+17.36** | **46.0%** |
+| 2026 | 107 | 910 | **−15.47** | −2.25 | 37.4% |
+
+⭐⭐ **Equal-weighted by ticker-day the cell loses money in EVERY year** (−7.05 / −8.48 / 0.00 /
++3.11 / +0.32 / −6.39 / −8.35 median day), and only 46% of days are up. The 58.7% trip win rate and
++12.81 bp median were a **weighting artifact**, not an edge.
+
+## S15c — What is and is not salvageable
+
+⚠ Trip-weighting is not *arithmetically* wrong for P&L: if you truly sized every signal identically,
+your realised total would be the trip-weighted number. But it means the strategy is **pyramiding** —
+it adds size precisely when the trend persists — and it must be described and risked that way, not
+as "58.7% of trades win". Its real profile is:
+
+- **~110 independent ticker-days per year**, not 900 trips
+- **the median day loses**; the mean is carried by a right tail
+- exposure is ~10× larger on the days that happen to work, which is not knowable at entry
+
+That is the lottery profile, and it is the same shape the V2 flagship was retired for
+(`project_v2_size_without_crowd_2026-07-26`: monthly P&L = lottery → satellite book).
+
+## 🛑 S15d — THE METHOD LESSON (the fourth this session, and a new class)
+
+The three prior traps were **one month** (S3b), **the wrong horizon** (S5), and **an uncontrolled
+time confound** (S7c). This is a fourth and it defeats all three defences:
+
+> **In a state sampler, the NUMBER of trips an episode produces can itself be an outcome. When it
+> is, every trip-pooled statistic — mean, median, win rate — is self-selecting, and the year table,
+> the production-exit table and the time control all pass anyway.**
+
+⭐ The tell is cheap and should now be standard: **`corr(trips_per_episode, episode_return)`**.
+Anything materially above zero means the trip-pooled number is weighted by the outcome. Report the
+**equal-weight-by-ticker-day** figure alongside every headline, and size significance on ticker-days
+(`feedback_three_mc_questions`: *"null must resample TICKER-DAYS, not trips"* — the same warning,
+which this study had recorded and did not apply).
+
+⚠ **Every trip-pooled table in S3-S14 is now suspect** and must be re-read at the ticker-day level
+before anything is quoted. The features may still order correctly — high VR still beats low VR at
+the day level in 5 of 7 years — but the *magnitudes and win rates are not what was reported*.
