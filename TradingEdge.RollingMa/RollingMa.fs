@@ -843,7 +843,7 @@ type IRoll<'T> =
 /// aggregates reading that size.
 [<Sealed>]
 type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
-    do if rolls.Length = 0 then invalidArg "rolls" "WindowRoller needs at least one window"
+    do if rolls.Length = 0 then invalidArg (nameof rolls) "WindowRoller needs at least one window"
     // ⚠⚠ THE MIS-REGISTRATION GUARD. With one shared ring the window size lives
     // at the REGISTRATION site, not in the aggregate's own Push, so registering
     // a 180-bar sum under 120 is a silent wrong answer rather than a crash. It
@@ -851,7 +851,7 @@ type WindowRoller<'T>(rolls: (int * IRoll<'T>[])[]) =
     do for (w, rs) in rolls do
         for r in rs do
             if r.WindowSize <> w then
-                invalidArg "rolls" (sprintf "roll declared at window %d registered under %d" r.WindowSize w)
+                invalidArg (nameof rolls) (sprintf "roll declared at window %d registered under %d" r.WindowSize w)
     let maxW = rolls |> Array.map fst |> Array.max
     // maxW + 1 slots: when the widest window evicts position (count-1-maxW) the
     // newest is (count-1), so maxW+1 positions must be live. Writing at
@@ -1024,6 +1024,68 @@ type FloatOls(windowSize: int) =
 // F7 vol-lock finding).
 // ===========================================================================
 
+/// ⭐ A FIXED-CAPACITY RING BUFFER (user, 2026-08-24). Five structures in this
+/// file had each hand-rolled the same `array + pos + at + (pos+1) % cap` shape,
+/// which is five chances to get the wrap arithmetic wrong — and one of them
+/// already had (SignPersistMa windowed over PAIRS where its twins window over
+/// RETURNS, caught only by the oracle test).
+///
+/// ⭐ THE COUNT IS MONOTONE, NOT WRAPPED, and that is what makes the indexing
+/// trivial: with `count` running free, `count - 1 - back` is non-negative for any
+/// legal `back`, so a single unadorned `%` suffices. The usual
+/// `((x % n) + n) % n` dance exists only to repair a wrapped cursor going
+/// negative; keep the cursor unwrapped and there is nothing to repair.
+///
+/// ⚠⚠ THE PRECONDITIONS ARE CHECKED, ALWAYS — not behind `Debug.Assert`. Every
+/// run that matters here is Release, so a debug-only assert would be decorative
+/// in exactly the runs where a wrap bug would do damage. The cost is two
+/// comparisons on a path called at SLOT cadence (once per 30 bars, times the lag
+/// count), which is not a hot path; `At` is the per-bar form and WindowRoller
+/// owns that one.
+///
+/// ⭐ Reading past the live region is otherwise a SILENTLY WRONG ELEMENT, not a
+/// crash — `(count - 1 - back) %% capacity` happily returns a stale slot. That is
+/// the failure mode this file has already produced once (SignPersistMa windowing
+/// over pairs where its twins window over returns), and it was caught only
+/// because an oracle test happened to exist.
+[<Sealed>]
+type RingBuffer<'T>(capacity: int) =
+    do if capacity < 1 then invalidArg (nameof capacity) "capacity must be >= 1"
+    let buf : 'T[] = Array.zeroCreate capacity
+    let mutable count = 0
+    member _.Capacity = capacity
+    /// Total pushed since the last Reset. Monotone — NOT clamped to Capacity.
+    member _.Count = count
+    /// How many elements are live: min(Count, Capacity).
+    member _.Live = min count capacity
+    member _.IsFull = count >= capacity
+    /// The element pushed `back` steps ago; 0 = the newest.
+    /// ⚠ Requires `0 <= back < Live`.
+    member this.Item
+        with get (back: int) =
+            if back < 0 || back >= this.Live then
+                invalidArg (nameof back)
+                    (sprintf "RingBuffer.[%d] outside [0, %d): count=%d capacity=%d"
+                             back this.Live count capacity)
+            buf.[(count - 1 - back) % capacity]
+    /// The element at ABSOLUTE logical position `i` (0 = the first ever pushed) —
+    /// the form WindowRoller's eviction is naturally written in.
+    /// ⚠ Requires `Count - Capacity <= i < Count` (i.e. still live).
+    member _.At (i: int) =
+        if i < 0 || i >= count || i < count - capacity then
+            invalidArg (nameof i)
+                (sprintf "RingBuffer.At %d outside [%d, %d): capacity=%d"
+                         i (max 0 (count - capacity)) count capacity)
+        buf.[i % capacity]
+    /// The oldest live element.
+    member this.Oldest = this.[this.Live - 1]
+    member _.Push (x: 'T) =
+        buf.[count % capacity] <- x
+        count <- count + 1
+    member _.Reset () =
+        Array.fill buf 0 capacity Unchecked.defaultof<'T>
+        count <- 0
+
 /// ⭐ Sample autocorrelation at lags 1..maxLag.
 ///
 /// ⚠⚠ MEAN-CENTERED, AND THAT IS NOT OPTIONAL. The uncentered form
@@ -1037,24 +1099,23 @@ type FloatOls(windowSize: int) =
 /// available pairs, the denominator over all m points. nan below k+3 points.
 [<Sealed>]
 type AutoCorrMa(windowSize: int, maxLag: int) =
-    do if maxLag < 1 then invalidArg "maxLag" "maxLag must be >= 1"
+    do if maxLag < 1 then invalidArg (nameof maxLag) "maxLag must be >= 1"
        if windowSize > 0 && windowSize <= maxLag then
-           invalidArg "windowSize" "a rolling window must be longer than maxLag"
+           invalidArg (nameof windowSize) "a rolling window must be longer than maxLag"
     let anchored = windowSize <= 0
     /// Anchored only needs enough history to FORM the products; rolling needs the
     /// whole window so departing terms can be removed exactly.
     let cap = if anchored then maxLag + 1 else windowSize
-    let ring = Array.zeroCreate<float> cap
     /// The first maxLag values ever pushed — the anchored window's left edge,
     /// which the ring is too short to hold.
     let firstVals = Array.zeroCreate<float> maxLag
     let ck = Array.zeroCreate<float> (maxLag + 1)
     let mutable n = 0
-    let mutable pos = 0
     let mutable s1 = 0.0
     let mutable s2 = 0.0
     /// The value pushed `back` steps ago (0 = most recent).
-    let at (back: int) = ring.[((pos - 1 - back) % cap + cap) % cap]
+    let ring = RingBuffer<float> cap
+    let at (back: int) = ring.[back]
 
     member _.Count = n
     member _.WindowSize = windowSize
@@ -1075,8 +1136,7 @@ type AutoCorrMa(windowSize: int, maxLag: int) =
         if n < maxLag then firstVals.[n] <- r
         for k in 1 .. maxLag do
             if n >= k then ck.[k] <- ck.[k] + r * at (k - 1)
-        ring.[pos] <- r
-        pos <- (pos + 1) % cap
+        ring.Push r
         n <- n + 1
         s1 <- s1 + r
         s2 <- s2 + r * r
@@ -1102,10 +1162,10 @@ type AutoCorrMa(windowSize: int, maxLag: int) =
         (ck.[k] - mean * (aK + bK) + float (m - k) * mean * mean) / den
 
     member _.Reset () =
-        Array.fill ring 0 cap 0.0
+        ring.Reset()
         Array.fill firstVals 0 maxLag 0.0
         Array.fill ck 0 (maxLag + 1) 0.0
-        n <- 0; pos <- 0; s1 <- 0.0; s2 <- 0.0
+        n <- 0; s1 <- 0.0; s2 <- 0.0
 
 /// ⭐ The VARIANCE RATIO (Lo-MacKinlay shape): Var(q-period return) /
 /// (q · Var(1-period return)) over OVERLAPPING q-sums.
@@ -1126,20 +1186,19 @@ type AutoCorrMa(windowSize: int, maxLag: int) =
 /// significance test.
 [<Sealed>]
 type VarianceRatioMa(windowSize: int, q: int) =
-    do if q < 2 then invalidArg "q" "q must be >= 2"
+    do if q < 2 then invalidArg (nameof q) "q must be >= 2"
        if windowSize > 0 && windowSize <= q then
-           invalidArg "windowSize" "a rolling window must be longer than q"
+           invalidArg (nameof windowSize) "a rolling window must be longer than q"
     let anchored = windowSize <= 0
     let cap = if anchored then q else windowSize
-    let ring = Array.zeroCreate<float> cap
     let mutable n = 0
-    let mutable pos = 0
     let mutable s1 = 0.0        // Σ r      over the active window
     let mutable s2 = 0.0        // Σ r²
     let mutable t1 = 0.0        // Σ R      over the active window's overlapping q-sums
     let mutable t2 = 0.0        // Σ R²
     let mutable mq = 0          // how many q-sums are in it
-    let at (back: int) = ring.[((pos - 1 - back) % cap + cap) % cap]
+    let ring = RingBuffer<float> cap
+    let at (back: int) = ring.[back]
 
     member _.Count = n
     member _.WindowSize = windowSize
@@ -1158,8 +1217,7 @@ type VarianceRatioMa(windowSize: int, q: int) =
                 t1 <- t1 - rOld
                 t2 <- t2 - rOld * rOld
                 mq <- mq - 1
-        ring.[pos] <- r
-        pos <- (pos + 1) % cap
+        ring.Push r
         n <- n + 1
         s1 <- s1 + r
         s2 <- s2 + r * r
@@ -1179,8 +1237,8 @@ type VarianceRatioMa(windowSize: int, q: int) =
         if not (var1 > 0.0) then nan else varq / (float q * var1)
 
     member _.Reset () =
-        Array.fill ring 0 cap 0.0
-        n <- 0; pos <- 0; s1 <- 0.0; s2 <- 0.0; t1 <- 0.0; t2 <- 0.0; mq <- 0
+        ring.Reset()
+        n <- 0; s1 <- 0.0; s2 <- 0.0; t1 <- 0.0; t2 <- 0.0; mq <- 0
 
 /// ⭐ SIGN PERSISTENCE: the fraction of consecutive return pairs that share a
 /// sign — the crudest and most robust trend statistic there is, with no scale and
@@ -1201,9 +1259,8 @@ type SignPersistMa(windowSize: int) =
     /// convention exists to prevent (caught by the oracle test at 2.3e-2).
     let capPairs = if anchored then 1 else max 1 (windowSize - 1)
     /// Per-pair outcome ring: +1 concordant, -1 discordant, 0 tie.
-    let outcomes = Array.zeroCreate<sbyte> capPairs
+    let outcomes = RingBuffer<sbyte> capPairs
     let mutable pairs = 0        // pairs formed since Reset
-    let mutable pos = 0
     let mutable nCon = 0
     let mutable nDis = 0
     let mutable prev = nan
@@ -1218,12 +1275,11 @@ type SignPersistMa(windowSize: int) =
         if not (Double.IsNaN prev) then
             let o = if prev * r > 0.0 then 1y elif prev * r < 0.0 then -1y else 0y
             if not anchored && pairs >= capPairs then
-                match outcomes.[pos] with
+                match outcomes.Oldest with
                 | 1y -> nCon <- nCon - 1
                 | -1y -> nDis <- nDis - 1
                 | _ -> ()
-            outcomes.[pos] <- o
-            pos <- (pos + 1) % capPairs
+            outcomes.Push o
             pairs <- pairs + 1
             match o with
             | 1y -> nCon <- nCon + 1
@@ -1244,8 +1300,8 @@ type SignPersistMa(windowSize: int) =
         if d < 4 then nan else float nCon / float d
 
     member _.Reset () =
-        Array.fill outcomes 0 capPairs 0y
-        pairs <- 0; pos <- 0; nCon <- 0; nDis <- 0; prev <- nan; run <- 0
+        outcomes.Reset()
+        pairs <- 0; nCon <- 0; nDis <- 0; prev <- nan; run <- 0
 
 // ===========================================================================
 // ⭐⭐ EWMA FORMS OF THE TREND STATISTICS (user, 2026-08-24)
@@ -1310,26 +1366,24 @@ type EwmaEffMa(halfLife: float, minCount: int) =
 /// Condition on `.Count`. Do not quote it as a significance test.
 [<Sealed>]
 type EwmaVarRatioMa(halfLife: float, q: int, minCount: int) =
-    do if q < 2 then invalidArg "q" "q must be >= 2"
+    do if q < 2 then invalidArg (nameof q) "q must be >= 2"
     let e1 = EmaHlMa halfLife       // E[r]
     let e2 = EmaHlMa halfLife       // E[r²]
     let f1 = EmaHlMa halfLife       // E[R]
     let f2 = EmaHlMa halfLife       // E[R²]
-    let ring = Array.zeroCreate<float> q
+    let ring = RingBuffer<float> q
     let mutable n = 0
-    let mutable pos = 0
     new(halfLife, q) = EwmaVarRatioMa(halfLife, q, q + 3)
     member _.Count = n
     member _.Q = q
     member _.Push (r: float) =
-        ring.[pos] <- r
-        pos <- (pos + 1) % q
+        ring.Push r
         n <- n + 1
         e1.Push r
         e2.Push (r * r)
         if n >= q then
             let mutable s = 0.0
-            for v in ring do s <- s + v      // the whole ring IS the last q returns
+            for j in 0 .. q - 1 do s <- s + ring.[j]   // the whole ring IS the last q returns
             f1.Push s
             f2.Push (s * s)
     member _.Value =
@@ -1342,7 +1396,7 @@ type EwmaVarRatioMa(halfLife: float, q: int, minCount: int) =
         | _ -> nan
     member _.Reset () =
         e1.Reset(); e2.Reset(); f1.Reset(); f2.Reset()
-        Array.fill ring 0 q 0.0; n <- 0; pos <- 0
+        ring.Reset(); n <- 0
 
 /// ⭐ Autocorrelation as an EWMA:
 ///     ρ_k = ( E[r_t·r_{t−k}] − E_A[r_t]·E_B[r_{t−k}] ) / ( E[r²] − μ² )
@@ -1365,16 +1419,15 @@ type EwmaVarRatioMa(halfLife: float, q: int, minCount: int) =
 /// convention (numerator over the m−k pairs, denominator over all m).
 [<Sealed>]
 type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
-    do if maxLag < 1 then invalidArg "maxLag" "maxLag must be >= 1"
+    do if maxLag < 1 then invalidArg (nameof maxLag) "maxLag must be >= 1"
     let e1 = EmaHlMa halfLife
     let e2 = EmaHlMa halfLife
     let ck = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)
     let mA = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)   // E_A[r_t]
     let mB = Array.init (maxLag + 1) (fun _ -> EmaHlMa halfLife)   // E_B[r_{t−k}]
-    let ring = Array.zeroCreate<float> (maxLag + 1)
+    let ring = RingBuffer<float> (maxLag + 1)
     let mutable n = 0
-    let mutable pos = 0
-    let at (back: int) = ring.[((pos - 1 - back) % (maxLag + 1) + (maxLag + 1)) % (maxLag + 1)]
+    let at (back: int) = ring.[back]
     new(halfLife, maxLag) = EwmaAutoCorrMa(halfLife, maxLag, maxLag + 4)
     member _.Count = n
     member _.MaxLag = maxLag
@@ -1385,8 +1438,7 @@ type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
                 ck.[k].Push (r * lagged)
                 mA.[k].Push r
                 mB.[k].Push lagged
-        ring.[pos] <- r
-        pos <- (pos + 1) % (maxLag + 1)
+        ring.Push r
         n <- n + 1
         e1.Push r
         e2.Push (r * r)
@@ -1402,4 +1454,4 @@ type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
         for e in ck do e.Reset()
         for e in mA do e.Reset()
         for e in mB do e.Reset()
-        Array.fill ring 0 (maxLag + 1) 0.0; n <- 0; pos <- 0
+        ring.Reset(); n <- 0
