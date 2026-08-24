@@ -187,6 +187,31 @@ type LhPosition =
       EffOpen: float             // ⭐ THE GATE: ln(V_last/V_first) / Sum_all|r|,
                                  // anchored on the opening slot. ⚠ NOT span-free.
       EffOpenSlots: int          // its span — condition on this, always (header note 2)
+      // ----- ⭐ TREND PERSISTENCE (user, 2026-08-24). All three read the SAME
+      // 30-bar slot-return stream as volat/eff, SIGNED (not |r|), and each ships
+      // an open-anchored value AND a rolling 40-slot twin.
+      //
+      // ⭐⭐ THE TWIN IS THE CONTROL, NOT A BONUS. eff_open and ddz both turned
+      // out to be substantially session clocks (rho with bars_present -0.40 and
+      // +0.51, S8c/S10b); an open-anchored statistic has that defect BY
+      // CONSTRUCTION. The 40-slot version has a fixed span, so where the two
+      // disagree the anchored one is reading the clock.
+      //
+      // ⚠ These are MEAN-CENTERED (see AutoCorrMa). Uncentered autocorrelation is
+      // biased upward by drift and would merely rediscover eff_open.
+      Ac1Open: float             // lag-1/2/3 autocorrelation of slot returns
+      Ac2Open: float
+      Ac3Open: float
+      Ac1Roll: float             // the 40-slot twins
+      Ac2Roll: float
+      Ac3Roll: float
+      Vr2Open: float             // variance ratio at q=2 / q=4. >1 trending,
+      Vr4Open: float             // =1 random walk, <1 mean-reverting.
+      Vr2Roll: float
+      Vr4Roll: float
+      SignPersOpen: float        // P(this slot return shares the previous one's
+      SignPersRoll: float        // sign), TIES EXCLUDED from both sides
+      SignRun: int               // current same-sign run, SIGNED (+up / −down)
       // ----- ⭐ THE SLOT DRAWDOWN (user's design). Measured on slot vwaps, not
       // 1s bars, so it is not a noise statistic: d_t = ln(max(V_{t-39..t}) / V_t)
       // >= 0 is this slot's log distance below its own 40-slot high, and dd_20m
@@ -471,6 +496,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let ddRunW20 = MaxMa 20                      // -> dd_20m_w20
     let ddRunW10 = MaxMa 10                      // -> dd_20m_w10
     let ddRun10m = MaxMa 20                      // -> dd_10m (20-slot reference high)
+    // ⭐ the trend-persistence block — one signed slot-return stream, six
+    // consumers, each anchored/rolling pair sharing one implementation.
+    let acOpen = AutoCorrMa(0, 3)
+    let acRoll = AutoCorrMa(40, 3)
+    let vr2Open = VarianceRatioMa(0, 2)
+    let vr4Open = VarianceRatioMa(0, 4)
+    let vr2Roll = VarianceRatioMa(40, 2)
+    let vr4Roll = VarianceRatioMa(40, 4)
+    let spOpen = SignPersistMa 0
+    let spRoll = SignPersistMa 40
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable firstSlotVwap = nan
     let mutable lastSlotVwap = nan
@@ -563,7 +598,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         | ValueSome v ->
             (match prevSlotVwap with
              | ValueSome pv when pv > 0.0 && v > 0.0 ->
-                 let ar = abs (log (v / pv))
+                 // ⚠ SIGNED for the trend stats, ABSOLUTE for volatility. Same
+                 // return, two uses; taking abs first would silently make every
+                 // persistence measure read the volatility stream instead.
+                 let r = log (v / pv)
+                 let ar = abs r
+                 acOpen.Push r; acRoll.Push r
+                 vr2Open.Push r; vr4Open.Push r; vr2Roll.Push r; vr4Roll.Push r
+                 spOpen.Push r; spRoll.Push r
                  ew40.Push ar
                  ew20.Push ar
                  slotAbs40.Push ar
@@ -711,6 +753,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                              | _ -> nan)
                           EffOpen = effOpen
                           EffOpenSlots = slotCount
+                          Ac1Open = acOpen.Rho 1
+                          Ac2Open = acOpen.Rho 2
+                          Ac3Open = acOpen.Rho 3
+                          Ac1Roll = acRoll.Rho 1
+                          Ac2Roll = acRoll.Rho 2
+                          Ac3Roll = acRoll.Rho 3
+                          Vr2Open = vr2Open.Value
+                          Vr4Open = vr4Open.Value
+                          Vr2Roll = vr2Roll.Value
+                          Vr4Roll = vr4Roll.Value
+                          SignPersOpen = spOpen.Value
+                          SignPersRoll = spRoll.Value
+                          SignRun = spOpen.Run
                           Dd20m = vv ddRun40.State
                           Dd20mW20 = vv ddRunW20.State
                           Dd20mW10 = vv ddRunW10.State

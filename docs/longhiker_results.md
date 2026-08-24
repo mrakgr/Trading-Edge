@@ -1152,3 +1152,85 @@ without a re-run.
 Same shape, sharper and noisier: 100-200 reads **+12.07** (n = 1,401) while 200-400 reads −3.08
 (n = 1,456) and 400bp+ −2.61. The drop past 200bp is more decisive on dense tape. ⚠ n per band is
 in the hundreds-to-low-thousands over seven years; treat as directional only.
+
+---
+
+# S13 — TREND PERSISTENCE: autocorrelation, variance ratio, sign persistence (user, 2026-08-24)
+
+Three new primitives in `TradingEdge.RollingMa`, all O(1) per push, each shipping an
+**open-anchored** value and a **rolling 40-slot twin**:
+
+| class | statistic |
+|---|---|
+| `AutoCorrMa(windowSize, maxLag)` | sample ACF at lags 1..maxLag |
+| `VarianceRatioMa(windowSize, q)` | `Var(q-slot ret) / (q · Var(1-slot ret))` over overlapping q-sums |
+| `SignPersistMa(windowSize)` | P(this return shares the previous one's sign), ties excluded, + the signed run |
+
+`windowSize <= 0` = anchored, `> 0` = rolling. ⭐ **One implementation per statistic, two window
+policies** — the anchored and rolling variants must compute the *same* statistic, and two separate
+implementations are one edit away from silently disagreeing, which is exactly how a "rolling twin
+control" stops being a control.
+
+## The three design decisions that matter
+
+⚠⚠ **1. Fed the SLOT-return stream, never 1s bar returns.** Autocorrelation of 1-second vwap
+returns measures **bid-ask bounce**: strongly negative, magnitude a function of spread/price — a
+liquidity feature wearing a trend costume, and precisely the confound class that has cost this
+study three retractions. The 30-bar slot returns are the honest level (the F7 vol-lock finding).
+
+⚠⚠ **2. MEAN-CENTERED, not optional.** The uncentered form `Σ r_t·r_{t−k} / Σ r_t²` is biased
+upward by the series' **drift**, so on a trending name it reads high even for i.i.d. returns — it
+would simply rediscover `eff_open` under a new name. Centering is what makes this a statement about
+**persistence** rather than about **direction**, and therefore the only version that can add
+anything.
+
+⚠ **3. SIGNED for the trend stats, ABSOLUTE for volatility** — the same slot return, two uses.
+Taking `abs` first would silently make every persistence measure read the volatility stream.
+
+## Validation
+
+`TradingEdge.RollingMa/TrendStats_Test.fsx` compares each class **at every push** against a naive
+O(n) recomputation over exactly the points it claims to hold, both window policies, on a stream
+built to be nasty: non-zero drift, a planted AR(1), exact zeros (the tie path), sign flips.
+
+```
+checks           47,948
+worst rel err    autocorr 4.3e-15   varratio 1.9e-14   signpersist 0.0e+00
+recovered AR(1)  rho1 0.3557 (planted 0.35)   VR(2) 1.356   VR(4) 1.713
+i.i.d. CONTROL   rho1 +0.0066   VR(2) 1.0066   signpersist 0.5031   (expect 0, 1, 0.5)
+```
+
+⭐ The i.i.d. control is the part that matters: without it, a bug that returns "trending" for
+everything passes every other check.
+
+💀 The test caught one real bug: `SignPersistMa` windowed over **pairs** while its twins window over
+**returns**, so its "last 40" was a different 40 (W returns form W−1 pairs). Off by 2.3e-2 — small
+enough to have shipped unnoticed.
+
+## ⭐⭐ First measurement (2026-08-20, 323,368 trips): VR does NOT agree with eff_open
+
+| pair | ρ |
+|---|---|
+| `eff_open` × `vr2_open` | **−0.098** |
+| `eff_open` × `vr4_open` | **−0.147** |
+| `eff_open` × `ac1_open` | −0.119 |
+| `eff_open` × `sign_pers_open` | +0.303 |
+| `vr2_open` × `ac1_open` | **+0.898** |
+| `eff_open` × `eff_20m` | +0.379 (for scale) |
+
+⭐ **The variance ratio is essentially orthogonal to the efficiency ratio — very slightly
+NEGATIVE.** That is the best possible answer to "will it agree with eff": it is a genuinely new
+axis, not a restatement. The reason is that the two measure different things — `eff` is
+displacement ÷ path length (direction *and* smoothness), while VR asks whether returns **predict
+each other**. A steady low-noise drift is highly efficient with near-zero autocorrelation: pure
+drift, no persistence.
+
+⚠ `vr2` and `ac1` correlate **0.898** — near-twins, as theory requires (VR(2) ≈ 1 + ρ₁). Prefer VR:
+same information, less noise. `sign_pers` is a third, partly independent measure (0.30 with both).
+
+Population means on the gated book: `ac1_open` **+0.187**, `vr2_open` **1.108**, `sign_pers` **0.588**
+— i.e. an `eff_open >= 0.3` universe genuinely is positively autocorrelated, as it should be.
+
+⚠ Untested: everything above is one day and the correlations only. The features go into base pass
+**v2** (`data/longhiker_trips_v2/`, 13 new columns) and must clear the standing three controls —
+year table, production exit, time bucket — before any of them is called a feature.

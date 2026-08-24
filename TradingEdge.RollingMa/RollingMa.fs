@@ -1004,3 +1004,245 @@ type OlsRoll<'T>(windowSize: int) =
 type FloatOls(windowSize: int) =
     inherit OlsRoll<float>(windowSize)
     override _.Project v = v
+
+// ===========================================================================
+// ⭐ TREND-PERSISTENCE STATISTICS (user, 2026-08-24) — autocorrelation, the
+// variance ratio, and sign persistence over a return stream. All O(1) per push.
+//
+// ⭐⭐ ONE CLASS PER STATISTIC, TWO WINDOW POLICIES. `windowSize <= 0` means
+// ANCHORED (growing from the last Reset); `windowSize > 0` means ROLLING over
+// the last `windowSize` returns. They share one implementation deliberately: the
+// anchored and rolling variants MUST compute the same statistic, and two
+// separate implementations are one edit away from silently disagreeing — which
+// is precisely how a "rolling twin control" stops being a control.
+//
+// ⚠⚠ FEED THESE THE SLOT-RETURN STREAM, NOT 1s BAR RETURNS. Autocorrelation of
+// 1-second vwap returns measures BID-ASK BOUNCE: it is strongly negative, and
+// its magnitude is a function of spread/price — a liquidity feature wearing a
+// trend costume. The 30-bar slot returns (the stream volat_20m and the eff
+// ratios already consume) are the honest level; sub-30s is microstructure (the
+// F7 vol-lock finding).
+// ===========================================================================
+
+/// ⭐ Sample autocorrelation at lags 1..maxLag.
+///
+/// ⚠⚠ MEAN-CENTERED, AND THAT IS NOT OPTIONAL. The uncentered form
+/// `Σ r_t·r_{t−k} / Σ r_t²` is biased upward by the series' DRIFT, so on a
+/// trending name it reads high even for i.i.d. returns — it would simply
+/// rediscover the efficiency ratio under a new name. Centering is what makes
+/// this a statement about PERSISTENCE rather than about DIRECTION, and therefore
+/// the only version that can add anything to eff_open.
+///
+/// Convention: the standard ACF estimator — the numerator runs over the m−k
+/// available pairs, the denominator over all m points. nan below k+3 points.
+[<Sealed>]
+type AutoCorrMa(windowSize: int, maxLag: int) =
+    do if maxLag < 1 then invalidArg "maxLag" "maxLag must be >= 1"
+       if windowSize > 0 && windowSize <= maxLag then
+           invalidArg "windowSize" "a rolling window must be longer than maxLag"
+    let anchored = windowSize <= 0
+    /// Anchored only needs enough history to FORM the products; rolling needs the
+    /// whole window so departing terms can be removed exactly.
+    let cap = if anchored then maxLag + 1 else windowSize
+    let ring = Array.zeroCreate<float> cap
+    /// The first maxLag values ever pushed — the anchored window's left edge,
+    /// which the ring is too short to hold.
+    let firstVals = Array.zeroCreate<float> maxLag
+    let ck = Array.zeroCreate<float> (maxLag + 1)
+    let mutable n = 0
+    let mutable pos = 0
+    let mutable s1 = 0.0
+    let mutable s2 = 0.0
+    /// The value pushed `back` steps ago (0 = most recent).
+    let at (back: int) = ring.[((pos - 1 - back) % cap + cap) % cap]
+
+    member _.Count = n
+    member _.WindowSize = windowSize
+    member _.MaxLag = maxLag
+    /// Points currently inside the active window.
+    member _.Span = if anchored then n else min n windowSize
+
+    member _.Push (r: float) =
+        // ⚠ EVICT FIRST, and read every departing term out of the ring BEFORE the
+        // new value overwrites a slot.
+        if not anchored && n >= windowSize then
+            let oldest = at (windowSize - 1)
+            s1 <- s1 - oldest
+            s2 <- s2 - oldest * oldest
+            for k in 1 .. maxLag do
+                if windowSize - 1 - k >= 0 then
+                    ck.[k] <- ck.[k] - at (windowSize - 1 - k) * oldest
+        if n < maxLag then firstVals.[n] <- r
+        for k in 1 .. maxLag do
+            if n >= k then ck.[k] <- ck.[k] + r * at (k - 1)
+        ring.[pos] <- r
+        pos <- (pos + 1) % cap
+        n <- n + 1
+        s1 <- s1 + r
+        s2 <- s2 + r * r
+
+    /// Autocorrelation at lag k, or nan while cold / on a flat window.
+    member this.Rho (k: int) : float =
+        if k < 1 || k > maxLag then nan else
+        let m = this.Span
+        if m < k + 3 then nan else
+        let fm = float m
+        let den = s2 - s1 * s1 / fm
+        if not (den > 0.0) then nan else
+        let mean = s1 / fm
+        let full = not anchored && n >= windowSize
+        let mutable sumFirst = 0.0
+        let mutable sumLast = 0.0
+        for j in 0 .. k - 1 do
+            sumLast  <- sumLast  + at j
+            sumFirst <- sumFirst + (if full then at (m - 1 - j) else firstVals.[j])
+        // Σ(r_t−μ)(r_{t−k}−μ) = Σ r_t r_{t−k} − μ(A_k + B_k) + (m−k)μ²
+        let aK = s1 - sumFirst      // Σ r_t over the k+1..m tail
+        let bK = s1 - sumLast       // Σ r_{t−k} over the same pairs = the 1..m−k head
+        (ck.[k] - mean * (aK + bK) + float (m - k) * mean * mean) / den
+
+    member _.Reset () =
+        Array.fill ring 0 cap 0.0
+        Array.fill firstVals 0 maxLag 0.0
+        Array.fill ck 0 (maxLag + 1) 0.0
+        n <- 0; pos <- 0; s1 <- 0.0; s2 <- 0.0
+
+/// ⭐ The VARIANCE RATIO (Lo-MacKinlay shape): Var(q-period return) /
+/// (q · Var(1-period return)) over OVERLAPPING q-sums.
+///
+///   VR > 1  → positively autocorrelated / TRENDING
+///   VR = 1  → random walk
+///   VR < 1  → mean-reverting
+///
+/// ⭐ WHY THIS AND NOT JUST ρ₁: the variance ratio aggregates lags 1..q−1 into a
+/// single number with weights that fall off linearly, so it is far less noisy
+/// than any single-lag autocorrelation on a short session sample. It is also the
+/// standard test statistic for exactly the question being asked.
+///
+/// ⚠ This is the UNADJUSTED overlapping estimator, using each series' own sample
+/// mean. Lo-MacKinlay's heteroskedasticity-robust correction is NOT applied —
+/// this is a feature to BAND on, not a hypothesis test, and the correction is a
+/// monotone rescaling that would not change any ordering. Do not quote it as a
+/// significance test.
+[<Sealed>]
+type VarianceRatioMa(windowSize: int, q: int) =
+    do if q < 2 then invalidArg "q" "q must be >= 2"
+       if windowSize > 0 && windowSize <= q then
+           invalidArg "windowSize" "a rolling window must be longer than q"
+    let anchored = windowSize <= 0
+    let cap = if anchored then q else windowSize
+    let ring = Array.zeroCreate<float> cap
+    let mutable n = 0
+    let mutable pos = 0
+    let mutable s1 = 0.0        // Σ r      over the active window
+    let mutable s2 = 0.0        // Σ r²
+    let mutable t1 = 0.0        // Σ R      over the active window's overlapping q-sums
+    let mutable t2 = 0.0        // Σ R²
+    let mutable mq = 0          // how many q-sums are in it
+    let at (back: int) = ring.[((pos - 1 - back) % cap + cap) % cap]
+
+    member _.Count = n
+    member _.WindowSize = windowSize
+    member _.Q = q
+    member _.Span = if anchored then n else min n windowSize
+
+    member _.Push (r: float) =
+        if not anchored && n >= windowSize then
+            let oldest = at (windowSize - 1)
+            s1 <- s1 - oldest
+            s2 <- s2 - oldest * oldest
+            // the q-sum that leaves is the one ENDING q−1 steps after the oldest
+            if windowSize >= q then
+                let mutable rOld = 0.0
+                for j in 0 .. q - 1 do rOld <- rOld + at (windowSize - 1 - j)
+                t1 <- t1 - rOld
+                t2 <- t2 - rOld * rOld
+                mq <- mq - 1
+        ring.[pos] <- r
+        pos <- (pos + 1) % cap
+        n <- n + 1
+        s1 <- s1 + r
+        s2 <- s2 + r * r
+        if n >= q then
+            let mutable rNew = 0.0
+            for j in 0 .. q - 1 do rNew <- rNew + at j
+            t1 <- t1 + rNew
+            t2 <- t2 + rNew * rNew
+            mq <- mq + 1
+
+    /// nan while cold or on a degenerate window.
+    member this.Value : float =
+        let m = this.Span
+        if m < q + 3 || mq < 2 then nan else
+        let var1 = (s2 - s1 * s1 / float m) / float (m - 1)
+        let varq = (t2 - t1 * t1 / float mq) / float (mq - 1)
+        if not (var1 > 0.0) then nan else varq / (float q * var1)
+
+    member _.Reset () =
+        Array.fill ring 0 cap 0.0
+        n <- 0; pos <- 0; s1 <- 0.0; s2 <- 0.0; t1 <- 0.0; t2 <- 0.0; mq <- 0
+
+/// ⭐ SIGN PERSISTENCE: the fraction of consecutive return pairs that share a
+/// sign — the crudest and most robust trend statistic there is, with no scale and
+/// no distributional assumption.
+///
+/// ⚠ TIES ARE EXCLUDED FROM BOTH SIDES. A pair counts only when `r_{t−1}·r_t ≠ 0`;
+/// a zero slot return is neither agreement nor disagreement. Scoring ties as
+/// disagreement is the same mistake as scoring a flat trade as a loss, and the
+/// tie rate is not constant across tape density (measured 0.30% dense vs 2.42%
+/// sparse), so it would smuggle a liquidity gradient into a trend feature.
+[<Sealed>]
+type SignPersistMa(windowSize: int) =
+    let anchored = windowSize <= 0
+    /// ⚠ `windowSize` counts RETURNS, matching AutoCorrMa and VarianceRatioMa —
+    /// so the pair window is one SHORTER, because W returns form W−1 pairs.
+    /// Windowing over pairs instead silently makes this class's "last 40" a
+    /// different 40 from its twins', which is exactly the drift a shared window
+    /// convention exists to prevent (caught by the oracle test at 2.3e-2).
+    let capPairs = if anchored then 1 else max 1 (windowSize - 1)
+    /// Per-pair outcome ring: +1 concordant, -1 discordant, 0 tie.
+    let outcomes = Array.zeroCreate<sbyte> capPairs
+    let mutable pairs = 0        // pairs formed since Reset
+    let mutable pos = 0
+    let mutable nCon = 0
+    let mutable nDis = 0
+    let mutable prev = nan
+    let mutable run = 0          // signed: +k an up-run of k, −k a down-run
+
+    member _.Pairs = pairs
+    member _.WindowSize = windowSize
+    /// Current same-sign run length, SIGNED. 0 = no run (first return, or a tie).
+    member _.Run = run
+
+    member _.Push (r: float) =
+        if not (Double.IsNaN prev) then
+            let o = if prev * r > 0.0 then 1y elif prev * r < 0.0 then -1y else 0y
+            if not anchored && pairs >= capPairs then
+                match outcomes.[pos] with
+                | 1y -> nCon <- nCon - 1
+                | -1y -> nDis <- nDis - 1
+                | _ -> ()
+            outcomes.[pos] <- o
+            pos <- (pos + 1) % capPairs
+            pairs <- pairs + 1
+            match o with
+            | 1y -> nCon <- nCon + 1
+            | -1y -> nDis <- nDis + 1
+            | _ -> ()
+            // the run tracks the RAW stream, not the window — it is a "right now"
+            // reading and has no meaningful windowed form
+            if o = 1y then run <- run + (if r > 0.0 then 1 else -1)
+            elif o = -1y then run <- (if r > 0.0 then 1 else -1)
+            else run <- 0
+        elif r > 0.0 then run <- 1
+        elif r < 0.0 then run <- -1
+        prev <- r
+
+    /// P(next return shares the previous one's sign), ties excluded. nan below 4 pairs.
+    member _.Value : float =
+        let d = nCon + nDis
+        if d < 4 then nan else float nCon / float d
+
+    member _.Reset () =
+        Array.fill outcomes 0 capPairs 0y
+        pairs <- 0; pos <- 0; nCon <- 0; nDis <- 0; prev <- nan; run <- 0

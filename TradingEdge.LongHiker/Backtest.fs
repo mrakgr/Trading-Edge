@@ -167,6 +167,10 @@ CREATE TABLE trips (
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     volat_20m DOUBLE, volat_10m DOUBLE, volat_open DOUBLE, slot_count INTEGER,
     eff_20m DOUBLE, eff_10m DOUBLE, eff_open DOUBLE, eff_open_slots INTEGER,
+    ac1_open DOUBLE, ac2_open DOUBLE, ac3_open DOUBLE,
+    ac1_roll DOUBLE, ac2_roll DOUBLE, ac3_roll DOUBLE,
+    vr2_open DOUBLE, vr4_open DOUBLE, vr2_roll DOUBLE, vr4_roll DOUBLE,
+    sign_pers_open DOUBLE, sign_pers_roll DOUBLE, sign_run INTEGER,
     dd_20m DOUBLE, dd_20m_w20 DOUBLE, dd_20m_w10 DOUBLE, dd_10m DOUBLE,
     dd_now_20m DOUBLE, dd_now_10m DOUBLE,
     open_px DOUBLE, sess_hi DOUBLE, sess_lo DOUBLE, sess_vwap DOUBLE,
@@ -257,6 +261,10 @@ type TripSink(outDir: string) =
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.Volat20m; f p.Volat10m; f p.VolatOpen; i p.SlotCount
             f p.Eff20m; f p.Eff10m; f p.EffOpen; i p.EffOpenSlots
+            f p.Ac1Open; f p.Ac2Open; f p.Ac3Open
+            f p.Ac1Roll; f p.Ac2Roll; f p.Ac3Roll
+            f p.Vr2Open; f p.Vr4Open; f p.Vr2Roll; f p.Vr4Roll
+            f p.SignPersOpen; f p.SignPersRoll; i p.SignRun
             f p.Dd20m; f p.Dd20mW20; f p.Dd20mW10; f p.Dd10m
             f p.DdNow20m; f p.DdNow10m
             f p.OpenPx; f p.SessHi; f p.SessLo; f p.SessVwap
