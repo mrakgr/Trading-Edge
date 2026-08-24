@@ -1088,3 +1088,67 @@ this universe, and 2026 reads +1.64, but it is the first cell in the right order
 
 ⚠ Not yet done: costs, the iso-trip control against a random subsample of the same size, and the
 volat sweep (the user's stated intent to vary that axis — 40-80bp is the focus band, not a result).
+
+---
+
+# S12 — FAST vs SLOW RISES INTO THE 20m HIGH (user, 2026-08-24)
+
+`speed_1m = signal_vwap / vwap_60_prev − 1`, on the **new-20m-high** trips only, under the standing
+defaults. ⚠ Computed from `signal_vwap`, **not** `entry_px` — `entry_px` is the denominator of
+`r30s`, so banding on it would share a term with the outcome and could manufacture a gradient.
+
+Distribution on these trips (bp): p05 66 · p25 114 · **p50 158** · p75 212 · p95 326
+(`gap_60 < 30`). These are *fast* moves by construction — a new 20m high in a smoothly trending
+name.
+
+## S12a — Wider cut (`gap_60 < 30`), where the n is real
+
+| speed_1m | n | med r30s | mean r30s | win% ex-ties | med r5m |
+|---|---|---|---|---|---|
+| 0-25bp | 25 | +20.58 | +25.90 | 68.00 | +41.14 |
+| 25-50 | 513 | +4.97 | +3.95 | 54.71 | −10.93 |
+| 50-100 | 4,958 | +5.19 | +5.72 | 54.67 | −0.28 |
+| **100-200** | **16,843** | **+6.07** | +6.49 | **55.06** | −3.71 |
+| 200-400 | 9,477 | +4.22 | +5.75 | 52.80 | −10.17 |
+| **400bp+** | 1,018 | +9.24 | +34.20 | **52.02** | **−58.86** |
+
+## ⚠ S12b — The hypothesis is HALF right
+
+The prediction was that slow rises win handily. **They do not** — the shape is another **inverted U**,
+not a ramp:
+
+- **Very fast (>200bp/1m) IS worse** — win rate falls 55.06 → 52.80 → 52.02, and the 5-minute
+  column collapses to **−58.86 bp** at 400bp+. That half of the prediction holds.
+- **But slow is not better than moderate.** 25-50 and 50-100 read +4.97/+5.19 against **+6.07** for
+  100-200, and the win rates are flat across all three. The optimum sits in the middle.
+
+⭐ **The 100-200bp band is the only one positive in all seven years** (+6.48 / +6.99 / +3.56 / +7.71
+/ +10.45 / +3.38 / +3.58) and it holds 16,843 of the 29,273 trips. 50-100 is 5/7, 200-400 is 5/7,
+25-50 is 5/7. The time control preserves the same mild inverted U inside the 09:45-10:00 bucket
+(5.99 / 5.06 / **6.42** / 3.96 / 2.73).
+
+## ⭐⭐ S12c — The MR intuition is right, but at the WRONG HORIZON
+
+Read the `med r5m` column against `med r30s`:
+
+| speed_1m | r30s | r5m | give-back |
+|---|---|---|---|
+| 50-100 | +5.19 | −0.28 | −5.5 |
+| 100-200 | +6.07 | −3.71 | −9.8 |
+| 200-400 | +4.22 | −10.17 | −14.4 |
+| 400bp+ | +9.24 | **−58.86** | **−68.1** |
+
+**A fast rise still continues for 30 seconds — and then gets faded, in proportion to how fast it
+was.** That reconciles the FlushFader instinct with this data exactly: the fade is real and it
+scales with speed, but it lives at the 5-minute horizon, not the 30-second one. At the production
+exit even the 400bp+ rises are positive.
+
+⚠ This makes the exit the whole system. The faster the entry, the shorter the window in which the
+edge exists — a speed-dependent hold is the obvious next thing to test, and `fwd_vwap_*` answers it
+without a re-run.
+
+## S12d — On the strict cut (`gap_60 < 4`, n = 3,561)
+
+Same shape, sharper and noisier: 100-200 reads **+12.07** (n = 1,401) while 200-400 reads −3.08
+(n = 1,456) and 400bp+ −2.61. The drop past 200bp is more decisive on dense tape. ⚠ n per band is
+in the hundreds-to-low-thousands over seven years; treat as directional only.
