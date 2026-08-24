@@ -383,7 +383,7 @@ drawdown bucket — the tail is not tradeable regardless.
 
 # S5 — THE FULL POST-2020 BASE PASS (2026-08-23)
 
-`data/longhiker_trips_v1/y{2020..2026}/` — **387,833,933 trips** over **1,164,334 candidate
+`data/longhiker_trips_v1/y{2020..2026}/` — **387,832,933 trips** over **1,164,334 candidate
 ticker-days**, 119 GB, 73 min. Raw PF is 0.996-1.015 every single year: a raw state sampler is a
 coin flip, as it should be. Everything below is the clean book, `signal_sec >= 35100`
 (342.9M trips).
@@ -1234,3 +1234,86 @@ Population means on the gated book: `ac1_open` **+0.187**, `vr2_open` **1.108**,
 ⚠ Untested: everything above is one day and the correlations only. The features go into base pass
 **v2** (`data/longhiker_trips_v2/`, 13 new columns) and must clear the standing three controls —
 year table, production exit, time bucket — before any of them is called a feature.
+
+---
+
+# S14 — THE VARIANCE RATIO ON THE 20m-HIGH RUNG (2026-08-24)
+
+Base pass **v2** (`data/longhiker_trips_v2/`, 387,832,933 trips — ⚠ trip counts identical to v1 in
+all seven years, as adding recorded columns must be). Study file `longhiker_study_v3.parquet`
+(20 GB). ⚠ v1's corpus was deleted only after that identity check.
+
+## S14a — On the whole default population, VR says almost nothing
+
+Standing defaults (`entry_px>1`, `eff_open>0.70`, `gap_60<30`, `volat 40-80bp`), `vr4_roll` bands:
+median `r30s` **1.12 / 0.19 / 0.84 / 1.02 / 1.75 / 0.68**, win% 51.16 → 50.80. Flat, no year
+stability, no time gradient. **On its own, VR is not a feature here.**
+
+## ⭐⭐ S14b — On the NEW-20m-HIGH rung it is the strongest thing in the study
+
+Same filter **plus `secs_since_hi_1200 = 0`** (the S11 rung):
+
+| vr4_roll | n | med r30s | mean r30s | win% ex-ties | med r5m |
+|---|---|---|---|---|---|
+| < 0.7 | 12,870 | +3.19 | +1.72 | 52.76 | −2.36 |
+| 0.7-0.9 | 5,149 | +2.80 | +3.10 | 52.50 | −9.49 |
+| 0.9-1.1 | 4,967 | +7.04 | +14.08 | 55.63 | −5.82 |
+| **1.1-1.3** | 3,621 | **+11.79** | +14.68 | **57.67** | −2.56 |
+| **1.3-1.6** | 3,389 | **+10.08** | +14.96 | **57.50** | **+0.46** |
+| 1.6+ | 2,838 | +5.07 | +6.26 | 53.63 | **−16.91** |
+
+⭐ A clean **inverted U peaking at VR ∈ [1.1, 1.6]**: median 3.19 → **11.79** (3.7×) and win rate
+52.76% → **57.67%** (+4.9pp). And `1.3-1.6` is the **only cell in this entire study positive at
+5 minutes** (+0.46) while `1.6+` is −16.91 — the prediction that bursts overshoot, confirmed.
+
+## S14c — The controls
+
+**TIME** ✅ — inside 09:45-10:00: 3.45 / 6.36 / **11.49** / 5.59. The shape survives.
+
+**SUBSTITUTION vs `ac1_roll`** ✅ — VR keeps its gradient inside **every** ρ₁ band:
+
+| ac1_roll | VR<0.9 | 0.9-1.1 | **1.1-1.6** | 1.6+ |
+|---|---|---|---|---|
+| < 0.05 | 2.06 | 10.60 | **15.01** | −30.78 |
+| 0.05-0.2 | 4.68 | 1.44 | **9.27** | 3.06 |
+| 0.2-0.35 | 5.17 | 7.88 | **10.71** | 6.46 |
+| 0.35+ | 2.80 | 13.28 | **10.72** | 5.70 |
+
+The mirror table is much weaker — ρ₁'s own gradient inside a fixed VR band is noisy and small.
+⭐ **VR(4) is the load-bearing member of the pair, not ρ₁**, which is exactly what the identity
+predicts: VR(4) carries ρ₂ and ρ₃ that ρ₁ cannot see.
+
+**YEAR** ⚠⚠ — passes six years and **breaks in the seventh**:
+
+| vr4_roll | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | **2026** |
+|---|---|---|---|---|---|---|---|
+| < 0.9 | +1.46 | +2.15 | +1.05 | +2.16 | +6.29 | +5.68 | **+3.45** |
+| 0.9-1.1 | +9.45 | +6.53 | +10.71 | +2.24 | +10.02 | +6.00 | **−1.66** |
+| **1.1-1.6** | **+14.18** | **+11.17** | **+17.21** | **+17.48** | **+13.25** | **+9.16** | **−0.12** |
+| 1.6+ | +5.31 | +8.96 | +4.09 | +5.36 | +15.59 | −0.25 | +0.23 |
+
+win% ex-ties for the 1.1-1.6 band: **60.0 / 56.7 / 60.9 / 61.3 / 60.1 / 56.2 / 49.9**.
+
+💀💀 **In 2026 the ordering INVERTS** — the low-VR band becomes the best and the peak band goes
+negative on both median and win rate. n = 910 for that cell, comparable to other years, so it is
+not a sample-size artifact.
+
+## ⚠⚠ S14d — 2026 is now THE question, not a footnote
+
+Every feature in this study is weakest in 2026 (S7b: +2.11 → +0.15; S11c: H20m +5.68 → +1.64;
+S12: the 100-200bp speed band +6.48 → +3.58). **VR is the first one that does not merely weaken but
+REVERSES.**
+
+Three candidate explanations, none yet tested:
+1. **Regime** — 2026 differs structurally and the effect returns.
+2. **Partial year** — the corpus ends 2026-08-21, so "2026" is ~8 months, all of it winter/spring.
+   ⭐ Testable immediately: split 2025 the same way and see whether Jan-Aug 2025 also inverts.
+3. **Competition** — the effect is being arbitraged out, and 2026 is what live trading looks like.
+
+⚠ Until that is settled, **nothing here goes into a spec.** A 57.7% win rate at 11.8 bp across
+2020-2025 is by a wide margin the best cell LongHiker has produced — and it is worth exactly
+nothing if 2026 is the truth rather than the exception.
+
+⭐ Note what did NOT break: `ac1_roll` in [0.2, 0.35] is **7/7 positive including 2026** (+13.95 /
++6.24 / +4.83 / +9.18 / +11.93 / +8.73 / **+5.30**). Weaker than VR's best cell in 2020-2025, but it
+is the only persistence measure still standing in the most recent year.
