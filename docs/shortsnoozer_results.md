@@ -2051,7 +2051,21 @@ and it is now confirmed against a named, extreme, out-of-sample disaster.
 
 ## §5 ⚠ Where the real tail actually lives — it is NOT the thin names
 
-Worst 8 shorts in the built book at `chg60k59 > +6%`, entering on the 15:59 limit:
+⚠⚠ **TWO different sparsity counts appear in this section — do not confuse them:**
+
+| | window | out of | role |
+|---|---|---|---|
+| `n_bars_1s` (§2) | [09:30, 09:45) | 900 | **universe gate**, `>= 200` — what excluded ZJYL |
+| `gaps = 3600 - nb60k59` (§4, §5) | (15:00, 15:59] | 3,600 | **signal feature**, `>= 1500` — the tail disqualifier |
+
+⚠ The denominator is 3,600 while `nb60k59` stops at **15:59** — the `k59` convention amputates the
+final minute to keep the signal knowable at the fill, so every `gaps` reading is inflated by up to
+60. Constant across rows, so the thresholds absorb it, but it is a real off-by-a-minute in the
+feature definition rather than a rounding.
+
+Worst 8 shorts in the built book at `chg60k59 > +6%`, entering on the 15:59 limit. **`gaps` here is
+the LAST-HOUR count** — these names were dense at the moment the short goes on; all of them cleared
+the morning universe gate by construction:
 
 | ticker | date | `chg60k59` | `gaps` | overnight |
 |---|---|---|---|---|
