@@ -1971,3 +1971,111 @@ re-running the baseline.**
 
 See `data/intraday_1s_slim/PRECISION.txt` and the matching note at the end of
 `flushfader_results.md`.
+
+---
+
+# ⭐⭐ S43db (2026-08-25) — THE ZJYL AUDIT: which gate actually stops a short squeeze?
+
+⭐ USER: *"ZJYL on 18th Dec 2023 spiked up over 10x on a massive short squeeze before closing
+up 260%. It was a very illiquid stock, so I am wondering if the ShortSnoozer system is using
+the standard MR candidate table... That would have filtered out that stock handily."*
+
+A worked case study on the single worst-shaped name available. **Answer: yes it is filtered —
+but not by the gate you would expect, and two of the three surviving filters would have
+ENCOURAGED the trade.**
+
+## §1 The universe: yes, `mr_candidate_1s_v2`
+
+`scripts/equity/snoozer_build_cache.py:145` — `FROM db.mr_candidate_1s_v2 u JOIN lh l ...`.
+So the short book inherits both (A') gates: **`dv_0945_tape >= $2M`** and
+**`n_bars_1s >= 200`** over [09:30, 09:45).
+
+ZJYL appears in `mr_candidate_1s_v2` on **4 days in its entire history** — 2024-01-02,
+2024-02-08, 2024-02-13, 2026-08-10. **None in December 2023.** The episode is out of the
+universe.
+
+## §2 ⚠⚠ The DOLLAR floor did NOT do it. The GAP COUNT did.
+
+| date | close chg | `dv_0945` | vs $2M | `n_bars_1s` | vs 200 | in universe |
+|---|---|---|---|---|---|---|
+| 2023-12-15 | −17.6% | $0.06M | ❌ | 12 | ❌ | no |
+| **2023-12-18** | **+263.7%** | **$2.78M** | **✅ PASSES** | **83** | ❌ | **no** |
+| 2023-12-19 | +11.8% | $2.33M | **✅ PASSES** | 134 | ❌ | no |
+| 2023-12-22 | +94.4% | $3.06M | **✅ PASSES** | 156 | ❌ | no |
+| 2023-12-29 | +42.6% | $1.96M | ❌ (just) | 299 | ✅ | no |
+| 2024-01-02 | — | $2.14M | ✅ | 203 | ✅ | **YES** |
+
+⭐⭐ **On all three dangerous days the $2M dollar floor was cleared.** A squeeze concentrates
+enormous dollars into a handful of seconds — $2.78M through **83 traded seconds** of the
+opening 900. The only gate that saw it was the **gap count**, which measures *how many
+seconds traded at all* and is by construction blind to how big the prints were.
+
+⭐ This is a direct vindication of **S43u**, which replaced `neff` with the gap count as the
+(A') gate. A dollar-volume floor is exactly the wrong instrument here — the squeeze *is* the
+dollars. The right question is "did this name trade continuously?", and only the gap count
+asks it.
+
+## §3 The signal never fired anyway — and for an alarming reason
+
+1s tape, 2023-12-18: **`p1500 = 25.30`, `p1559 = 25.30`, `p1600 = 109.62`.**
+
+`gaps_lasthr = 3599 of 3600` — **exactly one second of the final hour printed.** The name was
+halt-locked all afternoon (day range on the 1s tape: 11.21 → 339.81) and the 4× print landed
+at 16:00, *after* the `k59` decision point. So `chg60k59 = 0.00%` and the `> +6%` trigger was
+never armed. Overnight, 16:00 → next open: **+72.9%** — i.e. a **−73% short** had it fired.
+
+⚠⚠ **The protection here is luck, not design.** `chg60k59` read a **stale price**: the last
+print before 15:59 was hours old. Reverse the accident — a halted name whose last stale print
+happens to sit +10% — and the signal arms on a price that no longer exists, on a name you
+cannot cover. **`nb_lastmin` / `nb60k59` are in the cache; a staleness floor on the last hour
+is not yet in any spec.** That is a real open hole.
+
+## §4 The days that WOULD have fired, and what each filter says
+
+Absent the universe filter, two December days clear `chg60k59 > +6%`:
+
+| date | `chg60k59` | overnight (short P&L) | `gaps` (want ≥1500) | `volat_open30` (want <40bp) |
+|---|---|---|---|---|
+| 2023-12-22 | **+10.4%** | **−11.8%** ❌ | 3,384 ✅ *takes it* | **258 bp** ❌ *vetoes* |
+| 2023-12-29 | +6.1% | +5.2% ✅ | 3,368 ✅ *takes it* | 195 bp ❌ *vetoes* |
+
+⚠⚠ **The density filter is on the WRONG side of this episode.** ShortSnoozer wants thin tape,
+and ZJYL was maximally thin *precisely when it was most dangerous* — 3,599 gaps on the spike
+day itself. Shape agrees with density (last-hour $0.75M / open-15m $3.06M = 0.25, deep in the
+short-favouring low band). **Two of the three features would have bought the trade.**
+
+⭐⭐ **`volat_open30 < 40bp` is the only feature that rules the whole episode out** — and it
+does so emphatically: every ZJYL day in December 2023 reads 60-653 bp, except 2023-12-01 at
+28.6 bp. This is the tail disqualifier doing exactly the job §S43cv/§S43cw credited it with,
+and it is now confirmed against a named, extreme, out-of-sample disaster.
+
+## §5 ⚠ Where the real tail actually lives — it is NOT the thin names
+
+Worst 8 shorts in the built book at `chg60k59 > +6%`, entering on the 15:59 limit:
+
+| ticker | date | `chg60k59` | `gaps` | overnight |
+|---|---|---|---|---|
+| TOP | 2023-04-27 | +19.3% | **864** | **−245%** |
+| BNAI | 2026-01-23 | +9.3% | **576** | −234.6% |
+| AHPI | 2020-02-27 | +53.7% | 2,004 | −167.6% |
+| OCGN | 2020-12-22 | +14.4% | **181** | −154.6% |
+| CING | 2023-12-27 | +10.0% | 1,820 | −152.1% |
+| GME | 2021-01-26 | +8.4% | **372** | −146.5% |
+| GNS | 2023-01-19 | +14.0% | **448** | −145.3% |
+| KNW | 2025-06-06 | +60.9% | 1,021 | −125.1% |
+
+⭐ **6 of the 8 are DENSE** (gaps < 1,500) — that is why `gaps >= 1500` is a tail
+disqualifier at all. The ruinous squeezes in the *investable* universe are liquid, crowded
+names (GME 2021-01-26 is the archetype), not ZJYL-shaped shells. **ZJYL is the disaster the
+universe filter handles; GME is the disaster the density filter handles.** They are different
+populations and it takes both.
+
+## §6 Verdict
+
+Three independent things would have to fail at once for the ZJYL episode to reach the book:
+the **gap-count universe gate** (the one that actually caught it), the **`+6%` signal** (which
+missed by accident of a stale halt price), and **`volat_open30 < 40bp`** (which vetoes it on
+merit). ⚠ The dollar floor, the density filter and shape all fail to protect — the first is
+blind by construction, the other two actively favour the trade.
+
+⏭ **Open item:** a last-hour staleness / halt guard (`nb60k59` floor), which no spec carries.
