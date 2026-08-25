@@ -181,7 +181,22 @@ let EX_SPECS : (string * ExitKind)[] =
        "nohi1200_5b",   NoHiBars(1200, 5)
        "nohi1200_10b",  NoHiBars(1200, 10)
        "nohi1200_15b",  NoHiBars(1200, 15)
-       "nohi1200_20b",  NoHiBars(1200, 20) |]
+       "nohi1200_20b",  NoHiBars(1200, 20)
+       // ⭐⭐ 30 = THE TIMESTOP'S OWN LENGTH (user, 2026-08-25). Without it every
+       // trail comparison is confounded by HORIZON: "trail at 5-20 bars" against
+       // "fixed at 30 bars" cannot separate the rule from the length.
+       //   nohi60_30b   — the genuine trail AT the timestop's length: rule-vs-fixed
+       //                  with the horizon held constant. This is the comparison.
+       //   nohi1200_30b — degenerates to a 30-bar timestop, so it should closely
+       //                  REPRODUCE the engine's own exit. ⭐ A free self-check on
+       //                  the whole mark machinery; if it disagrees, something is
+       //                  wrong with the cursors, not with the strategy.
+       "nohi60_30b",    NoHiBars(60, 30)
+       "nohi1200_30b",  NoHiBars(1200, 30)
+       // ⭐ and one rung PAST the timestop, so the sweep can show a PEAK rather
+       // than bottoming out at its own boundary
+       "nohi60_40b",    NoHiBars(60, 40)
+       "nohi1200_40b",  NoHiBars(1200, 40) |]
 
 /// Trip life-cycle. There is no PendingExit state: the only exits are a
 /// pre-scheduled timestop and the two backstops, all of which fill on the bar

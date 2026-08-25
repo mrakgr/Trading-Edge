@@ -2089,10 +2089,11 @@ the full hold whether or not the move is still working.
 ⚠⚠ **The two channels do different jobs, and that is deliberate:**
 - `NoHiBars(60, n)` is the **genuine trail** — 1m highs are frequent, so the clock keeps resetting
   while the move is still working.
-- `NoHiBars(1200, n)` **degenerates into an n-bar timestop** on this rung, because every entry there
-  *is* a new 20m high, so the clock starts at the fill and rarely resets. ⭐ That is a free
-  **timestop-length sweep**, which nothing else in the corpus can answer — the recorded exit is
-  fixed at 30 bars and cannot be shortened post-hoc.
+- `NoHiBars(1200, n)` is a **weak trail that behaves close to an n-bar timestop** on this rung,
+  because every entry there *is* a new 20m high, so the clock starts at the fill and resets only
+  when a further 20m high prints. ⭐ That makes it a near **timestop-length sweep**, which nothing
+  else in the corpus can answer — the recorded exit is fixed at 30 bars and cannot be shortened
+  post-hoc. ⚠ It is NOT exact: median hold at 30 bars is 79 s against the timestop's 67 s.
 
 Measured (2026-08-20, 25,963 trips):
 
@@ -2129,3 +2130,50 @@ Invariants verified on all 25,963 smoke trips: no mark at or before its trip's f
 ordering (5b ≤ 10b ≤ 15b ≤ 20b) within each channel, px/sec null-agreement.
 
 **Base pass v5 running** with all thirteen marks.
+
+
+---
+
+# S24b — THE 30-BAR MARK, AND WHAT ITS SELF-CHECK FOUND (user, 2026-08-25)
+
+⚠ The first cut of S24 shipped `bars ∈ {5,10,15,20}` and **no 30**. That was a real omission: without
+a mark at the timestop's own length, every trail comparison is confounded by **horizon** — "trail at
+5-20 bars" against "fixed at 30 bars" cannot separate the rule from the length. Added
+`NoHiBars(60,30)` and `NoHiBars(1200,30)`, plus 40 for both so the sweep can show a **peak** rather
+than bottoming out at its own boundary.
+
+## ⭐⭐ The self-check paid for itself
+
+`NoHiBars(1200, 30)` should closely reproduce the engine's own 30-bar timestop. It does not:
+
+| | |
+|---|---|
+| second == `exit_sec` | **0.00%** |
+| fires **after** the timestop | **100%** of trips |
+| median extra | **2 s** (≈ one present bar) |
+
+⭐ **Not a bug — the fill discipline.** The timestop is *pre-scheduled*, so it fills **at** the
+trigger bar (its second was fixed 30 bars earlier, so no information from that bar enters the
+decision — S1). A trail is a *condition detected at a close*, so it fills at the **next** bar. So
+`nohi{chan}_Nb` behaves as an **(N+1)-bar** exit, and **a reactive exit genuinely pays one extra bar
+of slippage that a scheduled one does not.**
+
+⚠ That cost is real and belongs to the trail; the comparison stays fair. But the ladder must be read
+as N+1, not N.
+
+⚠ It also corrects S24's wording: `NoHiBars(1200,n)` does not purely degenerate into an n-bar
+timestop — median hold at 30 bars is **79 s** against the timestop's **67 s**, because further 20m
+highs do sometimes reset the clock. It is a weak trail, not a fixed exit.
+
+Bind rates and median holds, 2026-08-20 (timestop 67 s):
+
+| bars | binds 1200 / 60 | hold 1200 / 60 |
+|---|---|---|
+| 5 | 99.8% / 99.7% | 14 s / 15 s |
+| 10 | 96.1% / 93.3% | 26 s / 29 s |
+| 15 | 89.1% / 81.5% | 39 s / 43 s |
+| 20 | 82.2% / 70.1% | 52 s / 58 s |
+| **30** | 0% / 0% | **79 s / 88 s** |
+| 40 | 0% / 0% | 105 s / 119 s |
+
+17 marks total. Base pass v5 relaunched.
