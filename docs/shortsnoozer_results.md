@@ -2019,6 +2019,23 @@ asks it.
 
 1s tape, 2023-12-18: **`p1500 = 25.30`, `p1559 = 25.30`, `p1600 = 109.62`.**
 
+### The actual shape of the day (1s tape, RTH)
+
+**ZJYL printed in 12 of the session's 391 minutes.** It was a CRASH before it was a squeeze:
+
+| ET | vwap | note |
+|---|---|---|
+| 09:30 | 29.00 | open |
+| 10:13 | **11.21** | **−61% from the open**, on 114,920 shares |
+| 11:24 | 25.30 | brief recovery |
+| 11:25 | 25.30 | **13 shares — the LAST print for 4h35m** |
+| **16:00** | **109.62 → 309.65** | reopens **+333%**, 41 present seconds |
+| 16:07 | **339.81** | post-market high, then bleeds to ~130 by 19:59 |
+
+⭐ **Split-checked clean.** `daily_adjusted` reads `n = 1.0` on every one of these days; ZJYL's only
+splits are 1:20 on 2024-02-08 and 20:1 on 2026-03-16. **This is real price action, not an
+adjustment artefact** — the check is free and this is exactly the shape that usually is one.
+
 `gaps_lasthr = 3599 of 3600` — **exactly one second of the final hour printed.** The name was
 halt-locked all afternoon (day range on the 1s tape: 11.21 → 339.81) and the 4× print landed
 at 16:00, *after* the `k59` decision point. So `chg60k59 = 0.00%` and the `> +6%` trigger was
