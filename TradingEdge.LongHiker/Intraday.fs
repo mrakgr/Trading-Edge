@@ -164,6 +164,14 @@ type ExitKind =
     /// `NoHiBars(60, n)` is the genuine trail: 1m highs are frequent, so the
     /// clock keeps resetting while the move is still working.
     | NoHiBars of chan: int * bars: int
+    /// ⭐ A PLAIN TIMESTOP at `bars` present bars (user, 2026-08-25) — the
+    /// production exit's own rule at other lengths, so the hold can be swept
+    /// without a re-run per length.
+    /// ⚠ Fills AT the trigger bar, not the next one: the second was fixed at the
+    /// FILL, so no information from the trigger bar enters the decision. That is
+    /// the same argument the production timestop uses, and it is what makes these
+    /// comparable to it rather than to the trails (which pay one extra bar).
+    | FixedBars of bars: int
 
 /// ⚠ ORDER IS THE WIRE FORMAT. `LhPosition.ExPx/ExSec` and the parquet columns
 /// are indexed by it. Append only; never reorder.
@@ -196,7 +204,26 @@ let EX_SPECS : (string * ExitKind)[] =
        // ⭐ and one rung PAST the timestop, so the sweep can show a PEAK rather
        // than bottoming out at its own boundary
        "nohi60_40b",    NoHiBars(60, 40)
-       "nohi1200_40b",  NoHiBars(1200, 40) |]
+       "nohi1200_40b",  NoHiBars(1200, 40)
+       // ⭐ alternative hold lengths (user): the production exit is 30 bars
+       "ts60b",         FixedBars 60
+       "ts90b",         FixedBars 90
+       "ts120b",        FixedBars 120 |]
+
+/// ⭐⭐ NEW-20m-HIGH RATE (user, 2026-08-25) — half-lives in PRESENT BARS,
+/// nominally {30s, 1m, 2m, 3m, 5m, 10m} since a bar is ~a second on dense tape.
+///
+/// The feature is an EMA of the 0/1 "this bar printed a new 20m high" indicator.
+/// LOW rate = the stock has NOT been popping to new highs, so this break comes
+/// out of a short quiet stretch; HIGH rate = it has been making highs constantly
+/// and we would be chasing. It is a direct count of the breakout events on a
+/// short clock, which is what "trend strength" means here.
+///
+/// ⚠⚠ READ STRICTLY PRIOR. Every trip on the 20m-high rung IS a new 20m high at
+/// its signal bar, so folding that bar in would add the same constant to every
+/// reading and flatten the feature. The indicator is therefore pushed at the END
+/// of Process, after the signal has been captured.
+let HI_RATE_HL = [| 30.0; 60.0; 120.0; 180.0; 300.0; 600.0 |]
 
 /// Trip life-cycle. There is no PendingExit state: the only exits are a
 /// pre-scheduled timestop and the two backstops, all of which fill on the bar
@@ -271,6 +298,10 @@ type LhPosition =
       Ac1Ewma: float
       Ac2Ewma: float
       Ac3Ewma: float
+      /// ⭐ EMA of the new-20m-high indicator, one per HI_RATE_HL half-life,
+      /// read STRICTLY PRIOR to this bar's own high. Low = broke out of a quiet
+      /// stretch; high = already popping to highs repeatedly.
+      HiRate: float[]
       Ac1Open: float             // lag-1/2/3 autocorrelation of slot returns
       Ac2Open: float
       Ac3Open: float
@@ -610,6 +641,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let vr2Ewma = EwmaVarRatioMa(40.0, 2)
     let vr4Ewma = EwmaVarRatioMa(40.0, 4)
     let acEwma = EwmaAutoCorrMa(40.0, 3)
+    let hiRate = HI_RATE_HL |> Array.map EmaHlMa
     let acOpen = AutoCorrMa(0, 3)
     let acRoll = AutoCorrMa(40, 3)
     let vr2Open = VarianceRatioMa(0, 2)
@@ -783,6 +815,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // bar's vwap. ⚠ `EntrySec < firedAt` is strict, so a trip filled on the
         // very bar the condition fired is NOT marked by it — the mark must be
         // strictly after the fill, like every other counterfactual here.
+        // ⭐ FIXED-BAR timestops fill AT the trigger bar (see FixedBars). They do
+        // not go through the qualify/one-bar-lag path the reactive marks use.
+        for m in 0 .. EX_SPECS.Length - 1 do
+            match snd EX_SPECS.[m] with
+            | FixedBars n ->
+                while exCur.[m] < all.Count && all.[exCur.[m]].EntryBarIdx + n <= barsPresent do
+                    let p = all.[exCur.[m]]
+                    p.ExPx.[m] <- bar.vwap
+                    p.ExSec.[m] <- bar.etSec
+                    exCur.[m] <- exCur.[m] + 1
+            | _ -> ()
         for m in 0 .. EX_SPECS.Length - 1 do
             if exReadySec.[m] = prevEtSec && prevEtSec >= 0 then
                 while exCur.[m] < exReady.[m] do
@@ -897,6 +940,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Ac1Ewma = acEwma.Rho 1
                           Ac2Ewma = acEwma.Rho 2
                           Ac3Ewma = acEwma.Rho 3
+                          HiRate = hiRate |> Array.map (fun e -> match e.State with ValueSome v -> v | ValueNone -> nan)
                           Ac1Open = acOpen.Rho 1
                           Ac2Open = acOpen.Rho 2
                           Ac3Open = acOpen.Rho 3
@@ -1042,6 +1086,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             | NoHiBars (w, bars) ->
                 let i = chanIdx w
                 qualify m (fun p -> barsPresent - (max lastHiBar.[i] p.EntryBarIdx) >= bars)
+            | FixedBars _ -> ()   // handled above, fills at the trigger bar
+        // ⚠⚠ LAST: the hi-rate EMAs absorb THIS bar's indicator only after the
+        // signal above has read them, so the reading is strictly prior.
+        let hiInd = if isNewHi1200 then 1.0 else 0.0
+        for e in hiRate do e.Push hiInd
         prevEtSec <- bar.etSec
 
     /// Close the day: every trip still holding exits at the final bar's vwap.

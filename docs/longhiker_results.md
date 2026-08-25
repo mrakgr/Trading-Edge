@@ -2390,3 +2390,74 @@ now — and 2026 is the year we would trade.
 
 ⭐ **This is a simpler system than anything before it**: no `eff_ewma`, no `k20`, no `vr` — just
 dense tape, a volatility band, and light relative volume.
+
+---
+
+# S29 — THE CONSOLIDATION-BREAKOUT THESIS (user, 2026-08-25)
+
+## The user's reframing
+
+> *"Trading in the direction of the trend works well most of the time — that's what the positive
+> medians tell us. What kills us are the bends at the end. We need a system that takes only the
+> initial breakout after a consolidation and exits 30s later even if the stock keeps going up.
+> Forget trailing exits."*
+
+S25 supports the second half directly: **no trailing exit beats the fixed timestop**, at any length,
+because the edge horizon is ~30 s and a trail must wait longer than that before it can fire. The
+open question was the entry condition.
+
+## ⭐⭐ S29a — First evidence: `dd_now_20m` (the interim proxy)
+
+Where price sat in the **last completed 30-bar slot** relative to its 20m high — a read of whether
+this break came *out of* something. Dense rung, mc=1, timestop:
+
+| `dd_now_20m` | tkd/yr | mean | med | **eqw** | %up | yrs eqw |
+|---|---|---|---|---|---|---|
+| 0-5bp (never left the high) | **3,787** | 0.8 | 0.8 | **−7.4** | 46.9 | **0/7** |
+| 5-20bp (shallow base) | 1,343 | 1.7 | 0.9 | **+1.2** | **52.8** | 5/7 |
+| 20-50bp | 660 | **3.5** | **1.9** | **+2.2** | 52.3 | 4/7 |
+| 50-120bp | 286 | −2.5 | 1.3 | −5.1 | 49.9 | 3/7 |
+| 120bp+ (a collapse, not a base) | 130 | −38.9 | −31.6 | −37.2 | 42.4 | **0/7** |
+
+⭐ **Breaking to a new 20m high having never pulled back is the WORST large cell** and it is the
+biggest population on the rung. Chasing continuation is what has been dragging every table down.
+
+⚠⚠ **This means the `eff_ewma >= 0.70` gate was selecting AGAINST consolidation breaks all along**:
+eqw runs **−2.3 / −4.2 / −7.6 / −12.0 / −21.3** as `ee` rises, with %days-up 51.9 → 44.2. The one
+band with >50% days up is `ee < 0.30`.
+
+Best interim spec — `dd_now 5-50bp` × `vol_ratio < 0.8` × `volat >= 20bp`, mc=1, 30-bar timestop:
+**359 tkd/yr · mean 4.9 · med 2.8 · win 52.9% · eqw +6.1 · 7/7 years on eqw · trim +5.2**.
+⚠ But 2026 reads eqw **0.1** and win **49.0%** — the fourth independent finding in this study with
+that shape.
+
+## ⭐⭐ S29b — The proper feature (user): the NEW-HIGH RATE
+
+The user rejected the drawdown proxies for a direct count: **how many 20m highs in a short window**,
+low = enter, high = avoid — *"an indication of trend strength"* — and, explicitly, **EMAs rather than
+rolling windows**, with the window lengths as half-lives.
+
+`HI_RATE_HL = [30; 60; 120; 180; 300; 600]` present bars (≈ 30s, 1m, 2m, 3m, 5m, 10m on dense tape).
+The feature is an `EmaHlMa` of the 0/1 *"this bar printed a new 20m high"* indicator, pushed every
+present bar.
+
+⚠⚠ **READ STRICTLY PRIOR, and this one is not a formality.** Every trip on the 20m-high rung *is* a
+new 20m high at its signal bar, so folding that bar in would add the same constant to every reading
+and flatten the feature entirely. The indicator is therefore pushed at the **end** of `Process`,
+after the signal has been captured.
+
+⭐ Verified on the smoke day: `min(hi_rate_hl30) = 0.0` on the rung with 0.015% of trips at exactly
+zero — impossible if the current bar were included, since the minimum would be at least α. Half-life
+monotonicity holds too (stddev 0.0582 → 0.0275 from hl30 to hl600).
+
+## S29c — Alternative hold lengths
+
+`FixedBars` exit marks at **60 / 90 / 120** present bars, beside the production 30.
+
+⭐ These fill **AT** the trigger bar, not the next one — the second was fixed at the fill, so no
+information from the trigger bar enters the decision. That is the production timestop's own
+argument, and it is what makes them comparable to it rather than to the trails, which pay one extra
+bar of slippage (S24b). Verified: median holds 67 / 136 / 205 / 274 s, monotone, zero ordering
+violations.
+
+**Base pass v6 running** with the six `hi_rate_hl*` columns and the three fixed-timestop marks.

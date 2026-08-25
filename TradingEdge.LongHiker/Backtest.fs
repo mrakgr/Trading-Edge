@@ -176,6 +176,9 @@ let private RowsPerPart = 250_000
 /// ⭐ The exit-mark columns are GENERATED from Intraday.EX_SPECS, so a new mark
 /// cannot be added to the engine without appearing here — the schema and the
 /// appender below both walk the same array, in the same order.
+let private hiRateCols =
+    HI_RATE_HL |> Array.map (fun h -> sprintf "    hi_rate_hl%d DOUBLE," (int h)) |> String.concat "\n"
+
 let private exitCols =
     EX_SPECS
     |> Array.map (fun (nm, _) -> sprintf "    ex_%s_px DOUBLE, ex_%s_sec INTEGER," nm nm)
@@ -190,6 +193,7 @@ CREATE TABLE trips (
     eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
     vr2_ewma DOUBLE, vr4_ewma DOUBLE,
     ac1_ewma DOUBLE, ac2_ewma DOUBLE, ac3_ewma DOUBLE,
+@HIRATE_COLS@
     ac1_open DOUBLE, ac2_open DOUBLE, ac3_open DOUBLE,
     ac1_roll DOUBLE, ac2_roll DOUBLE, ac3_roll DOUBLE,
     vr2_open DOUBLE, vr4_open DOUBLE, vr2_roll DOUBLE, vr4_roll DOUBLE,
@@ -236,7 +240,8 @@ CREATE TABLE trips (
 // ⚠ Split from the literal deliberately: a triple-quoted string whose closing
 // line sits at column 0 cannot be followed by `.Replace` on the same line — F#'s
 // offside rule reads the continuation as a new top-level declaration.
-let private tripTableSql = tripTableTemplate.Replace("@EXIT_COLS@", exitCols)
+let private tripTableSql =
+    tripTableTemplate.Replace("@EXIT_COLS@", exitCols).Replace("@HIRATE_COLS@", hiRateCols)
 
 type TripSink(outDir: string) =
     let conn = new DuckDBConnection("Data Source=:memory:")
@@ -293,6 +298,7 @@ type TripSink(outDir: string) =
             f p.EffEwma20m; f p.EffEwma10m
             f p.Vr2Ewma; f p.Vr4Ewma
             f p.Ac1Ewma; f p.Ac2Ewma; f p.Ac3Ewma
+            for v in p.HiRate do f v
             f p.Ac1Open; f p.Ac2Open; f p.Ac3Open
             f p.Ac1Roll; f p.Ac2Roll; f p.Ac3Roll
             f p.Vr2Open; f p.Vr4Open; f p.Vr2Roll; f p.Vr4Roll
