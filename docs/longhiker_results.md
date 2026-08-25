@@ -1988,3 +1988,80 @@ one (med 22.40 vs 6.75), so early is where the population lives, not where the e
 ⚠ The blocker is unchanged and now sharper: **10-23 ticker-days per year**. The next move is to
 widen the `volat` band, which was always meant to be the varied axis, and re-run this whole block
 with mc=1 as the default book.
+
+---
+
+# S23 — THE FIRST CELL THAT PASSES EVERYTHING (user, 2026-08-25)
+
+## ⚠ S23a — The `nohi20m 60s` exit is worse than the timestop
+
+Compared on an **identical trip set** (the book is sized on the trail exit, so this is exit-rule-only):
+
+| exit | mean | med | win% | eqw day | % days up |
+|---|---|---|---|---|---|
+| nohi20m 60s | **8.13** | −6.14 | 46.36 | 2.44 | 44.12 |
+| **30-bar timestop** | 7.04 | **+5.25** | **54.47** | **4.84** | **53.03** |
+
+And on the `k20 21-40` cell, year by year — the trail's higher pooled mean (18.53) comes almost
+entirely from **2020 alone (64.60)** plus 2025 (31.53):
+
+| metric | TIMESTOP | trail |
+|---|---|---|
+| years median > 0 | **7/7** | 3/7 |
+| years `% days up` > 50 | **7/7** | 3/7 |
+
+⭐ The trail buys mean and sells median, win rate, day return and days-up — in six of seven years.
+**Recommendation: keep the 30-bar timestop.** (S22a already explained why no trailing rule can win
+here: the edge horizon is ~30 s, and a trail must wait longer than that before it can fire.)
+
+⭐ Why the "30s" trail does not match the "30-bar" timestop: they are different clocks. The timestop
+is 30 **present bars** after the fill (median 36 s — present bars ≠ seconds on gappy tape); the
+`nohi 30s` mark is 30 **wall-clock** seconds since the last new high, and **that clock RESETS on
+every new high**, so it is a genuine trail firing at median 48 s.
+
+## ⭐⭐⭐ S23b — `eff_ewma >= 0.70` × `highs_20m_since_lo_1200 ∈ [21,40]`, mc=1, timestop
+
+| selection | trips | **tkd/yr** | mean | med | win% | **eqw day** | **% days up** | yrs med>0 | yrs eqw>0 |
+|---|---|---|---|---|---|---|---|---|---|
+| `ee>=0.70` (all k) | 6,470 | 421.6 | 6.75 | 5.61 | 54.65 | **−4.66** | 49.31 | 7/7 | **1/7** |
+| **⭐ `+ k20 21-40`** | 907 | **102.0** | **9.60** | **6.02** | **55.69** | **+7.69** | **54.06** | **7/7** | **7/7** |
+| `+ vr4_ewma>=1.0` | 215 | 24.0 | 10.81 | 5.28 | 56.74 | 8.95 | 56.55 | 7/7 | 6/7 |
+| `+ vr4_ewma>=1.2` | 136 | 15.4 | 13.93 | 5.77 | 57.35 | 14.40 | 57.41 | 6/7 | 6/7 |
+| `+ ee>=0.88` instead | 212 | 23.7 | 6.35 | 2.63 | 53.08 | 4.70 | 53.61 | **4/7** | **3/7** |
+
+⭐⭐⭐ **The first cell in this study to be 7/7 positive on median AND 7/7 on equal-weight-day, with a
+usable sample (102 ticker-days/year).** By year: eqw **10.74 / 9.74 / 3.93 / 10.26 / 9.69 / 8.40 /
+5.59**, `% days up` **55.6 / 52.0 / 52.0 / 59.6 / 51.3 / 58.2 / 52.1** — every year above 50%.
+
+⭐ **The `k20 21-40` filter is doing all the work.** Without it the same `ee>=0.70` book has
+`eqw_day = −4.66` and is positive in only **1 of 7** years; with it, +7.69 and 7/7.
+
+## ⚠ S23c — Two things that do NOT earn their place
+
+**`vr4_ewma` on top.** It raises every pooled number, but cuts the sample **4-13×** (102 → 24 → 15 →
+8 tkd/yr) and *loses* year-consistency (7/7 → 6/7 → 5/7 on median). At this sample it is buying
+statistics, not edge — the iso-trip lesson applied to a cell that is already thin.
+
+**⭐⭐ `ee >= 0.88` is WORSE than `ee >= 0.70` here** — 4/7 and 3/7 against 7/7 and 7/7. S21 found
+0.88 to be the peak, but that was measured **at mc=0 and without the k20 filter**. Conditioned on
+`k20 21-40` the two are partial substitutes: both select "a clean run that has not gone on too
+long", so stacking them just shrinks the sample. ⚠ A reminder that a threshold tuned in isolation
+does not survive being conditioned on.
+
+## S23d — The spec as it now stands
+
+```
+universe   mr_candidate_1s_v2, entry_px > $1, barnum >= 22
+window     09:45 - 15:50 ET          (09:45 = the candidate table's knowability floor)
+tape       gap_60 < 30               (dense)
+regime     volat_20m ∈ [40, 80) bp   ⚠ the focus band — NOT yet varied
+signal     a new 20m high  AND  eff_ewma_20m >= 0.70  AND  highs_20m_since_lo_1200 ∈ [21, 40]
+book       mc = 1
+exit       30 present bars after the fill, at that bar's vwap
+```
+
+**102 ticker-days/year · mean +9.60 bp · median +6.02 · win 55.69% · day return +7.69 bp · 54.06% of
+days up · 7/7 years on both median and day return.**
+
+⚠⚠ **Costs are still not modelled**, and ~9.6 bp is not a large cushion. ⚠ The `volat` band is still
+the un-varied axis — widening it is the next step and the obvious source of more sample.
