@@ -2291,3 +2291,102 @@ Density and sample trade off directly and there is no free lunch in the current 
 ⭐ `gap_60 < 30` remains the only cut with both a usable sample and full year-consistency. Getting
 dense tape AND sample requires a feature that selects young moves *without* counting bars — which
 `k20` does not, and `kr` cannot.
+
+---
+
+# S27 — THE DENSE-TAPE INVESTIGATION (user, 2026-08-25)
+
+The user's read of the hold times — "we're trading very illiquid and sparse stocks that aren't in
+play" — was correct, and S26 confirmed density is monotone. This section removes `k20` and forces
+`gap_60 < 4` to test the system on liquid names.
+
+## S27a — The dense population is large; `k20` really was the constraint
+
+`gap_60 < 4` + new 20m high: **847,227 trips / 27,469 ticker-days (3,924/yr)**, median `dv_60`
+**$8.2M**, median price **$52.55**. Genuinely in-play names. ⭐ Median volatility there is **18 bp** —
+dense *and* volatile is rare.
+
+## 💀 S27b — But `eff_ewma` and `vr` both fail on it
+
+Full `eff_ewma × volat × exit` grid (25 cells × 2 exits): **`eqw_day` is negative in essentially
+every dense cell.** The best-sample corner (`ee<0.55`, `volat<40`, 700-1400 tkd/yr) reads
+eqw ≈ 0 ± 3 with 3-5 of 7 years. The one standout — `ee .70-.85 × volat 40-80 × trail30b`,
+eqw **+19.1** — is **2/7 years, 1/7 on median, win 47.7%**, and its neighbours across volatility read
+−4.0 / −7.7 / **+19.1** / −13.4 / −53.9. A spike surrounded by holes, not a gradient.
+
+⭐ Adding `vr4_ewma` does not rescue the low-volatility bands: at `volat < 40` **every** vr band is
+negative on both exits. It only concentrates the edge further into 40-80bp.
+
+`volat 40-80 × vr 1.4+ × ee>=0.70` looked like the answer — median **+24.5**, win 56.4%, eqw
+**+57.8**, and all metrics agreeing for once. ⚠ It is **10.3 ticker-days/year**, 4/7 on median, and
+💀 **removing each year's single best day drops eqw from +57.75 to +12.36 (trail) and from +13.36 to
+−8.97 (timestop)** — 7 days of 72 carry it, two of them at +1,290 bp and +1,172 bp. It survives
+perturbation of its own thresholds but not the loss of a handful of mornings.
+
+⚠ The trail beats the timestop on `eqw_day` in ~18 of 25 grid cells and loses on **win rate in every
+single one**. The two metrics disagree consistently, not locally.
+
+---
+
+# ⭐⭐ S28 — THE 1m/20m VOLUME RATIO (user, 2026-08-25)
+
+`vol_ratio = (dv_60 / min(bars,60)) / (dv_1200 / min(bars,1200))` — the 1-minute dollar-volume rate
+against the 20-minute rate.
+
+⭐ **The "if 20m volume is empty use cumulative" fallback is already built in**: `dv_1200` equals
+`dv_sess` on partial windows, 100% of the time (46% of trips have one). ⚠ But the *rate* must divide
+by the bars actually in the window, not by 1200, or partial windows inflate the ratio.
+
+## S28a — Monotone, on the largest sample in the study
+
+Whole dense rung, no `ee`/`k20`/`vr` filter, mc=1, timestop:
+
+| vol_ratio | tkd/yr | mean | med | win% | **eqw** | yrs eqw | yrs med |
+|---|---|---|---|---|---|---|---|
+| **< 0.8** | **1,895.9** | 1.7 | 0.7 | 52.6 | **+1.2** | **6/7** | **7/7** |
+| 0.8-1.2 | 2,560.1 | 1.5 | 0.7 | 52.4 | −0.5 | 2/7 | 7/7 |
+| 1.2-2.0 | 2,606.4 | 0.8 | 0.9 | 52.1 | −5.2 | 1/7 | 7/7 |
+| 2.0-4.0 | 1,462.9 | −2.2 | 0.3 | 50.6 | −11.7 | **0/7** | 3/7 |
+| 4.0+ | 185.3 | −7.7 | −0.1 | 49.8 | **−19.5** | 1/7 | 4/7 |
+
+⭐⭐ And crossed with volatility it is monotone in **both** directions, with volatility **amplifying**
+it — `eqw_day`:
+
+| vol_ratio \ volat | <20bp | 20-40 | 40-80 | **80bp+** |
+|---|---|---|---|---|
+| **< 0.8** | −0.2 | +1.1 | **+4.3** | **+34.9** |
+| 0.8-1.2 | −0.7 | −0.3 | −0.0 | +0.1 |
+| 1.2-2.0 | −1.1 | −1.6 | −3.8 | −30.2 |
+| 2.0-4.0 | −1.1 | −2.5 | −8.0 | −53.0 |
+| 4.0+ | −0.9 | −3.0 | −7.6 | **−85.2** |
+
+A **120 bp swing** across the ratio at 80bp+ volatility, collapsing to nothing below 20bp. ⭐ It
+**inverts the sign of the volatility term**: high volatility is ruinous on heavy volume and excellent
+on light. This is the MaxRiderV1 asymmetry (*"loves shorting into LOW-VOLUME spikes"*) reproduced on
+the long side.
+
+⚠ The `ee >= 0.70` version is **noisier, not better** — the volume ratio works better *without* the
+efficiency gate.
+
+## S28b — Year audit of `vol_ratio < 0.8`
+
+| volat | tkd/yr | eqw by year (2020→2026) | yrs med | trim: minus each year's best day |
+|---|---|---|---|---|
+| <20bp | 1,235 | 0.9 / −0.5 / −0.5 / −0.2 / 0.1 / −0.2 / −0.5 | 7/7 but ≈0 | −0.23 vs −0.16 |
+| **20-40** | 553 | 4.7 / 4.1 / −1.3 / −0.0 / 3.5 / 0.3 / −1.2 | **7/7** | **+0.77 vs +1.05** |
+| **40-80** | **175** | 13.5 / 12.5 / −0.8 / −12.7 / 4.1 / 6.7 / 0.0 | **6/7** | **+3.07 vs +4.34** |
+| 80bp+ | 41 | 69.8 / 22.7 / 34.7 / 93.4 / 88.1 / 18.3 / **−32.2** | 5/7 | +23.68 vs +34.92 |
+
+⭐⭐ **`volat 40-80 × vol_ratio < 0.8` is the balance point** — 175 ticker-days/year, median positive
+in 6/7 years, and **it survives the trim** (+3.07 against +4.34 full). That is the first cell in this
+study that is both sizeable *and* trim-robust; the S27 `vr` cell collapsed 57.75 → 12.36 under the
+same test.
+
+⚠⚠ **The spectacular 80bp+ cell is dying**: +69.8 / +22.7 / +34.7 / +93.4 / +88.1 through 2024, then
++18.3 and **−32.2**, with median negative in both 2025 and 2026. Whatever it was, it is not there
+now — and 2026 is the year we would trade.
+
+⚠ `volat < 20bp` is flat at every volume ratio. The feature needs volatility to act on.
+
+⭐ **This is a simpler system than anything before it**: no `eff_ewma`, no `k20`, no `vr` — just
+dense tape, a volatility band, and light relative volume.
