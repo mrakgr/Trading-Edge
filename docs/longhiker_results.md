@@ -1884,3 +1884,107 @@ ticker-days per year** is not a year audit, it is seven small samples — the me
 ⭐ The fix is sample, and it is available: this cell lives inside the **`volat_20m ∈ [40,80)bp` focus
 band only**. Volatility was always meant to be the varied axis — widening it is the obvious next
 step, and the first real test of whether 0.88 × 1.2 is a rule or a small-sample shape.
+
+---
+
+# S22 — EXITS, mc=1, AND WHERE THE TRADES SIT IN THE SESSION (user, 2026-08-25)
+
+## 💀 S22a — The exit rules are refuted, and the diagnostic says why
+
+Composite policies (whichever named condition fires first, 30-bar timestop as backstop), whole rung:
+
+| policy | mean | med | win% |
+|---|---|---|---|
+| **timestop 30 bars (current)** | 4.99 | **3.75** | **52.78** |
+| 1m low | 5.03 | 3.40 | 52.61 |
+| no-new-1m-high 30s | 5.03 | 1.35 | 51.27 |
+| 1m low OR nohi 30s | 5.04 | 1.30 | 51.18 |
+| 1m low OR nohi 60s | 5.05 | 3.27 | 52.51 |
+
+Means move by ≤ 0.06 bp; medians and win rates get **worse**. The diagnostic explains it:
+
+| | |
+|---|---|
+| timestop fires at | median **36 s** |
+| `nohi 30s` mark fires at | median 48 s |
+| `1m low` mark fires at | median 102 s |
+| `nohi 60s` binds before the timestop | **2.74%** of trips |
+
+⭐ **The trailing rules almost never get to act** — the timestop wins the race. So the composite is
+the timestop wearing a different name.
+
+Take the timestop out and let the trail run (10m cap):
+
+| rule | mean | med | win% |
+|---|---|---|---|
+| 30-bar timestop | 4.99 | **+3.65** | **52.78** |
+| 5m fwd mark | −3.95 | −10.76 | 47.14 |
+| 10m fwd mark | −18.93 | −24.82 | 45.17 |
+| trail: 1m low | 5.48 | −24.54 | 39.01 |
+| trail: 1m low OR nohi 30s | 3.60 | −8.46 | 43.69 |
+
+⭐⭐ **Every longer hold is worse.** This is S6a/S12 restated from the exit side: the edge lives for
+~30 seconds and has reversed by 5 minutes, and *any* trailing rule must wait longer than a 30-second
+timestop before it can trigger. There is no trailing exit to find here — the horizon is the
+constraint, not the rule.
+
+⚠ `no-new-1m-high` and `no-new-20m-high` give near-identical results, because on this rung every
+entry IS a new 20m high (hence also a new 1m high) and the hold is too short for the two clocks to
+diverge.
+
+## ⭐⭐ S22b — mc=1 is the real answer to the trip-weighting problem
+
+Greedy mc=1 replay (the FlushFader S38 method — walk the day's signals in time order, take one only
+if the previous position has closed):
+
+**The S21 stack (`ee>=0.88 & vr>=1.2`):**
+
+| book | trips | tkd | mean | med | win% | **eqw day** | **% days up** |
+|---|---|---|---|---|---|---|---|
+| mc=0 (sampler) | 1,267 | 126 | 17.29 | 11.19 | 57.78 | −6.79 | 51.59 |
+| **⭐ mc=1** | **230** | 126 | **19.34** | **16.24** | **60.53** | **+8.65** | **53.17** |
+
+⭐⭐ **`eqw_day` turns POSITIVE (+8.65) — the first positive day-level number anywhere in this
+study**, alongside a higher median (16.24) and win rate (60.53%).
+
+⭐ The mechanism is exactly the S15 problem dissolving: mc=0 lets one move contribute ~10
+overlapping trips, so trips are not independent and the pooled statistics get weighted by how the
+day went. mc=1 takes ~1.8 trips per ticker-day, so **a trip is approximately an opportunity again**
+and the trip-level and day-level views converge instead of contradicting each other.
+
+`eff_ewma >= 0.88` alone, mc=1: 1,384 trips / 726 tkd, mean 8.52, med 5.93, win 55.27%,
+eqw_day −2.77, **50.83% of days up**.
+
+mc=1 stack by year — median **7.04 / 26.71 / 14.37 / 26.08 / 8.10 / 29.68 / 1.29** (7/7 positive),
+mean 6/7 (2024 −1.98). ⚠ **20-43 trips and 10-23 ticker-days per year.** Still far too thin.
+
+## ⭐ S22c — 92% of the selected trades are in the first fifteen minutes
+
+| | 09:45-10:00 | 10:00-10:30 | later |
+|---|---|---|---|
+| whole rung | 56.5% of trips (med 3.55) | 31.8% (med **4.64**) | 11.7% |
+| `ee>=0.88` | **92.0%** (med 6.75) | 8.0% (med **22.40**) | — |
+| the stack | **82.6%** (med 10.98) | 17.4% (med 18.45) | — |
+
+⭐ **Yes — the EWMA features do let us trade early, and that is where nearly all of the selection
+lands.** With no 1,200-bar warm-up there is nothing left blocking the 09:45-10:00 window, and
+`eff_ewma >= 0.88` puts 92% of its trips there.
+
+⚠⚠ **But that is also a confound to watch.** At 09:45 the EWMA has absorbed only ~16 slots, so a
+high reading means "the whole session so far has been one clean move" — structurally easier early
+than at 11:00, when the same threshold demands recent cleanliness against a long memory. `eff_ewma
+>= 0.88` is therefore *partly* a statement that it is 09:45-10:00, the same defect class as `ddz`
+(S10b). ⭐ The tell that it is not ONLY that: the 10:00-10:30 slice reads **better** than the early
+one (med 22.40 vs 6.75), so early is where the population lives, not where the edge is.
+
+## S22d — Standing
+
+| question | answer |
+|---|---|
+| do the trailing exits help? | ❌ **no** — they bind 2.7% of the time and every longer hold is worse |
+| does mc=1 help? | ⭐⭐ **decisively** — first positive `eqw_day` in the study (+8.65), win 60.53% |
+| more early breakouts now? | ⭐ **yes, 92%** of selected trips are 09:45-10:00 — ⚠ and partly by construction |
+
+⚠ The blocker is unchanged and now sharper: **10-23 ticker-days per year**. The next move is to
+widen the `volat` band, which was always meant to be the varied axis, and re-run this whole block
+with mc=1 as the default book.
