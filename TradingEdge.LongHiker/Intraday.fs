@@ -140,6 +140,49 @@ type AnchoredOls() =
             if dx <= 0.0 || dy <= 0.0 then nan
             else (n * sxy - sx * sy) / sqrt (dx * dy)
 
+/// ⭐⭐ COUNTERFACTUAL EXIT MARKS — ONE SPEC TABLE, not thirteen hand-written
+/// cases (user, 2026-08-25). Adding a mark is now one row here; the engine loop,
+/// the position's storage and the parquet schema are all generated from it, so
+/// the three cannot drift apart. The previous shape maintained a named field, a
+/// match arm, a CREATE TABLE column and an appender line per mark — four places,
+/// which is how column order silently rots.
+type ExitKind =
+    /// first new 1m LOW after the fill
+    | LowBreak
+    /// no new `chan`-bar high for >= `secs` WALL-CLOCK seconds
+    | NoHiSecs of chan: int * secs: int
+    /// ⭐ no new `chan`-bar high for >= `bars` PRESENT BARS (user, 2026-08-25).
+    /// The wall-clock version fires LATER than the 30-present-bar timestop
+    /// (median 48-65 s against 36 s), so it could only ever add holding cost —
+    /// which is exactly what S23a measured. A bar-based trail is on the
+    /// timestop's own clock and can fire sooner.
+    ///
+    /// ⚠ On the 20m-high rung `NoHiBars(1200, n)` DEGENERATES INTO AN n-BAR
+    /// TIMESTOP: every entry there is itself a new 20m high, so the clock starts
+    /// at the fill and rarely resets. That is deliberate — it gives a free
+    /// timestop-length sweep, which nothing else in the corpus can answer.
+    /// `NoHiBars(60, n)` is the genuine trail: 1m highs are frequent, so the
+    /// clock keeps resetting while the move is still working.
+    | NoHiBars of chan: int * bars: int
+
+/// ⚠ ORDER IS THE WIRE FORMAT. `LhPosition.ExPx/ExSec` and the parquet columns
+/// are indexed by it. Append only; never reorder.
+let EX_SPECS : (string * ExitKind)[] =
+    [| "lo",            LowBreak
+       "nohi60_30s",    NoHiSecs(60, 30)
+       "nohi60_60s",    NoHiSecs(60, 60)
+       "nohi1200_30s",  NoHiSecs(1200, 30)
+       "nohi1200_60s",  NoHiSecs(1200, 60)
+       // the bar-clock family — shorter than the 30-bar timestop so they can bind
+       "nohi60_5b",     NoHiBars(60, 5)
+       "nohi60_10b",    NoHiBars(60, 10)
+       "nohi60_15b",    NoHiBars(60, 15)
+       "nohi60_20b",    NoHiBars(60, 20)
+       "nohi1200_5b",   NoHiBars(1200, 5)
+       "nohi1200_10b",  NoHiBars(1200, 10)
+       "nohi1200_15b",  NoHiBars(1200, 15)
+       "nohi1200_20b",  NoHiBars(1200, 20) |]
+
 /// Trip life-cycle. There is no PendingExit state: the only exits are a
 /// pre-scheduled timestop and the two backstops, all of which fill on the bar
 /// that triggers them (see the header).
@@ -380,16 +423,10 @@ type LhPosition =
       // answers every exit rule AND every intersection of them in SQL, instead
       // of one pass per rule. px = nan / sec = -1 when the condition never
       // fired before the day ended.
-      mutable ExLoPx: float          // first new 1m LOW after the fill
-      mutable ExLoSec: int
-      mutable ExNoHi60_30Px: float   // first bar with NO new 1m high for >= 30s
-      mutable ExNoHi60_30Sec: int
-      mutable ExNoHi60_60Px: float   // ... >= 60s
-      mutable ExNoHi60_60Sec: int
-      mutable ExNoHi1200_30Px: float // first bar with NO new 20m high for >= 30s
-      mutable ExNoHi1200_30Sec: int
-      mutable ExNoHi1200_60Px: float // ... >= 60s
-      mutable ExNoHi1200_60Sec: int
+      /// Fill price and second of each counterfactual exit, indexed by EX_SPECS.
+      /// nan / -1 while the condition has not fired.
+      ExPx: float[]
+      ExSec: int[]
       mutable BarsHeld: int      // present bars from the fill bar to the exit-fill bar
       mutable State: LhPosState }
 
@@ -484,12 +521,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // after its own fill. Since positions are appended in fill order, the marks
     // also fill in that order — so one monotone cursor per mark is enough, the
     // same O(1) argument the forward marks use.
-    let exCur = Array.zeroCreate<int> 5
+    let exCur = Array.zeroCreate<int> EX_SPECS.Length
     /// Index up to which positions satisfied each condition as of `exReadySec`,
     /// and the bar that was evaluated. The one-bar lag IS the fill discipline:
     /// qualify at the close, fill at the NEXT present bar.
-    let exReady = Array.zeroCreate<int> 5
-    let exReadySec = Array.create 5 -1
+    let exReady = Array.zeroCreate<int> EX_SPECS.Length
+    let exReadySec = Array.create EX_SPECS.Length -1
 
     // ----- bar-level sums + OLS, all sharing ONE ring -----
     let dv10   = DvSum 10
@@ -581,6 +618,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let priorMax : float voption[] = Array.create CHANS.Length ValueNone
     let priorMin : float voption[] = Array.create CHANS.Length ValueNone
     let lastHiSec = Array.create CHANS.Length -1
+    /// ⭐ The same events on the PRESENT-BAR clock — what NoHiBars measures
+    /// against. Kept beside lastHiSec rather than derived, because present bars
+    /// and wall-clock seconds are not interconvertible on a gappy tape.
+    let lastHiBar = Array.create CHANS.Length -1
     let lastLoSec = Array.create CHANS.Length -1
     /// New 20m highs since the last N-bar low (0 = at/since that low; while the
     /// low has never fired the anchor is the session open).
@@ -716,7 +757,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             match priorMax.[CH1200] with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         for i in 0 .. CHANS.Length - 1 do
             match priorMax.[i] with
-            | ValueSome hi when bar.vwap > hi -> lastHiSec.[i] <- bar.etSec; isExtreme <- true
+            | ValueSome hi when bar.vwap > hi ->
+                lastHiSec.[i] <- bar.etSec; lastHiBar.[i] <- barsPresent; isExtreme <- true
             | _ -> ()
         if isNewHi1200 then
             for i in 0 .. CHANS.Length - 1 do
@@ -726,16 +768,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // bar's vwap. ⚠ `EntrySec < firedAt` is strict, so a trip filled on the
         // very bar the condition fired is NOT marked by it — the mark must be
         // strictly after the fill, like every other counterfactual here.
-        for m in 0 .. 4 do
+        for m in 0 .. EX_SPECS.Length - 1 do
             if exReadySec.[m] = prevEtSec && prevEtSec >= 0 then
                 while exCur.[m] < exReady.[m] do
                     let p = all.[exCur.[m]]
-                    (match m with
-                     | 0 -> p.ExLoPx <- bar.vwap;          p.ExLoSec <- bar.etSec
-                     | 1 -> p.ExNoHi60_30Px <- bar.vwap;   p.ExNoHi60_30Sec <- bar.etSec
-                     | 2 -> p.ExNoHi60_60Px <- bar.vwap;   p.ExNoHi60_60Sec <- bar.etSec
-                     | 3 -> p.ExNoHi1200_30Px <- bar.vwap; p.ExNoHi1200_30Sec <- bar.etSec
-                     | _ -> p.ExNoHi1200_60Px <- bar.vwap; p.ExNoHi1200_60Sec <- bar.etSec)
+                    p.ExPx.[m] <- bar.vwap
+                    p.ExSec.[m] <- bar.etSec
                     exCur.[m] <- exCur.[m] + 1
 
         // ===== 4. forward marks — one monotone cursor per horizon =====
@@ -951,11 +989,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Fwd300 = nan
                           Fwd600 = nan
                           Fwd1200 = nan
-                          ExLoPx = nan; ExLoSec = -1
-                          ExNoHi60_30Px = nan; ExNoHi60_30Sec = -1
-                          ExNoHi60_60Px = nan; ExNoHi60_60Sec = -1
-                          ExNoHi1200_30Px = nan; ExNoHi1200_30Sec = -1
-                          ExNoHi1200_60Px = nan; ExNoHi1200_60Sec = -1
+                          ExPx = Array.create EX_SPECS.Length nan
+                          ExSec = Array.create EX_SPECS.Length -1
                           BarsHeld = 0
                           State = Holding }
 
@@ -982,13 +1017,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             while j < all.Count && all.[j].EntrySec < bar.etSec && pred all.[j] do j <- j + 1
             exReady.[m] <- j
             exReadySec.[m] <- bar.etSec
-        let inline noHiSince (i: int) (secs: int) (p: LhPosition) =
-            bar.etSec - (max lastHiSec.[i] p.EntrySec) >= secs
-        qualify 0 (fun _ -> lastLoSec.[0] = bar.etSec)
-        qualify 1 (noHiSince 0 30)
-        qualify 2 (noHiSince 0 60)
-        qualify 3 (noHiSince CH1200 30)
-        qualify 4 (noHiSince CH1200 60)
+        let inline chanIdx (w: int) = if w = 60 then 0 else CH1200
+        for m in 0 .. EX_SPECS.Length - 1 do
+            match snd EX_SPECS.[m] with
+            | LowBreak -> qualify m (fun _ -> lastLoSec.[0] = bar.etSec)
+            | NoHiSecs (w, secs) ->
+                let i = chanIdx w
+                qualify m (fun p -> bar.etSec - (max lastHiSec.[i] p.EntrySec) >= secs)
+            | NoHiBars (w, bars) ->
+                let i = chanIdx w
+                qualify m (fun p -> barsPresent - (max lastHiBar.[i] p.EntryBarIdx) >= bars)
         prevEtSec <- bar.etSec
 
     /// Close the day: every trip still holding exits at the final bar's vwap.

@@ -2065,3 +2065,67 @@ days up · 7/7 years on both median and day return.**
 
 ⚠⚠ **Costs are still not modelled**, and ~9.6 bp is not a large cushion. ⚠ The `volat` band is still
 the un-varied axis — widening it is the next step and the obvious source of more sample.
+
+---
+
+# S24 — BAR-CLOCK EXIT MARKS (user, 2026-08-25)
+
+## Why the wall-clock trails could never win
+
+S23a measured the `nohi 60s` trail as worse than the timestop. The reason is mechanical: it fires
+**later**. On the rung the timestop lands at median **36 s** while the `nohi 30s`/`60s` marks land at
+**48 s / 65 s**, so the trail could only ever *add* holding time to a system whose edge is ~30 s
+wide. It was never a trailing exit in practice — it was a longer timestop.
+
+⚠ And a fixed 30-present-bar hold is expensive in its own right: under mc=1 it blocks the slot for
+the full hold whether or not the move is still working.
+
+## ⭐ The fix: put the trail on the timestop's own clock
+
+`NoHiBars(chan, bars)` — no new `chan`-bar high for `bars` **present bars**, anchored on
+`max(lastHighBar, this trip's own fill bar)`. Eight new marks, `chan ∈ {60, 1200}` ×
+`bars ∈ {5, 10, 15, 20}`, all shorter than the 30-bar timestop so they can actually bind.
+
+⚠⚠ **The two channels do different jobs, and that is deliberate:**
+- `NoHiBars(60, n)` is the **genuine trail** — 1m highs are frequent, so the clock keeps resetting
+  while the move is still working.
+- `NoHiBars(1200, n)` **degenerates into an n-bar timestop** on this rung, because every entry there
+  *is* a new 20m high, so the clock starts at the fill and rarely resets. ⭐ That is a free
+  **timestop-length sweep**, which nothing else in the corpus can answer — the recorded exit is
+  fixed at 30 bars and cannot be shortened post-hoc.
+
+Measured (2026-08-20, 25,963 trips):
+
+| mark | binds before the timestop | median hold |
+|---|---|---|
+| 30-bar timestop | — | **67 s** |
+| `nohi60` 5 bars | **99.67%** | **15 s** |
+| `nohi60` 10 bars | 93.31% | 29 s |
+| `nohi60` 20 bars | 70.06% | 58 s |
+| `nohi1200` 10 bars | 96.13% | 26 s |
+| `nohi1200` 20 bars | 82.23% | 52 s |
+| *wall-clock `nohi1200` 60s* | 45.03% | — |
+
+⭐ Against the wall-clock version's 45% bind rate, the bar-clock family binds on 70-99% of trips and
+cuts the median hold from 67 s to 15-58 s. **Now they can actually be tested.**
+
+## ⭐⭐ S24a — One spec table instead of thirteen hand-written cases
+
+The previous shape carried, per mark: a named field on `LhPosition`, a match arm in the engine, a
+`CREATE TABLE` column and an appender line — **four places**, which is exactly how column order rots.
+Now a single `EX_SPECS : (string * ExitKind)[]` drives all four: the position stores `ExPx: float[]`
+/ `ExSec: int[]` indexed by it, the engine's qualify/mark loops walk it, and the parquet schema is
+**generated** from it. Adding a mark is one row.
+
+⚠ `EX_SPECS` order is the wire format — append only, never reorder.
+
+⚠ Two F# details worth recording: a triple-quoted string whose closing line sits at column 0 cannot
+be followed by `.Replace` on the same line (the offside rule reads the continuation as a new
+top-level declaration), so the template and the substitution are separate bindings; and the
+present-bar clock is kept as its own `lastHiBar` array rather than derived from `lastHiSec`, because
+present bars and wall-clock seconds are not interconvertible on a gappy tape.
+
+Invariants verified on all 25,963 smoke trips: no mark at or before its trip's fill, monotone
+ordering (5b ≤ 10b ≤ 15b ≤ 20b) within each channel, px/sec null-agreement.
+
+**Base pass v5 running** with all thirteen marks.

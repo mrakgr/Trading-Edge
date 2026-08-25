@@ -173,7 +173,15 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
 [<Literal>]
 let private RowsPerPart = 250_000
 
-let private tripTableSql = """
+/// ⭐ The exit-mark columns are GENERATED from Intraday.EX_SPECS, so a new mark
+/// cannot be added to the engine without appearing here — the schema and the
+/// appender below both walk the same array, in the same order.
+let private exitCols =
+    EX_SPECS
+    |> Array.map (fun (nm, _) -> sprintf "    ex_%s_px DOUBLE, ex_%s_sec INTEGER," nm nm)
+    |> String.concat "\n"
+
+let private tripTableTemplate = """
 CREATE TABLE trips (
     symbol VARCHAR, trade_date VARCHAR, n DOUBLE,
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
@@ -215,11 +223,7 @@ CREATE TABLE trips (
     open_at_signal INTEGER,
     fwd_vwap_30 DOUBLE, fwd_vwap_60 DOUBLE, fwd_vwap_120 DOUBLE,
     fwd_vwap_300 DOUBLE, fwd_vwap_600 DOUBLE, fwd_vwap_1200 DOUBLE,
-    ex_lo_px DOUBLE, ex_lo_sec INTEGER,
-    ex_nohi60_30_px DOUBLE, ex_nohi60_30_sec INTEGER,
-    ex_nohi60_60_px DOUBLE, ex_nohi60_60_sec INTEGER,
-    ex_nohi1200_30_px DOUBLE, ex_nohi1200_30_sec INTEGER,
-    ex_nohi1200_60_px DOUBLE, ex_nohi1200_60_sec INTEGER,
+@EXIT_COLS@
     exit_sec INTEGER, exit_px DOUBLE, exit_reason VARCHAR,
     ret_exit DOUBLE, bars_held INTEGER,
     close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_d DOUBLE,
@@ -228,6 +232,11 @@ CREATE TABLE trips (
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
+
+// ⚠ Split from the literal deliberately: a triple-quoted string whose closing
+// line sits at column 0 cannot be followed by `.Replace` on the same line — F#'s
+// offside rule reads the continuation as a new top-level declaration.
+let private tripTableSql = tripTableTemplate.Replace("@EXIT_COLS@", exitCols)
 
 type TripSink(outDir: string) =
     let conn = new DuckDBConnection("Data Source=:memory:")
@@ -318,14 +327,12 @@ type TripSink(outDir: string) =
             f p.Fwd30; f p.Fwd60; f p.Fwd120
             f p.Fwd300; f p.Fwd600; f p.Fwd1200
             // ⚠ an unfired mark writes NULL for the sec too, not -1 — a sentinel
-            // integer would silently average into any SQL that forgot to exclude it
-            let inline exSec (px: float) (sec: int) =
-                if Double.IsNaN px then row.AppendNullValue() |> ignore else row.AppendValue sec |> ignore
-            f p.ExLoPx; exSec p.ExLoPx p.ExLoSec
-            f p.ExNoHi60_30Px; exSec p.ExNoHi60_30Px p.ExNoHi60_30Sec
-            f p.ExNoHi60_60Px; exSec p.ExNoHi60_60Px p.ExNoHi60_60Sec
-            f p.ExNoHi1200_30Px; exSec p.ExNoHi1200_30Px p.ExNoHi1200_30Sec
-            f p.ExNoHi1200_60Px; exSec p.ExNoHi1200_60Px p.ExNoHi1200_60Sec
+            // integer would silently average into any SQL that forgot to exclude it.
+            // ⭐ Walks EX_SPECS in the same order the schema above was generated from.
+            for m in 0 .. EX_SPECS.Length - 1 do
+                f p.ExPx.[m]
+                if Double.IsNaN p.ExPx.[m] then row.AppendNullValue() |> ignore
+                else row.AppendValue p.ExSec.[m] |> ignore
             i exitSec; f exitPx; s reason
             f (if p.EntryPx > 0.0 then exitPx / p.EntryPx - 1.0 else nan)
             i p.BarsHeld
