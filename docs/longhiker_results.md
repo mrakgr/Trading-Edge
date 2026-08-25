@@ -2461,3 +2461,147 @@ bar of slippage (S24b). Verified: median holds 67 / 136 / 205 / 274 s, monotone,
 violations.
 
 **Base pass v6 running** with the six `hi_rate_hl*` columns and the three fixed-timestop marks.
+
+## ⭐ S30a — The `hi_rate` quintile sweep (v6, dense rung, mc=1, 30-bar timestop)
+
+Quintiles cut **within** the rung (`entry_px>1 × gap_60<30 × secs_since_hi_1200=0`, no eff gate).
+
+| hl | Q1 | Q2 | Q3 | Q4 | **Q5** |
+|---|---|---|---|---|---|
+| **hl30** eqw | −2.4 | −1.1 | −2.7 | −2.8 | **−6.8** |
+| **hl60** eqw | −1.5 | −0.4 | −0.6 | −2.8 | **−8.7** |
+| **hl120** eqw | −1.9 | +0.4 | **+1.4** | −3.1 | **−11.1** |
+| **hl180** eqw | −1.5 | +0.2 | +0.6 | −2.5 | **−11.1** |
+| **hl300** eqw | −2.1 | +0.4 | −0.0 | −3.2 | **−12.2** |
+| **hl600** eqw | −2.5 | −0.4 | −2.0 | −3.3 | **−10.5** |
+
+⭐⭐ **Q5 is 0-of-7 years on eqw at every half-life** (hl600 alone excepted at the median). Its
+%days-up runs 44.8-46.0 against 51.6-52.7 in Q1. A stock printing new 20m highs at a high *rate* is
+the single most reliable loser in this study, and the effect is **monotone in half-life up to hl120
+then flat** — a genuine feature, not a threshold artefact.
+
+⚠ Note the shape is an **inverted U**, not a ramp: Q1 (fewest new highs — i.e. barely trending) is
+also negative. The peak is **Q3 at hl120** (eqw +1.4, 5/7 years, **trim +0.8** — the first
+trim-positive cell without a volume filter). Too quiet is as bad as too hot; you want a stock that
+has been making *some* progress and is now breaking out of a pause.
+
+⭐ **hl120 (≈2 min) is the sharpest discriminator** — widest Q3-to-Q5 spread (12.5 eqw points).
+The EMA form was the right call: no window, no warm-up cliff, and the half-life sweep is smooth.
+
+## ⭐⭐ S30b — The best spec this study produced
+
+`hi_rate_hl120 <= 0.114` (Q1-Q3) **×** `vol_ratio < 0.8` **×** `volat >= 20bp`, dense rung, mc=1:
+
+| exit | hold s | tkd/yr | mean | med | win% | eqw | %days up | yrs med | yrs eqw | **trim** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **ts30** | 30 | **673** | 4.4 | **2.6** | **53.2** | **+4.6** | 53.1 | **7/7** | 6/7 | **+3.9** |
+| ts60 | 60 | 673 | 5.8 | **3.5** | 53.0 | +4.8 | 53.0 | 6/7 | 5/7 | +3.6 |
+| ts90 | 91 | 673 | 6.5 | 3.2 | 52.2 | +3.4 | 51.1 | 6/7 | 5/7 | +1.9 |
+| **ts120** | 121 | 673 | **8.0** | **5.0** | 52.5 | +4.1 | 51.2 | 4/7 | 5/7 | +2.0 |
+
+⭐ **Longer FIXED holds keep the median positive** (2.6 → 3.5 → 3.2 → 5.0) where longer **trails**
+drove it negative (S25). The mean nearly doubles from ts30 to ts120. That is the clean statement of
+the user's thesis: the move continues, it is the *reactive* exit that sells into the bend.
+
+⚠ But the trim falls the whole way (+3.9 → +2.0) and years-median collapses 7/7 → 4/7. **ts30 is the
+robust choice; ts120 is the bigger but flimsier number.**
+
+⚠⚠ **Iso-trip caveat.** `hi_rate <= Q3` alone is eqw **−3.9**; the +4.6 arrives only with
+`vol_ratio` and `volat` attached, and those cut 3,374 → 673 tkd/yr. This is a **three-feature
+conjunction at 20% of the rung**, not a standalone gate.
+
+### Year table (the reason this study closes)
+
+| yr | tkd | ts30 mean | ts30 med | ts30 win | **ts30 eqw** | ts120 mean | ts120 med | **ts120 eqw** |
+|---|---|---|---|---|---|---|---|---|
+| 2020 | 565 | 9.3 | 6.5 | 57.3 | **+11.3** | 15.2 | 7.6 | +14.0 |
+| 2021 | 716 | 8.2 | 5.5 | 56.0 | +7.4 | 9.1 | 10.2 | +5.3 |
+| 2022 | 566 | 2.3 | 1.8 | 51.9 | +1.7 | 1.0 | −0.6 | −4.7 |
+| 2023 | 386 | 2.9 | 2.9 | 52.6 | +3.6 | 6.1 | −1.1 | +4.0 |
+| 2024 | 500 | 9.6 | 5.7 | 56.9 | +12.2 | 20.0 | 9.6 | +18.0 |
+| 2025 | 867 | 3.1 | 1.2 | 51.3 | +3.3 | 13.5 | 10.7 | +8.9 |
+| **2026** | **1,110** | **0.3** | **0.3** | **50.7** | **−1.3** | −2.1 | −1.1 | **−7.1** |
+
+💀 **2026 is flat-to-negative on the best spec in the study — the fifth independent feature set with
+that shape.** And the *most* trips of any year (1,110 tkd), so it is not a sample problem.
+
+## S30c — `eff_ewma >= 0.70` in the volatile bands loses at every hold length
+
+The user's last test of the original thesis. `entry_px>1 × gap_60<4 × 20m-high × ee>=0.70`, mc=1:
+
+| volat | exit | tkd/yr | mean | med | win% | eqw | yrs med | **trim** |
+|---|---|---|---|---|---|---|---|---|
+| 20-40 | ts30 | 63.4 | 0.8 | 0.6 | 50.7 | −9.5 | 4/7 | −11.7 |
+| 20-40 | ts120 | 63.4 | 0.3 | −0.9 | 49.6 | −13.3 | 4/7 | −17.2 |
+| **40-80** | ts30 | 37.1 | 11.0 | 6.8 | 54.5 | −6.2 | 6/7 | **−14.7** |
+| **40-80** | ts90 | 37.1 | **21.4** | **10.1** | 53.2 | **+5.8** | 6/7 | **−20.6** |
+| **40-80** | ts120 | 37.1 | 14.2 | −8.1 | 48.1 | −4.0 | 2/7 | −35.9 |
+| 80-120 | ts120 | 16.7 | −14.7 | −79.9 | 41.9 | −34.1 | 2/7 | −97.8 |
+| 120bp+ | ts120 | 23.3 | −167.2 | −244.0 | 37.2 | −224.4 | 1/7 | −334.2 |
+| 40bp+ | ts30 | 72.0 | — | — | — | −35.8 | 3/7 | −50.7 |
+
+⚠⚠ **Read the trim column.** `volat 40-80 × ts90` is the best-looking cell here (mean 21.4, med 10.1,
+eqw +5.8) and removing **one day per year** takes it to **−20.6**. Every cell is trim-negative,
+several catastrophically. These are handfuls of days, not edges. Adding `hi_rate <= Q3` on top does
+not rescue it (ts30 eqw −9.6, trim −28.7).
+
+⭐⭐ **The direct contrast, same tape / same exits / same construction:**
+
+| spec | tkd/yr | ts30 eqw | ts30 trim | yrs med | ts120 med |
+|---|---|---|---|---|---|
+| **no eff gate** (S30b) | **673** | **+4.6** | **+3.9** | **7/7** | **+5.0** |
+| `ee >= 0.70` × volat 40bp+ | 72 | −35.8 | −50.7 | 3/7 | −29.2 |
+
+💀 **The efficiency ratio — the feature the whole system was built around — is worth roughly −40 bp
+of day-return, and it is worst exactly where it was expected to be strongest.** `ee >= 0.70` selects
+stocks that have *already* run smoothly: extended, no base. On violent tape that is the worst
+combination available. It is also why a longer hold helps the low-eff cell (median 2.6 → 5.0) and
+hurts this one (6.8 → −8.1): with a base underneath, a longer hold rides the impulse; without one it
+just holds through the bend.
+
+## 💀⭐⭐ S31 — PROGRAM CLOSED (user, 2026-08-25)
+
+> *"I give up on the momentum system. Of course 4bp won't survive costs. I wouldn't trade it unless
+> it could get 50 bps consistently... It's my own fault for taking SMB Capital patterns seriously,
+> there is absolutely no way as far as I can see towards making them work. The market absolutely
+> wants me to trade mean reversion... Trying to make momentum work is like trying to find a needle
+> in a haystack. It's a sure sign that we're on the wrong path. The other working systems that we
+> developed were easy from start to finish."*
+
+**The verdict is a magnitude verdict, not a sign verdict.** Everything below is real and survives
+its controls; none of it is large enough to trade.
+
+### What was established (keep these)
+
+1. ⭐⭐ **Momentum longs CAN have a positive median and a >50% win rate.** This had never been true
+   in this codebase before — every prior trend system had horrible medians and was tail-carried.
+   Best spec: **median +2.6 bp, win 53.2%, 7/7 positive years, trim-positive, 673 tkd/yr.**
+   The recipe is a **fixed timestop**, nothing reactive.
+2. ⭐⭐ **No trailing exit beats a fixed timestop** (S24/S25). The edge horizon is ~30 s; a trail must
+   wait longer than that before it can fire, so it sells into the stall and pays an extra bar
+   besides. At matched horizon: trail med −0.10 / win 49.56 / 3-of-7 vs timestop +6.02 / 55.69 /
+   **7-of-7**.
+3. ⭐⭐ **Chasing continuation is the loss.** The biggest cell on the rung — a new 20m high that never
+   pulled back — is the worst (eqw −7.4, 0/7). New-high **rate** Q5 is 0/7 at every half-life. What
+   works is the *first* break out of a short pause.
+4. ⭐⭐ **The efficiency ratio is an anti-feature** on this rung (S30c). The system's founding
+   premise was backwards.
+5. ⭐ **The 1m/20m dollar-volume ratio** is the cleanest gradient in the study — monotone, huge
+   sample, and volatility amplifies it. This is **MaxRiderV1's asymmetry reproduced on the long
+   side**: low relative volume is what you want on both.
+6. ⚠⚠ **2026 is flat-to-negative on all five independent feature sets tested.** Unresolved whether
+   that is regime or competition. It is a warning for every 1s system, not just this one.
+
+### Why it stops
+
+The edge is **4-8 bp of median day-return**. Spreads on this universe were never measured, but the
+rung requires dense tape by construction and the trips are 30-120 s holds — round-trip cost is
+plausibly the whole edge. The user's bar is **50 bp consistently**. There is no feature in this
+study, or any stack of them, within an order of magnitude of that.
+
+### ⏭ Next: adapt **MaxRiderV1** (1m short MR) to 1s bars.
+
+Assets that carry forward: the `TradingEdge.LongHiker` engine (state sampler, pointer-advance
+lifecycle, exit-mark table), `RingBuffer`, `EmaHlMa` bias correction, `AutoCorrMa` /
+`VarianceRatioMa` / `SignPersistMa` and their EWMA twins, and the `hi_rate` / `vol_ratio` features —
+all of which are side-agnostic and directly reusable on the short side.
