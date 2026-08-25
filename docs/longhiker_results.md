@@ -2177,3 +2177,117 @@ Bind rates and median holds, 2026-08-20 (timestop 67 s):
 | 40 | 0% / 0% | 105 s / 119 s |
 
 17 marks total. Base pass v5 relaunched.
+
+---
+
+# S25 — THE FULL EXIT SWEEP (user, 2026-08-25)
+
+Base pass **v5** (37,466,769 trips — identical per year to v4, as adding recorded columns must be),
+17 exit marks. mc=1 sized on **each** exit, S23 cell (`ee>=0.70 × k20 21-40`, volat 40-80, gap<30).
+
+| exit | hold | mean | **med** | **win%** | eqw | **%up** | yrs med | yrs eqw |
+|---|---|---|---|---|---|---|---|---|
+| **timestop 30 bars** | 56 s | 9.60 | **6.02** | **55.69** | 7.69 | **54.06** | **7/7** | **7/7** |
+| trail 5b (~6) | 14 s | 7.68 | 0.43 | 52.75 | 8.11 | 51.40 | 5/7 | 7/7 |
+| trail 10b (~11) | 29 s | 8.77 | 0.68 | 51.38 | 9.44 | 50.42 | 4/7 | 6/7 |
+| trail 15b (~16) | 47 s | 14.32 | 0.41 | 51.06 | 15.46 | 50.42 | 4/7 | 6/7 |
+| trail 20b (~21) | 62 s | 16.48 | 1.15 | 51.83 | 16.58 | 50.98 | 6/7 | 6/7 |
+| **trail 30b (~31)** | 96 s | **17.33** | **−0.10** | **49.56** | **17.30** | 47.90 | **3/7** | 6/7 |
+| trail 40b (~41) | 130 s | 18.55 | −2.18 | 48.50 | 18.21 | 48.04 | 3/7 | 6/7 |
+| 1m low | 157 s | 15.35 | −15.81 | 42.55 | 15.44 | 42.02 | 1/7 | 5/7 |
+
+⭐⭐ **At matched horizon the comparison is unambiguous**: 30-bar trail vs 30-bar timestop reads
+median **−0.10 vs +6.02**, win **49.56% vs 55.69%**, **3/7 vs 7/7** years. It is not the horizon —
+**it is the rule.**
+
+⭐ The mechanism is interpretable: a trail exits *when momentum stalls*, i.e. systematically at a
+local low against the recent high. On a ~30-second horizon where the move frequently resumes, **the
+trail sells into the stall**; the timestop, being blind, does not.
+
+⚠ The trails do win on **mean** and **eqw_day**, monotonically in length (7.68 → 18.55). That is a
+right tail: at 40 bars, mean 18.55 with median −2.18 is a lottery profile, not an edge. **A
+mean-vs-median choice, and the two metrics disagree about which exit is "less lottery-shaped" —
+the timestop is the consistent one.**
+
+## ⭐ S25a — On this rung there is only ONE trail, not two
+
+`nohi60_Nb` and `nohi1200_Nb` are **100.00%** identical at 20 bars on the rung (99.9998% at 40),
+against only 75%/70% off it. Entering on a new 20m high makes the entry bar simultaneously the max
+of *both* windows, so any later bar exceeding it is a new high in both; the clocks can part only
+once the 60-bar window rolls past the entry bar. **The channel choice is a distinction without a
+difference here — the only real knob is the bar count.**
+
+---
+
+# S26 — DENSITY: THE HYPOTHESIS IS RIGHT, THE FIX IS NOT AVAILABLE (user, 2026-08-25)
+
+## 💀 S26a — A control I ran wrong
+
+The first density control silently **omitted the rung filter** (`{W}` dropped from the query), so it
+measured all trips in the volatility band rather than new-20m-highs with the eff gate. Caught because
+the ticker-day counts did not nest — `gap<20` reported *more* ticker-days than its `gap<30`
+superset. ⭐ **Nesting is a free consistency check on any subset table; run it.**
+
+## S26b — `gap_60 < 4` does not survive contact
+
+| cut | tkd/yr | trips |
+|---|---|---|
+| `gap_60 < 30` | 102.0 | 907 |
+| `gap_60 < 10` | 4.3 | 42 |
+| **`gap_60 < 4`** | **1.4** | **14** |
+
+Ten ticker-days over seven years. The 373 bp mean it reports is one trade.
+
+## ⭐⭐ S26c — But denser IS better, monotonically
+
+Inside `k20 21-40`, mc=1, timestop:
+
+| | tkd/yr | mean | med | win% | eqw | %up | yrs med | yrs eqw |
+|---|---|---|---|---|---|---|---|---|
+| gap<10 | 4.3 | **22.54** | **13.43** | **63.41** | **23.63** | 56.67 | 4/7 | 5/7 |
+| gap 10-20 | 17.6 | 14.19 | 7.95 | 56.95 | 14.63 | 55.28 | 5/7 | 5/7 |
+| **gap 20-30** | **94.1** | 8.82 | 5.96 | 55.27 | +6.79 | 53.57 | **7/7** | **7/7** |
+| gap 30-45 | 502.0 | 2.50 | 2.10 | 52.12 | −0.87 | 50.20 | 5/7 | 2/7 |
+
+⭐ The user's read of the hold times was right: the book is trading sparse tape and it costs. Mean
+runs 22.54 → 2.50 and win 63.4% → 52.1% as the tape thins.
+
+## ⭐⭐ S26d — `k20` is what starves the dense tape — and it survives the density control anyway
+
+Adding filters one at a time, share of trips with `gap_60 < 4`: all 6.5% → +new 20m high 7.4% →
++`eff_ewma>=0.70` 2.2% → **+`k20 21-40` 0.1%**. A 22× collapse. ⚠ Volatility is *exonerated* —
+`volat 40-80` alone runs **10.9%**, better than baseline.
+
+The reason: `corr(k20, bars_present) = +0.707`. A dense name accumulates present bars — and 20m
+highs — far faster, so by 09:50 it has already blown past 40.
+
+**But `k20 21-40` still beats `k20 41+` on `eqw_day` in every density band** (+16.15 vs −7.57;
++0.80 vs −4.96; −0.49 vs −4.92). ✅ It is not a density proxy.
+
+## 💀 S26e — Normalising it destroys it
+
+`kr = 1000 × k20 / bars_present` — highs per thousand present bars.
+
+| | raw `k20` | `kr` |
+|---|---|---|
+| corr with `gap_60` | −0.601 | **−0.057** |
+| corr with `bars_present` | +0.707 | **−0.139** |
+| best band, eqw / yrs_eqw | **+6.79 / 7-7** | **−0.06 / 2-7** |
+
+⭐⭐ The normalisation works *perfectly* as a normalisation and **kills the feature**. So `k20`'s
+edge is not "highs per bar": the absolute count **and** the youth it implies are both load-bearing,
+and separating them removes what was working. **The clean fix is closed off.**
+
+## S26f — The frontier, stated honestly
+
+Density and sample trade off directly and there is no free lunch in the current feature set:
+
+| cut | tkd/yr | mean | eqw | consistency |
+|---|---|---|---|---|
+| gap<10 | 4.3 | 22.54 | 23.63 | 4/7, 5/7 |
+| gap 10-20 | 17.6 | 14.19 | 14.63 | 5/7, 5/7 |
+| **gap 20-30** | **94.1** | 8.82 | +6.79 | **7/7, 7/7** |
+
+⭐ `gap_60 < 30` remains the only cut with both a usable sample and full year-consistency. Getting
+dense tape AND sample requires a feature that selects young moves *without* counting bars — which
+`k20` does not, and `kr` cannot.
