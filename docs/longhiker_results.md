@@ -1808,3 +1808,79 @@ that work. That is a legitimate design. But it must be risked as what it is:
 ⭐ Next: the exit rules. S12 and S16b both concluded the exit is the system, and the day-level
 problem is an *exit* problem — a fixed 30-bar timestop cannot cut a bad day short. The five
 counterfactual marks in v4 are the test.
+
+---
+
+# S21 — STACKING eff_ewma × vr4_ewma (user, 2026-08-25)
+
+## 💀 S21a — The proposed stack fails the iso-trip control
+
+`eff_ewma >= 0.62 AND vr4_ewma >= 1.53` → 6,755 trips (1.8% of the rung). Against controls
+tightened to the **same trip count** (`feedback_iso_trip_control_for_stacked_features`):
+
+| selection | trips | tkd | trip mean | trip med | win% | eqw day | % days up |
+|---|---|---|---|---|---|---|---|
+| **STACK** 0.62 × 1.53 | 6,755 | 587 | 5.93 | 5.45 | 53.43 | −21.27 | 38.50 |
+| iso: `eff_ewma >= 0.880` | 6,689 | 726 | **10.63** | **7.61** | **56.46** | −12.08 | 41.60 |
+| iso: `vr4_ewma >= 1.976` | 6,798 | 642 | 8.09 | 5.33 | 53.15 | −20.03 | 38.47 |
+| iso: RANDOM subsample | 6,746 | 4,692 | 4.35 | 2.11 | 51.76 | +1.04 | 50.51 |
+
+**Either feature alone at the same selectivity beats the conjunction.** It only clears the random
+floor.
+
+⭐ **And NOT because they are redundant** — `ρ(eff_ewma, vr4_ewma) = −0.14`, near-orthogonal. The
+cause is that `eff_ewma`'s payoff is **concentrated in its extreme tail**, so a 0.62 floor forfeits
+exactly the part that pays:
+
+| `eff_ewma >=` | trips | trip mean | win% | eqw day | % days up |
+|---|---|---|---|---|---|
+| 0.55 | 99,723 | 5.64 | 53.43 | −17.87 | 37.70 |
+| 0.70 | 32,866 | 7.04 | 54.21 | −15.61 | 39.65 |
+| **0.88** | 6,676 | **10.59** | **56.48** | **−12.14** | **41.60** |
+| 1.00 | 1,003 | 4.14 | 55.71 | −12.80 | **44.78** |
+
+⭐⭐ This is also **the first selection in the whole study whose equal-weight-day metric IMPROVES
+with selectivity** — −14.48 baseline → −12.14, `% days up` 38.8% → 41.6% → 44.8%. Every earlier cut
+made it worse.
+
+## ⭐⭐ S21b — Stack on the STRONG base and it wins decisively
+
+| selection | trips | tkd | trip mean | trip med | win% | eqw day | % days up |
+|---|---|---|---|---|---|---|---|
+| base `ee>=0.88` | 6,676 | 726 | 10.59 | 7.67 | 56.48 | −12.14 | 41.60 |
+| **`+ vr4_ewma >= 1.0`** | 2,090 | 201 | **18.45** | **11.18** | **58.59** | −8.45 | 46.27 |
+| ⤷ iso `ee>=0.961` alone | 2,122 | 263 | 7.70 | 7.79 | 56.64 | −9.40 | 43.35 |
+| ⤷ iso random | 2,074 | 533 | 8.09 | 5.26 | 54.60 | −9.24 | 44.84 |
+| **`+ vr4_ewma >= 1.2`** | 1,267 | 126 | 17.29 | **11.32** | 57.78 | **−6.79** | **51.59** |
+| ⤷ iso `ee>=0.984` alone | 1,266 | 175 | 3.70 | 5.98 | 55.46 | −13.61 | 41.71 |
+| ⤷ iso random | 1,244 | 448 | 7.53 | 3.91 | 53.79 | −5.21 | 46.88 |
+
+It beats **both** iso controls on every trip metric, and `+ vr >= 1.2` gives **51.59% of ticker-days
+profitable — the first cell in this study to clear 50%.**
+
+⭐ **The lesson generalises: a conjunction must be built on the part of each feature that actually
+carries signal.** Two moderate conditions on orthogonal axes lost; the same two axes at
+0.88 × 1.2 won. "Orthogonal features stack" is only true where each is in its paying region.
+
+## ⚠⚠ S21c — But the sample is too thin to call it anything
+
+Year control, `ee>=0.88 & vr>=1.2`:
+
+| yr | trips | **tkd** | med | mean | win% | eqw day | % days up |
+|---|---|---|---|---|---|---|---|
+| 2020 | 199 | **18** | 4.84 | 21.29 | 54.04 | −11.65 | 38.89 |
+| 2021 | 297 | **22** | 20.78 | 44.70 | 60.61 | +0.46 | 54.55 |
+| 2022 | 175 | **19** | 7.69 | −0.97 | 55.75 | −12.94 | 42.11 |
+| 2023 | 88 | **10** | 2.61 | −20.72 | 50.00 | −48.87 | 50.00 |
+| 2024 | 133 | **15** | 29.09 | 9.22 | 67.69 | +5.21 | 66.67 |
+| 2025 | 200 | **19** | 17.68 | 20.58 | 60.80 | +8.05 | 57.89 |
+| 2026 | 175 | **23** | 1.80 | 5.97 | 52.30 | −6.65 | 52.17 |
+
+Medians are **7/7 positive** in both stacks, which is not nothing. But **10-23 independent
+ticker-days per year** is not a year audit, it is seven small samples — the mean is negative in 2 of
+7, 2023 rests on 10 ticker-days, and 2026 (the year we would trade) is the weakest at +1.80 median
+/ 52.30% win.
+
+⭐ The fix is sample, and it is available: this cell lives inside the **`volat_20m ∈ [40,80)bp` focus
+band only**. Volatility was always meant to be the varied axis — widening it is the obvious next
+step, and the first real test of whether 0.88 × 1.2 is a rule or a small-sample shape.
