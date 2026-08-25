@@ -1707,3 +1707,104 @@ two means to reconcile. Only the three `ac*_ewma` columns changed.
 💀 The base pass was killed 10 minutes in and restarted rather than ship a feature with a known
 drift-leak. Cheap next to discovering it in a breakdown three sections later — which, on the record
 of S3b / S5 / S7c / S15, is exactly where it would have surfaced.
+
+---
+
+# S20 — DO THE EWMA INDICATORS DO ANYTHING? (user, 2026-08-25)
+
+Base pass **v4**: 37,466,769 trips / 15 GB (10.4× smaller than v2 — the extremes-only gate),
+entries from 09:45, five counterfactual exit marks, EWMA twins. Standing filter + the S11 rung
+(`secs_since_hi_1200 = 0`) leaves **378,887 trips over 19,693 ticker-days**.
+
+## S20a — Coverage: the warm-up problem is solved
+
+| feature | % null |
+|---|---|
+| **`eff_ewma_20m`** | **0.00** |
+| `eff_20m` (windowed) | 49.99 |
+| `vr4_ewma` / `vr4_roll` | 0.37 / 0.37 |
+
+⚠ The engine gate is still `eff_open >= 0.30`, so every table below is measured on a population
+already pre-filtered by the *old* feature. `eff_ewma_20m` nonetheless spans p01 0.145 → p99 0.871
+inside that set, so there is real range to band on.
+
+## S20b — Both new features are monotone, trip-pooled, and 7/7 in the top band
+
+`eff_ewma_20m` — median `r30s` / win% ex-ties:
+
+| band | n | med | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| < 0.35 | 55,709 | 1.71 | 51.48 | 8.73 | 0.62 | 2.25 | −1.70 | 1.23 | 0.01 | 2.35 |
+| 0.35-0.45 | 133,099 | 3.61 | 52.74 | 8.09 | 0.60 | 3.28 | 0.23 | 1.03 | 6.61 | 3.50 |
+| 0.45-0.55 | 90,356 | 3.98 | 52.92 | 9.15 | 2.27 | 1.24 | 1.75 | 3.54 | 7.78 | 1.42 |
+| 0.55-0.70 | 66,857 | 3.95 | 53.04 | 5.57 | 4.26 | 3.98 | 0.39 | 3.46 | 7.63 | −0.28 |
+| **0.70+** | 32,866 | **5.51** | **54.21** | 6.11 | 5.66 | 4.94 | 3.77 | 9.68 | 5.52 | **2.01** |
+
+`vr4_ewma`:
+
+| band | n | med | win% | 2026 |
+|---|---|---|---|---|
+| < 0.7 | 71,993 | 1.89 | 51.79 | 1.39 |
+| 0.9-1.1 | 74,081 | 2.91 | 52.42 | 2.47 |
+| 1.1-1.4 | 96,080 | 4.17 | 52.91 | 2.98 |
+| **1.4+** | 74,871 | **6.91** | **54.60** | **2.56** |
+
+⭐ Both top bands are **positive in all seven years including 2026** — which S14's `vr4_roll` was
+not (it inverted in 2026). ⚠ Note `vr4_ewma` is monotone-rising, **not** the inverted U `vr4_roll`
+showed; the exponential weighting has changed the shape, not just the noise.
+
+## ⭐⭐ S20c — Head-to-head at matched selectivity
+
+| selection | trips | ticker-days | trip mean | trip med | win% | **eqw day** | **% days up** |
+|---|---|---|---|---|---|---|---|
+| `eff_open >= 0.62` | 59,319 | 4,740 | 5.88 | 4.94 | 53.84 | −15.79 | 38.61 |
+| **`eff_ewma_20m >= 0.70`** | 32,866 | 2,951 | **7.04** | **5.51** | **54.21** | −15.61 | 39.65 |
+| `vr4_roll >= 1.62` | 39,210 | 2,784 | 10.56 | 7.11 | 54.60 | −16.86 | 39.69 |
+| `vr4_ewma >= 1.53` | 47,715 | 3,097 | 9.74 | 7.06 | 54.52 | −16.41 | 39.49 |
+| *baseline (whole rung)* | 378,887 | 19,693 | 4.99 | 3.75 | 52.78 | −14.48 | 38.81 |
+
+⭐ **`eff_ewma_20m` beats `eff_open` on every trip metric while being MORE selective** (32.9k vs
+59.3k trips) — better and cheaper. ⚠ `vr4_ewma` and `vr4_roll` are a tie; the EWMA version's win is
+availability and shape stability, not information.
+
+**Substitution tests** (T37/T38): ρ(eff_ewma, eff_open) = 0.930 and ρ(vr4_ewma, vr4_roll) = 0.880,
+and the joint tables are diagonal-dominant — the off-diagonal cells that would prove independent
+information carry n in the tens. `vr4_ewma` retains a gradient inside `vr4_roll >= 1.4`
+(0.86 → 5.28 → 7.25 on 1.6k/13.3k/63.5k), the reverse direction is weaker. **Neither pair is two
+features; each is one feature measured two ways, and the EWMA way is the better-behaved one.**
+
+## 🛑 S20d — But none of them touches the ticker-day problem
+
+Equal-weight by ticker-day, `eff_ewma_20m` bands: **−5.01 / −7.86 / −9.80 / −11.29 / −8.96**, with
+`pct_days_up` **45.10 → 41.70 → 39.84 → 37.46 → 39.65**. `vr4_ewma` bands: **−8.72 / −8.78 / −9.58 /
+−9.29 / −9.58**, `pct_days_up` flat at ~40%.
+
+⭐⭐ **The two weightings point in OPPOSITE directions.** Higher `eff_ewma` is monotonically better
+per *trip* and monotonically worse per *day*. `vr4_ewma`'s day-level gradient is flat — meaning its
+entire trip-pooled gradient is a trip-count effect.
+
+And selecting harder makes the day picture *worse*, not better: baseline −14.48 → −15.6 to −16.9 for
+every top-band selection, while `pct_days_up` barely moves (38.8% → 39.5%). `corr(k, day return) =
+0.29` on the rung.
+
+⚠ **A refinement of S15's framing, which was too harsh.** The trip-weighted number is not an
+artifact — it is the realised P&L per unit of exposure, and it is *causally* earned: more signals
+fire because the stock keeps printing new 20m highs, which is knowable at the time. What the system
+does is **scale exposure into persistence**, taking few trades on days that fail and many on days
+that work. That is a legitimate design. But it must be risked as what it is:
+
+- **~19 trips per ticker-day**, so the independent draw is the day, not the trip
+- **the typical day loses**; ~39% of days are up
+- the aggregate is carried by a minority of high-signal days
+
+## S20e — Verdict on the user's question
+
+| | verdict |
+|---|---|
+| `eff_ewma_20m` | ⭐ **keep, replaces `eff_open`** — strictly better at matched selectivity, 0% null vs 50%, 7/7 years |
+| `vr4_ewma` | ⭐ **keep, replaces `vr4_roll`** — ties on returns, but monotone instead of inverted-U and positive in 2026 where `vr4_roll` inverted |
+| both | ⚠ **neither improves the day-level picture at all** |
+
+⭐ Next: the exit rules. S12 and S16b both concluded the exit is the system, and the day-level
+problem is an *exit* problem — a fixed 30-bar timestop cannot cut a bad day short. The five
+counterfactual marks in v4 are the test.
