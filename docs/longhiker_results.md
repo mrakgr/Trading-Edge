@@ -2906,3 +2906,37 @@ price vs lagged vwap), not the vwap-pair used here; corr 0.883. The user's def s
 ⚠ The two exits are different SYSTEMS from here: the timestop is a 52-55%-win scalper
 (median hold ~40-75 s), the stop is a 40%-win trend harvester (median hold ~400 s, day median
 −27 bp). Costs, sizing and temperament diverge accordingly.
+
+## S36b — speed re-banded on the CORRECT definition: `signal_vwap / vwap_60_prev − 1` (PINNED)
+
+> USER: *"If we have the lagged 60s vwap as a feature we should be able to calculate the correct
+> distance by dividing the signal price with it."*
+
+Yes — both columns exist and the FlushFader-native def is now THE speed. Timestops, S34 cell, mc=1:
+
+⭐ **The def matters structurally, not just as a relabel**: under it, `<0` and `0-0.1%` are EMPTY
+(n ≤ 3) — a new 20m high prints above its own lagged 1m vwap essentially always. The vwap-pair
+def's "against" band was measuring vwap drift, not breakout distance; it does not exist as a
+population. Correct instrument, cleaner map:
+
+| speed | side | tkd/yr | ts30 eqw | ts30 med | yrs | trim | ts60 eqw | ts60 trim |
+|---|---|---|---|---|---|---|---|---|
+| 0.1-0.25% | +1 | 82 | +3.32 | +3.04 | 7/7 | +2.38 | +3.23 | +1.91 |
+| **0.25-0.5%** | +1 | 352 | **+4.34** | +2.78 | **7/7** | **+3.80** | +3.99 | +3.52 |
+| **0.5-1%** | +1 | 486 | +2.74 | +3.15 | **7/7** | +2.40 | **+4.49** | **+4.01** |
+| 1-2% | +1 | 186 | +1.69 | +0.62 | 3/7 | +0.39 | +3.14 | +1.39 |
+| >2% | +1 | 18 | +10.22 | +19.58 | 5/7 | **+0.80** | +14.73 | **+0.16** |
+| 0.25-0.5% | −1 | 464 | +4.27 | +2.68 | 7/7 | +3.93 | +3.93 | +3.48 |
+| 0.5-1% | −1 | 652 | +3.19 | +1.92 | 5/7 | +2.85 | +2.75 | +2.30 |
+| 1-2% | −1 | 282 | +5.22 | +1.15 | 5/7 | +3.77 | +6.15 | +4.50 |
+| **>2%** | −1 | 42 | +1.13 | **−7.80** | 3/7 | **−5.09** | +3.62 | −5.48 |
+
+- **Sweet spot 0.25-1%/min, both sides** (eqw +2.7-4.5, 7/7 years, trim-robust); decay begins at
+  1-2%; **the MR boundary sits at ~1-2%/min in the correct units** (S35's ~0.5-1% was the same
+  line in vwap-pair units).
+- ⚠ The long `>2%` pocket (eqw +10-15, med +19.6, 61% up) is **tail-carried**: 18 tkd/yr and the
+  trim guts it to +0.8/+0.2 — one day a year is the whole cell. Dismissed per the standing rules.
+- The short `>2%` band is median- and trim-negative — the flush region belongs to the fader.
+
+🔒 **Definition pinned**: every subsequent speed number in this doc uses
+`side × (signal_vwap / vwap_60_prev − 1)`.
