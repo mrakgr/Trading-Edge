@@ -2755,3 +2755,51 @@ The best cells are eqw +4-6 bp/day at 800-2,700 tkd/yr (the 15+ tail +10.6 at 12
 is trim-robust and 2026-positive — the healthiest tables the momentum program has ever produced —
 and still an order of magnitude under the 50 bp bar. What changed vs S31: the day-rate roughly
 DOUBLED and 2026 flipped positive. What did not change: the scale.
+
+## ⭐⭐ S34 — the user's high-volume coil spec: THE VOLUME LEG IS THE POISON PILL
+
+> USER: *"What I want to test is `price > 1 && tightness_lagged < 3.5 && relative_volume > 2 &&
+> gap_60 < 4 && volat_20m > 20bps`. We should be testing breakouts on high volume from tight
+> consolidations, not the opposite."* (gap_60 < 4 = truly dense; < 30 was not.)
+
+mc=1, ts30, volat bands, `relvol = (dv_60/60)/(dv_1200/1200)`:
+
+### As specified — relvol > 2
+
+| volat | side | tkd/yr | eqw | med | up% | yrs | trim |
+|---|---|---|---|---|---|---|---|
+| 20-40bp | +1 | 635 | +0.51 | −0.19 | 49.8 | 4/7 | +0.10 |
+| 40-80bp | +1 | 397 | −4.63 | −7.75 | 46.1 | 0/7 | −6.70 |
+| 80-120bp | +1 | 262 | −9.70 | −21.97 | 43.6 | 1/7 | −15.82 |
+| **120bp+** | +1 | 273 | **−45.78** | −55.56 | 40.3 | 0/7 | −52.20 |
+| 20-40bp | −1 | 469 | −2.93 | −2.12 | 47.4 | 1/7 | −3.42 |
+| 120bp+ | −1 | 50 | −47.87 | −65.50 | 37.8 | 1/7 | −67.12 |
+
+Negative essentially everywhere, BOTH sides, and monotonically worse with volatility — the exact
+inverse of the hoped-for amplification. ts60 does not rescue it.
+
+### ⭐⭐ The control — identical spec, relvol < 0.8 (side +1)
+
+| volat | tkd/yr | eqw | med | up% | yrs | **trim** |
+|---|---|---|---|---|---|---|
+| 20-40bp | 612 | +2.70 | +2.99 | **55.2** | **7/7** | **+2.49** |
+| **40-80bp** | 157 | **+6.75** | **+3.22** | 53.6 | **7/7** | **+4.96** |
+| 80-120bp | 22 | +11.94 | +0.73 | 51.7 | 5/7 | −0.34 |
+| 120bp+ | 6 | −66.59 | −28.24 | 42.1 | 1/7 | −104.49 |
+
+**One substitution — relvol > 2 → < 0.8 — flips every usable band from losing to 7/7-year
+trim-positive.** The 40-80bp cell (+6.75 eqw, trim +4.96, 157 tkd/yr) is the best trim-positive
+cell the program has produced. 120bp+ is un-tradeable on either volume leg.
+
+### Two conclusions
+
+1. ⭐⭐ **The volume burst is the poison pill, with damage scaling in volatility.** A high-volume
+   breakout is crowd-visible and spent at the fill; the quiet grind continues. This is the
+   MaxRiderV1 / S43bq volume-magnitude asymmetry landing on the long side a third time —
+   LOW relative volume is now confirmed as the wanted state on BOTH sides and in every frame
+   tested (S28a, S33, here).
+2. ⭐ **On TRULY dense tape the coil DOES work** — the S33 loose>coil ordering was measured at
+   `gap_60 < 30` without the px floor. At `gap_60 < 4` × quiet volume, the user's coil thesis
+   holds: +2.7 to +6.8 bp/day, 7/7 years, trim-robust. Density changes which shape wins.
+
+⚠ Magnitude unchanged: the best cell is ~+7 bp/day at 157 tkd/yr.
