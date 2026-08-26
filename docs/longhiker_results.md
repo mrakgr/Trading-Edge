@@ -2976,3 +2976,22 @@ by ordinary upticks before the trend pays.
 3. The two exits split the speed axis between them: **timestop owns 0.25-1% (7/7, both sides);
    the stop owns only long 0.5-1% and pays for it with −26 bp median days and two flat years.**
    >2% is broken under every exit tried (trim −35 here) — the S35/S36b boundary again.
+
+## 💀 S37 — v7 CLOSED (user, 2026-08-26)
+
+> *"I give up once more. What a waste of time."*
+
+One day, one corpus, and the consolidation question is settled rather than abandoned: the coil
+works only on truly dense, never-elevated, quiet-volume tape at 0.25-1%/min — at +3 to +7 bp/day.
+Same magnitude verdict as S31.
+
+**Kept for the MR program** (none of this is wasted):
+1. ⭐⭐ **The MR/momentum boundary: ~1-2%/min of pinned speed** (`signal_vwap/vwap_60_prev − 1`),
+   measured from BOTH sides now — above it the fader's territory, below it drift too small to
+   pay costs. A regime line FlushFader-family systems can cite.
+2. ⭐ **The volume-magnitude asymmetry confirmed a third time**: high relative volume poisons
+   directional continuation everywhere; low relvol is the wanted state on both sides.
+3. ⭐ The trim/median discipline caught FOUR tail-fakes in one day (loose-band 15+ was real;
+   >2% long pocket, 1-2% stop band, S34b burst cells were not).
+4. `EwmaVarMa`, the tightness measure, side-signed sampler, and the trailing-stop mark machinery
+   — all reusable, all oracle-tested.
