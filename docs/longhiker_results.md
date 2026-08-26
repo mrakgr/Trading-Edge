@@ -2862,3 +2862,47 @@ between the two trade families is ~0.5-1%/min of 1m-vwap speed, measured from bo
 
 ⭐ Best long cell of the program: `0.25-0.5% speed × ts60` — eqw +5.83, med +4.56, 7/7 years,
 trim +5.12, 387 tkd/yr.
+
+## ⭐⭐ S36 — the 5m stop in the COIL cell: the trend-following profile appears, and it is real
+
+S33 measured the 5m-low trailing stop on the LOOSE cell and it was catastrophic (eqw −10.7).
+In the S34 coil cell the same exit is the strongest eqw in the program — because the stop's cost
+is the width of the range, and a coil's 5m low is NEAR. Tight consolidation = defined risk; the
+user's original instinct, showing up in the exit rather than the entry.
+
+mc=1 with REAL hold spacing (next entry after the stop fires; fired 100.0%, median hold 400 s;
+EOD backstop unused):
+
+| cell | tkd/yr | eqw | med | up% | yrs | trim |
+|---|---|---|---|---|---|---|
+| side +1, whole cell | 758 | **+12.11** | **−27.36** | 40.2 | **7/7** | **+10.39** |
+| side −1, whole cell | 1,024 | +4.19 | −29.22 | 39.8 | 6/7 | +2.74 |
+
+⭐⭐ **eqw doubles-to-triples the timestop (+12.1 vs +4-6) while the MEDIAN day flips to −27 bp at
+40% up-days** — the textbook trend-following P&L shape: most days pay the stop, winners run. It is
+NOT tail-fake: trim +10.39 survives removing each year's best day, 7/7 years. The same rule, the
+same tape — the coil makes the stop cheap, the loose range made it ruinous.
+
+### Speed bands under the stop (side +1, vwap-pair def)
+
+| speed | tkd/yr | eqw | med | up% | yrs | trim |
+|---|---|---|---|---|---|---|
+| 0-0.1% | 183 | +5.14 | −29.81 | 37.8 | 6/7 | +0.08 |
+| 0.1-0.25% | 310 | +6.19 | −30.63 | 38.5 | 6/7 | +3.01 |
+| 0.25-0.5% | 387 | +13.20 | −25.38 | 40.5 | 6/7 | +10.79 |
+| **0.5-1%** | 225 | **+17.70** | −25.84 | 42.0 | 6/7 | **+13.86** |
+| >1% | 39 | +17.85 | −42.65 | 42.5 | 3/7 | −5.23 |
+
+⭐ **The speed ordering INVERTS vs the timestop**: under a fixed hold the 0.25-0.5% band peaked and
+faster decayed; under the stop, eqw RISES with speed through 1%/min — when the exit lets winners
+run, the faster break pays more per winner. >1%/min stays broken (trim −5.2) — the MR boundary
+(S35) survives the exit change.
+
+⚠ Speed-definition note (user): FlushFader's speed is `signal_vwap / vwap_60_prev − 1` (signal
+price vs lagged vwap), not the vwap-pair used here; corr 0.883. The user's def shifts mass right
+(a new-high print sits above its own 1m vwap), relabeling bands — same structure, boundary
+~one band higher. Both banded tables are in `lh_v7_stop5m.py`.
+
+⚠ The two exits are different SYSTEMS from here: the timestop is a 52-55%-win scalper
+(median hold ~40-75 s), the stop is a 40%-win trend harvester (median hold ~400 s, day median
+−27 bp). Costs, sizing and temperament diverge accordingly.
