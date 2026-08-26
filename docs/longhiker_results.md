@@ -2803,3 +2803,30 @@ cell the program has produced. 120bp+ is un-tradeable on either volume leg.
    holds: +2.7 to +6.8 bp/day, 7/7 years, trim-robust. Density changes which shape wins.
 
 ⚠ Magnitude unchanged: the best cell is ~+7 bp/day at 157 tkd/yr.
+
+## S34b — burst-then-cooled (`relvol < 0.8` NOW, `vol_ratio_max5m > 2` recently): the cell is EMPTY
+
+> USER: *"Maybe entering a little bit later after the breakout has cooled down would work better?"*
+
+The idea is testable and the answer is structural: **in the coil × gap_60<4 × quiet-now frame, the
+burst-then-cooled population barely exists** — 1-7 tkd/yr per volat band (45 / 9 / 2 tkd over the
+whole period on the long side). The three legs are near-mutually-exclusive in practice: a genuine
+>2× EWMA burst inside the last 5m either inflates the 20m std past `tight < 3.5` or keeps
+`dv_ewma_1m` elevated past `relvol < 0.8` (hl = 1m decays slowly). What little passes is
+median-negative and trim-negative on both sides — noise-scale days, no cell.
+
+Graded sweep inside the usable population (side +1, volat 20-80bp, ts30, mc=1):
+
+| `vol_ratio_max5m` | tkd/yr | eqw | med | up% | yrs | trim |
+|---|---|---|---|---|---|---|
+| < 1.05 (never elevated) | 562 | +3.58 | **+3.41** | **55.4** | **7/7** | **+3.16** |
+| 1.05-1.2 | 115 | +3.79 | +3.45 | 54.8 | 6/7 | +1.95 |
+| 1.2-1.5 | 89 | +3.98 | +0.95 | 51.4 | 6/7 | +1.85 |
+| 1.5-2.0 | 29 | −0.15 | −0.15 | 49.2 | 3/7 | −4.16 |
+| **> 2.0** | 8 | +5.13 | −1.54 | 44.4 | 2/7 | −3.80 |
+
+⭐ **Monotone decay in median/trim as ANY recent volume elevation enters** — the quiet cell wants
+tape that never woke up at all, not tape that burst and cooled. The mean holding up while median
+and trim collapse is the tail-carried signature. ⚠ Bonus from the run: ts60 IMPROVES the S34 cell
+(40-80bp no-burst: eqw +9.18, trim +6.84) and the SHORT coil in the same frame reads +8.28 eqw /
+trim +6.69 at 256 tkd/yr — the two sides are near-symmetric here.
