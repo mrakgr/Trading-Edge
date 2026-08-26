@@ -2605,3 +2605,78 @@ Assets that carry forward: the `TradingEdge.LongHiker` engine (state sampler, po
 lifecycle, exit-mark table), `RingBuffer`, `EmaHlMa` bias correction, `AutoCorrMa` /
 `VarianceRatioMa` / `SignPersistMa` and their EWMA twins, and the `hi_rate` / `vol_ratio` features —
 all of which are side-agnostic and directly reusable on the short side.
+
+---
+
+# ⭐⭐ S32 (2026-08-26) — PROGRAM REOPENED: v7, breakouts from TIGHT CONSOLIDATIONS
+
+> USER: *"We're going to test a very specific setup in order to try and make it work — breakouts
+> from tight consolidations. The efficiency ratio is very good at detecting trends when it has high
+> absolute values, but suppose it is around 0. In that case, it cannot differentiate between tight
+> and loose ranges... We'll have a proper measure that compares the size of the range to its own
+> volatility to get a sense of how tight the consolidation is."*
+
+⭐ This is not a retrace of the closed program — it is the follow-up to the ONE structure S29-S31
+left standing: the shallow-base cells were the only trim-positive ones, `hi_rate` peaked at
+"some progress, then a pause", and never-pulled-back breaks were the worst large cell. What the
+closed program never had was a direct measure of the pause itself.
+
+## The tightness measure
+
+    tight_20m = std_20m / volat_20m         (and the 10m twin)
+
+- `std_20m` = **EWMA centered std of ln(slot vwap)**, hl 40 slots, on the SAME 30-present-bar slot
+  stream as volat — sub-30s returns are microstructure (F5c), so the std must not see raw 1s bars.
+- `volat_20m` = the locked mean-|r| EmaHlMa, unchanged.
+- The ratio is **dimensionless**: "how many of its own typical 30s moves does the 20m range span?"
+  Low = a coil. ⭐ This separates tight-and-quiet from tight-because-dead, which the crypto-era
+  1h/4h std ratio could not (that one failed; both its legs were the same kind of number).
+- ⚠ Every leg ships a `*_lag1m` twin — the reading as of **2 completed slots ago** — so the
+  breakout bar influences neither numerator nor denominator of the lagged score. BOTH legs are
+  lagged: the breakout inflates volat too, and a half-lagged ratio reads artificially tight right
+  after the break.
+
+`EwmaVarMa` (decayed S0/S1/S2 triple, bias-corrected from push 1, origin-shifted) validated against
+a direct weighted oracle at every step: worst relerr 1.6e-15 over 500 steps; shift invariance at
+1e6; Var = 0 after one push and on constants; recovers a planted σ. `EwmaVar_Test.fsx`.
+⚠ The μ² form is safe HERE, unlike in EwmaAutoCorrMa where it leaked drift: that was a lag-k cross
+product with two different means; at lag 0 they are the same mean and the identity is exact.
+
+## The v7 engine changes
+
+1. 💀 **The eff_open >= 0.3 gate is DELETED** (config field and flag, not defaulted off) — the
+   thesis wants eff AROUND ZERO. eff stays recorded.
+2. ⭐ **The sampler fires on new 20m extremes ONLY, both sides**: new 1200-bar high → `side = +1`,
+   new low → `side = −1`. **The short side enters the study.** Returns stay in raw long convention;
+   analysis negates for side −1. (v1-v6 fired on any {1,2,5,10,20}m extreme.)
+3. 💀 **The NoHi trail family is retired** (S25/S31 closed it). The v7 exit-mark table:
+   trailing stops `lo{60,120,300}` (first new {1,2,5}m LOW after fill — the long stop) and
+   `hi{60,120,300}` (the short mirror), plus `ts{60,90,120}b`. Production exit stays the 30-bar
+   timestop.
+4. New features: `std_{20m,10m}` + `_lag1m` twins, `volat_{20m,10m}_lag1m`,
+   `volat_20m_sessmax` (running max after 09:15 — the intraday volatility-CONTRACTION reference),
+   `dv_ewma_{1m,20m}` (per-bar dollar-volume EWMAs, hl 60/1200 bars) and `vol_ratio_max5m`
+   (5m MaxMa of their ratio — "did a volume burst happen in the last 5m?", the lagged-breakout
+   probe; not derivable post-hoc).
+
+⚠ v7 is a genuinely BROADER corpus than v6, not just new columns: v6 was built with the eff gate
+baked in, so no v6 number filters forward.
+
+## S32a — smoke month (2026-07) + primitive validation
+
+3,860,258 trips / 21,733 tkd / 87 s. Sides 52/48 (lo-rung/hi-rung). Zero nulls on all ten new
+columns at `signal_sec >= 35100`.
+
+⭐ **The tightness distribution lands exactly where theory puts it**: for a random walk
+`std_20m/volat_20m` ~ 6; the rung reads median 6.2, q10 3.2, q90 10.6. The coil is the LEFT tail
+(<~4), trending tape the right. Lagged twin corr 0.997 in the bulk — it can only differ at
+breakout bars, which is the design.
+
+Exit marks: lo60 ⊂ lo120 ⊂ lo300 monotone, ZERO ordering violations, medians 156/367/846 s from
+fill. Per-side symmetry: the long's adverse stop (lo60) 156 s vs the short's (hi60) 159 s; the
+long's own hi60 fires at 10 s median — a breakout keeps printing highs, as it must.
+Pooled ungated ts medians ~0.0 bp — the rung carries nothing until the tightness cells cut it.
+
+**Base pass v7 running**: 2020-01-01 → 2026-08-25, projected ~200M trips / ~90 GB (the v1
+month-to-total ratio). ⚠ Post-hoc analyses should derive a study parquet slice rather than
+scanning the trip corpus per query, as in v1.

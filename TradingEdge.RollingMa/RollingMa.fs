@@ -472,6 +472,49 @@ type EmaHlMa(halfLife: float) =
         num <- 0.0
         den <- 0.0
 
+/// ⭐ Bias-corrected EWMA CENTERED VARIANCE — the decayed-triple extension of
+/// EmaHlMa's num/den trick: s0/s1/s2 are Σ decayed α·{1, x, x²}, so
+/// `Mean = s1/s0` and `Var = s2/s0 − Mean²` is the exact exponentially-weighted
+/// centered variance of everything pushed — correct from the FIRST push (Var = 0,
+/// one point has no spread) with no SMA warm-up, the same argument as EmaHlMa.
+///
+/// ⚠ The μ² form is SAFE here, unlike in EwmaAutoCorrMa where it leaked drift:
+/// that failure was a lag-k cross product whose two series carry different
+/// means; at lag 0 both means are the same series at the same time and
+/// s2/s0 − (s1/s0)² IS the weighted centered variance, identically.
+///
+/// Inputs are shifted by the first pushed value before accumulating, so the
+/// cancellation in s2/s0 − mean² happens near zero whatever the level of the
+/// series. Var/Std are shift-invariant; Mean adds the origin back.
+[<Sealed>]
+type EwmaVarMa(halfLife: float) =
+    do if halfLife <= 0.0 then invalidArg (nameof halfLife) "halfLife must be > 0"
+    let alpha = 1.0 - 0.5 ** (1.0 / halfLife)
+    let mutable x0 = nan
+    let mutable s0 = 0.0
+    let mutable s1 = 0.0
+    let mutable s2 = 0.0
+    member _.Mean = if s0 > 0.0 then ValueSome (x0 + s1 / s0) else ValueNone
+    /// max-0-clamped: the subtraction can go −1e−18 on a constant series.
+    member _.Var =
+        if s0 > 0.0 then
+            let m = s1 / s0
+            ValueSome (max 0.0 (s2 / s0 - m * m))
+        else ValueNone
+    member this.Std =
+        match this.Var with ValueSome v -> ValueSome (sqrt v) | ValueNone -> ValueNone
+    member _.Push (x: float) =
+        if Double.IsNaN x0 then x0 <- x
+        let y = x - x0
+        s0 <- (1.0 - alpha) * s0 + alpha
+        s1 <- (1.0 - alpha) * s1 + alpha * y
+        s2 <- (1.0 - alpha) * s2 + alpha * y * y
+    member _.Reset () =
+        x0 <- nan
+        s0 <- 0.0
+        s1 <- 0.0
+        s2 <- 0.0
+
 /// 30-present-bar SLOT VWAP builder — the return clock for the SurgeRider vol
 /// driver (docs/surgerider_results.md F5b "How slot-EWMA works"). Accumulates
 /// (Σ vwap·volume, Σ volume) over `slotBars` consecutive pushes; on the push that

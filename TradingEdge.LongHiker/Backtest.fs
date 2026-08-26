@@ -41,12 +41,13 @@ type Config =
       /// worker count, only parquet row ORDER varies.
       Workers: int }
 
-/// ⭐ THE SAMPLER DEFAULTS. The only live gates are the ER threshold and the two
-/// trailing liquidity floors; everything else is recorded and sliced post-hoc.
+/// ⭐ THE SAMPLER DEFAULTS (v7). The only live gates are the 20m-extreme
+/// sampler and the two trailing liquidity floors; everything else is recorded
+/// and sliced post-hoc. 💀 The eff_open gate is GONE — the tightness thesis
+/// wants eff around zero.
 let defaultConfig =
     { Intraday =
-        { MinEffOpen      = 0.3        // ⭐ the user's level: efficiency-since-the-open >= 0.3
-          MinEffOpenSlots = 4          // 3 slot returns ~= 90s of dense tape
+        { MinEffOpenSlots = 4          // eff_open FEATURE warmth (gate removed in v7)
           HoldBars        = 30         // ⭐ the timestop, in present bars
           SignalOnExtremesOnly = true  // ⭐ user, 2026-08-24: only new-extreme bars.
                                        // The intermediate bars are ~88% of the book and are
@@ -188,7 +189,11 @@ let private tripTableTemplate = """
 CREATE TABLE trips (
     symbol VARCHAR, trade_date VARCHAR, n DOUBLE,
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
+    side INTEGER,
     volat_20m DOUBLE, volat_10m DOUBLE, volat_open DOUBLE, slot_count INTEGER,
+    std_20m DOUBLE, std_20m_lag1m DOUBLE, std_10m DOUBLE, std_10m_lag1m DOUBLE,
+    volat_20m_lag1m DOUBLE, volat_10m_lag1m DOUBLE, volat_20m_sessmax DOUBLE,
+    dv_ewma_1m DOUBLE, dv_ewma_20m DOUBLE, vol_ratio_max5m DOUBLE,
     eff_20m DOUBLE, eff_10m DOUBLE, eff_open DOUBLE, eff_open_slots INTEGER,
     eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
     vr2_ewma DOUBLE, vr4_ewma DOUBLE,
@@ -293,7 +298,11 @@ type TripSink(outDir: string) =
             s (c.Date.ToString "yyyy-MM-dd")
             f c.N
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
+            i p.Side
             f p.Volat20m; f p.Volat10m; f p.VolatOpen; i p.SlotCount
+            f p.Std20m; f p.Std20mLag1m; f p.Std10m; f p.Std10mLag1m
+            f p.Volat20mLag1m; f p.Volat10mLag1m; f p.Volat20mSessMax
+            f p.DvEwma1m; f p.DvEwma20m; f p.VolRatioMax5m
             f p.Eff20m; f p.Eff10m; f p.EffOpen; i p.EffOpenSlots
             f p.EffEwma20m; f p.EffEwma10m
             f p.Vr2Ewma; f p.Vr4Ewma

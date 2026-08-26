@@ -147,23 +147,14 @@ type AnchoredOls() =
 /// match arm, a CREATE TABLE column and an appender line per mark — four places,
 /// which is how column order silently rots.
 type ExitKind =
-    /// first new 1m LOW after the fill
-    | LowBreak
-    /// no new `chan`-bar high for >= `secs` WALL-CLOCK seconds
-    | NoHiSecs of chan: int * secs: int
-    /// ⭐ no new `chan`-bar high for >= `bars` PRESENT BARS (user, 2026-08-25).
-    /// The wall-clock version fires LATER than the 30-present-bar timestop
-    /// (median 48-65 s against 36 s), so it could only ever add holding cost —
-    /// which is exactly what S23a measured. A bar-based trail is on the
-    /// timestop's own clock and can fire sooner.
-    ///
-    /// ⚠ On the 20m-high rung `NoHiBars(1200, n)` DEGENERATES INTO AN n-BAR
-    /// TIMESTOP: every entry there is itself a new 20m high, so the clock starts
-    /// at the fill and rarely resets. That is deliberate — it gives a free
-    /// timestop-length sweep, which nothing else in the corpus can answer.
-    /// `NoHiBars(60, n)` is the genuine trail: 1m highs are frequent, so the
-    /// clock keeps resetting while the move is still working.
-    | NoHiBars of chan: int * bars: int
+    /// ⭐ v7 (user, 2026-08-26): first new `chan`-bar LOW strictly after the
+    /// fill — the LONG side's trailing stop (turtle-style channel exit). The
+    /// event is the same one lastLoSec records; reactive, so it fills at the
+    /// NEXT present bar and pays the one-bar lag every reactive mark pays.
+    | LoBreak of chan: int
+    /// first new `chan`-bar HIGH strictly after the fill — the SHORT side's
+    /// trailing stop, mirror of LoBreak.
+    | HiBreak of chan: int
     /// ⭐ A PLAIN TIMESTOP at `bars` present bars (user, 2026-08-25) — the
     /// production exit's own rule at other lengths, so the hold can be swept
     /// without a re-run per length.
@@ -175,40 +166,22 @@ type ExitKind =
 
 /// ⚠ ORDER IS THE WIRE FORMAT. `LhPosition.ExPx/ExSec` and the parquet columns
 /// are indexed by it. Append only; never reorder.
+/// 💀 The v1-v6 NoHi trail family is RETIRED (S25/S31: no time-based trail ever
+/// beat a fixed timestop; the sweep is documented and closed). v7's question is
+/// PRICE-LEVEL trailing stops, per side, plus the fixed-hold sweep.
 let EX_SPECS : (string * ExitKind)[] =
-    [| "lo",            LowBreak
-       "nohi60_30s",    NoHiSecs(60, 30)
-       "nohi60_60s",    NoHiSecs(60, 60)
-       "nohi1200_30s",  NoHiSecs(1200, 30)
-       "nohi1200_60s",  NoHiSecs(1200, 60)
-       // the bar-clock family — shorter than the 30-bar timestop so they can bind
-       "nohi60_5b",     NoHiBars(60, 5)
-       "nohi60_10b",    NoHiBars(60, 10)
-       "nohi60_15b",    NoHiBars(60, 15)
-       "nohi60_20b",    NoHiBars(60, 20)
-       "nohi1200_5b",   NoHiBars(1200, 5)
-       "nohi1200_10b",  NoHiBars(1200, 10)
-       "nohi1200_15b",  NoHiBars(1200, 15)
-       "nohi1200_20b",  NoHiBars(1200, 20)
-       // ⭐⭐ 30 = THE TIMESTOP'S OWN LENGTH (user, 2026-08-25). Without it every
-       // trail comparison is confounded by HORIZON: "trail at 5-20 bars" against
-       // "fixed at 30 bars" cannot separate the rule from the length.
-       //   nohi60_30b   — the genuine trail AT the timestop's length: rule-vs-fixed
-       //                  with the horizon held constant. This is the comparison.
-       //   nohi1200_30b — degenerates to a 30-bar timestop, so it should closely
-       //                  REPRODUCE the engine's own exit. ⭐ A free self-check on
-       //                  the whole mark machinery; if it disagrees, something is
-       //                  wrong with the cursors, not with the strategy.
-       "nohi60_30b",    NoHiBars(60, 30)
-       "nohi1200_30b",  NoHiBars(1200, 30)
-       // ⭐ and one rung PAST the timestop, so the sweep can show a PEAK rather
-       // than bottoming out at its own boundary
-       "nohi60_40b",    NoHiBars(60, 40)
-       "nohi1200_40b",  NoHiBars(1200, 40)
+    [| // long trailing stops: exit on the first new {1m, 2m, 5m} LOW after fill
+       "lo60",   LoBreak 60
+       "lo120",  LoBreak 120
+       "lo300",  LoBreak 300
+       // short trailing stops: exit on the first new {1m, 2m, 5m} HIGH after fill
+       "hi60",   HiBreak 60
+       "hi120",  HiBreak 120
+       "hi300",  HiBreak 300
        // ⭐ alternative hold lengths (user): the production exit is 30 bars
-       "ts60b",         FixedBars 60
-       "ts90b",         FixedBars 90
-       "ts120b",        FixedBars 120 |]
+       "ts60b",  FixedBars 60
+       "ts90b",  FixedBars 90
+       "ts120b", FixedBars 120 |]
 
 /// ⭐⭐ NEW-20m-HIGH RATE (user, 2026-08-25) — half-lives in PRESENT BARS,
 /// nominally {30s, 1m, 2m, 3m, 5m, 10m} since a bar is ~a second on dense tape.
@@ -253,6 +226,10 @@ type LhPosState =
 type LhPosition =
     { SignalSec: int
       SignalVwap: float
+      /// ⭐ v7: +1 = the signal bar printed a new 20m HIGH (long candidate),
+      /// −1 = a new 20m LOW (short candidate). Returns are stored in RAW LONG
+      /// convention throughout — analysis negates them for side = −1.
+      Side: int
       // set at the FILL bar
       mutable EntrySec: int
       mutable EntryPx: float
@@ -267,6 +244,34 @@ type LhPosition =
       VolatOpen: float           // ⭐ plain mean |slot return| since the OPEN (no
                                  // decay) — the third member the user asked for.
       SlotCount: int             // completed slots this session (warmth for all of the above)
+      // ----- ⭐⭐ CONSOLIDATION TIGHTNESS (user, 2026-08-26 — the v7 thesis).
+      // EWMA centered std of ln(slot vwap) on the SAME slot stream as volat, so
+      // tight = std/volat is dimensionless: "how many of its own typical 30s
+      // moves does the 20m range span?" Low = a coil; the eff ratio cannot see
+      // this — at eff ~ 0 it cannot tell a tight range from a loose one.
+      // ⚠ The *_lag1m twins are the value as of 2 COMPLETED SLOTS ago (~1m on
+      // dense tape), so the breakout bar itself influences neither numerator
+      // nor denominator of the lagged score. BOTH std and volat are lagged:
+      // the breakout inflates volat too, and a half-lagged ratio would read
+      // artificially tight right after the break. Form the ratios in SQL. -----
+      Std20m: float              // EwmaVarMa hl=40 slots of ln(slot vwap), .Std
+      Std20mLag1m: float
+      Std10m: float              // hl=20 twin — in case 20m is too long (user)
+      Std10mLag1m: float
+      Volat20mLag1m: float       // ew40 as of 2 slots ago — the lagged denominator
+      Volat10mLag1m: float
+      /// ⭐ Session max of volat_20m over completed slots after 09:15 ET — the
+      /// reference for intraday volatility-CONTRACTION reads (volat_now / max).
+      /// ⚠ Bars start at 09:30 today, so the 09:15 guard is vacuous; it is kept
+      /// because the intent is "exclude nothing after 09:15", not "since open".
+      Volat20mSessMax: float
+      // ----- ⭐ EWMA volume twins (user): per-present-bar DOLLAR volume at
+      // hl 60 / 1200 bars. Levels stored; the 1m/20m ratio is SQL. The 5m MAX
+      // of that ratio is NOT derivable post-hoc, so it is computed in-stream:
+      // "did a volume burst happen in the last 5m?" — the lagged-breakout probe.
+      DvEwma1m: float
+      DvEwma20m: float
+      VolRatioMax5m: float       // MaxMa 300 bars over (dvEw60/dvEw1200)
       Eff20m: float              // ln(V/V_40ago) / Sum40|r| in [-1,1]; nan until 41 slots
       Eff10m: float              // 20-slot twin; nan until 21 slots
       EffOpen: float             // ⭐ THE GATE: ln(V_last/V_first) / Sum_all|r|,
@@ -479,21 +484,17 @@ type LhPosition =
 /// LongHiker config. The ER gate, two liquidity floors, the timestop, the clock.
 /// Every other lever is a recorded column.
 type IntradayConfig =
-    { /// ⭐ THE SYSTEM: enter on every bar with eff_open >= this. SIGNED (long
-      /// only), so a downtrend of equal quality does not qualify. A COLD
-      /// eff_open (fewer than MinEffOpenSlots slots) FAILS — the standard
-      /// unwarm-fails-an-armed-gate stance.
-      MinEffOpen: float
-      /// Slots required before eff_open is considered warm. 4 slots = 3 returns
-      /// ~= 2 minutes of dense tape. ⚠ Raising this does NOT make eff_open
-      /// span-free; it only moves the left edge of the drift.
+    { /// Slots required before the eff_open FEATURE is considered warm. 4 slots
+      /// = 3 returns ~= 2 minutes of dense tape. 💀 v7: the eff_open >= x entry
+      /// GATE is gone (the tightness thesis wants eff around zero) — this floor
+      /// now only decides when the recorded feature is non-null.
       MinEffOpenSlots: int
       /// ⭐ THE EXIT: present bars held after the fill bar. 30 = the user's
       /// timestop. The fill is AT that bar's vwap (see header).
       HoldBars: int
-      /// ⭐ Fire ONLY on bars that print a NEW EXTREME in one of the tracked
-      /// channels (user, 2026-08-24) — a new {1,2,5,10,20}m high OR low. The
-      /// intermediate bars, which are ~88% of the book, are dropped.
+      /// ⭐ Fire ONLY on bars that print a NEW 20m EXTREME (v7, 2026-08-26):
+      /// a new 1200-bar high (side +1) or low (side −1). v1-v6 fired on any
+      /// {1,2,5,10,20}m extreme; the analyses filtered to the 20m rung anyway.
       ///
       /// ⚠ This SHRINKS but does not remove the S15 weighting problem: a day
       /// that keeps making new highs still produces more trips than one that
@@ -621,6 +622,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slots = SlotVwapMa cfg.SlotBars
     let ew40 = EmaHlMa 40.0                      // volat_20m
     let ew20 = EmaHlMa 20.0                      // volat_10m
+    // ⭐⭐ the v7 tightness block — EWMA centered std of ln(slot vwap), same slot
+    // clock as volat so std/volat is dimensionless (see the LhPosition comment)
+    let stdEw40 = EwmaVarMa 40.0                 // std_20m
+    let stdEw20 = EwmaVarMa 20.0                 // std_10m
+    // 1m ≈ 2 slots: each Lag2 is pushed the CURRENT reading once per completed
+    // slot, so .Lagged is the reading as of 2 slots ago — breakout-free
+    let stdLag40 = LagMa<float> 2
+    let stdLag20 = LagMa<float> 2
+    let volatLag40 = LagMa<float> 2
+    let volatLag20 = LagMa<float> 2
+    /// session max of volat_20m after 09:15 ET (33300) — contraction reference
+    let volatSessMax = RunMaxMa<float>()
+    // EWMA dollar-volume twins on the BAR clock + the 5m max of their ratio
+    let dvEw60 = EmaHlMa 60.0
+    let dvEw1200 = EmaHlMa 1200.0
+    let volRatioMax = MaxMa 300
     let slotLag40 = LagMa<float> 40              // eff_20m numerator
     let slotLag20 = LagMa<float> 20              // eff_10m numerator
     let slotAbs40 = SumMa 40                     // eff_20m denominator
@@ -725,6 +742,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         cumVol <- cumVol + bar.volume
         cumTc <- cumTc + float bar.tradeCount
         cumDv <- cumDv + bar.vwap * bar.volume
+        // ⭐ v7: EWMA dollar-volume twins + the 5m max of their 1m/20m ratio
+        let barDv = bar.vwap * bar.volume
+        dvEw60.Push barDv
+        dvEw1200.Push barDv
+        (match dvEw60.State, dvEw1200.State with
+         | ValueSome a, ValueSome b when b > 0.0 -> volRatioMax.Push (a / b)
+         | _ -> ())
         // 35100 = 09:45, THE knowability floor (docs/lookahead_protocol.md R4/R5)
         if bar.etSec < 35100 then dv0945Tape <- dv0945Tape + bar.vwap * bar.volume
         for g in gaps do g.Push bar.etSec
@@ -765,6 +789,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  slotAbsCum <- slotAbsCum + ar
                  slotRetN <- slotRetN + 1
              | _ -> ())
+            // ⭐ v7 tightness: the range std folds THIS slot's vwap, then the
+            // lag streams record the post-slot readings — so .Lagged is the
+            // reading as of 2 completed slots (~1m) ago, breakout-free. The
+            // volat lags ride the same clock so the lagged RATIO is fully
+            // lagged (see the LhPosition comment on half-lagged scores).
+            if v > 0.0 then
+                stdEw40.Push (log v)
+                stdEw20.Push (log v)
+            stdLag40.Push (vv stdEw40.Std)
+            stdLag20.Push (vv stdEw20.Std)
+            volatLag40.Push (vv ew40.State)
+            volatLag20.Push (vv ew20.State)
+            // session max of volat_20m after 09:15 (33300) — see Volat20mSessMax
+            (match ew40.State with
+             | ValueSome vol when bar.etSec >= 33300 -> volatSessMax.Push vol
+             | _ -> ())
             slotLag40.Push v
             slotLag20.Push v
             // ⚠ ORDER: the slot's own vwap goes into the reference high FIRST, so
@@ -797,19 +837,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 lastLoSec.[i] <- bar.etSec
                 hiSinceLo.[i] <- 0
             | _ -> ()
-        let mutable isExtreme = false
-        for i in 0 .. CHANS.Length - 1 do
-            if lastLoSec.[i] = bar.etSec then isExtreme <- true
         let isNewHi1200 =
             match priorMax.[CH1200] with ValueSome hi -> bar.vwap > hi | ValueNone -> false
+        let isNewLo1200 = lastLoSec.[CH1200] = bar.etSec
         for i in 0 .. CHANS.Length - 1 do
             match priorMax.[i] with
             | ValueSome hi when bar.vwap > hi ->
-                lastHiSec.[i] <- bar.etSec; lastHiBar.[i] <- barsPresent; isExtreme <- true
+                lastHiSec.[i] <- bar.etSec; lastHiBar.[i] <- barsPresent
             | _ -> ()
         if isNewHi1200 then
             for i in 0 .. CHANS.Length - 1 do
                 hiSinceLo.[i] <- hiSinceLo.[i] + 1
+        // ⭐⭐ v7 (user, 2026-08-26): the sampler fires on the 20m CHANNEL ONLY,
+        // both sides — a new 20m high is a long-breakout candidate (side +1), a
+        // new 20m low a short one (side −1). v1-v6 fired on ANY channel extreme;
+        // the analyses always filtered to the 20m rung post-hoc anyway.
+        let isExtreme = isNewHi1200 || isNewLo1200
 
         // ===== 3b. EXIT MARKS pending from the previous bar, filled at THIS
         // bar's vwap. ⚠ `EntrySec < firedAt` is strict, so a trip filled on the
@@ -890,9 +933,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             then log (lastSlotVwap / firstSlotVwap) / slotAbsCum
             else nan
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= entryEndSec
-        // ⚠ a NaN eff_open fails this comparison, which is the intended
-        // unwarm-fails-an-armed-gate behaviour — not an accident of IEEE.
-        let effOk = effOpen >= cfg.MinEffOpen
+        // 💀 v7 (user, 2026-08-26): the eff_open >= MinEffOpen gate is REMOVED —
+        // the tightness thesis wants eff AROUND ZERO, so eff is a recorded
+        // feature only. The sampler is the 20m-extreme gate alone.
         let floorsOk =
             (cfg.DvFloor60 <= 0.0 || (match dv60.State with ValueSome d -> d >= cfg.DvFloor60 | ValueNone -> false))
             && (cfg.TcFloor60 <= 0.0 || (match tc60.State with ValueSome t -> t >= cfg.TcFloor60 | ValueNone -> false))
@@ -902,7 +945,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             && (Double.IsPositiveInfinity cfg.MaxVolat20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVolat20m | ValueNone -> true))
         let extremeOk = not cfg.SignalOnExtremesOnly || isExtreme
-        if inWindow && effOk && floorsOk && volatOk && extremeOk && bar.etSec < mocSec && this.HasSlot then
+        if inWindow && floorsOk && volatOk && extremeOk && bar.etSec < mocSec && this.HasSlot then
             sinceLastSignal <- sinceLastSignal + 1
             if cfg.SignalStride <= 1 || sinceLastSignal >= cfg.SignalStride then
                 sinceLastSignal <- 0
@@ -914,6 +957,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     ValueSome
                         { SignalSec = bar.etSec
                           SignalVwap = bar.vwap
+                          // both can be true on one bar only if priorMax < priorMin,
+                          // which cannot happen; hi wins the tie-break regardless
+                          Side = (if isNewHi1200 then 1 else -1)
                           EntrySec = 0
                           EntryPx = nan
                           EntryBarIdx = -1
@@ -921,6 +967,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Volat10m = vv ew20.State
                           VolatOpen = (if slotRetN > 0 then slotAbsCum / float slotRetN else nan)
                           SlotCount = slotCount
+                          Std20m = vv stdEw40.Std
+                          Std20mLag1m = vv stdLag40.Lagged
+                          Std10m = vv stdEw20.Std
+                          Std10mLag1m = vv stdLag20.Lagged
+                          Volat20mLag1m = vv volatLag40.Lagged
+                          Volat10mLag1m = vv volatLag20.Lagged
+                          Volat20mSessMax = vv volatSessMax.State
+                          DvEwma1m = vv dvEw60.State
+                          DvEwma20m = vv dvEw1200.State
+                          VolRatioMax5m = vv volRatioMax.State
                           Eff20m =
                             (match slotLag40.Lagged, slotAbs40.State with
                              | ValueSome v0, ValueSome sa when slotAbs40.Count = slotAbs40.WindowSize && sa > 0.0 && v0 > 0.0
@@ -1076,16 +1132,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             while j < all.Count && all.[j].EntrySec < bar.etSec && pred all.[j] do j <- j + 1
             exReady.[m] <- j
             exReadySec.[m] <- bar.etSec
-        let inline chanIdx (w: int) = if w = 60 then 0 else CH1200
+        // CHANS order: 60/120/300/600/1200 — the break marks use the first three
+        let inline chanIdx (w: int) =
+            match w with 60 -> 0 | 120 -> 1 | 300 -> 2 | 600 -> 3 | _ -> CH1200
         for m in 0 .. EX_SPECS.Length - 1 do
             match snd EX_SPECS.[m] with
-            | LowBreak -> qualify m (fun _ -> lastLoSec.[0] = bar.etSec)
-            | NoHiSecs (w, secs) ->
-                let i = chanIdx w
-                qualify m (fun p -> bar.etSec - (max lastHiSec.[i] p.EntrySec) >= secs)
-            | NoHiBars (w, bars) ->
-                let i = chanIdx w
-                qualify m (fun p -> barsPresent - (max lastHiBar.[i] p.EntryBarIdx) >= bars)
+            // ⚠ the event is GLOBAL (this bar printed a new channel extreme), so
+            // the predicate is constant in p and the monotone-prefix argument
+            // holds trivially: every unmarked trip filled strictly before this
+            // bar is stopped by it.
+            | LoBreak w -> qualify m (fun _ -> lastLoSec.[chanIdx w] = bar.etSec)
+            | HiBreak w -> qualify m (fun _ -> lastHiSec.[chanIdx w] = bar.etSec)
             | FixedBars _ -> ()   // handled above, fills at the trigger bar
         // ⚠⚠ LAST: the hi-rate EMAs absorb THIS bar's indicator only after the
         // signal above has read them, so the reading is strictly prior.
