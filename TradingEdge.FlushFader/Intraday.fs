@@ -1206,35 +1206,39 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable prevXVw50 = false
     let mutable prevXVw60 = false
     let mutable slotReturns = 0
-    // S42k (user, 2026-08-03): ring of the last 40 |slot returns| — the
-    // self-contained vol-trend source (vchg needs a FULL prior 20m window;
-    // an OLS of |r| within the current window doesn't). Read lazily at signal.
-    let absRetRing : float[] = Array.create 40 nan
-    // OLS of the last min(slotReturns, window) ring values vs their order.
-    // O(window) but only evaluated at signal bars — negligible.
-    let volatOls (window: int) =
-        let n = min slotReturns window
-        if n < 3 then struct (nan, nan)
-        else
-            let mutable sx = 0.0
-            let mutable sy = 0.0
-            let mutable sxy = 0.0
-            let mutable sxx = 0.0
-            let mutable syy = 0.0
-            for i in 0 .. n - 1 do
-                let x = float i
-                let y = absRetRing.[(slotReturns - n + i) % 40]
-                sx <- sx + x
-                sy <- sy + y
-                sxy <- sxy + x * y
-                sxx <- sxx + x * x
-                syy <- syy + y * y
-            let nf = float n
-            let dx = nf * sxx - sx * sx
-            let dy = nf * syy - sy * sy
-            let slope = if dx <= 0.0 then nan else (nf * sxy - sx * sy) / dx
-            let r = if dx <= 0.0 || dy <= 0.0 then nan else (nf * sxy - sx * sy) / sqrt (dx * dy)
-            struct (slope, r)
+    // S42k (user, 2026-08-03): the last 40 |slot returns| regressed against
+    // their order — the self-contained vol-trend (vchg needs a FULL prior 20m
+    // window; an OLS of |r| WITHIN the current window doesn't). Two windows
+    // share ONE queue, the 20 being a suffix of the 40: 40 -> volat_slope_20m,
+    // 20 -> _10m.
+    //
+    // ⭐⭐ 2026-08-26 (user): PRODUCTION IMPLEMENTATION IMPORTED — WindowRoller +
+    // OlsRoll, the same primitives the bar-level sums use, O(1) per push. The
+    // previous inlined `volatOls` recomputed the normal equations O(n) at every
+    // signal bar AND answered on PARTIAL windows. The partial window was dead
+    // code at SPEC signals, provably: the armed eff-20m band gate reads
+    // ValueNone below 40 slot returns and a ValueNone FAILS an armed gate — but
+    // in a --base-run partial-window rows DID reach the parquet; those now read
+    // NULL, the engine's standard `.Count = .WindowSize` convention. Full-window
+    // values agree with the O(n) recompute to FP accumulation order (~1e-16;
+    // FloatOls's own doc note measured 8.8e-18 worst at window 40). Verified
+    // zero-diff against the live scanner on the one-year audit.
+    let volatOls20m = FloatOls 40
+    let volatOls10m = FloatOls 20
+    let volatRoller =
+        WindowRoller<float>(
+            [| 40, [| volatOls20m :> IRoll<float> |]
+               20, [| volatOls10m :> IRoll<float> |] |])
+    /// slope and SIGNED Pearson r (sign(slope)·√R²), FULL WINDOW ONLY — nan
+    /// otherwise. Matches the live scanner's `fullSlope` read discipline.
+    let volatOlsRead (o: FloatOls) =
+        if o.Count = o.WindowSize then
+            match o.Slope, o.R2 with
+            | ValueSome sl, ValueSome r2 ->
+                struct (sl, (if sl < 0.0 then -1.0 else 1.0) * sqrt r2)
+            | ValueSome sl, ValueNone -> struct (sl, nan)
+            | _ -> struct (nan, nan)
+        else struct (nan, nan)
     // ----- gaps / location / session -----
     let gap60 = GapCounter(60, cfg.SessionStartSec)
     let gap30 = GapCounter(30, cfg.SessionStartSec)
@@ -1760,7 +1764,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
                  neffRet20.Push (NEffShannon.Zero.Add ar)
                  if neffRet20Count = 20 then neffRet20.Pop() else neffRet20Count <- neffRet20Count + 1
-                 absRetRing.[slotReturns % 40] <- ar   // S42k: newest |r| overwrites the oldest
+                 volatRoller.Push ar                   // S42k: one queue, both windows
                  slotReturns <- slotReturns + 1
              | _ -> ())
             slotLag.Push v
@@ -2208,8 +2212,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> false)
         let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
-            let struct (vs20m, vr20m) = volatOls 40
-            let struct (vs10m, vr10m) = volatOls 20
+            let struct (vs20m, vr20m) = volatOlsRead volatOls20m
+            let struct (vs10m, vr10m) = volatOlsRead volatOls10m
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
