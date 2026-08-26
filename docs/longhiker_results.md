@@ -2940,3 +2940,39 @@ population. Correct instrument, cleaner map:
 
 🔒 **Definition pinned**: every subsequent speed number in this doc uses
 `side × (signal_vwap / vwap_60_prev − 1)`.
+
+## S36c — the 5m-stop trend harvester under the PINNED def: one band, and it flatlines in 2024/2026
+
+Same replay as S36 (real hold spacing, EOD backstop), speed re-banded on the pinned definition:
+
+### side +1
+
+| speed | tkd/yr | eqw | med | up% | yrs | trim |
+|---|---|---|---|---|---|---|
+| 0.1-0.25% | 82 | +4.03 | −23.89 | 39.4 | 4/7 | **−0.18** |
+| 0.25-0.5% | 352 | +2.21 | −30.54 | 37.2 | 3/7 | **−0.18** |
+| **0.5-1%** | 486 | **+12.56** | −25.64 | 40.1 | 6/7 | **+10.10** |
+| 1-2% | 186 | +16.82 | −35.34 | 41.7 | **3/7** | +11.87 |
+| >2% | 18 | +8.21 | −62.69 | 41.9 | 3/7 | **−35.25** |
+
+Year eqw, 0.5-1%: 2020 +21.8 · 2021 +15.6 · 2022 +11.8 · 2023 +16.2 · **2024 +0.9** · 2025 +24.9
+· **2026 −0.0**. Year eqw, 1-2%: −7.1 / +19.5 / +16.6 / −12.0 / **−39.2** / **+79.4** / −3.6 —
+**2025 alone is the band.**
+
+### side −1: DEAD under the stop
+
+Every band reads eqw +0.4 to +2.9 with trims −3.8 to +1.2 and medians −29 to −66. The trend
+harvester does not work short — downside runs are spikier and the trailing 5m high gets tagged
+by ordinary upticks before the trend pays.
+
+### The honest summary
+
+1. ⚠ **S36's whole-cell +12.1 was really ONE band**: long × speed 0.5-1%. The slow bands
+   (0.1-0.5%) — which are the TIMESTOP's best cells — are trim-zero under the stop: a slow grind
+   never gets far enough from its 5m low to survive the noise that tags it.
+2. ⚠⚠ **The surviving band flatlines in 2024 (+0.9) and 2026 (−0.0)** — the two most recent
+   regimes. The timestop plateau is 7/7 with no such holes. The 1-2% band's headline is a
+   2025-carried mirage (3/7).
+3. The two exits split the speed axis between them: **timestop owns 0.25-1% (7/7, both sides);
+   the stop owns only long 0.5-1% and pays for it with −26 bp median days and two flat years.**
+   >2% is broken under every exit tried (trim −35 here) — the S35/S36b boundary again.
