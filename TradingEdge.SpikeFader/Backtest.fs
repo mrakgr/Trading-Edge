@@ -379,6 +379,23 @@ CREATE TABLE trips (
     up_15 INTEGER, up_30 INTEGER, up_60 INTEGER, up_120 INTEGER,
     gap_120 INTEGER,
     downticks_since_flow INTEGER, upticks_since_flow INTEGER, highs_since_downtick INTEGER, chg_since_last_downtick DOUBLE, chg_since_run_pre_high DOUBLE, chg_since_run_first_high DOUBLE, chg_since_run_first_up DOUBLE,
+    aux_lo_180_px DOUBLE, aux_lo_180_sec INTEGER,
+    aux_lo_240_px DOUBLE, aux_lo_240_sec INTEGER,
+    aux_lo_360_px DOUBLE, aux_lo_360_sec INTEGER,
+    aux_lo_420_px DOUBLE, aux_lo_420_sec INTEGER,
+    aux_lo_480_px DOUBLE, aux_lo_480_sec INTEGER,
+    aux_lo_540_px DOUBLE, aux_lo_540_sec INTEGER,
+    std_20m DOUBLE, std_20m_lag1m DOUBLE, std_10m DOUBLE, std_10m_lag1m DOUBLE,
+    volat_20m_lag1m DOUBLE, volat_10m_lag1m DOUBLE, volat_20m_sessmax DOUBLE,
+    eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
+    vr2_ewma DOUBLE, vr4_ewma DOUBLE,
+    ac1_ewma DOUBLE, ac2_ewma DOUBLE, ac3_ewma DOUBLE,
+    hi_rate_hl30 DOUBLE, lo_rate_hl30 DOUBLE,
+    hi_rate_hl60 DOUBLE, lo_rate_hl60 DOUBLE,
+    hi_rate_hl120 DOUBLE, lo_rate_hl120 DOUBLE,
+    hi_rate_hl180 DOUBLE, lo_rate_hl180 DOUBLE,
+    hi_rate_hl300 DOUBLE, lo_rate_hl300 DOUBLE,
+    hi_rate_hl600 DOUBLE, lo_rate_hl600 DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -565,6 +582,23 @@ type TripSink(outDir: string) =
             i p.Up15; i p.Up30; i p.Up60; i p.Up120
             i p.Gap120
             i p.DownticksSinceFlow; i p.UpticksSinceFlow; i p.HighsSinceDowntick; f p.ChgSinceLastDowntick; f p.ChgSinceRunPreHigh; f p.ChgSinceRunFirstHigh; f p.ChgSinceRunFirstUp
+            f p.AuxLo180; auxSec p.AuxSec180
+            f p.AuxLo240; auxSec p.AuxSec240
+            f p.AuxLo360; auxSec p.AuxSec360
+            f p.AuxLo420; auxSec p.AuxSec420
+            f p.AuxLo480; auxSec p.AuxSec480
+            f p.AuxLo540; auxSec p.AuxSec540
+            f p.Std20m; f p.Std20mLag1m; f p.Std10m; f p.Std10mLag1m
+            f p.Volat20mLag1m; f p.Volat10mLag1m; f p.Volat20mSessMax
+            f p.EffEwma20m; f p.EffEwma10m
+            f p.Vr2Ewma; f p.Vr4Ewma
+            f p.Ac1Ewma; f p.Ac2Ewma; f p.Ac3Ewma
+            f p.HiRateHl30; f p.LoRateHl30
+            f p.HiRateHl60; f p.LoRateHl60
+            f p.HiRateHl120; f p.LoRateHl120
+            f p.HiRateHl180; f p.LoRateHl180
+            f p.HiRateHl300; f p.LoRateHl300
+            f p.HiRateHl600; f p.LoRateHl600
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

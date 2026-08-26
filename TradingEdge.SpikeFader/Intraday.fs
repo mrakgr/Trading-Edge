@@ -705,6 +705,53 @@ type FlushPosition =
       AuxSec600: int
       AuxLo1200: float
       AuxSec1200: int
+      // 🔄 v-fork exit re-sweep (user 2026-08-26): {3,4,6,7,8,9}m rungs beside
+      // the inherited {1,2,5,10,20}m — the 7m cover was tuned on 1m bars.
+      AuxLo180: float
+      AuxSec180: int
+      AuxLo240: float
+      AuxSec240: int
+      AuxLo360: float
+      AuxSec360: int
+      AuxLo420: float
+      AuxSec420: int
+      AuxLo480: float
+      AuxSec480: int
+      AuxLo540: float
+      AuxSec540: int
+      // ⭐ LongHiker grafts (2026-08-26): EWMA tightness (EwmaVarMa of ln slot
+      // vwap over the SAME slot stream as volat — tight = std/volat is
+      // dimensionless; ~6 = random walk, coil = left tail), lagged twins at
+      // 2 slots (~1m) with BOTH legs lagged, the trend-persistence EWMAs, and
+      // the new-extreme RATE EMAs (read STRICTLY PRIOR — pushed at the very
+      // end of Process; every signal bar IS a new 20m high, so folding it in
+      // would flatten the feature — the LongHiker S29b rule).
+      Std20m: float
+      Std20mLag1m: float
+      Std10m: float
+      Std10mLag1m: float
+      Volat20mLag1m: float
+      Volat10mLag1m: float
+      Volat20mSessMax: float
+      EffEwma20m: float
+      EffEwma10m: float
+      Vr2Ewma: float
+      Vr4Ewma: float
+      Ac1Ewma: float
+      Ac2Ewma: float
+      Ac3Ewma: float
+      HiRateHl30: float
+      HiRateHl60: float
+      HiRateHl120: float
+      HiRateHl180: float
+      HiRateHl300: float
+      HiRateHl600: float
+      LoRateHl30: float
+      LoRateHl60: float
+      LoRateHl120: float
+      LoRateHl180: float
+      LoRateHl300: float
+      LoRateHl600: float
       // ⭐ MA-EXIT MARKS (user, 2026-07-29): first STRICT cross of vwap above the
       // strictly-prior {10,20,30,40,50,60}m mean after the fill bar, filled at the
       // NEXT present bar (aux discipline) — the counterfactual "exit at reversion
@@ -1160,6 +1207,39 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slots = SlotVwapMa cfg.SlotBars
     let ew40 = EmaHlMa 40.0                      // volat_20m — THE driver (F7 lock)
     let ew20 = EmaHlMa 20.0                      // volat_10m — the trajectory twin
+    // ⭐ LongHiker grafts: tightness + trend-persistence EWMAs + extreme rates
+    let stdEw40 = EwmaVarMa 40.0                 // std_20m (ln slot vwap)
+    let stdEw20 = EwmaVarMa 20.0                 // std_10m
+    let stdLag40 = LagMa<float> 2                // 1m ≈ 2 slots — breakout-free twins
+    let stdLag20 = LagMa<float> 2
+    let volatLag2s40 = LagMa<float> 2            // volat lagged on the SAME clock,
+    let volatLag2s20 = LagMa<float> 2            // so the lagged RATIO is fully lagged
+    let volatSessMax = RunMaxMa<float>()         // session max of volat_20m after 09:15
+    let effEwma20m = EwmaEffMa 40.0
+    let effEwma10m = EwmaEffMa 20.0
+    let vr2Ewma = EwmaVarRatioMa(40.0, 2)
+    let vr4Ewma = EwmaVarRatioMa(40.0, 4)
+    let acEwma = EwmaAutoCorrMa(40.0, 3)
+    let hiRateE = [| 30.0; 60.0; 120.0; 180.0; 300.0; 600.0 |] |> Array.map EmaHlMa
+    let loRateE = [| 30.0; 60.0; 120.0; 180.0; 300.0; 600.0 |] |> Array.map EmaHlMa
+    // 🔄 exit re-sweep channels {3,4,6,7,8,9}m (min180 already exists)
+    let min240 = MinMa (recW 240)
+    let min360 = MinMa (recW 360)
+    let min420 = MinMa (recW 420)
+    let min480 = MinMa (recW 480)
+    let min540 = MinMa (recW 540)
+    let brLo180 = BreachCounter()
+    let brLo240 = BreachCounter()
+    let brLo360 = BreachCounter()
+    let brLo420 = BreachCounter()
+    let brLo480 = BreachCounter()
+    let brLo540 = BreachCounter()
+    let mutable sMinX180 : float voption = ValueNone
+    let mutable sMinX240 : float voption = ValueNone
+    let mutable sMinX360 : float voption = ValueNone
+    let mutable sMinX420 : float voption = ValueNone
+    let mutable sMinX480 : float voption = ValueNone
+    let mutable sMinX540 : float voption = ValueNone
     // ⭐ S38n: the 40-INTERVAL horizon STAYS (a 39-interval alignment variant was
     // built and rejected — it churned ~11% of the book through the eff band and
     // lost 5 of 7 years). eff_20m therefore warms at 41 slots ≈ 1,230 present
@@ -1494,6 +1574,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMin300 <- min300.State
         sMin600 <- min600.State
         sMin1200 <- min1200.State
+        sMinX180 <- min180.State
+        sMinX240 <- min240.State
+        sMinX360 <- min360.State
+        sMinX420 <- min420.State
+        sMinX480 <- min480.State
+        sMinX540 <- min540.State
         sExitMin <- exitMin.State
         sSessHigh <- sessHigh.State
         sSessLow <- sessLow.State
@@ -1701,6 +1787,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         max60.Push bar.vwap
         max120.Push bar.vwap
         if not cfg.LiveSlim then min180.Push bar.vwap
+        if not cfg.LiveSlim then min240.Push bar.vwap
+        if not cfg.LiveSlim then min360.Push bar.vwap
+        if not cfg.LiveSlim then min420.Push bar.vwap
+        if not cfg.LiveSlim then min480.Push bar.vwap
+        if not cfg.LiveSlim then min540.Push bar.vwap
         max300.Push bar.vwap
         max600.Push bar.vwap
         max1200.Push bar.vwap
@@ -1770,7 +1861,27 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  neffRet20.Push (NEffShannon.Zero.Add ar)
                  if neffRet20Count = 20 then neffRet20.Pop() else neffRet20Count <- neffRet20Count + 1
                  volatRoller.Push ar                   // S42k: one queue, both windows
+                 // ⭐ LongHiker grafts: SIGNED r into the trend-persistence EWMAs
+                 effEwma20m.Push r
+                 effEwma10m.Push r
+                 vr2Ewma.Push r
+                 vr4Ewma.Push r
+                 acEwma.Push r
                  slotReturns <- slotReturns + 1
+             | _ -> ())
+            // ⭐ tightness: the range std folds THIS slot's vwap, then the lag
+            // streams record the post-slot readings (.Lagged = 2 slots ago,
+            // breakout-free; volat lagged on the same clock — a half-lagged
+            // ratio reads artificially tight right after the break)
+            if v > 0.0 then
+                stdEw40.Push (log v)
+                stdEw20.Push (log v)
+            stdLag40.Push (vv stdEw40.Std)
+            stdLag20.Push (vv stdEw20.Std)
+            volatLag2s40.Push (vv ew40.State)
+            volatLag2s20.Push (vv ew20.State)
+            (match ew40.State with
+             | ValueSome volNow when bar.etSec >= 33300 -> volatSessMax.Push volNow
              | _ -> ())
             slotLag.Push v
             slotLag20.Push v
@@ -1834,6 +1945,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let prevBr300 = brLo300.BarsSinceBreach
         let prevBr600 = brLo600.BarsSinceBreach
         let prevBr1200 = brLo1200.BarsSinceBreach
+        let prevBr180 = brLo180.BarsSinceBreach
+        let prevBr240 = brLo240.BarsSinceBreach
+        let prevBr360 = brLo360.BarsSinceBreach
+        let prevBr420 = brLo420.BarsSinceBreach
+        let prevBr480 = brLo480.BarsSinceBreach
+        let prevBr540 = brLo540.BarsSinceBreach
         let breached (prior: float voption) = match prior with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         brSess.Step(); br30.Step(); br60.Step(); br120.Step(); br300.Step(); br600.Step(); br1200.Step()
         if breached sSessHigh then brSess.OnBreach()
@@ -1852,6 +1969,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if breachedLo sMin300 then brLo300.OnBreach()
         if breachedLo sMin600 then brLo600.OnBreach()
         if breachedLo sMin1200 then brLo1200.OnBreach()
+        brLo180.Step()
+        if breachedLo sMinX180 then brLo180.OnBreach()
+        brLo240.Step()
+        if breachedLo sMinX240 then brLo240.OnBreach()
+        brLo360.Step()
+        if breachedLo sMinX360 then brLo360.OnBreach()
+        brLo420.Step()
+        if breachedLo sMinX420 then brLo420.OnBreach()
+        brLo480.Step()
+        if breachedLo sMinX480 then brLo480.OnBreach()
+        brLo540.Step()
+        if breachedLo sMinX540 then brLo540.OnBreach()
         // ⭐ the leg machine. Step FIRST so BarsSinceFirstHigh counts bars
         // ELAPSED since the leg's first low. STRICT inequalities on both
         // events (V6 F21: `<=` re-fired on round-number pinning ties — two
@@ -1985,13 +2114,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (hi300, sc300) = auxStep p.AuxLo300 p.AuxSec300 prevBr300
             let struct (hi600, sc600) = auxStep p.AuxLo600 p.AuxSec600 prevBr600
             let struct (hi1200, sc1200) = auxStep p.AuxLo1200 p.AuxSec1200 prevBr1200
+            let struct (hi180, sc180) = auxStep p.AuxLo180 p.AuxSec180 prevBr180
+            let struct (hi240, sc240) = auxStep p.AuxLo240 p.AuxSec240 prevBr240
+            let struct (hi360, sc360) = auxStep p.AuxLo360 p.AuxSec360 prevBr360
+            let struct (hi420, sc420) = auxStep p.AuxLo420 p.AuxSec420 prevBr420
+            let struct (hi480, sc480) = auxStep p.AuxLo480 p.AuxSec480 prevBr480
+            let struct (hi540, sc540) = auxStep p.AuxLo540 p.AuxSec540 prevBr540
             let p =
                 { p with
                     AuxLo60 = hi60; AuxSec60 = sc60
                     AuxLo120 = hi120; AuxSec120 = sc120
                     AuxLo300 = hi300; AuxSec300 = sc300
                     AuxLo600 = hi600; AuxSec600 = sc600
-                    AuxLo1200 = hi1200; AuxSec1200 = sc1200 }
+                    AuxLo1200 = hi1200; AuxSec1200 = sc1200
+                    AuxLo180 = hi180; AuxSec180 = sc180
+                    AuxLo240 = hi240; AuxSec240 = sc240
+                    AuxLo360 = hi360; AuxSec360 = sc360
+                    AuxLo420 = hi420; AuxSec420 = sc420
+                    AuxLo480 = hi480; AuxSec480 = sc480
+                    AuxLo540 = hi540; AuxSec540 = sc540 }
             // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
             // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
             // mark still unresolved at/past MocSec resolves at this bar (the moc
@@ -2055,6 +2196,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                               && not (Double.IsNaN p.AuxLo300 && brLo300.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo600 && brLo600.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo1200 && brLo1200.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo180 && brLo180.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo240 && brLo240.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo360 && brLo360.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo420 && brLo420.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo480 && brLo480.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLo540 && brLo540.BarsSinceBreach = 0)
                               // MA-exit marks: retire only fully resolved (they
                               // resolve by the MOC bar at the latest)
                               && not (Double.IsNaN p.Ma10Px) && not (Double.IsNaN p.Ma20Px)
@@ -2227,6 +2374,32 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       EntryPx = nan
                       Volat20m = vv ew40.State
                       Volat10m = vv ew20.State
+                      Std20m = vv stdEw40.Std
+                      Std20mLag1m = vv stdLag40.Lagged
+                      Std10m = vv stdEw20.Std
+                      Std10mLag1m = vv stdLag20.Lagged
+                      Volat20mLag1m = vv volatLag2s40.Lagged
+                      Volat10mLag1m = vv volatLag2s20.Lagged
+                      Volat20mSessMax = vv volatSessMax.State
+                      EffEwma20m = effEwma20m.Value
+                      EffEwma10m = effEwma10m.Value
+                      Vr2Ewma = vr2Ewma.Value
+                      Vr4Ewma = vr4Ewma.Value
+                      Ac1Ewma = acEwma.Rho 1
+                      Ac2Ewma = acEwma.Rho 2
+                      Ac3Ewma = acEwma.Rho 3
+                      HiRateHl30 = vv hiRateE.[0].State
+                      HiRateHl60 = vv hiRateE.[1].State
+                      HiRateHl120 = vv hiRateE.[2].State
+                      HiRateHl180 = vv hiRateE.[3].State
+                      HiRateHl300 = vv hiRateE.[4].State
+                      HiRateHl600 = vv hiRateE.[5].State
+                      LoRateHl30 = vv loRateE.[0].State
+                      LoRateHl60 = vv loRateE.[1].State
+                      LoRateHl120 = vv loRateE.[2].State
+                      LoRateHl180 = vv loRateE.[3].State
+                      LoRateHl300 = vv loRateE.[4].State
+                      LoRateHl600 = vv loRateE.[5].State
                       Rng20m = chanRng max1200 min1200
                       Eff20m =
                         (match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
@@ -2572,6 +2745,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       AuxSec600 = -1
                       AuxLo1200 = nan
                       AuxSec1200 = -1
+                      AuxLo180 = nan
+                      AuxSec180 = -1
+                      AuxLo240 = nan
+                      AuxSec240 = -1
+                      AuxLo360 = nan
+                      AuxSec360 = -1
+                      AuxLo420 = nan
+                      AuxSec420 = -1
+                      AuxLo480 = nan
+                      AuxSec480 = -1
+                      AuxLo540 = nan
+                      AuxSec540 = -1
                       Ma10Px = nan
                       Ma10Sec = -1
                       Ma20Px = nan
@@ -2654,6 +2839,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         prevXVw40 <- not (Double.IsNaN vwma40) && bar.vwap < vwma40
         prevXVw50 <- not (Double.IsNaN vwma50) && bar.vwap < vwma50
         prevXVw60 <- not (Double.IsNaN vwma60) && bar.vwap < vwma60
+        // ⚠⚠ LAST (LongHiker S29b): the extreme-rate EMAs absorb THIS bar's
+        // indicator only after the signal above has read them — every signal
+        // bar IS a new 20m high, so an inclusive read would flatten hi_rate.
+        let hiInd = if isNewHigh then 1.0 else 0.0
+        let loInd = if isNewLow then 1.0 else 0.0
+        for e in hiRateE do e.Push hiInd
+        for e in loRateE do e.Push loInd
 
     /// Flatten at the tape's last bar: fill any pending exit and force-exit any
     /// holder at the last vwap ("moc" — covers early closes and thin tapes whose
