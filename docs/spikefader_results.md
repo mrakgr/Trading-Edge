@@ -158,3 +158,16 @@ needs the stop design the V1 doc demanded, and locates on exactly these names ar
    could not, but that is an argument, not a measurement.
 4. The loud-beats-quiet inversion (S2) deserves its own study — it contradicts the 1m lore and
    agrees with LongHiker S34's mirror (volume bursts poison RIDING and feed FADING).
+
+## S6 — session close (user, 2026-08-26)
+
+> *"Pretty wild that it works so well without any tuning at all... The fact that shorting into low
+> volume breakouts worked so well in MaxRider was one of its main edges — investigating the
+> difference will be quite important."*
+
+⏭ Next session opens on the **quiet-volume inversion** (S2): why does the lever that carried the
+1m system invert on 1s? First step: rebuild the closest possible 1s replica of MaxRider's EXACT
+volume measure and run the substitution test — different universes, measures, and event
+granularity are all in play. ⭐ User read of S4: **the cover optimum is 7-9m** — 10m→20m adds no
+win rate and little profit ("just variance"). ⚠ Add PF columns (raw + clipped) to the sweep
+tables when revisiting.
