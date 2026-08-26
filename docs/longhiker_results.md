@@ -2995,3 +2995,45 @@ Same magnitude verdict as S31.
    >2% long pocket, 1-2% stop band, S34b burst cells were not).
 4. `EwmaVarMa`, the tightness measure, side-signed sampler, and the trailing-stop mark machinery
    — all reusable, all oracle-tested.
+
+## ⭐ S38 — the SMB "in play" filter, quantified: `rvol_0945` (morning $ / prior-20d avg day $)
+
+> USER: *"Since you mentioned that they are looking for catalysts, we could introduce the relative
+> volume as a feature — premarket + first 15m volume divided by the daily average."*
+
+Numerator = premarket + [09:30, 09:45) DOLLAR volume off the 1s tape (knowable at 09:45 = entry
+start); denominator = `avg(close·volume)` over `20 PRECEDING AND 1 PRECEDING` from
+`daily_adjusted` (raw close × raw volume = realized dollars; no adjustment factor enters, causal
+by construction). Median in the standing cell: 19.4% of a day's volume by 09:45; q90 = 87%.
+
+Bands within the S34 cell, mc=1:
+
+### side +1
+
+| rvol_0945 | tkd/yr | ts30 eqw / trim | ts60 eqw | ts60 med | ts60 trim | yrs |
+|---|---|---|---|---|---|---|
+| 5-10% | 137 | +2.10 / +1.41 | +2.45 | +2.73 | +1.56 | 6/7 |
+| 10-20% | 264 | +3.44 / +2.89 | +4.38 | +4.82 | +3.68 | 5-7/7 |
+| 20-50% | 214 | +2.96 / +2.19 | +4.67 | +3.91 | +3.49 | 5-6/7 |
+| 50-100% | 78 | +5.19 / +3.16 | +4.94 | +2.86 | +2.23 | 6/7 |
+| **>100% (IN PLAY)** | 51 | +6.29 / +1.00 | **+13.94** | +3.26 | **+7.71** | 6/7 |
+
+⭐ **The in-play band TRIPLES the body's eqw at ts60** (+13.94 vs +4.4-4.7) and survives the trim
+(+7.71) — the largest trim-robust timestop cell in the program. ⚠ Its year table is LUMPY:
+2021 +47.1, 2023 +24.5, 2026 +23.3 — against 2024 +2.9 and **2025 −4.0**. 6/7, real-but-streaky:
+many good days in good years, not one carried day (the trim already removed those). ts30 does NOT
+capture it (trim +1.0) — the in-play breakout needs the longer leash.
+
+### side −1: the catalyst does NOT transfer
+
+`>100%` trims to ~0 on both holds — a genuinely in-play name is squeeze-fuel, not short-fuel.
+The short body peaks at **20-50%** (ts30 eqw +6.21, trim +5.55, 271 tkd/yr) but its years read
+2023 −3.1 / 2026 +1.5 — moderate-elevation shorts, adequate, unspectacular.
+
+### Verdict
+
+The SMB catalyst hypothesis is **directionally confirmed, long-only**: conditioning on "the
+market showed up this morning" is worth ~3× the day-rate where every chart feature was worth
+~1.2×. It is ALSO the seventh sequentially-chosen feature on this cell, at 51 tkd/yr, with one
+negative year in the last two — a lead for a future selection-first system (catalyst → shape),
+not a spec. 💀 v7 remains CLOSED (S37); this is the note it closes on.
