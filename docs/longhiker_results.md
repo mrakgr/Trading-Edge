@@ -2830,3 +2830,35 @@ tape that never woke up at all, not tape that burst and cooled. The mean holding
 and trim collapse is the tail-carried signature. ⚠ Bonus from the run: ts60 IMPROVES the S34 cell
 (40-80bp no-burst: eqw +9.18, trim +6.84) and the SHORT coil in the same frame reads +8.28 eqw /
 trim +6.69 at 256 tkd/yr — the two sides are near-symmetric here.
+
+## ⭐⭐ S35 — SPEED in the coil cell: the MR boundary reproduced from the other side
+
+> USER: *"In the long mean reversion system, flushes < 0.5% worked quite poorly and below 0.1%
+> they even started turning negative — they were trend-following setups rather than MR ones."*
+
+`speed = vwap_60 / vwap_60_prev − 1` (FlushFader's flush speed), banded in the BREAKOUT direction
+(`side × speed`), inside the S34 cell (px>1 × tight<3.5 × gap_60<4 × volat 20-80bp × relvol<0.8),
+mc=1:
+
+### side +1 (ts30 / ts60)
+
+| speed | tkd/yr | ts30 eqw | ts30 med | yrs | trim | ts60 eqw | ts60 trim |
+|---|---|---|---|---|---|---|---|
+| <0 (against) | 121 | +3.39 | +1.27 | 6/7 | +2.32 | +1.49 | −0.04 |
+| 0-0.1% | 183 | +2.55 | +0.42 | 5/7 | +1.52 | +4.29 | +3.32 |
+| 0.1-0.25% | 310 | +3.34 | +3.04 | **7/7** | +2.89 | +3.76 | +3.07 |
+| **0.25-0.5%** | 387 | +3.75 | **+3.39** | **7/7** | **+3.17** | **+5.83** | **+5.12** |
+| 0.5-1% | 225 | +1.24 | +1.43 | 4/7 | +0.47 | +2.66 | +1.71 |
+| **>1%** | 39 | +4.09 | **0.00** | 5/7 | **−1.41** | +5.74 | **−1.81** |
+
+### side −1: same shape — peak 0.1-0.25% (+4.44 eqw, 7/7, trim +3.96 at 432 tkd/yr); >1% median
+−0.20/−7.06, trim −0.75/−3.39.
+
+⭐⭐ **An inverted U whose two ends are exactly the two regimes the user named.** The sweet spot is
+0.1-0.5%/min — the "too slow to fade" region that poisoned FlushFader's longs is precisely where
+the trend trade lives. Above 1%/min the median dies and the trim goes negative on BOTH sides —
+that is flush/spike territory, and it belongs to the MR systems, not this one. **The boundary
+between the two trade families is ~0.5-1%/min of 1m-vwap speed, measured from both sides now.**
+
+⭐ Best long cell of the program: `0.25-0.5% speed × ts60` — eqw +5.83, med +4.56, 7/7 years,
+trim +5.12, 387 tkd/yr.
