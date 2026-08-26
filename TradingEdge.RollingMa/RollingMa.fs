@@ -191,6 +191,42 @@ type MaxMaMeta<'M>(windowSize: int) =
         barIdx <- 0
         count <- 0
 
+/// The MIN twin of MaxMaMeta — identical deque mechanics with the comparison
+/// flipped (back-pop test `>=`, so among EQUAL minima the LATEST bar's metadata
+/// survives, the same tie-break MinMa uses). Added 2026-08-26 for SpikeFader's
+/// arming-LOW eff snapshot (the mirror of FlushFader's arming-high one).
+[<Sealed>]
+type MinMaMeta<'M>(windowSize: int) =
+    let dq = Deque<struct (float * int * 'M)>()
+    let mutable barIdx = 0
+    let mutable count = 0
+    member _.Count = count
+    member _.WindowSize = windowSize
+    /// Current window min, or ValueNone when the window is empty.
+    member _.State =
+        if dq.Count = 0 then ValueNone
+        else let struct (v, _, _) = dq.[0] in ValueSome v
+    /// Metadata of the bar that SET the current window min.
+    member _.StateMeta =
+        if dq.Count = 0 then ValueNone
+        else let struct (_, _, m) = dq.[0] in ValueSome m
+    member _.Push (x: float, meta: 'M) =
+        let cutoff = barIdx - windowSize + 1
+        while dq.Count > 0 &&
+              (let struct (_, i, _) = dq.[0] in i < cutoff) do
+            dq.RemoveFromFront() |> ignore
+        while dq.Count > 0 &&
+              (let struct (v, _, _) = dq.[dq.Count - 1] in v >= x) do
+            dq.RemoveFromBack() |> ignore
+        dq.AddToBack(struct (x, barIdx, meta))
+        barIdx <- barIdx + 1
+        count <- min windowSize (count + 1)
+    /// Clear the window (see MaxMa.Reset — barIdx must reset too).
+    member _.Reset () =
+        dq.Clear()
+        barIdx <- 0
+        count <- 0
+
 // =============================================================================
 // RunMaxMa / RunMinMa — session-cumulative running extreme (NOT windowed)
 // =============================================================================

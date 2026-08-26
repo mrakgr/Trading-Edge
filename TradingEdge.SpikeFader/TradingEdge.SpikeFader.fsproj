@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- SpikeFader: 1-SECOND-bar intraday MEAN REVERSION (long-only) — the
+       production-tier successor to DipRiderV6 (1m), on the SurgeRider engine.
+       Buy the new 20m low (strict, next-bar-vwap fill), sell the new 5m high
+       (strict) or MOC; NO stop (V6: a stop was destructive). Sampler mc=0
+       averages down; NewLowCounters (bars/lows since first low, reset at the
+       new 20m high) carry the leg structure. Pipeline 1 = SELECT candidates
+       from trading.db (diprider_v6_candidate); pipeline 2 = the per-(ticker,
+       day) engine in Intraday.fs over data/intraday_1s_slim/ (5-col
+       present-bar stream; windows are present-bar-count). Regime features:
+       slot-EmaHlMa volatility volat_20m/10m + rng + eff_20m/10m trendiness
+       (replacing V6's log_atr_20/adx_14). The Fader family: SpikeFader long,
+       SpikeFader short, MinFader/MaxFader hold-to-close. -->
+  <ItemGroup>
+    <Compile Include="Intraday.fs" />
+    <Compile Include="Backtest.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+    <ProjectReference Include="../TradingEdge.Orb/TradingEdge.Orb.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
