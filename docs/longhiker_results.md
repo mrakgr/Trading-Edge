@@ -2680,3 +2680,78 @@ Pooled ungated ts medians ~0.0 bp — the rung carries nothing until the tightne
 **Base pass v7 running**: 2020-01-01 → 2026-08-25, projected ~200M trips / ~90 GB (the v1
 month-to-total ratio). ⚠ Post-hoc analyses should derive a study parquet slice rather than
 scanning the trip corpus per query, as in v1.
+
+## ⭐⭐ S33 — v7 first results: mc=1 rehabilitates the rung, and the tightness thesis INVERTS (long side)
+
+**Corpus**: 200,212,698 trips / 1,164,334 tkd / 98 GB, 65.5 min. Study slice
+`data/longhiker_study_v7.parquet` (~18 GB, side-signed bp returns precomputed).
+⚠ mc=1 below = greedy replay, next trip admitted at `entry_sec + 40s` (approximate hold spacing —
+`exit_sec` was not carried into the slice; dense filter keeps the error small).
+
+### §1 mc=0 eqw is negative EVERYWHERE — and it is the weighting, not the edge
+
+Every tight band × side, ungated or dense: eqw −0.7 to −7, 0/7 years, while trip-weighted means
+sit ~0 to +1. The S15 divergence at full force. The same cells replayed mc=1 flip sign wholesale
+(§2) — **on this rung, mc=0 day-averaging punishes exactly the days the greedy book would not
+have overtraded. The three-mc rule is not optional here; it is the whole result.**
+
+### §2 The v6 winning spec reproduces WITHOUT the eff gate, 19× broader
+
+mc=1, ts30, spec = dense `gap_60<30` × `hi_rate_hl120<=0.114` × `volat_20m>=20bp` ×
+`(dv_60/60)/(dv_1200/1200) < 0.8`, side +1:
+
+| population | tkd/yr | eqw | med | up% | yrs eqw | 2026 eqw |
+|---|---|---|---|---|---|---|
+| **v7 (no eff gate)** | **12,973** | +2.24 | +1.21 | 52.2 | **7/7** | **+1.0** |
+| + `eff_open>=0.3` (the v6 population) | 3,146 | +2.22 | +1.22 | 52.1 | 6/7 | **−0.1** |
+
+⭐ The eff gate adds NOTHING (+2.22 vs +2.24), costs 4× the days, and flips 2026 negative.
+S30c's anti-feature verdict, now at the gate's own original threshold.
+
+### §3 ⚠⚠ THE SIGN FLIP: loose beats the coil, monotonically, on the long side
+
+Same spec, `tight_20m_lag` bands, mc=1 ts30:
+
+| band | tkd/yr | eqw | med | up% | yrs eqw | **trim** | worst day |
+|---|---|---|---|---|---|---|---|
+| coil <3.5 | 5,358 | +2.59 | +1.16 | 51.9 | 7/7 | — | — |
+| 8-11 | 2,246 | +4.45 | +2.27 | 53.5 | 7/7 | **+4.18** | −18.6% |
+| 11-15 | 800 | **+5.96** | **+3.86** | 55.4 | 6/7 | **+5.29** | −5.6% |
+| 15+ | 128 | **+10.64** | +4.22 | 55.8 | 7/7 | **+7.74** | −2.6% |
+
+**Graded, trim-robust, and 2026 is the loose cell's SECOND-BEST year (+5.2)** — the first
+2026-positive momentum cell in the program. ⭐ The interpretation: high `std/volat` means the 20m
+window TRAVELLED. With `hi_rate<=Q3` (few recent highs) and a new high now, that shape is a
+pullback being reclaimed — S29a's "shallow base with real give-back", not a coil. **The user's
+tightness measure works — as a graded feature pointing the OPPOSITE way from the thesis.**
+The coil breakout, per se, is the weakest positive cell on the rung.
+
+**Time control passes**: loose > coil in all three clock buckets (loose eqw +3.7 / +5.1 / +5.3
+morning/midday/afternoon, 7/7 years in each).
+
+**Hold sweep** (tight 8+): ts30 +4.63 · ts60 **+5.37** · ts120 +4.65 (median degrades 2.5→1.5).
+💀 **The 5m-low trailing stop is CATASTROPHIC**: eqw −10.7, median −38.7, 36% up-days, 0/7 —
+S25 repeats with price-level stops. A stop that only fires after real give-back sells the base
+of the next leg.
+
+### §4 ⭐ The SHORT rung is alive — and ITS tightness sign is the user's original one
+
+Side −1 (new 20m lows), dense × `volat>=20bp` × `vol_ratio<0.8` (no hr — it is high-side-only,
+a v7 design gap: no `lo_rate` mirror exists), mc=1 ts30:
+
+| tight band | tkd/yr | eqw | med | up% | yrs eqw |
+|---|---|---|---|---|---|
+| **coil <3.5** | 7,166 | **+4.93** | +1.20 | 51.8 | **7/7** |
+| 3.5-8 | 10,667 | +3.22 | +1.03 | 51.8 | 7/7 |
+| 8+ | 3,251 | +3.95 | +0.86 | 51.5 | 7/7 |
+
+Shorting the break of a TIGHT range continues downward; 7/7 years in every band, at 3× the long
+side's tkd. ⭐ The asymmetry is clean: **longs want the travelled-and-reclaiming shape, shorts
+want the coil collapse.** ⏭ Un-checked: borrow cost, and a `lo_rate` feature for the short rung.
+
+### §5 Magnitude, honestly
+
+The best cells are eqw +4-6 bp/day at 800-2,700 tkd/yr (the 15+ tail +10.6 at 128/yr). Everything
+is trim-robust and 2026-positive — the healthiest tables the momentum program has ever produced —
+and still an order of magnitude under the 50 bp bar. What changed vs S31: the day-rate roughly
+DOUBLED and 2026 flipped positive. What did not change: the scale.
