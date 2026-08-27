@@ -335,3 +335,11 @@ muddled rate duplicate; log space also cannot take zeros (the log1p weighted-Wel
 considered and rejected — two clean orthogonal axes beat one fused one; their 2×2 is SQL).
 Normal space rejected on F5's own evidence. Smoke: 0 nan, med n=4,862, z p1/med/p99 =
 −1.95/+0.95/+2.54 (positive median expected — signal bars ARE pops), quiet band 8.1%.
+
+### S9c — the vol_z_log ladder: overlapping bar-clock windows (user)
+
+`vol_z_log_{5,10,15,30,60}` — z of log(rolling W-BAR volume) against the session distribution
+of that same rolling quantity (CumStdMa per rung, warm windows only; sample counts derive as
+vol_z_n − W + 1). Multi-scale size intensity to bracket which aggregation the MaxRider lever
+lives at. Smoke: additive, 0 nan; median z falls +1.11 (W=5) → +0.54 (W=60) as the pop's
+local surge dilutes across wider windows — the ladder separates as intended.

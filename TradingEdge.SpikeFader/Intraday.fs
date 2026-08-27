@@ -657,6 +657,11 @@ type FlushPosition =
       VolEw60PriorMax: float     //   ... and its prior max (readings >= 60 tradeable secs old)
       VolZLog: float             // ⭐ S9b: MaxRider's quiet-volume replica — z of the signal
       VolZN: int                 //   bar's log volume vs the session 1s-bar distribution; n
+      VolZLog5: float            // ⭐ S9c: the same z at overlapping bar-clock windows —
+      VolZLog10: float           //   log(rolling W-bar volume) vs its own session
+      VolZLog15: float           //   distribution (warm windows only); multi-scale size
+      VolZLog30: float           //   intensity, n derives as vol_z_n − W + 1
+      VolZLog60: float
       CumVol: float
       CumTc: float
       CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
@@ -1276,6 +1281,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // complementing the tradeable-time RATE features rather than repeating
     // them. quiet := vol_z_log < −0.5 (the F5 band). vol_z_n = bars sampled.
     let volZLog = CumStdMa()
+    // ⭐ S9c (user): the same z at OVERLAPPING bar-clock windows — session
+    // distribution of log(rolling W-bar volume), warm windows only, z of the
+    // signal bar's current W-sum. Multi-scale size intensity; sample counts
+    // derive post-hoc as vol_z_n − W + 1.
+    let volZLog5 = CumStdMa()
+    let volZLog10 = CumStdMa()
+    let volZLog15 = CumStdMa()
+    let volZLog30 = CumStdMa()
+    let volZLog60 = CumStdMa()
     // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
     // saturates at corr ~0.91 with each other; the question is whether HALVING the
     // horizon separates the way TRIPLING it did (s1m won as a sizing lever at the
@@ -1879,6 +1893,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             (match volDecay60.Mean with ValueSome m -> volEw60PriorMax.Push(m, volGap) | ValueNone -> ())
         // S9b: the session log-volume distribution, one sample per present bar.
         if not cfg.LiveSlim then volZLog.Push (log (max bar.volume 1.0))
+        // S9c: the overlapping bar-window twins, warm windows only.
+        if not cfg.LiveSlim then
+            let inline pushZ (sum: SumMa) (z: CumStdMa) =
+                if sum.Count = sum.WindowSize then
+                    match sum.State with ValueSome s -> z.Push (log (max s 1.0)) | ValueNone -> ()
+            pushZ volSum5 volZLog5
+            pushZ volSum10 volZLog10
+            pushZ volSum15 volZLog15
+            pushZ volSum30 volZLog30
+            pushZ volSum60 volZLog60
         if not cfg.LiveSlim then dvSum180.Push (bar.vwap * bar.volume)
         if not cfg.LiveSlim then volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
@@ -2563,6 +2587,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if inWindow && channelWarm && isNewHigh && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
+            // S9c: z of the current warm W-bar volume sum vs its session distribution
+            let zOfSum (sum: SumMa) (z: CumStdMa) =
+                if sum.Count = sum.WindowSize then
+                    match sum.State with
+                    | ValueSome s -> vv (z.Z (log (max s 1.0)))
+                    | ValueNone -> nan
+                else nan
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
@@ -2882,6 +2913,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       VolEw60PriorMax = vv volEw60PriorMax.Max
                       VolZLog = vv (volZLog.Z (log (max bar.volume 1.0)))
                       VolZN = volZLog.Count
+                      VolZLog5 = zOfSum volSum5 volZLog5
+                      VolZLog10 = zOfSum volSum10 volZLog10
+                      VolZLog15 = zOfSum volSum15 volZLog15
+                      VolZLog30 = zOfSum volSum30 volZLog30
+                      VolZLog60 = zOfSum volSum60 volZLog60
                       CumVol = cumVol
                       CumDv = cumDv
                       Vol0945Tape = vol0945Tape

@@ -409,6 +409,7 @@ CREATE TABLE trips (
     vol_60_prior_max DOUBLE, vol_300_prior_max DOUBLE, vol_600_prior_max DOUBLE, vol_1200_prior_max DOUBLE,
     dollar_vol_60_prior_max DOUBLE, vol_ew_60 DOUBLE, vol_ew_60_prior_max DOUBLE,
     vol_z_log DOUBLE, vol_z_n INTEGER,
+    vol_z_log_5 DOUBLE, vol_z_log_10 DOUBLE, vol_z_log_15 DOUBLE, vol_z_log_30 DOUBLE, vol_z_log_60 DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -625,6 +626,7 @@ type TripSink(outDir: string) =
             f p.Vol60PriorMax; f p.Vol300PriorMax; f p.Vol600PriorMax; f p.Vol1200PriorMax
             f p.Dv60PriorMax; f p.VolEw60; f p.VolEw60PriorMax
             f p.VolZLog; i p.VolZN
+            f p.VolZLog5; f p.VolZLog10; f p.VolZLog15; f p.VolZLog30; f p.VolZLog60
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
