@@ -355,3 +355,62 @@ smokes pre/post edit — FlushFader base 23,556 rows, FlushFader spec 416, Spike
 reference attempt was invalidated by rebuilding binaries while reference runs were queued on
 the same path — the binary-race lesson recurring; redone via stash → old binaries → refs →
 pop → candidates.)
+
+# ⭐⭐ S10/S11 (2026-08-27 evening) — the v2 corpus: honest-clock headline HOLDS, and the F23 rate ratio PORTS the quiet-volume lever
+
+**Corpus**: `spikefader_base_v2` — 2,088,578 trips / 1,164,334 tkd / 2020-01-02..2026-08-21,
+completed clean on the lightened engine (2h13m, 21 parts, exit 0). Spec derived POST-HOC in SQL
+(engine spec runs retired — the transplant was never ratified): every gate transcribed from
+Intraday.fs and VALIDATED against a July engine oracle, 443 = 443 keys exact. ⚠ Transcription
+subtleties for the record: DuckDB orders NaN ABOVE numbers (every gate needs an isnan guard),
+`vol_1200` in the z-gate must be the `_bar` twin (the engine's moments are bar-clock), and
+`rngfront`'s denominator is the POST-push channel = `ln(signal_vwap/chan_lo)` (`chan_hi` records
+the strictly-prior snapshot).
+
+## S11a — the mc=1 headline on the honest clock (greedy replay in SQL)
+
+30,732 spec trips mc=0 (PF 1.707) → 4,997 mc=1. Per ticker-day mean → per day mean:
+
+| yr | days | eqw bp | med bp | up% | tkd | trim bp |
+|---|---|---|---|---|---|---|
+| 2020 | 215 | 119.4 | 165.5 | 74.9 | 710 | 115.6 |
+| 2021 | 233 | 59.3 | 99.7 | 67.0 | 814 | 56.7 |
+| 2022 | 200 | 80.7 | 131.6 | 71.5 | 450 | 76.6 |
+| 2023 | 207 | 64.6 | 149.7 | 67.6 | 393 | 59.7 |
+| 2024 | 227 | 139.0 | 218.4 | 77.1 | 605 | 134.3 |
+| 2025 | 242 | 102.0 | 158.3 | 73.6 | 834 | 97.5 |
+| 2026 | 150 | 86.5 | 150.6 | 68.0 | 504 | 80.2 |
+| **all** | 1,474 | **93.8** | 155.7 | 71.6 | ~615/yr | — |
+
+**+93.8bp/day eqw, 7/7 years, trim-positive every year — the clock fix IMPROVED the v1 read
+(+88.2 → +93.8)**: the honest floors drop sparse-tape trips that were being admitted on
+stretched windows. Same caveats as session 1: costs/borrow/stops unmodeled, gates untuned.
+
+## S11b — ⭐⭐ THE QUIET-VOLUME RESOLUTION: baseline length was the whole story
+
+The S2 inversion survives every 20m-baseline measure but REVERSES under the session-baseline
+rate ratio (`rr_sf = vol_60 / (cum_vol·60 / tradeable-secs-elapsed)`, the F23 measure, all
+recorded columns):
+
+- **mc=1 spec book by rr_sf**: <0.5 → PF 2.314 (n 134), <1.0 → 2.071 (n 950), ≥2 → 1.38-1.55.
+  QUIET FADES BEST, monotone.
+- **base speed>2% pops by rr_sf (mc=0)**: 0.2-0.3 → 1.989, <0.5 → 1.886, declining to 1.32-1.41
+  loud. Same lever, ~2.0-vs-1.4 spread (MaxRider's was 3.6-vs-1.6 on its contaminated table).
+- The same frames by `vol_z_log`: FLAT (1.36-1.49 hump) — the z does not separate on 1s.
+- S10 full-corpus C1/C2 (vol_60/vol_1200, 20m baseline): hump at 2-4×, quiet bands weak — the
+  20m baseline is what S2 was implicitly using, and it genuinely doesn't carry on 1s.
+
+**Conclusion: MaxRider's quiet-volume lever EXISTS on the 1s short fader — it was never the
+clock alone, and never absent; it lives at the SESSION baseline.** F23's ordering (session >>
+15m >> 5m baselines) predicted exactly this. The morning's "quiet does not transcribe" (S10
+preliminary) was true of the measures tested then and is superseded for the session-baseline
+ratio. ⏭ The rr_sf lever is a candidate SPEC gate — needs the iso-trip control + re-derivation
+with the rest of the short-side gate pass (user-in-the-loop).
+
+## S11c — S10 full-corpus confirmations (2.089M trips)
+
+F10 2×2 confirmed: at-high×volHIGH 1.651 (best), below-high×volHIGH **0.805, the only losing
+cell**. F12 probe: 2-3m covers PF 0.715-0.749 (→ long ≈ 1.34-1.40) on n 4,455, but per-year
+negative only 4/7 and **2026 flipped positive (1.632)** with the new months — as fragile as
+MaxRider's original. Bar-clock relvol's ≥8 band confirmed as a noise bucket (n 1,400, yearly
+PFs 0.19-178) vs the honest clock's coherent 26k-trip band.
