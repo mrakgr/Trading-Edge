@@ -171,3 +171,71 @@ volume measure and run the substitution test — different universes, measures, 
 granularity are all in play. ⭐ User read of S4: **the cover optimum is 7-9m** — 10m→20m adds no
 win rate and little profit ("just variance"). ⚠ Add PF columns (raw + clipped) to the sweep
 tables when revisiting.
+
+# 🛑⭐⭐ S7 (2026-08-27) — THE CLOCK REVIEW: bar-clock vs time-clock, and the volume family was never a rate
+
+**User diagnosis, confirmed by full engine audit.** The engine's present-bar semantics (the D1
+invariant, `Intraday.fs:50-55` — "every window is a PRESENT-BAR-COUNT window") was built to
+discount halts. Side effect: **every volume feature lost its time denominator.** Relative volume
+is supposed to measure ACCELERATION — rate now vs rate baseline — but on the bar clock the
+numerator and denominator skip empty seconds identically, so the arrival rate **cancels
+algebraically** and the ratio degenerates to trade-size intensity (dollars per BAR). A quiet
+stretch where true $/s collapses reads relvol ≈ 1; a burst of many small prints reads as no
+change. Quiet periods stretch their windows over more wall time until the same bar count
+accumulates — the halt-discounting doing the wrong job on ordinary sparsity.
+
+## S7a — the audit verdict
+
+Of ~180 stateful accumulators, exactly **three families are genuinely wall-clock**:
+
+| honest family | mechanism |
+|---|---|
+| `gap_15..1200`, `gap_adj_*` | `GapCounter` — true `etSec` eviction (the ONLY time-evicted window) |
+| `secs_since_*`, `fwd_vwap_N`, time gates | `etSec` arithmetic (fwd marks: EntrySec + N SECONDS — correct) |
+| halt classifier | gap-run trigger + interval arithmetic (its `prevRng300` qualifier is bar-clock) |
+
+Everything else is bar- or slot-clock. Notable classes:
+
+- **Unit bugs under ANY convention**: `rate60vs1200` and `vol10Ok` divided N-BAR sums by
+  N-SECOND literals (a per-bar rate mislabelled per-second).
+- **Slot chain worse than bar-clock**: `SlotVwapMa` counts pushes — a "30s slot" is 30 present
+  bars of arbitrary wall span, boundaries not wall-aligned, empty wall intervals invisible.
+  volat/tightness/eff/eff9/VR/AC/volat_slope/lag-"1m" twins all inherit this.
+- **Hybrid mislabels**: `speed` "%/min" is %-per-60-present-bars; the OLS `×6e5 ≈ bp/min`
+  conversion assumes 1 bar = 1 s and is baked into five transplanted gate thresholds; `aux_lo_N`
+  (bar marks) sit beside `fwd_vwap_N` (time marks) — the S4 cover sweep's "7-9m" is a
+  bar-count optimum.
+- **Deliberate bar-clock that STAYS**: `halts_1200/600` (a wall window shrinks exactly when a
+  cascade runs — the in-file rationale is sound), event counters (K counts are event counts),
+  session cums.
+- **FlushFader irony**: its load-bearing levers — the gap counts, persistence — are the ONE
+  time-correct family. The production system was accidentally built on the honest features.
+  FlushFader stays untouched (user decision); LongHiker's S33/S34 relvol results are rate-blind
+  (banner added there); MaxRider-vs-SpikeFader quiet-volume (S2) was comparing two different
+  quantities wearing the same name.
+
+## S7b — the fix (user decisions)
+
+**Scope: the VOLUME family only**, on a **halt-adjusted tradeable clock**: every push advances
+an internal clock by `1 + gapCount`, where `gapCount` = missing NON-HALT seconds since the
+previous bar (a classified halt owns its entire run → gap 0 across it; ordinary sparsity counts
+in full). Canonical columns are now TIME windows (N tradeable seconds); the old bar-count sums
+are kept as `*_bar` twins for the substitution test. Price channels, slot chain, OLS, speed,
+entry/exit events: unchanged bar-clock.
+
+- New primitives (`RollingMa.fs`, additive): `TimeSumMa(windowSecs)` (eviction folded into
+  `Push(v, gapCount)`; `Count` = free bar-density), `TimeLagMa(lagSecs)`, and the gap-aware
+  `EmaHlMa.Push(x, gapCount)` — closed form `d = (1−α)^(1+g); num ← d·num + αx;
+  den ← d·den + (1−d)` (⚠ den adds `1−d`, NOT α — the zeros are observations; adding only α
+  reads volume-per-bar at steady state, the bug itself). Oracle `TimeSumMa_Test.fsx`: eviction
+  exact to 1e-12 on halt-sized jumps, dense-tape equality with SumMa/LagMa exact, gap-EWMA vs
+  explicit zero-loop 1e-13, steady-state V=900-every-10s reads 90.2/s not 900.
+- Engine: `vol/tc_{5..1200}`, `dollar_vol_{60..1200}`, `vol/tc_60_prev` → time twins;
+  `rate60vs1200`, `vol10Ok`, `DvFloor60`/`TcFloor60` read the TIME sums (the /60, /1200
+  literals are now correct); `halt_secs_cum` recorded (signal_sec − halt_secs_cum = the
+  tradeable clock). Schema +23 columns.
+
+Consequences: the corpus needs a full re-run (`spikefader_base_v2`); the S1-S5 tables'
+volume-derived columns are bar-clock (labels wrong, internally consistent); the F18
+quiet-volume question re-opens on the honest rate via the built-in substitution pair
+(`vol_1200` vs `vol_1200_bar` on the same trips).

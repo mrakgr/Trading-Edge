@@ -69,7 +69,8 @@ let defaultConfig =
                                         // {30,60,120,300,600,1200}.
           ExitChannelBarsAfterHours = 0 // OFF — one target all session (see Intraday.fs).
           AfterHoursSec    = 57600      // 16:00, where the tighter target would take over.
-          DvFloor60        = 100_000.0  // >= $100k traded over the last 60 present bars at the signal
+          DvFloor60        = 100_000.0  // >= $100k traded over the last 60 TRADEABLE SECONDS at the
+                                        // signal (2026-08-27 clock fix — was 60 present bars)
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
           // (MinAbsEff20m deleted — S40i: AbsEff20Lo is the abs floor)
@@ -396,6 +397,13 @@ CREATE TABLE trips (
     hi_rate_hl180 DOUBLE, lo_rate_hl180 DOUBLE,
     hi_rate_hl300 DOUBLE, lo_rate_hl300 DOUBLE,
     hi_rate_hl600 DOUBLE, lo_rate_hl600 DOUBLE,
+    vol_5_bar DOUBLE, vol_10_bar DOUBLE, vol_15_bar DOUBLE, vol_30_bar DOUBLE,
+    vol_60_bar DOUBLE, vol_300_bar DOUBLE, vol_600_bar DOUBLE, vol_1200_bar DOUBLE,
+    tc_5_bar DOUBLE, tc_10_bar DOUBLE, tc_15_bar DOUBLE, tc_30_bar DOUBLE,
+    tc_60_bar DOUBLE, tc_300_bar DOUBLE, tc_600_bar DOUBLE, tc_1200_bar DOUBLE,
+    vol_60_prev_bar DOUBLE, tc_60_prev_bar DOUBLE,
+    dollar_vol_60_bar DOUBLE, dollar_vol_300_bar DOUBLE, dollar_vol_600_bar DOUBLE, dollar_vol_1200_bar DOUBLE,
+    halt_secs_cum INTEGER,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -599,6 +607,14 @@ type TripSink(outDir: string) =
             f p.HiRateHl180; f p.LoRateHl180
             f p.HiRateHl300; f p.LoRateHl300
             f p.HiRateHl600; f p.LoRateHl600
+            // 2026-08-27 clock fix: the present-bar-count twins + the halt clock
+            f p.Vol5Bar; f p.Vol10Bar; f p.Vol15Bar; f p.Vol30Bar
+            f p.Vol60Bar; f p.Vol300Bar; f p.Vol600Bar; f p.Vol1200Bar
+            f p.Tc5Bar; f p.Tc10Bar; f p.Tc15Bar; f p.Tc30Bar
+            f p.Tc60Bar; f p.Tc300Bar; f p.Tc600Bar; f p.Tc1200Bar
+            f p.Vol60PrevBar; f p.Tc60PrevBar
+            f p.DollarVol60Bar; f p.DollarVol300Bar; f p.DollarVol600Bar; f p.DollarVol1200Bar
+            i p.HaltSecsCum
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

@@ -564,11 +564,19 @@ type FlushPosition =
                                  //    the entry channel's own window, so the lookback stretches
                                  //    back THROUGH halt holes; the COUNT, not the seconds)
       SecsSinceHalt: int         // signal_sec − last reopen sec; −1 = no halt today
+      HaltSecsCum: int           // ⭐ 2026-08-27 CLOCK FIX: Σ classified halt seconds so far
+                                 //   today — signal_sec − HaltSecsCum reconstructs the
+                                 //   tradeable clock the time-windows evict on
       // ----- location -----
       SessVwap: float
       DistSessVwap: float        // ln(vwap / session vwap)
       PctChgOpen: float          // vwap / first-RTH-bar vwap - 1
       // ----- raw activity levels (log twins = ln() in SQL) -----
+      // ⭐ 2026-08-27 CLOCK FIX (§S7): the canonical Vol/Tc/DollarVol columns are
+      // now TRADEABLE-TIME windows (N SECONDS on the halt-adjusted clock — halts
+      // excluded, ordinary sparsity counted), so ratios of them are honest RATES.
+      // The old present-bar-count sums are kept as *Bar twins for the
+      // substitution test; on gap-free tape the two are identical.
       BarVol: float
       BarTc: int
       Vol5: float                // 5s/10s tails (exhaustion-fade contrast vs the 1m rate)
@@ -587,8 +595,26 @@ type FlushPosition =
       Tc300: float
       Tc600: float
       Tc1200: float
-      Vol60Prev: float           // the PREVIOUS non-overlapping minute's sums (60-bar lag of the
-      Tc60Prev: float            // 60-sums) — minute-over-minute activity SLOPE
+      Vol60Prev: float           // the PREVIOUS non-overlapping minute's sums (60s time-lag of the
+      Tc60Prev: float            // 60s sums) — minute-over-minute activity SLOPE
+      Vol5Bar: float             // ----- the present-bar-count twins (pre-fix semantics) -----
+      Vol10Bar: float
+      Vol15Bar: float
+      Vol30Bar: float
+      Vol60Bar: float
+      Vol300Bar: float
+      Vol600Bar: float
+      Vol1200Bar: float
+      Tc5Bar: float
+      Tc10Bar: float
+      Tc15Bar: float
+      Tc30Bar: float
+      Tc60Bar: float
+      Tc300Bar: float
+      Tc600Bar: float
+      Tc1200Bar: float
+      Vol60PrevBar: float
+      Tc60PrevBar: float
       Vwap60: float              // ⭐ the CURRENT rolling 60-bar vwap (dv_60/vol_60)
       Vwap5Prev: float           // S42h: 5-bar vwap lagged 5 bars (5s flush speed denominator)
       Vwap10Prev: float          // S42h: 10-bar twin
@@ -604,10 +630,14 @@ type FlushPosition =
       Vwap60Prev: float          // ⭐ the rolling 60-bar vwap 60 bars ago (previous non-
                                  // overlapping minute) — flush speed = signal_vwap/vwap_60_prev-1
                                  // (user, 2026-07-28; replaces the noisy two-point vwap_60_ago)
-      DollarVol60: float         // Sum60 of vwap*volume — the liquidity-floor value
+      DollarVol60: float         // 60s time-sum of vwap*volume — the liquidity-floor value
       DollarVol300: float        // S40l: dv at every study window (the torrent axis
       DollarVol600: float        //   lived on dv/20m — now recorded at 5m/10m/20m
       DollarVol1200: float       //   for the dv-vs-N_eff disentangling)
+      DollarVol60Bar: float      // present-bar-count twins (pre-clock-fix semantics)
+      DollarVol300Bar: float
+      DollarVol600Bar: float
+      DollarVol1200Bar: float
       CumVol: float
       CumTc: float
       CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
@@ -1154,6 +1184,39 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let tcSum1200 = SumMa 1200
     let vol60Lag = LagMa<float> (recW 60)               // the previous minute's 60-sum (slope features)
     let tc60Lag = LagMa<float> (recW 60)
+    // ⭐ 2026-08-27 CLOCK FIX (§S7): TRADEABLE-TIME twins of the recorded
+    // volume/tc/dollar sums. The bar-count windows above skip missing seconds,
+    // so any rate built on them degenerates to volume-per-BAR — the arrival
+    // rate cancels algebraically out of every relvol-style ratio. These evict
+    // on a halt-adjusted second clock (Push advances it by 1 + the NON-HALT
+    // gap since the previous bar): halts don't stretch the window — the
+    // original present-bar motivation — while ordinary sparsity counts as real
+    // time. The canonical recorded columns and the rate gates (DvFloor60/
+    // TcFloor60, MinVol10Rate, vol/tc stops) read THESE; the bar sums stay as
+    // `_bar` twins. Gate feeders are unconditional (LiveSlim included);
+    // record-only twins are LiveSlim-gated like their bar counterparts.
+    let tVolSum5 = TimeSumMa (recW 5)
+    let tVolSum10 = TimeSumMa 10
+    let tVolSum15 = TimeSumMa (recW 15)
+    let tVolSum30 = TimeSumMa (recW 30)
+    let tVolSum60 = TimeSumMa 60
+    let tVolSum300 = TimeSumMa (recW 300)
+    let tVolSum600 = TimeSumMa (recW 600)
+    let tVolSum1200 = TimeSumMa 1200
+    let tTcSum5 = TimeSumMa (recW 5)
+    let tTcSum10 = TimeSumMa (recW 10)
+    let tTcSum15 = TimeSumMa (recW 15)
+    let tTcSum30 = TimeSumMa (recW 30)
+    let tTcSum60 = TimeSumMa 60
+    let tTcSum300 = TimeSumMa (recW 300)
+    let tTcSum600 = TimeSumMa (recW 600)
+    let tTcSum1200 = TimeSumMa 1200
+    let tDvSum60 = TimeSumMa 60
+    let tDvSum300 = TimeSumMa (recW 300)
+    let tDvSum600 = TimeSumMa (recW 600)
+    let tDvSum1200 = TimeSumMa (recW 1200)
+    let tVol60Lag = TimeLagMa 60                 // the previous non-overlapping 60s window's sums
+    let tTc60Lag = TimeLagMa 60
     let vwap60Lag = LagMa<float> 60              // ⭐ the rolling 60-bar vwap, lagged one minute
     // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
     // saturates at corr ~0.91 with each other; the question is whether HALVING the
@@ -1357,6 +1420,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let haltIvals = ResizeArray<struct (int * int)>()
     let mutable haltsToday = 0
     let mutable lastHaltEnd = -1
+    // ⭐ 2026-08-27 CLOCK FIX: Σ classified halt seconds so far today — the
+    // tradeable clock the TimeSumMa/TimeLagMa twins evict on is
+    // etSec − cumHaltSecs (advanced per push via the non-halt gap).
+    let mutable cumHaltSecs = 0
     let mutable prevAdjGap60 = 0
     let mutable prevRng300 = nan
     // ⭐ S43bk (user): the tick-direction block. `prevVwap` (set at the end of
@@ -1648,8 +1715,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 haltIvals.Add(struct (prevEtSec + 1, bar.etSec - 1))
                 haltsToday <- haltsToday + 1
                 lastHaltEnd <- bar.etSec
+                cumHaltSecs <- cumHaltSecs + int gapRun   // ⭐ clock fix: the halt owns its run
                 true
             else false
+        // ⭐ 2026-08-27 CLOCK FIX: the non-halt gap feeding the tradeable-time
+        // windows. A classified halt owns its ENTIRE run (the interval added
+        // above), so the time twins see gap 0 across it; an unclassified hole
+        // counts in full — ordinary sparsity is real time.
+        let volGap = if haltClassified then 0 else int gapRun
         // S42r: 1 on a bar that classified a halt, 0 otherwise -> the rolling
         // sums ARE the windowed halt counts (auto-evicting at 1200/600 bars).
         if not cfg.LiveSlim then haltSum1200.Push (if haltClassified then 1.0 else 0.0)
@@ -1726,6 +1799,29 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if not cfg.LiveSlim then volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
         if not cfg.LiveSlim then dvSum300.Push (bar.vwap * bar.volume)
+        // ⭐ 2026-08-27 CLOCK FIX: the tradeable-time twins. Gate feeders
+        // (10/60/1200 vol, 60/1200 tc, 60 dv) push unconditionally; the
+        // record-only rungs mirror their bar twins' LiveSlim gating.
+        if not cfg.LiveSlim then tVolSum5.Push(bar.volume, volGap)
+        tVolSum10.Push(bar.volume, volGap)
+        if not cfg.LiveSlim then tVolSum15.Push(bar.volume, volGap)
+        if not cfg.LiveSlim then tVolSum30.Push(bar.volume, volGap)
+        tVolSum60.Push(bar.volume, volGap)
+        if not cfg.LiveSlim then tVolSum300.Push(bar.volume, volGap)
+        if not cfg.LiveSlim then tVolSum600.Push(bar.volume, volGap)
+        tVolSum1200.Push(bar.volume, volGap)
+        if not cfg.LiveSlim then tTcSum5.Push(float bar.tradeCount, volGap)
+        if not cfg.LiveSlim then tTcSum10.Push(float bar.tradeCount, volGap)
+        if not cfg.LiveSlim then tTcSum15.Push(float bar.tradeCount, volGap)
+        if not cfg.LiveSlim then tTcSum30.Push(float bar.tradeCount, volGap)
+        tTcSum60.Push(float bar.tradeCount, volGap)
+        if not cfg.LiveSlim then tTcSum300.Push(float bar.tradeCount, volGap)
+        if not cfg.LiveSlim then tTcSum600.Push(float bar.tradeCount, volGap)
+        tTcSum1200.Push(float bar.tradeCount, volGap)
+        tDvSum60.Push(bar.vwap * bar.volume, volGap)
+        if not cfg.LiveSlim then tDvSum300.Push(bar.vwap * bar.volume, volGap)
+        if not cfg.LiveSlim then tDvSum600.Push(bar.vwap * bar.volume, volGap)
+        if not cfg.LiveSlim then tDvSum1200.Push(bar.vwap * bar.volume, volGap)
         if not cfg.LiveSlim then dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
         if not cfg.LiveSlim then dlvSum300.Push (log bar.vwap * bar.volume)
         if not cfg.LiveSlim then dlv2Sum300.Push (log bar.vwap * log bar.vwap * bar.volume)
@@ -1759,6 +1855,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             if not cfg.LiveSlim then (match volSum60.State with ValueSome s -> vol60Lag.Push s | ValueNone -> ())
         if tcSum60.Count = 60 then
             if not cfg.LiveSlim then (match tcSum60.State with ValueSome s -> tc60Lag.Push s | ValueNone -> ())
+        // clock fix: the time twins' minute-lag chains — warm states only, so
+        // .Lagged is the 60s sum as of >= 60 tradeable seconds ago.
+        if not cfg.LiveSlim then (match tVolSum60.State with ValueSome s -> tVol60Lag.Push(s, volGap) | ValueNone -> ())
+        if not cfg.LiveSlim then (match tTcSum60.State with ValueSome s -> tTc60Lag.Push(s, volGap) | ValueNone -> ())
         // ⭐ the rolling 60-bar vwap + its one-minute lag (user, 2026-07-28):
         // dv_60/vol_60, pushed into the lag once per warm bar so .Lagged = the
         // previous NON-OVERLAPPING minute's vwap — the flush-speed denominator.
@@ -2064,22 +2164,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             else sExitMin
         let targetHit = match sTargetMin with ValueSome lo -> bar.vwap < lo | ValueNone -> false
         // ⭐ the price-acceptance stops: qualified FRESH lows only (see config)
-        let rate60vs1200 (s60: SumMa) (s1200: SumMa) =
-            if s60.Count = s60.WindowSize && s1200.Count = s1200.WindowSize then
-                match s60.State, s1200.State with
-                | ValueSome a, ValueSome b when b > 0.0 -> ValueSome ((a / 60.0) / (b / 1200.0))
-                | _ -> ValueNone
-            else ValueNone
+        // ⭐ 2026-08-27 CLOCK FIX: the /60 and /1200 literals are SECONDS, so the
+        // sums must be time-windowed — the old bar-count sums divided by these
+        // literals mixed units (a per-bar rate mislabelled per-second).
+        // TimeSumMa.State is ValueNone until the clock covers a full window,
+        // which replaces the Count = WindowSize warmth check.
+        let rate60vs1200 (t60: TimeSumMa) (t1200: TimeSumMa) =
+            match t60.State, t1200.State with
+            | ValueSome a, ValueSome b when b > 0.0 -> ValueSome ((a / 60.0) / (b / 1200.0))
+            | _ -> ValueNone
         let volStopHit =
             isNewHigh
             && not (Double.IsPositiveInfinity cfg.VolStopRatio)
-            && (match rate60vs1200 volSum60 volSum1200 with
+            && (match rate60vs1200 tVolSum60 tVolSum1200 with
                 | ValueSome r -> r >= cfg.VolStopRatio
                 | ValueNone -> false)
         let tcStopHit =
             isNewHigh
             && not (Double.IsPositiveInfinity cfg.TcStopRatio)
-            && (match rate60vs1200 tcSum60 tcSum1200 with
+            && (match rate60vs1200 tTcSum60 tTcSum1200 with
                 | ValueSome r -> r >= cfg.TcStopRatio
                 | ValueNone -> false)
         let speedStopHit =
@@ -2220,8 +2323,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= entryEndSec
         let channelWarm = entryMin.Count = entryMin.WindowSize
         let floorsOk =
-            (match dvSum60.State with ValueSome dv -> dv >= cfg.DvFloor60 | ValueNone -> false)
-            && (match tcSum60.State with ValueSome tc -> tc >= cfg.TcFloor60 | ValueNone -> false)
+            // clock fix: the honest liquidity floor is $/60 TRADEABLE seconds
+            (match tDvSum60.State with ValueSome dv -> dv >= cfg.DvFloor60 | ValueNone -> false)
+            && (match tTcSum60.State with ValueSome tc -> tc >= cfg.TcFloor60 | ValueNone -> false)
         // the volatility band: floor AND ceiling (record-first — see the config comment)
         let volatOk =
             (cfg.MinVolat20m <= 0.0
@@ -2332,8 +2436,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     num / den >= cfg.MinEff9Ema10m
                 | _ -> false)
         let vol10Ok =
+            // clock fix: /10 and /60 are seconds — read the time sums
             cfg.MinVol10Rate <= 0.0
-            || (match volSum10.State, volSum60.State with
+            || (match tVolSum10.State, tVolSum60.State with
                 | ValueSome v10, ValueSome v60 when v60 > 0.0 ->
                     (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
                 | _ -> false)
@@ -2603,6 +2708,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Halts1200 = (match haltSum1200.State with ValueSome v -> int v | ValueNone -> 0)
                       Halts600 = (match haltSum600.State with ValueSome v -> int v | ValueNone -> 0)
                       SecsSinceHalt = (if lastHaltEnd < 0 then -1 else bar.etSec - lastHaltEnd)
+                      HaltSecsCum = cumHaltSecs
                       SessVwap = vv sessVwap.State
                       DistSessVwap =
                         (match sessVwap.State with
@@ -2614,24 +2720,44 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                          | _ -> nan)
                       BarVol = bar.volume
                       BarTc = bar.tradeCount
-                      Vol5 = vv volSum5.State
-                      Vol10 = vv volSum10.State
-                      Vol15 = vv volSum15.State
-                      Vol30 = vv volSum30.State
-                      Vol60 = vv volSum60.State
-                      Vol300 = vv volSum300.State
-                      Vol600 = vv volSum600.State
-                      Vol1200 = vv volSum1200.State
-                      Tc5 = vv tcSum5.State
-                      Tc10 = vv tcSum10.State
-                      Tc15 = vv tcSum15.State
-                      Tc30 = vv tcSum30.State
-                      Tc60 = vv tcSum60.State
-                      Tc300 = vv tcSum300.State
-                      Tc600 = vv tcSum600.State
-                      Tc1200 = vv tcSum1200.State
-                      Vol60Prev = vv vol60Lag.Lagged
-                      Tc60Prev = vv tc60Lag.Lagged
+                      // clock fix: canonical = tradeable-time windows; *Bar = the
+                      // present-bar-count twins (substitution-test pair)
+                      Vol5 = vv tVolSum5.State
+                      Vol10 = vv tVolSum10.State
+                      Vol15 = vv tVolSum15.State
+                      Vol30 = vv tVolSum30.State
+                      Vol60 = vv tVolSum60.State
+                      Vol300 = vv tVolSum300.State
+                      Vol600 = vv tVolSum600.State
+                      Vol1200 = vv tVolSum1200.State
+                      Tc5 = vv tTcSum5.State
+                      Tc10 = vv tTcSum10.State
+                      Tc15 = vv tTcSum15.State
+                      Tc30 = vv tTcSum30.State
+                      Tc60 = vv tTcSum60.State
+                      Tc300 = vv tTcSum300.State
+                      Tc600 = vv tTcSum600.State
+                      Tc1200 = vv tTcSum1200.State
+                      Vol60Prev = vv tVol60Lag.Lagged
+                      Tc60Prev = vv tTc60Lag.Lagged
+                      Vol5Bar = vv volSum5.State
+                      Vol10Bar = vv volSum10.State
+                      Vol15Bar = vv volSum15.State
+                      Vol30Bar = vv volSum30.State
+                      Vol60Bar = vv volSum60.State
+                      Vol300Bar = vv volSum300.State
+                      Vol600Bar = vv volSum600.State
+                      Vol1200Bar = vv volSum1200.State
+                      Tc5Bar = vv tcSum5.State
+                      Tc10Bar = vv tcSum10.State
+                      Tc15Bar = vv tcSum15.State
+                      Tc30Bar = vv tcSum30.State
+                      Tc60Bar = vv tcSum60.State
+                      Tc300Bar = vv tcSum300.State
+                      Tc600Bar = vv tcSum600.State
+                      Tc1200Bar = vv tcSum1200.State
+                      Vol60PrevBar = vv vol60Lag.Lagged
+                      Tc60PrevBar = vv tc60Lag.Lagged
                       Vwap60 = vv vwap60Now
                       Vwap5Prev = vv vwap5Lag.Lagged
                       Vwap10Prev = vv vwap10Lag.Lagged
@@ -2641,10 +2767,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vwap180 = sumRatio dvSum180 volSum180
                       Lo30 = vv min30.State
                       Vwap60Prev = vv vwap60Lag.Lagged
-                      DollarVol60 = vv dvSum60.State
-                      DollarVol300 = vv dvSum300.State
-                      DollarVol600 = vv dvSum600.State
-                      DollarVol1200 = vv dvSum1200.State
+                      DollarVol60 = vv tDvSum60.State
+                      DollarVol300 = vv tDvSum300.State
+                      DollarVol600 = vv tDvSum600.State
+                      DollarVol1200 = vv tDvSum1200.State
+                      DollarVol60Bar = vv dvSum60.State
+                      DollarVol300Bar = vv dvSum300.State
+                      DollarVol600Bar = vv dvSum600.State
+                      DollarVol1200Bar = vv dvSum1200.State
                       CumVol = cumVol
                       CumDv = cumDv
                       Vol0945Tape = vol0945Tape

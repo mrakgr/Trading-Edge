@@ -503,6 +503,20 @@ type EmaHlMa(halfLife: float) =
     member _.Push (x: float) =
         num <- (1.0 - alpha) * num + alpha * x
         den <- (1.0 - alpha) * den + alpha
+    /// ⭐ Gap-aware push (2026-08-27 clock review): folds `gapCount` PUSHES OF
+    /// ZERO — the missing non-halt seconds since the previous bar, each a real
+    /// observation of 0 — followed by the bar itself, in closed form. With
+    /// gapCount = 0 this is EXACTLY the one-argument Push. Feeding bar volume
+    /// plus the tape's gap counts turns the EWMA into a decayed
+    /// volume-per-TRADEABLE-SECOND rate instead of volume-per-bar.
+    /// ⚠ den adds `1 − d`, NOT α: the zeros' weights must accumulate in the
+    /// denominator ((1−α)(1−(1−α)^g) + α = 1−(1−α)^{g+1}). Decaying den while
+    /// adding only α would read volume-per-BAR at steady state — the exact bug
+    /// the gap argument exists to fix.
+    member _.Push (x: float, gapCount: int) =
+        let d = (1.0 - alpha) ** (1.0 + float gapCount)
+        num <- d * num + alpha * x
+        den <- d * den + (1.0 - d)
     /// Clear the accumulator (see RollingMa.Reset).
     member _.Reset () =
         num <- 0.0
@@ -625,6 +639,91 @@ type CalendarMeanMa(days: int) =
     member _.Reset () =
         q.Clear()
         sum <- 0.0
+
+/// ⭐ Rolling sum over a TRADEABLE-TIME window in seconds (2026-08-27 clock
+/// review, docs/spikefader_results.md §S7). The bar-count SumMa windows skip
+/// missing seconds, so any volume "rate" built on them degenerates to
+/// volume-per-BAR — the arrival rate cancels algebraically out of every
+/// relvol-style ratio. This class keeps its own tradeable-second clock:
+/// `Push(v, gapCount)` advances it by `1 + gapCount`, where gapCount = missing
+/// NON-HALT seconds since the previous bar (the caller subtracts classified
+/// halt seconds, so halts don't stretch the window; ordinary sparsity does).
+/// The missing seconds are zero-volume observations — they need no enqueue
+/// (zeros add nothing to a sum) but they DO advance the clock, which is what
+/// evicts old bars and lets the sum fall during quiet tape.
+///
+/// Eviction is folded into Push (unlike CalendarMeanMa's Evict/Push split,
+/// which exists only for its strictly-prior evict→read→push discipline): the
+/// volume windows are read trailing-INCLUSIVE — push the current bar, then
+/// capture — so no read ever sits between evict and push.
+///
+/// `.State` is ValueNone until the clock covers a full window
+/// (clock >= windowSecs), matching SumMa's full-window-only discipline. Seed
+/// the caller so the FIRST bar's gapCount counts from session start
+/// (prevEtSec = SessionStartSec − 1); the clock then equals tradeable session
+/// age and warmth is era-invariant.
+[<Sealed>]
+type TimeSumMa(windowSecs: int) =
+    do if windowSecs <= 0 then invalidArg (nameof windowSecs) "windowSecs must be > 0"
+    let q = Queue<struct (int * float)>()
+    let mutable clock = 0
+    let mutable sum = 0.0
+    /// Bars currently inside the window — the window's bar density, free.
+    member _.Count = q.Count
+    member _.WindowSecs = windowSecs
+    /// Tradeable seconds elapsed since construction/Reset (diagnostics).
+    member _.Clock = clock
+    /// The windowed sum, or ValueNone before the clock covers a full window.
+    member _.State = if clock >= windowSecs then ValueSome sum else ValueNone
+    member _.Push (v: float, gapCount: int) =
+        clock <- clock + 1 + gapCount
+        let cutoff = clock - windowSecs
+        let mutable go = true
+        while go && q.Count > 0 do
+            let struct (c, x) = q.Peek()
+            if c <= cutoff then sum <- sum - x; q.Dequeue() |> ignore
+            else go <- false
+        q.Enqueue(struct (clock, v))
+        sum <- sum + v
+    /// Clear the window and the clock (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        clock <- 0
+        sum <- 0.0
+
+/// Time-lagged snapshot on the same tradeable-second clock as TimeSumMa:
+/// `Lagged` is the NEWEST value pushed at least `lagSecs` tradeable seconds
+/// ago (ValueNone until one has aged past the horizon). On a sparse tape the
+/// lagged value can be OLDER than `lagSecs` — it is the last snapshot taken at
+/// or before the lag horizon, the honest analogue of LagMa's "N pushes ago".
+/// On a gap-free stream (gapCount = 0 throughout) it equals LagMa lagSecs
+/// exactly. Push and read discipline mirror TimeSumMa.
+[<Sealed>]
+type TimeLagMa(lagSecs: int) =
+    do if lagSecs <= 0 then invalidArg (nameof lagSecs) "lagSecs must be > 0"
+    let q = Queue<struct (int * float)>()
+    let mutable clock = 0
+    let mutable lagged : float voption = ValueNone
+    member _.LagSecs = lagSecs
+    member _.Clock = clock
+    /// The newest value pushed >= lagSecs tradeable seconds ago, or ValueNone.
+    member _.Lagged = lagged
+    member _.Push (v: float, gapCount: int) =
+        clock <- clock + 1 + gapCount
+        // promote every queued snapshot that has aged past the lag horizon;
+        // the LAST one promoted is the newest eligible.
+        let cutoff = clock - lagSecs
+        let mutable go = true
+        while go && q.Count > 0 do
+            let struct (c, x) = q.Peek()
+            if c <= cutoff then lagged <- ValueSome x; q.Dequeue() |> ignore
+            else go <- false
+        q.Enqueue(struct (clock, v))
+    /// Clear the queue, the clock and the lagged value (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        clock <- 0
+        lagged <- ValueNone
 
 // =============================================================================
 // OlsSlopeMa — rolling ordinary-least-squares regression slope (+ R²)

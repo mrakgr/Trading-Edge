@@ -2608,6 +2608,15 @@ all of which are side-agnostic and directly reusable on the short side.
 
 ---
 
+> 🛑 **2026-08-27 CLOCK REVIEW (docs/spikefader_results.md §S7): every relvol result in
+> S33-S34b is RATE-BLIND.** `dv_ewma_1m` / `dv_ewma_20m` are pushed once per PRESENT bar, so
+> numerator and denominator skip empty seconds identically and the arrival rate cancels
+> algebraically out of the ratio — `relvol` measured recent-vs-baseline TRADE-SIZE intensity
+> (dollars per bar), never dollars per second. Relative volume is supposed to measure
+> ACCELERATION; the bar clock deletes the accelerating factor. The "volume is the poison pill"
+> conclusion (S34) and the empty burst-cell (S34b) must be RE-TESTED after the gap-aware
+> EWMA port (`EmaHlMa.Push(x, gapCount)` — see §S7) before either is quoted again.
+
 # ⭐⭐ S32 (2026-08-26) — PROGRAM REOPENED: v7, breakouts from TIGHT CONSOLIDATIONS
 
 > USER: *"We're going to test a very specific setup in order to try and make it work — breakouts
