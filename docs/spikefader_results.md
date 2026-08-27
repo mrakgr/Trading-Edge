@@ -315,3 +315,23 @@ class).
 surge CONDITIONED on the 20m-pop event. The unconditional F12 (any bar making a new session-
 volume high below the price high) would need its own sampler if the conditioned cell shows
 signal.
+
+### S9b — vol_z_log: MaxRider's ACTUAL quiet-volume measure, transcribed (user)
+
+⚠ Correction of the S2/S7 framing: MaxRider's quiet-volume was **not** a 1m/20m ratio — it was
+`vol_z_log`, a SESSION-CUMULATIVE z of log(bar volume) (`CumStdMa` of log 1m-bar volume,
+MaxRiderV1/Intraday.fs:230; quiet := z < −0.5; log beat linear empirically — F5: log monotone
+PF 1.769→1.281, linear non-monotone with a 14σ-outlier top bucket). SpikeFader had NO
+session-distribution volume z — so S2's quiet test missed the original measure on a third axis
+(wrong clock, wrong ratio, wrong reference distribution).
+
+**1s transcription (user decision)**: push log(max bar_vol 1) per PRESENT 1s bar, record
+`vol_z_log` = z of the SIGNAL bar's log volume vs that session distribution + `vol_z_n`
+(samples). **Deliberately NOT gap-aware** — the z is the SIZE-INTENSITY axis over actual
+prints; the "how often does anything trade" information lives in the tradeable-time RATE
+features (vol_60/prior-max, vol_ew_60, relvol of Means). Forcing gap zeros into the z's
+distribution would make the mixture zero-dominated on sparse tape and degenerate the z into a
+muddled rate duplicate; log space also cannot take zeros (the log1p weighted-Welford hybrid was
+considered and rejected — two clean orthogonal axes beat one fused one; their 2×2 is SQL).
+Normal space rejected on F5's own evidence. Smoke: 0 nan, med n=4,862, z p1/med/p99 =
+−1.95/+0.95/+2.54 (positive median expected — signal bars ARE pops), quiet band 8.1%.

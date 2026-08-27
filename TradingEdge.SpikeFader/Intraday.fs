@@ -655,6 +655,8 @@ type FlushPosition =
       Dv60PriorMax: float        //   the $ twin at the 1m rung
       VolEw60: float             //   the EWMA rate NOW (DecaySumMa hl60 Mean, vol/tradeable-sec)
       VolEw60PriorMax: float     //   ... and its prior max (readings >= 60 tradeable secs old)
+      VolZLog: float             // ⭐ S9b: MaxRider's quiet-volume replica — z of the signal
+      VolZN: int                 //   bar's log volume vs the session 1s-bar distribution; n
       CumVol: float
       CumTc: float
       CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
@@ -1264,6 +1266,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let tVol1200PriorMax = TimeLagMaxMa 1200
     let tDv60PriorMax = TimeLagMaxMa 60
     let volEw60PriorMax = TimeLagMaxMa 60
+    // ⭐ S9b (user): MaxRider's ACTUAL quiet-volume measure — `vol_z_log` was a
+    // SESSION-CUMULATIVE z of log(1m-bar volume) (CumStdMa; log space beat
+    // linear empirically, maxrider_v1_results.md F5), NOT a 1m/20m ratio.
+    // 1s transcription (user): push log(bar volume) per PRESENT 1s bar, z the
+    // signal bar's own log volume against the session distribution — the
+    // direct analog of MaxRider z-ing each 1m bar vs the session's bars.
+    // Deliberately per-bar SIZE-INTENSITY (gap seconds do not enter),
+    // complementing the tradeable-time RATE features rather than repeating
+    // them. quiet := vol_z_log < −0.5 (the F5 band). vol_z_n = bars sampled.
+    let volZLog = CumStdMa()
     // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
     // saturates at corr ~0.91 with each other; the question is whether HALVING the
     // horizon separates the way TRIPLING it did (s1m won as a sizing lever at the
@@ -1865,6 +1877,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             (match tVolSum1200.State with ValueSome s -> tVol1200PriorMax.Push(s, volGap) | ValueNone -> ())
             (match tDvSum60.State with ValueSome s -> tDv60PriorMax.Push(s, volGap) | ValueNone -> ())
             (match volDecay60.Mean with ValueSome m -> volEw60PriorMax.Push(m, volGap) | ValueNone -> ())
+        // S9b: the session log-volume distribution, one sample per present bar.
+        if not cfg.LiveSlim then volZLog.Push (log (max bar.volume 1.0))
         if not cfg.LiveSlim then dvSum180.Push (bar.vwap * bar.volume)
         if not cfg.LiveSlim then volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
@@ -2866,6 +2880,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Dv60PriorMax = vv tDv60PriorMax.Max
                       VolEw60 = vv volDecay60.Mean
                       VolEw60PriorMax = vv volEw60PriorMax.Max
+                      VolZLog = vv (volZLog.Z (log (max bar.volume 1.0)))
+                      VolZN = volZLog.Count
                       CumVol = cumVol
                       CumDv = cumDv
                       Vol0945Tape = vol0945Tape
