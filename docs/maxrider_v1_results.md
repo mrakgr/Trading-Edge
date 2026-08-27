@@ -1004,3 +1004,47 @@ questions:
 
 **A STOP is not optional here** (unlike V6). Design one before any tradable claim: a % stop or a break of
 the up-leg's prior structure. Report the PF sacrifice honestly.
+
+## ⭐⭐ Finding 23 (2026-08-27) — F22 REPLICATED, and the SESSION RATE RATIO strictly dominates the log-z
+
+**Context**: rerun on the rebuilt (still S39d-contaminated — replication first, cleanup later per
+user) candidate table, engine defaults (7m cover, $3M dv floor, log-ATR gate), 1,812,959 trips.
+
+**F22 replication**: gentle pop bands match the 2026-07 doc to ~0.1% (n and PF); the star cell —
+pops > +2% × quiet (vol_z_log < −0.5) — reads **8,147 @ PF 3.621, p1 −11.24** vs the documented
+7,902 @ 3.641, p1 −10.76. The loud→quiet rescue structure reproduces exactly (1.52 → 1.93 → 3.62,
+p1 −27 → −11). Only the violent bands carry more trips than the July run (>3%: 51.9k vs 39.8k,
+PF 1.60 vs 1.75) — the rebuilt table admits more violent-pop days; the finding is intact.
+
+**⭐⭐ The rate-ratio substitution (user hypothesis: rates > z, per the FlushFader clock work)**:
+`rr = bar_vol / (cum_vol / minutes-since-open)` — the session per-minute rate ratio, pure SQL on
+recorded columns, no log space, no z machinery. Pops > +2%:
+
+| classifier | n | avg% | p1 | PF |
+|---|---|---|---|---|
+| vol_z_log < −0.5 (F22) | 8,147 | 1.628 | −11.24 | 3.621 |
+| **rr < 0.2944 (matched n)** | 8,148 | **1.783** | **−8.13** | **⭐ 4.929** |
+
+**Strict dominance at matched selectivity — better PF AND a smaller tail.** Overlap: z-quiet is
+nearly a subset of rr-quiet (7,764/8,147 shared; 383 z-only; rr<0.5 adds 7,123 good trips the z
+missed). Baseline-length ordering confirms the mechanism: session-average (PF 3.50 at <0.5)
+beats brv_15m (2.73) beats rvol_5m (2.13) — the slower the baseline leg, the cleaner the quiet
+classifier, exactly the relvol-boundedness argument from the SpikeFader S8 work.
+
+**The fine ladder is monotone and 7/7-year robust at the deep end** (pops > +2%):
+
+| rr band | n | avg% | p1 | PF | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **< 0.2** | 5,631 | 1.914 | **−7.18** | **⭐⭐ 5.902** | 6.57 | 10.70 | 7.86 | 7.48 | 5.64 | 4.04 | 4.30 |
+| 0.2-0.3 | 2,676 | 1.455 | −9.42 | 3.380 | 2.79 | 2.56 | 5.57 | 3.38 | 3.31 | 3.24 | 4.06 |
+| 0.3-0.4 | 3,062 | 1.299 | −11.54 | 2.759 | 2.32 | 2.44 | 3.20 | 4.52 | 2.84 | 2.24 | 2.48 |
+| 0.4-0.5 | 3,518 | 1.199 | −15.05 | 2.375 | 1.87 | 3.51 | 3.03 | 3.54 | 2.71 | 1.65 | 2.27 |
+| 0.5-0.7 | 7,691 | 1.148 | −15.60 | 2.202 | 2.74 | 1.69 | 2.27 | 1.83 | 2.76 | 2.10 | 1.93 |
+| ≥ 0.7 | 96,926 | 0.892 | −27.10 | 1.522 | 1.52 | 1.45 | 1.64 | 1.46 | 1.56 | 1.63 | 1.28 |
+
+rr < 0.2 = PF 5.902 with the smallest tail in the study and no year below 4.0 — deeper than any
+cell the z ever found. ⚠ Attribution-only (mc=0), contaminated universe, costs unmodeled — but
+as a MEASURE comparison all three caveats hit both classifiers identically.
+
+⏭ Port to SpikeFader: its analog is `vol_60 / (cum_vol × 60 / tradeable-secs-elapsed)` — every
+term recorded on the v2 corpus (cum_vol, signal_sec, halt_secs_cum), pure SQL.
