@@ -414,3 +414,31 @@ cell**. F12 probe: 2-3m covers PF 0.715-0.749 (→ long ≈ 1.34-1.40) on n 4,45
 negative only 4/7 and **2026 flipped positive (1.632)** with the new months — as fragile as
 MaxRider's original. Bar-clock relvol's ≥8 band confirmed as a noise bucket (n 1,400, yearly
 PFs 0.19-178) vs the honest clock's coherent 26k-trip band.
+
+### S11d — ⚠ THE CLOCK CONTROL (user): at matched selectivity, the bar-clock lever is JUST AS GOOD
+
+Substitution control on the rr_sf quiet lever — four variants, mc=1 spec book, matched n = 1,084:
+
+| measure | thr | PF | p1 | years |
+|---|---|---|---|---|
+| rr_time (vol_60 time / tradeable-sec rate) | 1.00 | 2.099 | −16.1 | 7/7 |
+| rr_barnum (vol_60 BAR / tradeable rate) | 1.16 | 2.095 | **−19.0** | 7/7 |
+| rr_wall (vol_60 time / RAW wall rate) | 1.03 | **2.205** | −16.1 | 7/7 |
+| rr_allbar (vol_60 BAR / per-BAR rate) | 0.87 | 2.134 | −16.8 | 7/7 |
+
+**Verdict: the quiet-volume lever is carried by the SESSION-BASELINE CONSTRUCTION (F23), not by
+the clock.** At matched selectivity the fully bar-clock variant reads within noise of the honest
+one. What the clock migration actually bought, on today's evidence: (1) the honest numerator
+keeps the quiet tail ~3pp thinner; (2) fixed thresholds MEAN the same thing across tape density
+(the bar variants' fixed-band tables lose monotonicity at the extremes — rr_allbar's loud band
+inverts to 1.844 on the pops frame); (3) the measure TAILS stop being noise buckets (the
+bar-clock 20m relvol ≥8 band: n 1,400, yearly PF 0.19-178, vs the honest clock's coherent 26k);
+(4) honest floors. It did NOT change mid-band rankings — S2's inversion was a BASELINE-LENGTH
+artifact, not a clock artifact, and the morning's contrary hypothesis is hereby corrected.
+
+⭐ **The unplanned finding: rr_wall > rr_time (2.205 vs 2.099; and 4.00 vs 2.31 in the tiny
+fixed <0.5 cell, p1 −6.5)** — REMOVING the halt adjustment helps. Halt-discounting makes
+post-halt names look quiet (their tradeable-time rate stays high), and post-halt "quiet" pops
+are bad fades — the LULD-elevator class the cascade gates were designed for. ⏭ Tomorrow's
+gate-by-gate pass should test: quiet defined on RAW wall time, or the halt-adjusted version
+paired with an explicit post-halt veto.
