@@ -503,21 +503,11 @@ type EmaHlMa(halfLife: float) =
     member _.Push (x: float) =
         num <- (1.0 - alpha) * num + alpha * x
         den <- (1.0 - alpha) * den + alpha
-    /// ⭐ Gap-aware push (2026-08-27 clock review): folds `gapCount` PUSHES OF
-    /// ZERO — the missing non-halt seconds since the previous bar, each a real
-    /// observation of 0 — followed by the bar itself, in closed form. With
-    /// gapCount = 0 this is EXACTLY the one-argument Push. Feeding bar volume
-    /// plus the tape's gap counts turns the EWMA into a decayed
-    /// volume-per-TRADEABLE-SECOND rate instead of volume-per-bar.
-    /// ⚠ den adds `1 − d`, NOT α: the zeros' weights must accumulate in the
-    /// denominator ((1−α)(1−(1−α)^g) + α = 1−(1−α)^{g+1}). Decaying den while
-    /// adding only α would read volume-per-BAR at steady state — the exact bug
-    /// the gap argument exists to fix.
-    member _.Push (x: float, gapCount: int) =
-        let d = (1.0 - alpha) ** (1.0 + float gapCount)
-        num <- d * num + alpha * x
-        den <- d * den + (1.0 - d)
     /// Clear the accumulator (see RollingMa.Reset).
+    /// (Gap-aware work should use DecaySumMa — same object un-α-scaled, with
+    /// `Sum` AND the bias-corrected `Mean`. EmaHlMa is the frozen production
+    /// surface: six engines + the live Scanner read it; changing it means a
+    /// full reference-then-diff pass on each.)
     member _.Reset () =
         num <- 0.0
         den <- 0.0
@@ -691,30 +681,48 @@ type TimeSumMa(windowSecs: int) =
         clock <- 0
         sum <- 0.0
 
-/// ⭐ Plain gap-aware DECAYED SUM — no α scaling, no normalization:
+/// ⭐ Gap-aware DECAYED SUM + its normalized mean — THE gap-aware exponential
+/// primitive (S8; user, 2026-08-27). The SUM is the primitive object:
 /// `s ← s·0.5^((1+gapCount)/hl) + x` per push, hl in TRADEABLE SECONDS (same
-/// gapCount convention as TimeSumMa). The building block for
-/// difference-of-exponentials window analogues (the S8 EWMA speed): subtracting
-/// a fast-hl sum from a slow-hl sum of the same stream leaves every observation
-/// with weight 0.5^(a/hlSlow) − 0.5^(a/hlFast) >= 0 — a smooth "prior window"
-/// kernel peaked at intermediate age, zero at age 0. ⚠ That positivity is WHY
-/// the sums are unscaled: with EmaHlMa's α-scaled pushes the age-0 weight of
-/// the difference is α_slow − α_fast < 0 and the kernel goes negative. In a
-/// dv/vol RATIO of two same-hl sums any common scale cancels anyway.
+/// gapCount convention as TimeSumMa), every observation entering with weight 1.
+/// The MEAN is derived: `Mean = Sum / w`, where `w` is the total weight of the
+/// history so far (the g gap-zeros are real observations, so their weights
+/// accumulate in w) — the exact bias-corrected EWMA (EmaHlMa's num = α·Sum and
+/// den = α·w, term for term; the α-scaled class survives only as the frozen
+/// production surface). With gapCount = 0 throughout, the weight increment is
+/// exactly 1/push and Mean is the plain per-push EWMA — one update serves both
+/// the slot-clock mean and the per-tradeable-second rate.
+///
+/// Why the sum is the primitive — WINDOW ALGEBRA: subtracting a fast-hl sum
+/// from a slow-hl sum of the same stream leaves every observation with weight
+/// 0.5^(a/hlSlow) − 0.5^(a/hlFast) >= 0 — a smooth "prior window" kernel,
+/// zero at age 0 (the S8 EWMA speed). ⚠ Only UNSCALED sums subtract this way:
+/// with α-scaled pushes the age-0 weight of the difference is
+/// α_slow − α_fast < 0 and the kernel goes negative (that object is MACD, an
+/// oscillator — useful as a tempo contrast, catastrophic as a vwap leg).
+/// Ratio of two same-hl sums: any common scale cancels (vwap_ew_60).
+/// Ratio of MEANS across two hls = honest relvol acceleration, bounded by
+/// (0, hl_slow/hl_fast].
 [<Sealed>]
 type DecaySumMa(halfLifeSecs: float) =
     do if halfLifeSecs <= 0.0 then invalidArg (nameof halfLifeSecs) "halfLifeSecs must be > 0"
+    let lam = 0.5 ** (1.0 / halfLifeSecs)
     let mutable s = 0.0
-    let mutable any = false
+    let mutable w = 0.0
     /// The decayed sum, or ValueNone before the first push.
-    member _.State = if any then ValueSome s else ValueNone
+    member _.Sum = if w > 0.0 then ValueSome s else ValueNone
+    /// The bias-corrected exponentially weighted MEAN over the pushed history
+    /// (gap zeros included as observations), or ValueNone before the first
+    /// push. Sum = Mean × w; w -> 1/(1−λ) ≈ hl/ln2 + ½ as the support fills.
+    member _.Mean = if w > 0.0 then ValueSome (s / w) else ValueNone
     member _.Push (x: float, gapCount: int) =
-        s <- s * 0.5 ** ((1.0 + float gapCount) / halfLifeSecs) + x
-        any <- true
+        let d = lam ** (1.0 + float gapCount)
+        s <- d * s + x
+        w <- d * w + (1.0 - d) / (1.0 - lam)   // the g zeros' weights + this bar's 1
     /// Clear the accumulator (see RollingMa.Reset).
     member _.Reset () =
         s <- 0.0
-        any <- false
+        w <- 0.0
 
 /// Time-lagged snapshot on the same tradeable-second clock as TimeSumMa:
 /// `Lagged` is the NEWEST value pushed at least `lagSecs` tradeable seconds

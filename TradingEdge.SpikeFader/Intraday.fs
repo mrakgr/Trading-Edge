@@ -1912,11 +1912,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             if tcSum120.Count = tcSum120.WindowSize then subOpt tcSum120.State tcSum60.State else ValueNone
         // S8: the EWMA time-based speed pair (see the DecaySumMa declarations).
         let vwapEw60 =
-            match dvDecay60.State, volDecay60.State with
+            match dvDecay60.Sum, volDecay60.Sum with
             | ValueSome d, ValueSome v when v > 0.0 -> ValueSome (d / v)
             | _ -> ValueNone
         let vwapEw60Prev =
-            match dvDecay120.State, volDecay120.State, dvDecay60.State, volDecay60.State with
+            match dvDecay120.Sum, volDecay120.Sum, dvDecay60.Sum, volDecay60.Sum with
             | ValueSome d2, ValueSome v2, ValueSome d1, ValueSome v1 when v2 - v1 > 0.0 ->
                 ValueSome ((d2 - d1) / (v2 - v1))
             | _ -> ValueNone

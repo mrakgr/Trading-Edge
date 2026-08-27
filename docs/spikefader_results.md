@@ -273,3 +273,21 @@ distinct enough to substitution-test.
 | 1-29 | 8,647 | 0.9570 |
 | 30-59 | 3,155 | 0.6197 |
 | 60+ | 2,888 | 0.3188 |
+
+### S8b — DecaySumMa is THE gap-aware exponential primitive; EmaHlMa frozen (user)
+
+**User insight + design**: the decayed sum and the EWMA are one object — `EmaHlMa.num = α·Sum`
+and `den = α·w` exactly, where `w` = the history's total weight. So the sum is the primitive
+and the mean is the derived read: `DecaySumMa` now carries both (`Sum`, and bias-corrected
+`Mean = Sum/w`, gap zeros counted as observations; the weight increment `(1−d)/(1−λ)` is
+exactly 1 at gap 0, so one update serves the per-push slot mean AND the per-tradeable-second
+rate). ⚠ The user's first sketch derived Average as `s·λ` — that is the sum decayed one more
+step, not a mean; the weight accumulator is unavoidable (it IS the bias correction).
+`EmaHlMa`'s never-used gap overload (added this morning) is REMOVED; the class itself is
+frozen as the production surface — six engines + the live Scanner read it, so retiring it
+rides on each engine's next reference-then-diff pass, not on aesthetics. All new gap-aware
+work (LongHiker relvol port included) builds on `DecaySumMa`. For the relvol re-test: the
+measure is the RATIO of `Mean`s across two half-lives (user), bounded by (0, hl_slow/hl_fast]
+— so the baseline leg must be genuinely slow (hl 1200 ≈ the old vol_60-vs-vol_1200 geometry,
+ceiling 20×; a 60/120 pair caps at 2× and is too cramped for a relvol axis). Oracle: `Mean`
+== explicit-zero-fed `EmaHlMa` to 1e-13 sparse / 2e-16 dense; all prior checks unchanged.

@@ -7,10 +7,10 @@
 //   2. TimeLagMa ORACLE — Lagged must equal the newest value stamped <= clock − L.
 //   3. DENSE EQUIVALENCE — with gapCount = 0 throughout, TimeSumMa == SumMa
 //      (full-window states) and TimeLagMa == LagMa, exactly.
-//   4. EmaHlMa GAP PUSH — Push(x, g) must match g explicit Push(0.0) calls
-//      followed by Push(x), to 1e-12, including g = 0 == the one-arg Push.
+//   4. DecaySumMa.Mean — must match an EmaHlMa fed g explicit Push(0.0) calls
+//      then Push(x) (num = α·Sum, den = α·w identity), incl. dense g = 0.
 //   5. RATE SEMANTICS — steady state: one bar of volume V every (g+1) seconds
-//      reads State ≈ V/(g+1) (volume per tradeable second), NOT V (per bar).
+//      reads Mean ≈ V/(g+1) (volume per tradeable second), NOT V (per bar).
 open System
 open TradingEdge.RollingMa
 
@@ -94,27 +94,27 @@ for v in denseVals do
 check (sprintf "sum mismatches %d, lag mismatches %d / %d" sumBad lagBad denseVals.Length)
       (sumBad = 0 && lagBad = 0)
 
-printfn "4. EmaHlMa gap push — Push(x, g) == g × Push(0.0) then Push(x), every step"
+printfn "4. DecaySumMa.Mean == EmaHlMa fed g explicit zeros then x (num = α·Sum, den = α·w)"
 let hl = 1200.0
-let a2, b2 = EmaHlMa hl, EmaHlMa hl
+let a2, b2 = DecaySumMa hl, EmaHlMa hl
 let mutable worstE = 0.0
 for struct (g, v) in stream do
     a2.Push(v, g)
     for _ in 1 .. g do b2.Push 0.0
     b2.Push v
-    let e = abs (vv a2.State - vv b2.State) / max 1e-12 (abs (vv b2.State))
+    let e = abs (vv a2.Mean - vv b2.State) / max 1e-12 (abs (vv b2.State))
     if e > worstE then worstE <- e
-check (sprintf "worst relerr vs explicit zero loop %.2e" worstE) (worstE <= 1e-12)
-let c1, c2 = EmaHlMa 40.0, EmaHlMa 40.0
+check (sprintf "worst relerr Mean vs explicit-zero EmaHlMa %.2e" worstE) (worstE <= 1e-12)
+let c1, c2 = EmaHlMa 40.0, DecaySumMa 40.0
 for v in denseVals |> Array.take 100 do c1.Push v; c2.Push(v, 0)
-approx "Push(x) == Push(x, 0) after 100 pushes" (vv c1.State) (vv c2.State) 1e-15
+approx "dense Mean == per-push EmaHlMa after 100 pushes" (vv c2.Mean) (vv c1.State) 1e-12
 
-printfn "5. Rate semantics — V=900 every (g+1)=10 secs at hl=1200 reads ≈ 90/sec, not 900"
+printfn "5. Rate semantics — V=900 every (g+1)=10 secs at hl=1200: Mean ≈ 90/sec, not 900"
 // reading right after the impulse overweights it by ~(g/2)·α (phase bias), so
 // the read is ≈ 90 × 1.0026 at hl=1200 — loose 1% tolerance; the point is 90 vs 900.
-let r = EmaHlMa 1200.0
+let r = DecaySumMa 1200.0
 for _ in 1 .. 20000 do r.Push(900.0, 9)
-approx "steady-state rate" (vv r.State) 90.0 1e-2
+approx "steady-state rate" (vv r.Mean) 90.0 1e-2
 
 printfn "6. DecaySumMa oracle — brute-force decayed sum on the sparse stream, hl 60/120"
 for hl in [60.0; 120.0] do
@@ -127,7 +127,7 @@ for hl in [60.0; 120.0] do
         hist.Add(struct (clock, v))
         d.Push(v, g)
         let want = hist |> Seq.sumBy (fun (struct (c, x)) -> x * 0.5 ** (float (clock - c) / hl))
-        let e = abs (vv d.State - want) / max 1e-12 (abs want)
+        let e = abs (vv d.Sum - want) / max 1e-12 (abs want)
         if e > worstD then worstD <- e
     check (sprintf "hl=%-5.0f worst relerr %.2e" hl worstD) (worstD <= 1e-9)
 
@@ -141,8 +141,8 @@ let px = 3.5
 for i, struct (g, v) in Seq.indexed stream do
     dv60.Push(px * v, g); dv120.Push(px * v, g)
     vl60.Push(v, g); vl120.Push(v, g)
-    let dd = vv dv120.State - vv dv60.State
-    let dl = vv vl120.State - vv vl60.State
+    let dd = vv dv120.Sum - vv dv60.Sum
+    let dl = vv vl120.Sum - vv vl60.Sum
     if dl < -1e-9 then negDiff <- negDiff + 1
     if i > 0 && dl > 1e-12 then          // first push: difference is exactly 0
         let e = abs (dd / dl - px) / px
