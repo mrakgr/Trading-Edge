@@ -291,3 +291,27 @@ measure is the RATIO of `Mean`s across two half-lives (user), bounded by (0, hl_
 — so the baseline leg must be genuinely slow (hl 1200 ≈ the old vol_60-vs-vol_1200 geometry,
 ceiling 20×; a 60/120 pair caps at 2× and is too cramped for a relvol axis). Oracle: `Mean`
 == explicit-zero-fed `EmaHlMa` to 1e-13 sparse / 2e-16 dense; all prior checks unchanged.
+
+## S9 (2026-08-27, user) — the volHIGH ladder: per-rung prior-window session maxes
+
+**Motivation**: MaxRider F10/F12 — the 2×2 `session-high × vol-high` interaction, and the one
+LONG-momentum cell of that program (F12: volume surge to a new session-volume high while price
+is still BELOW the session high → continuation, PF ~1.27 long at 1m covers). `volHIGH` there =
+"this 1m bar's volume sets a new session max". LowFlyer also consumes the session 1m max —
+baked in ahead of that port.
+
+**Construction**: `TimeLagMaxMa(W)` — session running max of the W-sec time-sum over windows
+ending **>= W tradeable secs ago** (fully non-overlapping, the analog of distinct W-sec bars;
+an unlagged max would compare a rising window to itself). Recorded at every volume rung
+(`vol_{5,10,15,30,60,300,600,1200}_prior_max`), the $ twin at 1m (`dollar_vol_60_prior_max`),
+and the EWMA-rate version (`vol_ew_60` = DecaySumMa hl-60 Mean now, `vol_ew_60_prior_max` =
+its prior max). `volHIGH_W := vol_W > vol_W_prior_max` in SQL; the price leg is `dshi`/`sess_high`.
+Oracle test 8 (brute-force lagged max, 0 mismatches); smoke: additive (20,231 trips, PF 2.156
+unchanged), 0 nan/neg at signal, volHIGH_60 incidence 3.0% (MaxRider's was 1.4% — same rarity
+class).
+
+⚠ **Population caveat for the F12 replication**: this sampler fires only on new 20m highs, so
+`below-sess-high × volHIGH` is 0.1% of trips (~20/month) — the test here is the pre-breakout
+surge CONDITIONED on the 20m-pop event. The unconditional F12 (any bar making a new session-
+volume high below the price high) would need its own sampler if the conditioned cell shows
+signal.

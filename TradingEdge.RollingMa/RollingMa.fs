@@ -724,6 +724,41 @@ type DecaySumMa(halfLifeSecs: float) =
         s <- 0.0
         w <- 0.0
 
+/// ⭐ LAGGED RUNNING MAX on the tradeable-second clock (S9; user, 2026-08-27):
+/// `Max` = the maximum of every value pushed at least `lagSecs` tradeable
+/// seconds ago — never evicted, session-scoped. Built for the MaxRider F10/F12
+/// "new session-VOLUME high" mirror: with the rolling 60s volume sum as the
+/// pushed value and lag = 60, `vol_60 > Max` says "this minute out-volumes
+/// every fully NON-OVERLAPPING earlier minute today". The lag is what makes
+/// the comparison honest — an unlagged running max contains the current
+/// window's own recent overlapping readings, so a rising minute would compare
+/// the surge to itself. Same Push(v, gapCount) convention as TimeSumMa.
+[<Sealed>]
+type TimeLagMaxMa(lagSecs: int) =
+    do if lagSecs <= 0 then invalidArg (nameof lagSecs) "lagSecs must be > 0"
+    let q = Queue<struct (int * float)>()
+    let mutable clock = 0
+    let mutable m = ValueNone
+    member _.LagSecs = lagSecs
+    /// Max of all values pushed >= lagSecs tradeable seconds ago, or ValueNone.
+    member _.Max = m
+    member _.Push (v: float, gapCount: int) =
+        clock <- clock + 1 + gapCount
+        let cutoff = clock - lagSecs
+        let mutable go = true
+        while go && q.Count > 0 do
+            let struct (c, x) = q.Peek()
+            if c <= cutoff then
+                m <- (match m with ValueSome cur -> ValueSome (max cur x) | ValueNone -> ValueSome x)
+                q.Dequeue() |> ignore
+            else go <- false
+        q.Enqueue(struct (clock, v))
+    /// Clear the queue, the clock and the max (see RollingMa.Reset).
+    member _.Reset () =
+        q.Clear()
+        clock <- 0
+        m <- ValueNone
+
 /// Time-lagged snapshot on the same tradeable-second clock as TimeSumMa:
 /// `Lagged` is the NEWEST value pushed at least `lagSecs` tradeable seconds
 /// ago (ValueNone until one has aged past the horizon). On a sparse tape the

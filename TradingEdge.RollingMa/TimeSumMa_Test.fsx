@@ -150,4 +150,21 @@ for i, struct (g, v) in Seq.indexed stream do
 check (sprintf "negative vol-differences %d; worst prior-window vwap relerr %.2e" negDiff worstPx)
       (negDiff = 0 && worstPx <= 1e-9)
 
+printfn "8. TimeLagMaxMa oracle — Max = max of values stamped <= clock − L, lags 60/300"
+for lag in [60; 300] do
+    let t = TimeLagMaxMa lag
+    let hist = ResizeArray<struct (int * float)>()
+    let mutable clock = 0
+    let mutable bad = 0
+    for struct (g, v) in stream do
+        clock <- clock + 1 + g
+        hist.Add(struct (clock, v))
+        t.Push(v, g)
+        let eligible = hist |> Seq.filter (fun (struct (c, _)) -> c <= clock - lag)
+                            |> Seq.map (fun (struct (_, x)) -> x) |> Seq.toArray
+        let want = if eligible.Length > 0 then Some (Array.max eligible) else None
+        let got = match t.Max with ValueSome x -> Some x | ValueNone -> None
+        if got <> want then bad <- bad + 1
+    check (sprintf "L=%-5d mismatches %d / %d" lag bad stream.Length) (bad = 0)
+
 if failed then exit 1 else printfn "ALL OK"

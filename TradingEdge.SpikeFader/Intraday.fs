@@ -644,6 +644,17 @@ type FlushPosition =
       DollarVol300Bar: float
       DollarVol600Bar: float
       DollarVol1200Bar: float
+      Vol5PriorMax: float        // ⭐ S9 (user): session max of each W-sec volume sum over
+      Vol10PriorMax: float       //   windows ending >= W tradeable secs ago (fully NON-
+      Vol15PriorMax: float       //   overlapping — the analog of distinct W-sec bars). The
+      Vol30PriorMax: float       //   MaxRider F10/F12 volHIGH mirror at EVERY rung:
+      Vol60PriorMax: float       //   volHIGH_W := vol_W > vol_W_prior_max; price leg = dshi.
+      Vol300PriorMax: float      //   LowFlyer (1m system) uses the session 1m max — baked in
+      Vol600PriorMax: float      //   here for the eventual port.
+      Vol1200PriorMax: float
+      Dv60PriorMax: float        //   the $ twin at the 1m rung
+      VolEw60: float             //   the EWMA rate NOW (DecaySumMa hl60 Mean, vol/tradeable-sec)
+      VolEw60PriorMax: float     //   ... and its prior max (readings >= 60 tradeable secs old)
       CumVol: float
       CumTc: float
       CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
@@ -1237,6 +1248,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let dvDecay120 = DecaySumMa 120.0
     let volDecay60 = DecaySumMa 60.0
     let volDecay120 = DecaySumMa 120.0
+    // ⭐ S9 (user): the MaxRider F10/F12 "new session-VOLUME high" mirror —
+    // per-rung session running max of the W-sec volume sums over windows
+    // ending >= W tradeable secs ago (fully NON-overlapping, the analog of
+    // distinct W-sec bars; unlagged, a rising window would compare the surge
+    // to itself). volHIGH_W := vol_W > vol_W_prior_max, in SQL; price leg =
+    // dshi. + the $ twin at 1m and the EWMA-rate version (volDecay60.Mean).
+    let tVol5PriorMax = TimeLagMaxMa 5
+    let tVol10PriorMax = TimeLagMaxMa 10
+    let tVol15PriorMax = TimeLagMaxMa 15
+    let tVol30PriorMax = TimeLagMaxMa 30
+    let tVol60PriorMax = TimeLagMaxMa 60
+    let tVol300PriorMax = TimeLagMaxMa 300
+    let tVol600PriorMax = TimeLagMaxMa 600
+    let tVol1200PriorMax = TimeLagMaxMa 1200
+    let tDv60PriorMax = TimeLagMaxMa 60
+    let volEw60PriorMax = TimeLagMaxMa 60
     // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
     // saturates at corr ~0.91 with each other; the question is whether HALVING the
     // horizon separates the way TRIPLING it did (s1m won as a sizing lever at the
@@ -1825,6 +1852,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if not cfg.LiveSlim then dvDecay120.Push(bar.vwap * bar.volume, volGap)
         if not cfg.LiveSlim then volDecay60.Push(bar.volume, volGap)
         if not cfg.LiveSlim then volDecay120.Push(bar.volume, volGap)
+        // S9: per-rung prior-window session maxes — warm sums only, so Max
+        // compares full windows to full windows.
+        if not cfg.LiveSlim then
+            (match tVolSum5.State with ValueSome s -> tVol5PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum10.State with ValueSome s -> tVol10PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum15.State with ValueSome s -> tVol15PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum30.State with ValueSome s -> tVol30PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum60.State with ValueSome s -> tVol60PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum300.State with ValueSome s -> tVol300PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum600.State with ValueSome s -> tVol600PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tVolSum1200.State with ValueSome s -> tVol1200PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match tDvSum60.State with ValueSome s -> tDv60PriorMax.Push(s, volGap) | ValueNone -> ())
+            (match volDecay60.Mean with ValueSome m -> volEw60PriorMax.Push(m, volGap) | ValueNone -> ())
         if not cfg.LiveSlim then dvSum180.Push (bar.vwap * bar.volume)
         if not cfg.LiveSlim then volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
@@ -2815,6 +2855,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DollarVol300Bar = vv dvSum300.State
                       DollarVol600Bar = vv dvSum600.State
                       DollarVol1200Bar = vv dvSum1200.State
+                      Vol5PriorMax = vv tVol5PriorMax.Max
+                      Vol10PriorMax = vv tVol10PriorMax.Max
+                      Vol15PriorMax = vv tVol15PriorMax.Max
+                      Vol30PriorMax = vv tVol30PriorMax.Max
+                      Vol60PriorMax = vv tVol60PriorMax.Max
+                      Vol300PriorMax = vv tVol300PriorMax.Max
+                      Vol600PriorMax = vv tVol600PriorMax.Max
+                      Vol1200PriorMax = vv tVol1200PriorMax.Max
+                      Dv60PriorMax = vv tDv60PriorMax.Max
+                      VolEw60 = vv volDecay60.Mean
+                      VolEw60PriorMax = vv volEw60PriorMax.Max
                       CumVol = cumVol
                       CumDv = cumDv
                       Vol0945Tape = vol0945Tape
