@@ -350,6 +350,7 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
     let out = ResizeArray<Candidate>()
+    cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
     use reader = cmd.ExecuteReader()
     // helper: a nullable DOUBLE column reads as nan when NULL (e.g. close_fwd_* at the tail).
     let dbl (i: int) = if reader.IsDBNull i then nan else reader.GetDouble i
@@ -406,6 +407,7 @@ type MinuteEmitter
     member inline this.Process(onNext: string * MinuteBar -> unit) =
         use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- this.Sql
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
@@ -450,6 +452,7 @@ let private buildMarketCtx (conn: DuckDBConnection) (path: string) (date: DateOn
                 FROM read_parquet('%s') WHERE ticker = 'SPY' AND close > 0)
             SELECT et_min, open, close FROM b WHERE et_min >= 570 AND et_min <= %d ORDER BY et_min"""
                 (path.Replace("'", "''")) mocMin
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use reader = cmd.ExecuteReader()
         let acc = ResizeArray<struct (int * float * float)>()
         while reader.Read() do acc.Add(struct (reader.GetInt32 0, reader.GetDouble 1, reader.GetDouble 2))

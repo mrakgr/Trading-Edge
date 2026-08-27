@@ -294,6 +294,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
                 | Exited _ -> trips.Add(toTrip curTicker cfg.Notional cfg.Side barIndex p)
                 | _ -> ()
 
+    cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
     use reader = cmd.ExecuteReader()
     while reader.Read() do
         let ticker = reader.GetString 0

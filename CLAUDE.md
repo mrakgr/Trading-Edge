@@ -52,6 +52,25 @@ slices inflated — bounce-door PF 8.5 = outcome selection). `docs/systems_showc
 numbers. Clean universe = `mr_candidate_1s` (1s-tape-native, no price floor, NO warmup — `barnum` recorded;
 FlushFader default).
 
+## 🛑 Experiment execution discipline (2026-08-27 OOM postmortem)
+
+1. **Every experiment run MUST write a live log file.** Redirect the run's stdout+stderr
+   straight to a file next to its output directory (`... > data/<run>.log 2>&1`) so progress
+   and the engine's own ETA are inspectable mid-run with `tail -f`. **Never pipe a run
+   through `tail`/`head`** — they buffer until process exit, which is how a 2h16m base pass
+   died silently at 94.5% (OOM-killed, no summary, invisible for an hour). If you catch a
+   run whose output is being buffered instead of logged, RESTART it with proper logging.
+   Print the exit code after the run so a kill cannot masquerade as success.
+2. **Every DuckDB reader in every system sets `cmd.UseStreamingMode <- true` before
+   `ExecuteReader()`.** DuckDB.NET otherwise materializes the ENTIRE result set before the
+   first row is read — buffered OUTSIDE the `memory_limit` pragma's accounting (the Scanner
+   learned this first: `TradeSource.fs`; the research engines re-learned it as a leg of the
+   2026-08-27 OOM). This applies to every new reader written from now on, tiny result sets
+   included — the property is free.
+3. **A partial output of an expensive run is a valuable artifact.** Never `rm` it as part of
+   a relaunch reflex. Check schema compatibility first; if compatible, RESUME (rerun only
+   the missing days into a side directory and merge); if not, deleting is the user's call.
+
 ## F# Async Patterns
 
 When writing concurrent F# code in this project:

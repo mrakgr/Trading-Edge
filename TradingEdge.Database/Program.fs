@@ -818,6 +818,7 @@ let private handleDownloadTickerEvents (config: MassiveConfig) (args: ParseResul
             conn.Open()
             use cmd = conn.CreateCommand()
             cmd.CommandText <- "SELECT DISTINCT ticker FROM ticker_reference ORDER BY ticker"
+            cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
             use rdr = cmd.ExecuteReader()
             [ while rdr.Read() do yield rdr.GetString(0) ]
 

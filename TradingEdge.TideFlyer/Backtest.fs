@@ -216,6 +216,7 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, p
         cmd.CommandText <- this.Sql
         let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- this.StartDate; cmd.Parameters.Add pStart |> ignore
         let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- this.EndDate;   cmd.Parameters.Add pEnd   |> ignore
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
@@ -268,6 +269,7 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
         cmd.CommandText <-
             "SELECT date, LAG(pct_above_20) OVER (ORDER BY date) AS b_lag1 \
              FROM 'data/equity/momentum_v0/breadth.parquet' QUALIFY b_lag1 IS NOT NULL"
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use rdr = cmd.ExecuteReader()
         while rdr.Read() do
             breadthLag1.[DateOnly.FromDateTime(rdr.GetDateTime 0)] <- rdr.GetDouble 1

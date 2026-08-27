@@ -167,6 +167,7 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, p
         cmd.CommandText <- this.Sql
         let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- this.StartDate; cmd.Parameters.Add pStart |> ignore
         let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- this.EndDate;   cmd.Parameters.Add pEnd   |> ignore
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0

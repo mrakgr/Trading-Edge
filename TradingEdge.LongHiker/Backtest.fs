@@ -147,6 +147,7 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
     let pRv    = cmd.CreateParameter() in pRv.ParameterName    <- "minrvol"; pRv.Value  <- minRvol0945; cmd.Parameters.Add pRv  |> ignore
     let pPc    = cmd.CreateParameter() in pPc.ParameterName    <- "minprevclose"; pPc.Value <- minPrevClose; cmd.Parameters.Add pPc |> ignore
     let out = ResizeArray<Candidate>()
+    cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
     use reader = cmd.ExecuteReader()
     let dbl (i: int) = if reader.IsDBNull i then nan else reader.GetDouble i
     while reader.Read() do
@@ -395,6 +396,7 @@ type SecEmitter
     member inline this.Process(onNext: string * SecBar -> unit) =
         use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- this.Sql
+        cmd.UseStreamingMode <- true   // 🛑 CLAUDE.md: mandatory on every reader (2026-08-27 OOM)
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
