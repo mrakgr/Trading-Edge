@@ -239,3 +239,37 @@ Consequences: the corpus needs a full re-run (`spikefader_base_v2`); the S1-S5 t
 volume-derived columns are bar-clock (labels wrong, internally consistent); the F18
 quiet-volume question re-opens on the honest rate via the built-in substitution pair
 (`vol_1200` vs `vol_1200_bar` on the same trips).
+
+## ⭐ S8 (2026-08-27, user) — speed stays BAR-CLOCK; lags retired for WINDOW DIFFERENCES; the EWMA time-speed
+
+**User design.** The bar-clock speed denominator is the RIGHT choice — a time-windowed vwap is
+degenerate on very sparse tape (an empty window has no price), while "the 60-bar vwap 60 bars
+ago" always exists. Three changes:
+
+1. **Every lag queue retired for a window difference**: the N-bar vwap N bars ago == vwap over
+   bars [t−2N+1, t−N] == `(dv2N − dvN)/(vol2N − volN)` — same value, same warmth bar, no queue.
+   Applied to `vwap_{5,10,30,60}_prev` (new 20-bar sums feed the 10; the 120-bar sums are now
+   un-gated since `vwap_60_prev` feeds MinSpeed1m/SpeedStopPct in LiveSlim too).
+2. **`vol/tc_60_prev` (canonical, time) = `t120 − t60`** — the EXACT prior tradeable minute,
+   replacing the TimeLagMa snapshot (stale on sparse tape). `_bar` twins = `bar120 − bar60`.
+   TimeLagMa keeps its oracle but has no engine users.
+3. **The proper time-based speed** = difference of gap-aware UNSCALED decayed sums
+   (`DecaySumMa`: `s ← s·0.5^((1+gap)/hl) + x`, hl 60/120 tradeable secs):
+   `vwap_ew_60_prev = (Sdv120−Sdv60)/(Svol120−Svol60)`. The difference kernel
+   `0.5^(a/120) − 0.5^(a/60) >= 0` is a smooth "prior minute" with no sparse-tape degeneracy
+   (the ratio stays anchored to the last trades). ⚠ UNSCALED is load-bearing: with α-scaled
+   (EmaHlMa-style) sums the age-0 weight is α120 − α60 < 0 and the kernel goes negative.
+   Recorded as `vwap_ew_60` / `vwap_ew_60_prev`; `speed_ew = signal_vwap/vwap_ew_60_prev − 1`.
+
+**Verification (2026-07 smoke, old vs new):** trip keys IDENTICAL (20,231 = 20,231, PF 2.156
+both); all four difference-form vwaps match the lag queues to <= 1.5e-12; `vol_60_prev` dense
+identity exact; oracle test extended (DecaySumMa 1e-15, kernel positivity 0 violations,
+constant-price recovery 1e-14). EWMA-vs-bar speed: median +3.51% vs +2.92%, corr 0.87 —
+distinct enough to substitution-test.
+
+| gap_120 band | n | med vol_60_prev / _bar |
+|---|---|---|
+| 0 | 5,541 | 1.0000 |
+| 1-29 | 8,647 | 0.9570 |
+| 30-59 | 3,155 | 0.6197 |
+| 60+ | 2,888 | 0.3188 |

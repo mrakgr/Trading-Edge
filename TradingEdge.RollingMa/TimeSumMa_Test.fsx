@@ -116,4 +116,38 @@ let r = EmaHlMa 1200.0
 for _ in 1 .. 20000 do r.Push(900.0, 9)
 approx "steady-state rate" (vv r.State) 90.0 1e-2
 
+printfn "6. DecaySumMa oracle — brute-force decayed sum on the sparse stream, hl 60/120"
+for hl in [60.0; 120.0] do
+    let d = DecaySumMa hl
+    let hist = ResizeArray<struct (int * float)>()
+    let mutable clock = 0
+    let mutable worstD = 0.0
+    for struct (g, v) in stream do
+        clock <- clock + 1 + g
+        hist.Add(struct (clock, v))
+        d.Push(v, g)
+        let want = hist |> Seq.sumBy (fun (struct (c, x)) -> x * 0.5 ** (float (clock - c) / hl))
+        let e = abs (vv d.State - want) / max 1e-12 (abs want)
+        if e > worstD then worstD <- e
+    check (sprintf "hl=%-5.0f worst relerr %.2e" hl worstD) (worstD <= 1e-9)
+
+printfn "7. Difference-of-exponentials speed — S120−S60 positive; prior-window vwap sane"
+// constant price stream: any positive kernel must reproduce the price exactly.
+let dv60, dv120 = DecaySumMa 60.0, DecaySumMa 120.0
+let vl60, vl120 = DecaySumMa 60.0, DecaySumMa 120.0
+let mutable negDiff = 0
+let mutable worstPx = 0.0
+let px = 3.5
+for i, struct (g, v) in Seq.indexed stream do
+    dv60.Push(px * v, g); dv120.Push(px * v, g)
+    vl60.Push(v, g); vl120.Push(v, g)
+    let dd = vv dv120.State - vv dv60.State
+    let dl = vv vl120.State - vv vl60.State
+    if dl < -1e-9 then negDiff <- negDiff + 1
+    if i > 0 && dl > 1e-12 then          // first push: difference is exactly 0
+        let e = abs (dd / dl - px) / px
+        if e > worstPx then worstPx <- e
+check (sprintf "negative vol-differences %d; worst prior-window vwap relerr %.2e" negDiff worstPx)
+      (negDiff = 0 && worstPx <= 1e-9)
+
 if failed then exit 1 else printfn "ALL OK"

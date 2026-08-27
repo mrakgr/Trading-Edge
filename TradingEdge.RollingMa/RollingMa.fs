@@ -691,6 +691,31 @@ type TimeSumMa(windowSecs: int) =
         clock <- 0
         sum <- 0.0
 
+/// ⭐ Plain gap-aware DECAYED SUM — no α scaling, no normalization:
+/// `s ← s·0.5^((1+gapCount)/hl) + x` per push, hl in TRADEABLE SECONDS (same
+/// gapCount convention as TimeSumMa). The building block for
+/// difference-of-exponentials window analogues (the S8 EWMA speed): subtracting
+/// a fast-hl sum from a slow-hl sum of the same stream leaves every observation
+/// with weight 0.5^(a/hlSlow) − 0.5^(a/hlFast) >= 0 — a smooth "prior window"
+/// kernel peaked at intermediate age, zero at age 0. ⚠ That positivity is WHY
+/// the sums are unscaled: with EmaHlMa's α-scaled pushes the age-0 weight of
+/// the difference is α_slow − α_fast < 0 and the kernel goes negative. In a
+/// dv/vol RATIO of two same-hl sums any common scale cancels anyway.
+[<Sealed>]
+type DecaySumMa(halfLifeSecs: float) =
+    do if halfLifeSecs <= 0.0 then invalidArg (nameof halfLifeSecs) "halfLifeSecs must be > 0"
+    let mutable s = 0.0
+    let mutable any = false
+    /// The decayed sum, or ValueNone before the first push.
+    member _.State = if any then ValueSome s else ValueNone
+    member _.Push (x: float, gapCount: int) =
+        s <- s * 0.5 ** ((1.0 + float gapCount) / halfLifeSecs) + x
+        any <- true
+    /// Clear the accumulator (see RollingMa.Reset).
+    member _.Reset () =
+        s <- 0.0
+        any <- false
+
 /// Time-lagged snapshot on the same tradeable-second clock as TimeSumMa:
 /// `Lagged` is the NEWEST value pushed at least `lagSecs` tradeable seconds
 /// ago (ValueNone until one has aged past the horizon). On a sparse tape the

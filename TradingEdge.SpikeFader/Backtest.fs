@@ -404,6 +404,7 @@ CREATE TABLE trips (
     vol_60_prev_bar DOUBLE, tc_60_prev_bar DOUBLE,
     dollar_vol_60_bar DOUBLE, dollar_vol_300_bar DOUBLE, dollar_vol_600_bar DOUBLE, dollar_vol_1200_bar DOUBLE,
     halt_secs_cum INTEGER,
+    vwap_ew_60 DOUBLE, vwap_ew_60_prev DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -615,6 +616,7 @@ type TripSink(outDir: string) =
             f p.Vol60PrevBar; f p.Tc60PrevBar
             f p.DollarVol60Bar; f p.DollarVol300Bar; f p.DollarVol600Bar; f p.DollarVol1200Bar
             i p.HaltSecsCum
+            f p.VwapEw60; f p.VwapEw60Prev
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
