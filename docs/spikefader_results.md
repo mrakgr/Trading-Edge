@@ -343,3 +343,15 @@ of that same rolling quantity (CumStdMa per rung, warm windows only; sample coun
 vol_z_n − W + 1). Multi-scale size intensity to bracket which aggregation the MaxRider lever
 lives at. Smoke: additive, 0 nan; median z falls +1.11 (W=5) → +0.54 (W=60) as the pop's
 local surge dilutes across wider windows — the ladder separates as intended.
+
+### S9d — debloat step 1: LiveSlim excised from FlushFader + SpikeFader (user)
+
+The research engines carried the pre-split scanner's LiveSlim mode (~55/~86 sites + recW/maW
+window helpers); the production Scanner is long since its own debloated codebase, so research
+never runs anything but LiveSlim=false. Removed wholesale from both engines (config field,
+helpers, every gate, the live retire clause). **Proven inert by reference-then-diff**: 2026-07
+smokes pre/post edit — FlushFader base 23,556 rows, FlushFader spec 416, SpikeFader base
+20,231 — key sets identical, EVERY column identical on every row. (Process note: the first
+reference attempt was invalidated by rebuilding binaries while reference runs were queued on
+the same path — the binary-race lesson recurring; redone via stash → old binaries → refs →
+pop → candidates.)

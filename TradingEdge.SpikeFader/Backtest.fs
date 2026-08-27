@@ -145,9 +145,7 @@ let defaultConfig =
                                         // hour-before-close rule mirrored onto the 13:00 close
                                         // (in-sample cost: 3 of 1,231 book trades, all winners)
           MocSec           = 57600      // 16:00
-          MocSecShort      = 46800
-          // research default: keep the post-exit counterfactual marks
-          LiveSlim         = false }    // ⭐ S43bx: 13:00 on NYSE early-close days
+          MocSecShort      = 46800 }    // ⭐ S43bx: 13:00 on NYSE early-close days
       Notional = 10_000.0
       MinDv0945 = 0.0               // 💀 DEPRECATED (S35): the candidate column = real
                                     // dollars × adj_ratio (future-split-dependent).

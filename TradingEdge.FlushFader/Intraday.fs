@@ -931,28 +931,7 @@ type IntradayConfig =
       // cannot participate in.
       // ⚠ Drifting: 2016-19 saw 0-6% of ticker-days reach 300 bars, 2024-25 sees
       // 15-18%. Still far too thin to trade, but re-measure rather than assume.
-      MocSecShort: int
-
-      /// ⭐⭐ LIVE-SLIM (2026-08-18). Disables the POST-EXIT COUNTERFACTUAL
-      /// apparatus wholesale — the machinery that keeps an already-exited
-      /// position alive so fwd_vwap_*/aux_hi_*/ma_*/vwma_* can be marked. That
-      /// exists to study EXIT VARIANTS post-hoc; a live system needs none of it.
-      /// ⚠ They must be disabled TOGETHER. The retire predicate requires all 12
-      /// MA/VWMA marks resolved, and maStep resolves any unresolved mark at the
-      /// MOC bar — so merely skipping the MA pushes keeps positions active LONGER
-      /// and perturbs aux_hi_* (measured: SHAZ 2026-06-09 aux_hi_1200 went NULL ->
-      /// 62.4799@53617). Live mode therefore also retires on exit immediately.
-      /// The {10..60}m MA and {30..60}m VWMA exit
-      /// marks are RECORDED-ONLY counterfactuals — they feed nothing but the
-      /// ma_*/vwma_* trip columns (verified: their only consumers are the
-      /// prevXMa*/prevXVw* crossing flags, which already NaN-guard). They are
-      /// also the single largest memory term in the engine: 34,200 of the
-      /// 63,304 windowed slots, i.e. 267 KB of the 495 KB of raw doubles.
-      /// Set true in the LIVE scanner: the windows are allocated at depth 1 and
-      /// never pushed, so sumMean/sumRatio return nan and those columns record
-      /// NULL. Leave FALSE for research — the marks are how exit variants get
-      /// studied post-hoc.
-      LiveSlim: bool }
+      MocSecShort: int }
 
 /// The FlushFader engine. One instance per (ticker, day).
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
@@ -965,19 +944,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // MaxMa/MinMa pairs over vwap at six present-bar windows; session extremes
     // via RunMaxMa/RunMinMa. Entry/exit windows are validated in Program to
     // alias these.
-    let maW n = if cfg.LiveSlim then 1 else n
-    /// Recorded-only windows: read ONLY inside the trip record, never by a gate,
-    /// exit or leg rule (classified mechanically, 2026-08-18). Depth 1 under
-    /// LiveSlim. ⚠ ols60 is deliberately NOT in this set — it is recorded-only
-    /// from the engine's point of view, but the production book's A/B/C/D tiering
-    /// reads ols_slope_60, so live needs it.
-    let recW n = if cfg.LiveSlim then 1 else n
     let max30 = MaxMa 30
     let max60 = MaxMa 60
     let max120 = MaxMa 120
     // ⭐ S43ap (user): the 3m high — "as far as we'd want to go for quick flushes".
     // Record-only; no channel/gate reads it, so no snapshot pair is needed.
-    let max180 = MaxMa (recW 180)
+    let max180 = MaxMa 180
     let max300 = MaxMa 300
     let max600 = MaxMa 600
     let max1200 = MaxMa 1200
@@ -1040,8 +1012,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // starts at 5m (ols300); nothing measured the 1-3m trend directly, which is
     // exactly the horizon the deep-flush measures live on.
     let ols60 = OlsSlopeMa 60
-    let ols120 = OlsSlopeMa (recW 120)
-    let ols180 = OlsSlopeMa (recW 180)
+    let ols120 = OlsSlopeMa 120
+    let ols180 = OlsSlopeMa 180
     let ols600 = OlsSlopeMa 600
     let ols1200 = OlsSlopeMa 1200
     // ⭐ S39c rolling N_eff over 1s-bar volume, 600/1200 present bars (record-only):
@@ -1078,31 +1050,31 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable neffRet20Count = 0
     let mutable tradeIdx = 0
     // ----- activity sums + lags -----
-    let volSum300 = SumMa (recW 300)                    // S40l: the 5m window joins the family
-    let tcSum300 = SumMa (recW 300)
-    let dvSum300 = SumMa (recW 300)
+    let volSum300 = SumMa 300                    // S40l: the 5m window joins the family
+    let tcSum300 = SumMa 300
+    let dvSum300 = SumMa 300
     let volSum5 = SumMa 5                        // 5s/10s tails (user, 2026-07-29)
     let volSum10 = SumMa 10
     // ⭐ S42h (user): 5s/10s flush speeds — dv twins + non-overlapping lags,
     // mirroring the vwap_60_prev construction. Record-only.
     let dvSum5 = SumMa 5
     let dvSum10 = SumMa 10
-    let vwap5Lag = LagMa<float> (recW 5)
-    let vwap10Lag = LagMa<float> (recW 10)
-    let volSum15 = SumMa (recW 15)
+    let vwap5Lag = LagMa<float> 5
+    let vwap10Lag = LagMa<float> 10
+    let volSum15 = SumMa 15
     let volSum30 = SumMa 30
     let volSum60 = SumMa 60
     let volSum600 = SumMa 600                    // 10m volume (user, 2026-07-28)
     let volSum1200 = SumMa 1200
-    let tcSum5 = SumMa (recW 5)
-    let tcSum10 = SumMa (recW 10)
-    let tcSum15 = SumMa (recW 15)
-    let tcSum30 = SumMa (recW 30)
+    let tcSum5 = SumMa 5
+    let tcSum10 = SumMa 10
+    let tcSum15 = SumMa 15
+    let tcSum30 = SumMa 30
     let tcSum60 = SumMa 60
-    let tcSum600 = SumMa (recW 600)
+    let tcSum600 = SumMa 600
     let tcSum1200 = SumMa 1200
-    let vol60Lag = LagMa<float> (recW 60)               // the previous minute's 60-sum (slope features)
-    let tc60Lag = LagMa<float> (recW 60)
+    let vol60Lag = LagMa<float> 60               // the previous minute's 60-sum (slope features)
+    let tc60Lag = LagMa<float> 60
     let vwap60Lag = LagMa<float> 60              // ⭐ the rolling 60-bar vwap, lagged one minute
     // ⭐ S43at (user): the 30-SECOND twins of `speed` and `d_1m_hi`. The 1m family
     // saturates at corr ~0.91 with each other; the question is whether HALVING the
@@ -1112,44 +1084,43 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // vwap". DISTINCT from `speed`, which divides by the LAGGED vwap: dividing by
     // the CURRENT rolling vwap asks "how far below the recent average is this print
     // right now" — the numerator of a z-score rather than a displacement.
-    let dvSum120 = SumMa (recW 120)
-    let volSum120 = SumMa (recW 120)
-    let dvSum180 = SumMa (recW 180)
-    let volSum180 = SumMa (recW 180)
+    let dvSum120 = SumMa 120
+    let volSum120 = SumMa 120
+    let dvSum180 = SumMa 180
+    let volSum180 = SumMa 180
     let dvSum30 = SumMa 30
-    let vwap30Lag = LagMa<float> (recW 30)              // the rolling 30-bar vwap, lagged 30s
+    let vwap30Lag = LagMa<float> 30              // the rolling 30-bar vwap, lagged 30s
     let dvSum60 = SumMa 60                       // Σ vwap·volume — the liquidity floor + vwap_60
     // ⭐ MA-exit machinery (user, 2026-07-29): rolling sums for the {10..60}m means.
     // Simple price MA = pxSumN/count; VWMA = dvSumN/volSumN. All partial-tolerant.
-    /// depth 1 (and never pushed) when the marks are off — see cfg.LiveSlim
-    let pxSum600 = SumMa (maW 600)
-    let pxSum1200 = SumMa (maW 1200)
-    let pxSum1800 = SumMa (maW 1800)
-    let pxSum2400 = SumMa (maW 2400)
-    let pxSum3000 = SumMa (maW 3000)
-    let pxSum3600 = SumMa (maW 3600)
+    let pxSum600 = SumMa 600
+    let pxSum1200 = SumMa 1200
+    let pxSum1800 = SumMa 1800
+    let pxSum2400 = SumMa 2400
+    let pxSum3000 = SumMa 3000
+    let pxSum3600 = SumMa 3600
     let dvSum600 = SumMa 600
     // (no dvSum1200 here — the engine already maintains one below for vwap_1200;
     // a duplicate binding SHADOWED it and its double-push corrupted both. ⚠)
-    let dvSum1800 = SumMa (maW 1800)
-    let dvSum2400 = SumMa (maW 2400)
-    let dvSum3000 = SumMa (maW 3000)
-    let dvSum3600 = SumMa (maW 3600)
-    let volSum1800 = SumMa (maW 1800)
-    let volSum2400 = SumMa (maW 2400)
-    let volSum3000 = SumMa (maW 3000)
-    let volSum3600 = SumMa (maW 3600)
+    let dvSum1800 = SumMa 1800
+    let dvSum2400 = SumMa 2400
+    let dvSum3000 = SumMa 3000
+    let dvSum3600 = SumMa 3600
+    let volSum1800 = SumMa 1800
+    let volSum2400 = SumMa 2400
+    let volSum3000 = SumMa 3000
+    let volSum3600 = SumMa 3600
     let dvSum1200 = SumMa 1200                   // Σ vwap·volume over 20m — the 20m rolling VWAP
     // ⭐ S41q (user): z-score raw moments — Σv·p², Σv·ln p, Σv·(ln p)² per window
     // (both NORMAL- and LOG-space vw-σ derivable post-hoc; ln(vwap) != vw-mean of
     // ln p so log space needs its own first moment). Record-only.
-    let dv2Sum300 = SumMa (recW 300)
-    let dlvSum300 = SumMa (recW 300)
-    let dlv2Sum300 = SumMa (recW 300)
-    let dv2Sum600 = SumMa (recW 600)
-    let dlvSum600 = SumMa (recW 600)
-    let dlv2Sum600 = SumMa (recW 600)
-    let dv2Sum1200 = SumMa (recW 1200)
+    let dv2Sum300 = SumMa 300
+    let dlvSum300 = SumMa 300
+    let dlv2Sum300 = SumMa 300
+    let dv2Sum600 = SumMa 600
+    let dlvSum600 = SumMa 600
+    let dlv2Sum600 = SumMa 600
+    let dv2Sum1200 = SumMa 1200
     let dlvSum1200 = SumMa 1200
     let dlv2Sum1200 = SumMa 1200
     // ----- the locked volatility block -----
@@ -1165,8 +1136,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotLag = LagMa<float> 40                // slot vwap 40 emissions ago (eff numerator)
     let slotAbsSum = SumMa 40                    // Σ|r| over the same 40 returns (eff denominator)
     // S43bd: linear twins — Σ|ΔV| in price space over the same 40/20 slot steps.
-    let slotAbsSumLin = SumMa (recW 40)
-    let slotAbsSumLin20 = SumMa (recW 20)
+    let slotAbsSumLin = SumMa 40
+    let slotAbsSumLin20 = SumMa 20
     let slotLag20 = LagMa<float> 20              // eff10m pair — same stream, half the horizon
     let slotAbsSum20 = SumMa 20
     // ⭐ S43al (user): the eff_9ema numerators. Σ s·r over the SAME 40 / 20 returns
@@ -1179,15 +1150,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // slot return reads s = -1 (pv > pv is false). One term in forty, and long
     // gone by the time the eff window warms at 41 slots (~1,230 present bars).
     let slotEma9 = EmaMa 9                       // 9-slot EMA of the slot vwaps
-    let slotSgnSum = SumMa (recW 40)                    // Σ s·r over the eff_20m window
+    let slotSgnSum = SumMa 40                    // Σ s·r over the eff_20m window
     let slotSgnSum20 = SumMa 20                  // ... and over the eff_10m window
     // S40: slot-vwap extremes over the SAME 41/21-vwap spans the eff returns
     // cover — the range-eff numerators. Warmth aligns with the eff pair: the
     // 41st slot emission fills slotMax41 AND completes slotAbsSum's 40 returns.
     let slotMax41 = MaxMa 41
-    let slotMin41 = MinMa (recW 41)
-    let slotMax21 = MaxMa (recW 21)
-    let slotMin21 = MinMa (recW 21)
+    let slotMin41 = MinMa 41
+    let slotMax21 = MaxMa 21
+    let slotMin21 = MinMa 21
     let mutable prevSlotVwap : float voption = ValueNone
     let mutable prevEtSec = -1                   // the PREVIOUS present bar's etSec (aux-mark lookback)
     let mutable prevVwap = nan                   // ... and its vwap (continuation signal price)
@@ -1254,8 +1225,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // (thin tape). Per present bar, the gap RUN ending at that bar =
     // etSec − prevEtSec − 1 (first bar: seconds since the open). Windowed over
     // the last 1200/300 PRESENT bars: the max run + the count of >= 60s runs.
-    let gapRunMax1200 = MaxMa (recW 1200)
-    let gapRunMax300 = MaxMa (recW 300)
+    let gapRunMax1200 = MaxMa 1200
+    let gapRunMax300 = MaxMa 300
     let bigGapRuns1200 = SumMa 1200
     // S40x halt state: classified halt intervals [a,b] (missing seconds), the
     // day's halt count, the last reopen second, and the PRE-hole snapshots
@@ -1279,14 +1250,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // OnBar) is the previous PRESENT bar's vwap, so the sign of
     // `bar.vwap - prevVwap` is this bar's tick. Windowed counts ride the same
     // present-bar SumMa convention as every other window in the engine.
-    let dnSum15 = SumMa (recW 15)
-    let dnSum30 = SumMa (recW 30)
-    let dnSum60 = SumMa (recW 60)
-    let dnSum120 = SumMa (recW 120)
-    let upSum15 = SumMa (recW 15)
-    let upSum30 = SumMa (recW 30)
-    let upSum60 = SumMa (recW 60)
-    let upSum120 = SumMa (recW 120)
+    let dnSum15 = SumMa 15
+    let dnSum30 = SumMa 30
+    let dnSum60 = SumMa 60
+    let dnSum120 = SumMa 120
+    let upSum15 = SumMa 15
+    let upSum30 = SumMa 30
+    let upSum60 = SumMa 60
+    let upSum120 = SumMa 120
     let mutable dnSinceUp = 0                    // down bars since the last up bar
     let mutable dnRun = 0                        // strict consecutive down run
     let mutable lastUptickSec = -1               // -1 = no uptick yet this session
@@ -1398,13 +1369,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // genuine depth-over-a-minute measure: the same shape as `speed` but anchored on
     // a CHANNEL FLOOR instead of a rolling vwap (speed and d_1m_hi are corr 0.911 —
     // one feature twice — so a floor-anchored twin is the missing dimension).
-    let entryMinLag = LagMa<float> (recW 60)
+    let entryMinLag = LagMa<float> 60
     // ⭐ S43ap (user): the 2m twins. The 1m family (speed, d_1m_hi, dlo1m) is one
     // axis three times over (pairwise corr 0.83-0.91); the question is whether
     // doubling the horizon separates from it or just smooths it.
-    let entryMinLag120 = LagMa<float> (recW 120)
-    let entryMinLag180 = LagMa<float> (recW 180)
-    let volatLag = LagMa<float> (recW 1200)
+    let entryMinLag120 = LagMa<float> 120
+    let entryMinLag180 = LagMa<float> 180
+    let volatLag = LagMa<float> 1200
     // ⭐ S42r (user, 2026-08-03): halts classified inside the last N PRESENT
     // BARS — one indicator per bar into a rolling sum (the bigGapRuns1200
     // pattern). Bar-indexed, NOT wall-clock: a halt REMOVES seconds from the
@@ -1412,8 +1383,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // (a 300s pause eats 25% of a 1200s window; 2+ halts essentially cannot
     // fit and the count degenerates to 0/1 — measured, v24_hcount). The bar
     // window stretches back THROUGH the holes, where the cascade lives.
-    let haltSum1200 = SumMa (recW 1200)
-    let haltSum600 = SumMa (recW 600)
+    let haltSum1200 = SumMa 1200
+    let haltSum600 = SumMa 600
 
     // ⭐ ACTIVE/RETIRED SPLIT (user, 2026-07-23). At mc=0 a busy day opens hundreds
     // of trips per ticker; looping ALL of them every bar made runtime scale
@@ -1544,8 +1515,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let gapRun =
             let prev = if prevEtSec < cfg.SessionStartSec then cfg.SessionStartSec - 1 else prevEtSec
             float (max 0 (bar.etSec - prev - 1))
-        if not cfg.LiveSlim then gapRunMax1200.Push gapRun
-        if not cfg.LiveSlim then gapRunMax300.Push gapRun
+        gapRunMax1200.Push gapRun
+        gapRunMax300.Push gapRun
         bigGapRuns1200.Push (if gapRun >= 60.0 then 1.0 else 0.0)
         // ⭐ S40x: classify the run just ended against the PRE-hole snapshots.
         // First bar of the day never classifies (prevRng300 = nan fails >=).
@@ -1561,8 +1532,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             else false
         // S42r: 1 on a bar that classified a halt, 0 otherwise -> the rolling
         // sums ARE the windowed halt counts (auto-evicting at 1200/600 bars).
-        if not cfg.LiveSlim then haltSum1200.Push (if haltClassified then 1.0 else 0.0)
-        if not cfg.LiveSlim then haltSum600.Push (if haltClassified then 1.0 else 0.0)
+        haltSum1200.Push (if haltClassified then 1.0 else 0.0)
+        haltSum600.Push (if haltClassified then 1.0 else 0.0)
         // adjusted gaps = raw window gaps minus halt-interval overlap with the
         // SAME [max(sessionStart, now-W+1), now] window the GapCounter uses.
         let haltOverlap (w: int) =
@@ -1585,14 +1556,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // `dnRun`, which is the whole difference between the two run measures.
         let isUptick = bar.vwap > prevVwap
         let isDntick = bar.vwap < prevVwap
-        if not cfg.LiveSlim then dnSum15.Push (if isDntick then 1.0 else 0.0)
-        if not cfg.LiveSlim then dnSum30.Push (if isDntick then 1.0 else 0.0)
-        if not cfg.LiveSlim then dnSum60.Push (if isDntick then 1.0 else 0.0)
-        if not cfg.LiveSlim then dnSum120.Push (if isDntick then 1.0 else 0.0)
-        if not cfg.LiveSlim then upSum15.Push (if isUptick then 1.0 else 0.0)
-        if not cfg.LiveSlim then upSum30.Push (if isUptick then 1.0 else 0.0)
-        if not cfg.LiveSlim then upSum60.Push (if isUptick then 1.0 else 0.0)
-        if not cfg.LiveSlim then upSum120.Push (if isUptick then 1.0 else 0.0)
+        dnSum15.Push (if isDntick then 1.0 else 0.0)
+        dnSum30.Push (if isDntick then 1.0 else 0.0)
+        dnSum60.Push (if isDntick then 1.0 else 0.0)
+        dnSum120.Push (if isDntick then 1.0 else 0.0)
+        upSum15.Push (if isUptick then 1.0 else 0.0)
+        upSum30.Push (if isUptick then 1.0 else 0.0)
+        upSum60.Push (if isUptick then 1.0 else 0.0)
+        upSum120.Push (if isUptick then 1.0 else 0.0)
         if isUptick then
             dnSinceUp <- 0
             dnRun <- 0
@@ -1614,60 +1585,58 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         dvSum5.Push (bar.vwap * bar.volume)
         volSum10.Push bar.volume
         dvSum10.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then volSum15.Push bar.volume
+        volSum15.Push bar.volume
         volSum30.Push bar.volume
         volSum60.Push bar.volume
-        if not cfg.LiveSlim then volSum300.Push bar.volume
+        volSum300.Push bar.volume
         volSum600.Push bar.volume
         volSum1200.Push bar.volume
-        if not cfg.LiveSlim then tcSum5.Push (float bar.tradeCount)
-        if not cfg.LiveSlim then tcSum10.Push (float bar.tradeCount)
-        if not cfg.LiveSlim then tcSum15.Push (float bar.tradeCount)
-        if not cfg.LiveSlim then tcSum30.Push (float bar.tradeCount)
+        tcSum5.Push (float bar.tradeCount)
+        tcSum10.Push (float bar.tradeCount)
+        tcSum15.Push (float bar.tradeCount)
+        tcSum30.Push (float bar.tradeCount)
         tcSum60.Push (float bar.tradeCount)
-        if not cfg.LiveSlim then tcSum300.Push (float bar.tradeCount)
-        if not cfg.LiveSlim then tcSum600.Push (float bar.tradeCount)
+        tcSum300.Push (float bar.tradeCount)
+        tcSum600.Push (float bar.tradeCount)
         tcSum1200.Push (float bar.tradeCount)
         dvSum30.Push (bar.vwap * bar.volume)   // S43at
-        if not cfg.LiveSlim then dvSum120.Push (bar.vwap * bar.volume)  // S43au
-        if not cfg.LiveSlim then volSum120.Push bar.volume
-        if not cfg.LiveSlim then dvSum180.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then volSum180.Push bar.volume
+        dvSum120.Push (bar.vwap * bar.volume)  // S43au
+        volSum120.Push bar.volume
+        dvSum180.Push (bar.vwap * bar.volume)
+        volSum180.Push bar.volume
         dvSum60.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dvSum300.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dlvSum300.Push (log bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dlv2Sum300.Push (log bar.vwap * log bar.vwap * bar.volume)
-        if not cfg.LiveSlim then
-            pxSum600.Push bar.vwap
-            pxSum1200.Push bar.vwap
-            pxSum1800.Push bar.vwap
-            pxSum2400.Push bar.vwap
-            pxSum3000.Push bar.vwap
-            pxSum3600.Push bar.vwap
+        dvSum300.Push (bar.vwap * bar.volume)
+        dv2Sum300.Push (bar.vwap * bar.vwap * bar.volume)
+        dlvSum300.Push (log bar.vwap * bar.volume)
+        dlv2Sum300.Push (log bar.vwap * log bar.vwap * bar.volume)
+        pxSum600.Push bar.vwap
+        pxSum1200.Push bar.vwap
+        pxSum1800.Push bar.vwap
+        pxSum2400.Push bar.vwap
+        pxSum3000.Push bar.vwap
+        pxSum3600.Push bar.vwap
         dvSum600.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dv2Sum600.Push (bar.vwap * bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dlvSum600.Push (log bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dlv2Sum600.Push (log bar.vwap * log bar.vwap * bar.volume)
-        if not cfg.LiveSlim then
-            dvSum1800.Push (bar.vwap * bar.volume)
-            dvSum2400.Push (bar.vwap * bar.volume)
-            dvSum3000.Push (bar.vwap * bar.volume)
-            dvSum3600.Push (bar.vwap * bar.volume)
-            volSum1800.Push bar.volume
-            volSum2400.Push bar.volume
-            volSum3000.Push bar.volume
-            volSum3600.Push bar.volume
+        dv2Sum600.Push (bar.vwap * bar.vwap * bar.volume)
+        dlvSum600.Push (log bar.vwap * bar.volume)
+        dlv2Sum600.Push (log bar.vwap * log bar.vwap * bar.volume)
+        dvSum1800.Push (bar.vwap * bar.volume)
+        dvSum2400.Push (bar.vwap * bar.volume)
+        dvSum3000.Push (bar.vwap * bar.volume)
+        dvSum3600.Push (bar.vwap * bar.volume)
+        volSum1800.Push bar.volume
+        volSum2400.Push bar.volume
+        volSum3000.Push bar.volume
+        volSum3600.Push bar.volume
         dvSum1200.Push (bar.vwap * bar.volume)
-        if not cfg.LiveSlim then dv2Sum1200.Push (bar.vwap * bar.vwap * bar.volume)
+        dv2Sum1200.Push (bar.vwap * bar.vwap * bar.volume)
         dlvSum1200.Push (log bar.vwap * bar.volume)
         dlv2Sum1200.Push (log bar.vwap * log bar.vwap * bar.volume)
         // the minute-lag chains feed only WARM 60-sums (1 push per bar after
         // warmup keeps .Lagged = the value ending exactly 60 bars ago)
         if volSum60.Count = 60 then
-            if not cfg.LiveSlim then (match volSum60.State with ValueSome s -> vol60Lag.Push s | ValueNone -> ())
+            (match volSum60.State with ValueSome s -> vol60Lag.Push s | ValueNone -> ())
         if tcSum60.Count = 60 then
-            if not cfg.LiveSlim then (match tcSum60.State with ValueSome s -> tc60Lag.Push s | ValueNone -> ())
+            (match tcSum60.State with ValueSome s -> tc60Lag.Push s | ValueNone -> ())
         // ⭐ the rolling 60-bar vwap + its one-minute lag (user, 2026-07-28):
         // dv_60/vol_60, pushed into the lag once per warm bar so .Lagged = the
         // previous NON-OVERLAPPING minute's vwap — the flush-speed denominator.
@@ -1695,7 +1664,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         max30.Push bar.vwap
         max60.Push bar.vwap
         max120.Push bar.vwap
-        if not cfg.LiveSlim then max180.Push bar.vwap
+        max180.Push bar.vwap
         max300.Push bar.vwap
         max600.Push bar.vwap
         max1200.Push bar.vwap
@@ -1708,8 +1677,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sessHigh.Push bar.vwap
         sessLow.Push bar.vwap
         ols60.Push (log bar.vwap)
-        if not cfg.LiveSlim then ols120.Push (log bar.vwap)
-        if not cfg.LiveSlim then ols180.Push (log bar.vwap)
+        ols120.Push (log bar.vwap)
+        ols180.Push (log bar.vwap)
         ols300.Push (log bar.vwap)
         olsSinceHigh.Push (log bar.vwap)
         effSinceHigh.Push(bar.vwap, bar.volume)
@@ -1730,12 +1699,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if neff300Count = 300 then neff300.Pop() else neff300Count <- neff300Count + 1
         // S40l: lagged volat — push the CURRENT ew40 state each present bar so
         // .Lagged = volat_20m as of 1200 present bars ago (nan while EMA cold).
-        if not cfg.LiveSlim then volatLag.Push (match ew40.State with ValueSome v -> v | ValueNone -> nan)
+        volatLag.Push (match ew40.State with ValueSome v -> v | ValueNone -> nan)
         // S43ao: push THIS bar's strictly-prior channel min; `.Lagged` then reads
         // the value from 60 bars ago (same semantics as vwap60Lag -> vwap_60_prev).
-        if not cfg.LiveSlim then entryMinLag.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
-        if not cfg.LiveSlim then entryMinLag120.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
-        if not cfg.LiveSlim then entryMinLag180.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        entryMinLag.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        entryMinLag120.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        entryMinLag180.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -1748,8 +1717,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  slotAbsSum.Push ar
                  slotAbsSum20.Push ar
                  // S43bd: the same slot step in PRICE space for the linear twins
-                 if not cfg.LiveSlim then slotAbsSumLin.Push (abs (v - pv))
-                 if not cfg.LiveSlim then slotAbsSumLin20.Push (abs (v - pv))
+                 slotAbsSumLin.Push (abs (v - pv))
+                 slotAbsSumLin20.Push (abs (v - pv))
                  // S43al: the trend-signed twin of this same return. slotEma9 has
                  // absorbed pv but NOT v (it is pushed below, with slotLag), so the
                  // sign is fixed strictly before r is realised — no lookahead.
@@ -1757,7 +1726,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                      match slotEma9.State with
                      | ValueSome e when pv > e -> 1.0
                      | _ -> -1.0
-                 if not cfg.LiveSlim then slotSgnSum.Push (s * r)
+                 slotSgnSum.Push (s * r)
                  slotSgnSum20.Push (s * r)
                  // S39i: the same |r| into the smoothness windows
                  neffRet40.Push (NEffShannon.Zero.Add ar)
@@ -1772,9 +1741,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             slotEma9.Push v                      // S43al: AFTER the sign read above
 
             slotMax41.Push v
-            if not cfg.LiveSlim then slotMin41.Push v
-            if not cfg.LiveSlim then slotMax21.Push v
-            if not cfg.LiveSlim then slotMin21.Push v
+            slotMin41.Push v
+            slotMax21.Push v
+            slotMin21.Push v
             prevSlotVwap <- ValueSome v
         | ValueNone -> ()
 
@@ -2042,8 +2011,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // aux mark is about to fill off THIS bar's high (an unset mark whose
             // counter just hit 0 fills next bar; retiring now would lose it)
             match p.State with
-            // ⭐ LIVE: nothing is marked after the exit, so retire at once.
-            | ExitedAt _ when cfg.LiveSlim -> retired.Add p
             | ExitedAt _ when not (Double.IsNaN p.FwdVwap1200)
                               && not (Double.IsNaN p.AuxHi60 && br60.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi120 && br120.BarsSinceBreach = 0)
