@@ -287,10 +287,12 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
 // holds the full book. Column order in appendTrip MUST match the CREATE TABLE.
 // ===========================================================================
 [<Literal>]
-// 250k (was 2M): the S39 base pass emits millions of ~140-col trips — a 2M-row
-// in-memory staging table is ~2GB+ and OOM'd a 15GB VM at 82% with zero parts
-// flushed. 250k bounds staging at ~350MB; post-hoc reads glob the parts anyway.
-let private RowsPerPart = 250_000
+// 100k (was 250k, was 2M): each cut chased the schema's growth — 250k bounded
+// staging at ~350MB for ~140-col trips; at the S9-era ~380 cols that same
+// constant meant ~950MB and the 2026-08-27 base pass OOM'd the 15GB box at
+// 94.5% (13.7GB RSS, final part unflushed). 100k restores the intended ~380MB
+// envelope; post-hoc reads glob the parts anyway.
+let private RowsPerPart = 100_000
 
 let private tripTableSql = """
 CREATE TABLE trips (
@@ -684,6 +686,11 @@ type SecEmitter
     member inline this.Process(onNext: string * SecBar -> unit) =
         use cmd = this.Conn.CreateCommand()
         cmd.CommandText <- this.Sql
+        // ⭐ STREAMING (user, 2026-08-27 — the Scanner lesson, TradeSource.fs):
+        // without this, DuckDB.NET materializes the ENTIRE day's result set
+        // before the first row is read — a whole day of 1s bars buffered
+        // OUTSIDE the pragma's memory accounting, a third leg of the OOM.
+        cmd.UseStreamingMode <- true
         use reader = cmd.ExecuteReader()
         while reader.Read() do
             let ticker = reader.GetString 0
@@ -743,10 +750,12 @@ let collectTrips (cfg: Config) (secDir: string)
     // the progress denominator so the remaining estimate stays honest). A
     // candidate whose file exists always drains: the dv_0945_tape >= $2M table
     // floor guarantees at least one vwap>0/volume>0 bar in the emitter's range.
-    // BOUNDED: 4096 tkd messages of backpressure. If the single sink consumer
-    // ever falls behind 14 producers on a trip-dense stretch, workers block on
-    // the write instead of ballooning the heap (part of the 82%-OOM postmortem).
-    let results = Channel.CreateBounded<struct (Candidate * FlushPosition[] * bool)>(BoundedChannelOptions 4096)
+    // BOUNDED: 1024 tkd messages of backpressure (was 4096 — but a message is
+    // ALL of a ticker-day's positions, so the bound never bounded BYTES: on an
+    // mc=0 squeeze stretch 4096 dense tkd × hundreds of ~3KB records was
+    // gigabytes, a second leg of the 2026-08-27 OOM). If the single sink
+    // consumer falls behind, workers block on the write instead of ballooning.
+    let results = Channel.CreateBounded<struct (Candidate * FlushPosition[] * bool)>(BoundedChannelOptions 1024)
 
     // ----- the single reader -----
     let requests = Channel.CreateUnbounded<DayRequest>()
@@ -761,7 +770,10 @@ let collectTrips (cfg: Config) (secDir: string)
                 // by construction with one reader, the private dir is hygiene).
                 let tmpDir = IO.Path.Combine(IO.Path.GetTempPath(), $"ff_duck_reader_{Guid.NewGuid():N}")
                 IO.Directory.CreateDirectory tmpDir |> ignore
-                pragma.CommandText <- $"PRAGMA threads=6; PRAGMA memory_limit='4GB'; PRAGMA temp_directory='{tmpDir}'"
+                // 1.5GB/4 threads (was 4GB/6): the reader materializes ONE day
+                // at a time — the generous cap just invited cache growth and
+                // fed the 2026-08-27 OOM. One day parquet needs far less.
+                pragma.CommandText <- $"PRAGMA threads=4; PRAGMA memory_limit='1536MB'; PRAGMA temp_directory='{tmpDir}'"
                 pragma.ExecuteNonQuery() |> ignore
             let tkds = ResizeArray<struct (Candidate * SecBar[])>()
             let buf = ResizeArray<SecBar>()
