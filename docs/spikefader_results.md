@@ -1227,3 +1227,39 @@ persists — <0.3 → 3.05 (n 162, every year ≥ 2.36), trough 1-2 → 1.33-1.4
    2020/2024-loving, worse tails).
 3. The trough [1,3) exclusion nets 1.647 @ 5,549 — the honest aggregate if both arms
    are kept as one gate; as VOICES they are better kept separate (opposite regime tilts).
+
+# S21 (2026-08-28) — gap_60 vs the rate ratio (user: "does it beat the rates?"). NO — it points the OTHER WAY, and refines them instead
+
+Locked stack; gap_60 = missing non-halt seconds in the trailing minute. Distribution:
+62% of the stack has gap_60 = 0; p90 = 21. **corr(gap_60, rr) = −0.06 (−0.18 in log) —
+gap and rate are nearly INDEPENDENT thinness measures.**
+
+## Bands (condensed; full tables in `sf_s21.out`)
+
+mc=0: gap=0 → 2.257 (n 81,099, avg 2.23%) declining to 1.51 at 11-20 gaps; the >40 band
+(2.54) is artifact-shaped (p1 −48.5, wild years). mc=1 bare-replay: same decline, =0 →
+1.62, 21-40 → 1.03. **mc=1 inside-frame floors all HURT**: gap ≥ 3 → 1.303, ≥ 6 →
+1.309, ≥ 11 → 1.247 (baseline 1.530). On the SHORT fader, a holey tape is bad for the
+fade — the OPPOSITE of FlushFader's long-side gap levers. Mechanism: thin-presence pops
+carry wide spreads/erratic marks; the fade wants a continuously printing tape.
+
+## ⭐ The refinement: CONTINUITY × QUIET — the best mc=1 cell of the rebuild
+
+2D (mc=0): rr < 0.75 × gap=0 → 4.42 (n 4,438); quiet-with-holes → 1.19-1.32. At mc=1
+INSIDE the frame:
+
+| gate | n | avg% | p1 | win% | pf | eqw bp/d | worst yr |
+|---|---|---|---|---|---|---|---|
+| rr < 0.75 (S20d) | 1,739 | 0.85 | −15.9 | 69.0 | 1.698 | 98.2 | 1.44 |
+| **rr < 0.75 ∧ gap = 0** | 530 | 1.93 | −17.6 | 77.5 | **2.861** | **202.4** | 1.58 (2020) |
+| rr < 0.75 ∧ gap ≤ 2 | 655 | 1.66 | −16.9 | 75.7 | 2.501 | 164.6 | 1.59 |
+| gap = 0 alone | 4,661 | 1.25 | −25.7 | 72.5 | 1.721 | 139.6 | 1.20 (2022) |
+
+(2025 PF 13.8 in the gap=0 cell = tiny-loss-denominator; flag, not signal.)
+
+**Reads:** (1) gap_60 does NOT replace the rate ratio — as a floor it subtracts value
+everywhere. (2) Its real role is a CONTINUITY requirement: "volume running below the
+morning rate while the tape prints every second" = sellers absent but market present —
+PF 2.861 / +202 bp/day / every year ≥ 1.58 on ~80 trips/yr. The strongest voice
+candidate found today (join the voice family list: k120×k180 diagonal, rr quiet, rr
+loud, now quiet×continuous). (3) gap = 0 alone is a mild honest lever (1.721).
