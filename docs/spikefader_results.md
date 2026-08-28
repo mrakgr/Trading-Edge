@@ -1263,3 +1263,30 @@ morning rate while the tape prints every second" = sellers absent but market pre
 PF 2.861 / +202 bp/day / every year ≥ 1.58 on ~80 trips/yr. The strongest voice
 candidate found today (join the voice family list: k120×k180 diagonal, rr quiet, rr
 loud, now quiet×continuous). (3) gap = 0 alone is a mild honest lever (1.721).
+
+## S21b — the 2D at TRUE mc=1 (user ruling: filters ARE gates in the replay, slot per ticker-day, one replay per cell)
+
+⚠ Convention note: `gap_60` (used throughout S21) is the RAW counter — classified-halt
+seconds INCLUDED; the halt-excluded twin is `gap_adj_60`. gap = 0 is identical under
+both. **Method ruling recorded (also in memory): from now on "mc=1" always means
+gates-in-replay per (ticker, date); no more bare-replay banding.**
+
+| gap_60 \ rr | <0.75 | 0.75-1.5 | 1.5-3 | 3-5 | ≥5 |
+|---|---|---|---|---|---|
+| =0 | **2.86 (530)** | 1.65 (1,471) | 1.67 (2,163) | 1.72 (1,465) | 2.02 (1,246) |
+| 1-2 | 2.46 (233) | 2.00 (509) | 1.84 (759) | 1.92 (523) | 1.96 (362) |
+| 3-5 | 2.00 (189) | 1.41 (428) | 1.68 (539) | 1.70 (351) | 3.04 (234) |
+| 6-10 | 1.54 (204) | 1.90 (458) | 1.63 (537) | 1.42 (282) | 1.76 (192) |
+| 11-20 | 1.72 (307) | 1.18 (565) | 1.37 (553) | 1.44 (265) | 2.81 (195) |
+| 21-40 | 1.11 (599) | 1.07 (709) | 1.03 (525) | 1.33 (186) | **3.75 (192)** |
+| >40 | 1.02 (201) | 1.20 (190) | 1.25 (160) | 1.05 (114) | 3.00 (157) |
+
+Reads:
+1. **The quiet column decays monotonically with gaps** (2.86 → 1.02): continuity is not
+   a bonus on the quiet cell, it is a REQUIREMENT — quiet-with-holes is dead weight.
+2. **The gap=0 row is a U in rr** (2.86 / ~1.7 / 2.02) — both S20 arms visible on a
+   continuous tape.
+3. **Loud × gappy survives true mc=1** (3.04 / 2.81 / 3.75 / 3.00 on n 157-234). ⚠
+   HALT-ENTANGLED: raw gap_60 counts LULD pauses, so these cells are largely post-halt
+   blowoffs — the retired cascade-gate lore lives here. Re-examine with gap_adj_60 /
+   halts_today before believing; small n, and S11d's rr_wall finding sits adjacent.
