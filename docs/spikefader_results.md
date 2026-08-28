@@ -930,3 +930,86 @@ counter ladder triangle invariant 0 violations, 0 disarmed at signal.
 base_v2, 8,088 = 8,088, zero key diffs both directions (the S19 bit-match discipline
 holds for the rewritten gate block). Counter ladder: k30 ≤ k60 ≤ k120 ≤ k180 ≤ k300,
 0 violations; none disarmed at signal; July PF 2.530 mc=0 on the whitelist (77.0% win).
+
+# S18 (2026-08-28) — the K ladder: adjacent pairwise 2D grids (30s→10m). Where the gradient dies
+
+Frame: kstudy corpus (= the stack), mc=0, 680,246 trips. Bands per rung ≈ its
+p10/p25/p50/p75/p90 (distributions nearly parallel: medians 10/13/17/21/26/34 for
+30s/1m/2m/3m/5m/10m). pf (n) grids; avg% grids in scratch `sf_s18.out`.
+
+## k30 × k60
+
+| k30 \ k60 | <2 | 2-6 | 6-13 | 13-23 | 23-36 | ≥36 |
+|---|---|---|---|---|---|---|
+| <2 | 1.46 (43,403) | 1.57 | 1.66 | 1.68 | 1.74 | 1.87 |
+| 2-4 | — | 1.47 | 1.69 | 1.59 | 1.69 | 1.93 |
+| 4-10 | — | 1.45 | 1.47 | 1.55 | 1.61 | 1.91 |
+| 10-17 | — | — | 1.42 | 1.44 | 1.62 | 1.89 |
+| 17-27 | — | — | — | 1.43 | 1.51 | 1.89 |
+| ≥27 | — | — | — | — | 1.55 | 2.08 |
+
+## k60 × k120
+
+| k60 \ k120 | <3 | 3-8 | 8-17 | 17-31 | 31-50 | ≥50 |
+|---|---|---|---|---|---|---|
+| <2 | 1.39 | 1.41 | 1.75 | 1.60 | 1.79 | 1.84 |
+| 2-6 | 1.41 | 1.39 | 1.63 | 1.63 | 1.64 | 1.88 |
+| 6-13 | — | 1.41 | 1.40 | 1.68 | 1.69 | 1.95 |
+| 13-23 | — | — | 1.36 | 1.42 | 1.83 | 1.96 |
+| 23-36 | — | — | — | 1.39 | 1.63 | **2.47** |
+| ≥36 | — | — | — | — | 1.60 | 2.42 |
+
+## k120 × k180
+
+| k120 \ k180 | <4 | 4-10 | 10-21 | 21-38 | 38-61 | ≥61 |
+|---|---|---|---|---|---|---|
+| <3 | 1.35 | 1.88 | 1.66 | 1.36 | 1.55 | 1.68 |
+| 3-8 | 1.37 | 1.37 | 1.72 | 1.41 | 1.39 | 1.68 |
+| 8-17 | — | 1.39 | 1.38 | 1.59 | 1.33 | 1.70 |
+| 17-31 | — | — | 1.38 | 1.47 | 1.50 | 1.66 |
+| 31-50 | — | — | — | 1.56 | 1.71 | 1.82 |
+| ≥50 | — | — | — | — | 1.85 | **2.52** |
+
+## k180 × k300
+
+| k180 \ k300 | <6 | 6-13 | 13-26 | 26-47 | 47-78 | ≥78 |
+|---|---|---|---|---|---|---|
+| <4 | 1.30 | 1.70 | 1.45 | 1.55 | 1.49 | **1.25** |
+| 4-10 | 1.33 | 1.34 | 1.52 | 1.75 | 1.36 | 1.38 |
+| 10-21 | — | 1.33 | 1.36 | 1.70 | 1.64 | 1.68 |
+| 21-38 | — | — | 1.38 | 1.46 | 2.02 | 2.12 |
+| 38-61 | — | — | — | 1.51 | 1.64 | **2.75** |
+| ≥61 | — | — | — | — | 1.69 | 2.59 |
+
+## k300 × k600 (kstudy replication of S16d)
+
+| k300 \ k600 | <7 | 7-16 | 16-34 | 34-65 | 65-105 | ≥105 |
+|---|---|---|---|---|---|---|
+| <6 | 1.37 | 1.19 | 1.18 | **1.07** | 1.14 | 1.29 |
+| 6-13 | 1.39 | 1.38 | 1.33 | 1.12 | 1.10 | 1.57 |
+| 13-26 | — | 1.38 | 1.40 | 1.19 | 1.36 | 1.51 |
+| 26-47 | — | — | 1.44 | 1.51 | 1.56 | 1.71 |
+| 47-78 | — | — | — | 1.54 | 1.65 | **2.57** |
+| ≥78 | — | — | — | — | 2.06 | 2.67 |
+
+## Reads — where the gradient dies
+
+1. **The dip-and-recover penalty is a SLOW-horizon phenomenon.** At 30s and 1m the
+   low-short × high-long cells are FINE (1.74-1.93 — even good): a 30s/1m pullback is
+   noise, not resilience. The penalty first appears at 3m×5m (k180<4 × k300≥78 → 1.25,
+   avg 0.55%) and is fully formed at 5m×10m (k300<6 × k600 34-105 → **1.07-1.14, avg
+   0.16-0.28%** — the worst cells on the whole ladder). A dip only certifies the
+   up-move's resilience when it is deep enough to matter — ≥3m scale.
+2. **Below ~2m the short counter is uninformative given the longer one**: within any
+   fixed k60/k120 column, the k30/k60 gradient is flat-to-slightly-negative. The fast
+   rungs add nothing the 2m+ rungs don't know — EXCEPT their deep diagonal corner.
+3. **Within-row (longer counter) gradient stays informative at every pair** — the right
+   edge of every row is its best cell, and the deep corners strengthen with horizon:
+   2.08 (30/60) → 2.47 (1m/2m) → 2.52 (2m/3m) → 2.75 (3m/5m) → 2.67 (5m/10m).
+4. Off-diagonal "long much deeper than short, short still mature" cells (k180 38-61 ×
+   k300 ≥78 → 2.75; k60 23-36 × k120 ≥50 → 2.47) rival or beat the pure diagonal — the
+   best trips have a mature long leg with the short leg one notch behind.
+
+**Verdict: the informative range of the ladder is 2m→10m; 30s/1m are redundant.
+The 5m/10m pair carries the sharpest dip-and-recover discrimination (which the adopted
+k300+k600 combo already exploits); 3m adds the same signal in weaker form.**
