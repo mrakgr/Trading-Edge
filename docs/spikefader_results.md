@@ -1454,6 +1454,9 @@ MaxRider's 2-3× quiet dominance.**
 
 **Verdict: rr is a genuine but SECOND-ORDER lever on the 1s fader (best expressed as the
 quiet×continuous voice, S21-S22); MaxRider's decisive version was measured on an
-invalid universe with a rarer event and a different exit. ⏭ When the MaxRider clean-table
-rerun eventually happens, re-run F23's ladder first — it doubles as the honest benchmark
-for this comparison.**
+invalid universe with a rarer event and a different exit.**
+
+**✅ RESOLVED same day (MaxRider F24): the clean-table rerun happened.** Honest deep-quiet
+= rr<0.2 → **2.816** (entry ≥ $1: 3.163) vs dirty 5.902 — the contamination was ~half the
+lever, concentrated exactly in the quiet band (5,631 dirty trips → 1,124 clean). The two
+systems AGREE once both are honest: quiet ≈ 2.5-3.2 on both.

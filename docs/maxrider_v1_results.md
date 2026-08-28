@@ -1060,3 +1060,57 @@ year floor 3.28, cum 4.04). The Snoozer early-window advantage does NOT recur he
 nothing is lost; structural tie-breaks: 15m is frozen/knowable and free of the cum baseline's
 self-reference (a pop's own preceding volume inflates cum and makes later bars read quieter);
 cum adapts to the developing day. Either works as the gate measure.
+
+## ⭐⭐ Finding 24 (2026-08-28) — THE CLEAN-UNIVERSE RERUN: the S39d contamination was ~HALF of the quiet lever
+
+**The fix (user: "run it on SpikeFader's candidate table")**: new bridge table
+`maxrider_cand_1s_v2` maps the causal `mr_candidate_1s_v2` into the reader's expected
+columns — `adj_ratio := 1.0` (engine runs in day-D RAW scale; the retirement scheme),
+`prev_adj_close := close_m1`, `day_close := close_d`, `close_fwd_* := close_p* + div_p*`,
+`day_open := open_0930_tape`, `vol_0945 := vol_0945_tape`, `dv_0945 := dv_0945_tape`,
+`nbar_0945 := 15` (flat; brv_15m becomes the rr_15m definition). **Three lookaheads die at
+once**: the S39d membership pair (adjusted $1 floor + episode warmup) AND the $3M
+liquidity floor's adj_ratio-contaminated dollars. Run: same F22/F23 config (7m cover,
+$3M tape-dollar floor, 2020-01..2026-06), `DR5_CANDIDATE_TABLE` override,
+`data/maxrider_v1_clean.csv` + log.
+
+**Universe: 328,258 → 1,053,194 ticker-days (3.2×). Baseline mc=0 PF 1.434 → 1.251.**
+
+### F22 pop bands, clean (dirty in brackets)
+
+| pop (bar %) | n | avg% | p1 | pf |
+|---|---|---|---|---|
+| > +3% | 34,316 | 0.92 | −36.1 | 1.374 [1.751] |
+| +2..3% | 42,414 | 0.61 | −19.5 | 1.450 [1.770] |
+| +1..2% | 192,974 | 0.31 | −10.8 | 1.375 [1.581] |
+| +0.5..1% | 497,055 | 0.12 | −6.3 | 1.234 [1.398] |
+| +0.2..0.5% | 703,118 | 0.08 | −4.9 | 1.180 [1.300] |
+| 0..+0.2% | 454,483 | 0.06 | −4.6 | 1.158 [1.264] |
+
+### F23 rr_cum ladder on pops > +2%, clean (dirty pf in brackets)
+
+| rr band | n | avg% | p1 | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| < 0.2 | 1,124 | 1.20 | −10.6 | **2.816 [5.902]** | 3.78 | 8.06 | 2.98 | 2.98 | 2.61 | 2.10 | 2.92 |
+| 0.2-0.3 | 1,360 | 1.06 | −12.5 | 2.328 [3.380] | 2.11 | 3.44 | 4.06 | 2.08 | 2.01 | 2.63 | 1.92 |
+| 0.3-0.4 | 1,827 | 1.05 | −12.9 | 2.115 [2.759] | 2.40 | 1.93 | 1.62 | 3.94 | 2.13 | 1.67 | 2.41 |
+| 0.4-0.5 | 2,306 | 1.02 | −18.5 | 1.972 [2.375] | 1.73 | 3.10 | 1.75 | 3.14 | 2.38 | 1.30 | 2.44 |
+| 0.5-0.7 | 5,455 | 1.05 | −16.7 | 1.951 [2.202] | 1.95 | 1.93 | 1.75 | 1.45 | 2.65 | 2.22 | 1.47 |
+| ≥ 0.7 | 64,658 | 0.69 | −30.1 | 1.344 [1.522] | 1.41 | 1.32 | 1.21 | 1.16 | 1.34 | 1.43 | 1.45 |
+
+F22 star cell (pops>2% × z-quiet): **1.976 [3.621]**.
+
+### The smoking gun + the composition check
+
+The dirty quiet band held 5,631 trips; the clean one holds 1,124 (805 at entry ≥ $1 raw) —
+**the S39d selection was flooding precisely the quiet band with artifact names** (thin,
+split-prone, warmup-surviving). Price slices show composition explains little of the PF
+drop: rr<0.2 at entry ≥ $1 → 3.163, ≥ $2 → 2.991, sub-$1 → 2.179. The honest deep-quiet
+number is **~2.8-3.2, not 5.9** — still monotone, still 7/7 years ≥ 2.0, still the best
+cell in the system, but HALF the dirty magnitude.
+
+**Status change: MaxRiderV1 now has a CLEAN corpus** (`maxrider_v1_clean.csv`, bridge
+table permanent in trading.db). All pre-F24 tables quote contaminated numbers.
+**This also resolves SpikeFader S24**: the clean MaxRider quiet lever (~2.8-3.2) is the
+SAME order as the 1s fader's quiet cells (2.5-2.9) — the two systems agree once measured
+on honest universes.
