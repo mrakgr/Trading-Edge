@@ -1176,3 +1176,25 @@ dirty table doubles them at the quiet end. The contamination attribution is prov
 within the table's own lineage. The honest MaxRider quiet lever is ~2.5-3.2.**
 `mr_candidate_raw` is the go-forward 1m candidate table for MaxRider (and the template
 for cleaning the other S39d systems: SurgeRider/V2, DipRiderV6, PlungeRider).
+
+### F24d — the loud end unpacked (user): the SpikeFader U replicates here
+
+The old ≥ 0.7 catch-all band hid the same U that SpikeFader S20 found. Pops > +2%,
+raw corpus:
+
+| rr band | n | avg% | p1 | win% | pf | worst yr |
+|---|---|---|---|---|---|---|
+| < 0.7 (quiet arms) | 10,405 | 1.05 | −15.5 | 74.1 | 2.076 | 1.87 |
+| 0.7-1 | 7,394 | 0.85 | −21.9 | 71.7 | 1.602 | 1.36 |
+| 1-1.5 | 11,455 | 0.60 | −28.5 | 69.8 | 1.314 | 1.09 |
+| 1.5-2 | 9,012 | 0.58 | −30.3 | 68.9 | 1.266 | 1.06 |
+| 2-3 | 11,391 | 0.43 | −35.2 | 68.3 | **1.174** | 0.85 (2023) |
+| 3-5 | 8,245 | 0.83 | −34.4 | 69.5 | 1.385 | 1.12 |
+| ≥ 5 | 4,417 | 1.10 | −25.3 | 67.4 | **1.603** | 1.33 |
+
+Same anatomy as SpikeFader S20: quiet best, ordinary-rate trough (2-3× here, with the
+worst tails and two sub-1.0 years), loud recovery at ≥ 5 (every year ≥ 1.33, tail
+improving again). On the 1m fader the loud arm (1.60) stays well below the quiet arm
+(2.08-2.56), where on the 1s locked stack they were comparable — but the U is now a
+CROSS-SYSTEM, cross-resolution structure: blowout-volume exhaustion is real on both
+tapes.
