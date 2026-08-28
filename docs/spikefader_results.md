@@ -641,3 +641,56 @@ only inside-frame replays rank gates.
 (e20<.15 & e10>.3) is the leading candidate — PF 1.366 on a 21k book, every year ≥1.24,
 better p1 than the transplant — but the transplant band is NOT dead (best eqw/day at 73.6);
 final threshold choice deferred to stack assembly.**
+
+## S14c addendum — mc=0 tables (user request: more samples) ⚠ eff_20m INVERTS at mc=0
+
+mc=0 on the speed-stacked frame (1,010,722 trips). Full tables in `sf_s14c.out`.
+
+**SIGNED eff_20m (SMA), mc=0** — monotone INCREASING, the OPPOSITE of mc=1:
+
+| band | n | pf_mc0 | pf_mc1 (S14) |
+|---|---|---|---|
+| [−.15,0) | 48,220 | 1.260 | 1.283 |
+| [0,.15) | 224,898 | 1.299 | 1.202 |
+| [.15,.3) | 323,132 | 1.350 | 1.122 |
+| [.3,.5) | 315,818 | 1.504 | 1.104 |
+| [.5,.75) | 86,217 | 1.746 | 1.133 |
+| ≥.75 | 3,226 | 4.171 | — |
+
+**SIGNED eff_10m (SMA), mc=0** — increasing, SAME direction as mc=1 (robust lever):
+
+| band | n | pf_mc0 | pf_mc1 (S14) |
+|---|---|---|---|
+| [−.15,0) | 21,870 | 1.026 | 1.018 |
+| [0,.15) | 102,153 | 1.169 | 1.120 |
+| [.15,.3) | 203,926 | 1.230 | 1.200 |
+| [.3,.5) | 350,421 | 1.416 | 1.286 |
+| [.5,.75) | 279,059 | 1.628 | 1.225 |
+| ≥.75 | 50,766 | 1.885 | 1.371 |
+
+**The diagnostic that explains the inversion — signals per ticker-day by eff_20m band:**
+
+| band | n | tkd | trips/tkd |
+|---|---|---|---|
+| <−.15 | 1,599 | 598 | 2.7 |
+| [−.15,0) | 48,220 | 9,658 | 5.0 |
+| [0,.15) | 224,898 | 19,490 | 11.5 |
+| [.15,.3) | 323,132 | 20,348 | 15.9 |
+| [.3,.5) | 315,818 | 16,574 | 19.1 |
+| [.5,.75) | 86,217 | 5,420 | 15.9 |
+
+Two mechanisms, both favoring high-eff bands at mc=0 only:
+1. **Density weighting** — high-eff_20m (trend) days fire 4-7× more signals per ticker-day,
+   so mc=0 overweights exactly those days.
+2. **Within-day timing selection** — eff_20m BUILDS over a run, so a runaway day's trips
+   stamped ≥.3 are disproportionately its LATE signals, the ones near the eventual top.
+   mc=0 credits fades you could only take by skipping the earlier losing signals; mc=1
+   shows you'd have been stuck in the first trade (the user's cancellation point,
+   S13 preamble).
+
+**Rules of thumb going forward:** mc=0's extra samples are only trustworthy for a feature
+UNCORRELATED with signal density. eff_10m passes (same direction both views — lean on its
+mc=0 n's). eff_20m fails (density-confounded at mc=0 — the mc=1 shape governs). Practical
+consequence: the e20 < 0 gate variants (B/C) rest on the thin negative-backdrop population
+(~13k mc=1 trips); the milder D (e20 < .15 & e10 > .3) rests on broad n in BOTH views and
+is the safer construction.
