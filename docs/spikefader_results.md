@@ -1013,3 +1013,39 @@ p10/p25/p50/p75/p90 (distributions nearly parallel: medians 10/13/17/21/26/34 fo
 **Verdict: the informative range of the ladder is 2m→10m; 30s/1m are redundant.
 The 5m/10m pair carries the sharpest dip-and-recover discrimination (which the adopted
 k300+k600 combo already exploits); 3m adds the same signal in weaker form.**
+
+## S18b — the fast rungs INSIDE the adopted K gate (k300 ≥ 40 ∧ k600 ≥ 60): prediction WRONG, they still pay
+
+Book: 144,724 trips, PF 2.061. The ungated read ("fast rungs redundant") does NOT carry
+into the gated book — conditioning on mature 5m/10m legs changes what a fast dip means.
+
+**1D marginals inside the gate** (bands ≈ in-gate quantiles):
+
+| band | k30 pf | k60 pf | k120 pf | k180 pf |
+|---|---|---|---|---|
+| lowest | 1.943 | 1.721 | **1.535** | **1.371** |
+| 2nd | 1.888 | 1.770 | 1.605 | 1.809 |
+| 3rd | 1.894 | 1.891 | 1.793 | 2.321 |
+| 4th | 2.003 | 2.110 | 2.110 | 2.045 |
+| 5th | 2.252 | 2.211 | 2.186 | 1.844 |
+| top | **2.599** | **2.587** | **2.672** | 2.601 |
+
+**Pairwise grids inside the gate** (full tables in `sf_s18b.out`): the deep-diagonal
+corners are the headline —
+
+- k30 ≥ 36 × k60 ≥ 46 → **2.82 (n 14,176)**
+- k60 ≥ 46 × k120 ≥ 64 → **3.03 (n 16,703)**
+- k120 ≥ 64 × k180 ≥ 78 → **3.14 (n 21,127)**
+
+and the low-fast cells are the anti-signal: k120 < 10 → 1.53 (avg 1.01%), k180 < 14 →
+1.37 (avg 0.71%), with pockets like k120 10-20 × k180 41-58 → 1.25.
+
+**Read: once the slow legs are mature, a recent SHALLOW dip becomes a warning too** —
+in the ungated frame a 30s-2m pullback was noise, but within a mature 5m/10m leg it
+marks the same dip-and-recover resilience, fractally. The completely unbroken climb —
+no dip at ANY horizon, every rung deep — is the A-tier: **PF ~3.0-3.14 on ~15-21k trips
+vs the gated book's 2.061.** k120 (2m) is the cleanest monotone fast lever.
+
+⏭ Candidate tier-2 gates from this: k120 ≥ 32 (or ≥ 47 / ≥ 64 by appetite) on top of the
+K combo — needs the year table + iso-trip controls before adoption (this was a survey
+pass, no year columns yet).
