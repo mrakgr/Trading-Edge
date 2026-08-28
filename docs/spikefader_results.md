@@ -1460,3 +1460,36 @@ invalid universe with a rarer event and a different exit.**
 = rr<0.2 → **2.816** (entry ≥ $1: 3.163) vs dirty 5.902 — the contamination was ~half the
 lever, concentrated exactly in the quiet band (5,631 dirty trips → 1,124 clean). The two
 systems AGREE once both are honest: quiet ≈ 2.5-3.2 on both.
+
+# S26 (2026-08-28) — STACK += gap_adj_60 < 10 (user: "it earned its place")
+
+**STACK (locked, user): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧
+k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10** — six levers, all re-derived on honest
+corpora: speed (S13), verticality (S14), maturity ×3 (S16/S19), tape continuity (S21/S22).
+
+| view | book | n | avg% | p1 | win% | pf | eqw bp/d |
+|---|---|---|---|---|---|---|---|
+| mc=0 | S19 stack | 131,165 | 1.89 | −25.4 | 73.3 | 2.140 | — |
+| mc=0 | **+ gap_adj<10** | 111,460 | 2.17 | −26.3 | 74.9 | **2.288** | — |
+| mc=1 | S19 stack | 7,945 | 0.83 | −21.8 | 69.3 | 1.530 | 100.9 |
+| mc=1 | **+ gap_adj<10** | 6,295 | 1.05 | −24.1 | 71.3 | **1.642** | **120.2** |
+
+mc=1 years (pf): 1.65 / 1.72 / 1.23 / 1.42 / 1.68 / 1.65 / 2.10 — every year up or flat
+vs S19; 2022 stays the floor.
+
+## mc=1 headline year table (the tradeable read)
+
+| yr | days | eqw bp | med bp | up% | tkd | trim bp |
+|---|---|---|---|---|---|---|
+| 2020 | 226 | 125.7 | 150.3 | 75.2 | 929 | 119.9 |
+| 2021 | 238 | 108.7 | 151.7 | 73.5 | 1,154 | 105.2 |
+| 2022 | 208 | 82.8 | 131.6 | 65.4 | 554 | 75.7 |
+| 2023 | 215 | 80.7 | 220.2 | 71.6 | 450 | 72.0 |
+| 2024 | 224 | 131.4 | 186.5 | 76.3 | 679 | 125.7 |
+| 2025 | 232 | 117.6 | 151.9 | 69.0 | 893 | 114.0 |
+| 2026 | 149 | 227.3 | 246.8 | 83.9 | 516 | 207.0 |
+
+**+80 to +227 bp/day eqw, positive and trim-positive every year, 2026 the best year on
+the book.** For calibration: the old 15-gate transplant read 93.8 bp/day blended; the
+six-gate honest stack now clears it in every year but 2023's 80.7 ≈ its 64.6, with
+2026 at 227 vs 86.5. Costs/borrow/stops still unmodeled (standing caveat).
