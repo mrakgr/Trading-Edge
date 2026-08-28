@@ -809,3 +809,34 @@ the year the long side needed the band for).
 Candidates for the stack: k300 ≥ 40 (broad, smooth) and/or K ≥ 100-150 (sharper, smaller).
 ⚠ Both correlate with move maturity/time-of-day and trend-day signal density — mc=0
 caveats apply; year columns clean throughout though.
+
+## S16b — the rest of the K family (user request before adopting k300 ≥ 40)
+
+Recorded family: all three counters count the SAME event (new high of the ~20m entry
+channel) with different LEG RESETS — main = 20m channel leg, `_600` = 10m-low breach,
+`_300` = 5m-low breach. **No 1m variant recorded** (would need an additive engine change +
+corpus rerun). Twins `bars_since_first_high{,_300,_600}` + `highs_since_downtick` also on
+disk, unexamined.
+
+**highs_since_first_high_600 (10m reset), mc=0 on the current stack:**
+
+| band | n | avg% | p1 | win% | pf | worst yr |
+|---|---|---|---|---|---|---|
+| <3 | 21,810 | 0.58 | −24.3 | 68.4 | 1.342 | 2021 1.15 |
+| [3,6) | 28,008 | 0.65 | −23.4 | 68.9 | 1.399 | 2021 1.18 |
+| [6,10) | 43,042 | 0.65 | −24.6 | 69.2 | 1.381 | 2026 1.22 |
+| [10,15) | 56,928 | 0.64 | −24.6 | 69.1 | 1.368 | 2024 1.28 |
+| [15,25) | 107,748 | 0.69 | −25.5 | 69.6 | 1.393 | 2026 1.19 |
+| [25,40) | 125,304 | 0.77 | −27.6 | 70.1 | 1.426 | 2020 1.34 |
+| [40,60) | 106,081 | 0.85 | −28.1 | 69.6 | 1.455 | 2022 1.17 |
+| ≥60 | 191,325 | 1.52 | −25.1 | 71.4 | **1.883** | 2023 1.40 |
+
+Same monotone-floor shape as k300. Head-to-head of the two broad floors:
+k300 ≥ 40 → 1.866 (n 219,218, worst yr 1.41) vs k600 ≥ 60 → 1.883 (n 191,325, worst yr
+1.40, 2026 2.54 strongest). Statistically twins; k300 slightly broader, k600 slightly
+better 2026. The whole family says one thing: **fade maturity — the leg must have made
+MANY highs without breaching its low.**
+
+⏭ Parked (user): consider replacing FlushFader's K band [26,50] with a
+`highs_since_first_high_300`-style counter on the LONG side too — much later, after this
+system is assembled.
