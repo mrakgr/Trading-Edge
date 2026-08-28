@@ -1566,3 +1566,43 @@ a Kelly input yet).
    lives in the extremes → consume rr as TIERED SIZING (rr < 0.5 = A+), not as a gate.
 
 **User verdict adopted: NO loud-end trim; rr enters the system as a sizing tier only.**
+
+# S28 (2026-08-28) — time-of-day buckets: the FlushFader last-hour rule INVERTS
+
+⚠ Frame limitation: the corpus inherits FlushFader's hour-before-close entry cap
+(EntryEndSec = 54000, the S31b/c calibration) — the true last hour (15:00-16:00) is NOT
+in the data. What is observable: the shape across 09:45→15:00, S26 stack.
+
+## mc=0 by signal time
+
+| bucket | n | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| 09:45-10:00 | 10,060 | 2.449 | 3.25 | 2.04 | 1.65 | 3.50 | 6.49 | 2.23 | 1.13 |
+| 10:00-10:30 | 27,447 | 2.258 | 3.68 | 1.92 | 0.92 | 1.96 | 2.49 | 2.65 | 4.31 |
+| 10:30-11:00 | 16,794 | 1.823 | 2.81 | 1.37 | 2.24 | 1.06 | 1.15 | 3.54 | 4.06 |
+| 11:00-12:00 | 22,126 | 2.049 | 2.78 | 1.59 | 2.61 | 1.69 | 1.49 | 2.40 | 2.79 |
+| 12:00-13:00 | 15,372 | 2.543 | 1.83 | 7.23 | 2.89 | 5.51 | 1.49 | 1.88 | 5.35 |
+| 13:00-14:00 | 10,719 | **3.680** | 4.39 | 4.83 | 2.09 | 2.79 | 4.07 | 2.67 | 7.24 |
+| 14:00-15:00 | 8,939 | 2.443 | 8.15 | 1.97 | 2.41 | 0.78 | 12.79 | 2.36 | 1.64 |
+
+## true mc=1 per bucket
+
+| bucket | n | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| 09:45-10:00 | 738 | 1.630 | 1.97 | 1.59 | 0.87 | 2.82 | 2.95 | 1.32 | 1.29 |
+| 10:00-10:30 | 1,709 | 1.531 | 1.52 | 1.63 | 0.92 | 1.27 | 1.83 | 1.48 | 2.29 |
+| 10:30-11:00 | 1,015 | 1.632 | 1.96 | 1.36 | 1.03 | 1.45 | 1.69 | 1.82 | 2.49 |
+| 11:00-12:00 | 1,219 | 1.501 | 1.77 | 1.32 | 1.79 | 1.16 | 1.15 | 1.95 | 1.63 |
+| 12:00-13:00 | 870 | 1.682 | 1.58 | 2.93 | 1.39 | 1.85 | 1.05 | 1.53 | 2.59 |
+| 13:00-14:00 | 684 | **2.448** | 2.12 | 2.74 | 1.58 | 1.48 | 2.78 | 2.76 | 4.04 |
+| 14:00-15:00 | 571 | 2.091 | 4.32 | 1.99 | 1.71 | 0.92 | 6.17 | 1.49 | 1.30 |
+
+**Reads:** (1) PF RISES into the afternoon — 13:00-14:00 is the best bucket in BOTH
+views (mc=1 2.448, every year ≥ 1.48), and 14:00-15:00 stays above every morning bucket
+(2.091; 2023 its one sub-1.0 year). The long flusher decayed into the close; the short
+pop-fader IMPROVES. (2) Mechanism consistent with the stack: the K maturity floors need
+hours to build, so afternoon signals are maximal-exhaustion moves — a late pop on a name
+that has climbed all day is the most tired thing the system sees. (3) ⏭ The inherited
+15:00 cutoff may be cutting GOOD trades: testing 15:00-16:00 needs a kstudy rerun with
+the entry window extended (cheap, ~13 min) — user's call; completion-room vs MOC
+interaction is the thing to watch (S31b/c logic may still bind at the very end).
