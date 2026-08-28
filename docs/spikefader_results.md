@@ -840,3 +840,25 @@ MANY highs without breaching its low.**
 ⏭ Parked (user): consider replacing FlushFader's K band [26,50] with a
 `highs_since_first_high_300`-style counter on the LONG side too — much later, after this
 system is assembled.
+
+## S16c — K combo iso-trip test (user): BOTH floors beat each alone, and not by thinning
+
+Frame: current stack, mc=0. Jaccard(A, B) = 0.544 — half-overlapping levers.
+
+| gate | n | avg% | p1 | win% | pf | worst yr |
+|---|---|---|---|---|---|---|
+| A: k300 ≥ 40 | 219,218 | 1.50 | −26.5 | 72.0 | 1.866 | 1.41 (2022) |
+| B: k600 ≥ 60 | 191,325 | 1.52 | −25.1 | 71.4 | 1.883 | 1.40 (2023) |
+| **C: BOTH** | 144,724 | 1.78 | −25.3 | 72.8 | **2.061** | **1.49 (2022)** |
+
+Iso-trip controls at n ≈ n_C = 144,724:
+- **Tightened singles**: A' k300 ≥ 54 → 2.028 (worst yr 1.41) · B' k600 ≥ 73 → 2.033
+  (worst yr 1.37). C beats both by ~+0.03 PF AND has the best worst-year — the AND is a
+  mild but real diversification, not threshold depth in disguise.
+- **Random-subsample null** (500× at n_C): from A → 1.866 ± 0.011 (max 1.894); from B →
+  1.883 ± 0.009 (max 1.913). P(null ≥ 2.061) = 0.000 on both. The combo is decisively not
+  thinning noise.
+
+**Adopted (user): stack += k300 ≥ 40 AND k600 ≥ 60.**
+**Stack now: speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 —
+mc=0: 144,724 trips · avg +1.78% · win 72.8% · PF 2.061 · every year ≥ 1.49.**
