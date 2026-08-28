@@ -1355,3 +1355,56 @@ deferred to the halts_today study; genuinely sparse loud tape is DEAD (1.18).
 (2) All S21 conclusions stand with gap_adj as the interpretive counter; the
 quiet×continuous voice is unchanged. (3) `gap_adj_60` is the right counter for
 TAPE-TEXTURE questions; `gap_60` − `gap_adj_60` > 0 is a free halt-in-last-minute flag.
+
+# S23 (2026-08-28) — halts_today × secs_since_halt on the locked stack. True mc=1 throughout
+
+Context for a first read: `halts_today` = running count of classified volatility halts
+(S40x detector) on the ticker-day up to the signal; `secs_since_halt` = seconds since the
+last resume (only meaningful when halts_today ≥ 1). On the SHORT fader these are
+limit-UP-flavored halts — the mirror of the long side's cascade-gate lore (S42n/S42t),
+which was retired with the spec transplant in S17. Frame: locked stack, 131,165 mc=0
+trips; 14.4% have halts_today ≥ 1. All numbers gates-in-replay, one replay per cell.
+
+## 1D: halts_today
+
+| halts_today | n (mc=1) | pf | win% |
+|---|---|---|---|
+| 0 | 7,161 | 1.52 | 69.0 |
+| 1 | 549 | 1.85 | 71.2 |
+| 2 | 214 | 1.88 | 73.4 |
+| 3 | 139 | 1.69 | 69.8 |
+| ≥4 | 197 | 1.56 | 74.1 |
+
+## 2D: halts_today × secs_since_halt — pf (n)
+
+| ht \ since resume | <2m | 2-5m | 5-20m | 20-80m | >80m |
+|---|---|---|---|---|---|
+| 1 | 1.89 (207) | **3.32 (86)** | 1.73 (70) | 1.80 (102) | 1.63 (180) |
+| 2 | 2.33 (98) | 2.99 (29) | 1.99 (38) | 1.17 (38) | 3.60 (49) |
+| 3 | 1.95 (65) | **4.76 (27)** | 3.27 (19) | 1.24 (22) | 1.37 (38) |
+| ≥4 | 1.45 (101) | 1.43 (43) | 1.70 (36) | **0.97 (35)** | 1.25 (62) |
+
+## The S22 halt-driven loud pocket, resolved
+
+| gate | n | pf | win% |
+|---|---|---|---|
+| ht=1 ∧ rr≥3 ∧ since-resume <5m | 181 | **2.42** | 74.6 |
+| ht≥2 ∧ rr≥3 ∧ since-resume <5m | 167 | 1.91 | 74.3 |
+| ht≥1 ∧ rr≥3 ∧ since-resume 5-20m | 83 | 1.42 | 67.5 |
+| ht≥1 ∧ rr≥3 ∧ since-resume ≥20m | 151 | **1.00** | 61.6 |
+
+## Reads
+
+1. **A halted name fades mildly better, peaking at 1-2 halts** (1.85-1.88 vs 1.52
+   unhalted) — and the edge lives in the FIRST MINUTES after the resume: the [2,5m)
+   post-resume window is the best column (3.32 / 2.99 / 4.76, small n). Short-side
+   mirror of S42p: on the long side [2,5m) was where the next limit-DOWN decided itself
+   (dangerous); here a pop that fires 2-5m after a limit-UP resume is a failed
+   re-launch — and it fades hard.
+2. **Serial breakers (ht ≥ 4) have no edge anywhere** (0.97-1.70) — "don't fade the
+   LULD elevator" survives the direction flip.
+3. The S22 pocket is now fully explained: it was FRESH-resume blowoff fading, best on
+   the first halt (2.42 @ 181), decaying with both halt count and staleness to exactly
+   1.00 at ≥20m. ⏭ Voice candidate (small): ht 1-3 ∧ since-resume <5m ∧ rr ≥ 3 —
+   ~350 trips at ~2.1-2.4. Not adopted; n small and 2022-style cascade regimes untested
+   year-by-year.
