@@ -1290,3 +1290,68 @@ Reads:
    HALT-ENTANGLED: raw gap_60 counts LULD pauses, so these cells are largely post-halt
    blowoffs — the retired cascade-gate lore lives here. Re-examine with gap_adj_60 /
    halts_today before believing; small n, and S11d's rr_wall finding sits adjacent.
+
+# S22 (2026-08-28) — gap_adj_60: the halt-excluded twin. True mc=1 throughout
+
+`gap_adj_60` = missing seconds in the trailing minute EXCLUDING classified halts (the
+S40x detector); `gap_60` is the raw counter, halts included. On the locked stack only
+**3.2%** of trips (4,159 of 131,165) have halt seconds in the trailing minute — but S21b's
+most glamorous cells live exactly there. Every number below is true mc=1: filters as
+gates inside the greedy replay, slot per (ticker, date), one replay per cell.
+
+## 1D: gap_adj_60 bands (one replay per band)
+
+| gap_adj_60 | n | pf |
+|---|---|---|
+| =0 | 4,712 | 1.71 |
+| 1-2 | 1,785 | 2.06 |
+| 3-5 | 1,315 | 1.58 |
+| 6-10 | 1,196 | 1.62 |
+| 11-20 | 1,249 | 1.21 |
+| 21-40 | 1,321 | 1.09 |
+| >40 | 339 | 1.25 |
+
+Same monotone decay as the raw counter (S21): GENUINE sparsity — not halts — is what
+kills the fade.
+
+## 2D: gap_adj_60 × rr_15m — pf (n)
+
+| gap_adj \ rr | <0.75 | 0.75-1.5 | 1.5-3 | 3-5 | ≥5 |
+|---|---|---|---|---|---|
+| =0 | **2.87 (531)** | 1.65 (1,480) | 1.61 (2,185) | 1.70 (1,502) | 2.07 (1,309) |
+| 1-2 | 2.46 (233) | 1.98 (507) | 1.87 (748) | 1.93 (514) | 1.84 (338) |
+| 3-5 | 2.00 (189) | 1.38 (425) | 1.55 (527) | 1.64 (339) | 1.95 (202) |
+| 6-10 | 1.54 (204) | 1.75 (453) | 1.67 (519) | 1.18 (265) | 1.25 (146) |
+| 11-20 | 1.59 (306) | 1.13 (561) | 1.16 (524) | 1.23 (241) | 1.11 (114) |
+| 21-40 | 1.07 (597) | 1.02 (699) | 0.97 (475) | 0.90 (144) | 2.84 (64) |
+| >40 | 1.05 (199) | 1.06 (158) | 0.92 (67) | 1.95 (17) | 4.70 (10) |
+
+Compare S21b (raw gap_60 rows): the bottom-right corner has EVAPORATED — rr≥5 ×
+gap 21-40 was 3.75 on n 192 raw, and is 2.84 on n **64** adjusted; >40 keeps n **10**.
+The trips didn't disappear — they migrated up to the =0/1-2 rows once their gaps were
+recognized as halts (loud × adj=0 ticks up 2.02 → 2.07). Meanwhile the sparse loud rows
+that remain (6-20 adjusted gaps × ≥3) drop to 1.11-1.25: with halts removed, "loud on a
+thin tape" has no edge at all.
+
+## The direct split: loud (rr ≥ 3) × raw-gappy (gap_60 ≥ 11)
+
+| subset | n | pf |
+|---|---|---|
+| halt-driven (gap_adj ≤ 2) | 249 | **1.86** |
+| gap_adj 3-10 | 0 | — (structurally empty: a classified halt owns its WHOLE gap run) |
+| genuinely sparse (gap_adj ≥ 11) | 416 | **1.18** |
+
+## The quiet×continuous voice is convention-proof
+
+| gate | n | pf |
+|---|---|---|
+| rr < 0.75 ∧ raw gap_60 = 0 (S21) | 530 | 2.86 |
+| rr < 0.75 ∧ gap_adj_60 = 0 | 531 | 2.87 |
+| the difference (halt-forgiven trips) | 3 | — |
+
+**Reads:** (1) S21b's "loud on a holey tape" cells were halt-resumption fades in
+disguise — a real but modest 1.86 pocket on ~250 trips, cascade-lore territory,
+deferred to the halts_today study; genuinely sparse loud tape is DEAD (1.18).
+(2) All S21 conclusions stand with gap_adj as the interpretive counter; the
+quiet×continuous voice is unchanged. (3) `gap_adj_60` is the right counter for
+TAPE-TEXTURE questions; `gap_60` − `gap_adj_60` > 0 is a free halt-in-last-minute flag.
