@@ -1666,3 +1666,36 @@ the one piece of long-side logic that transfers unchanged. Modest (+0.04 PF for 
 trips); adoption = user's call.
 
 Full band tables in `sf_s30.out`.
+
+## S30b — STACK += dlv > 3% (user: safe minor trim)
+
+**STACK (locked): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 ∧
+k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3%** — mc=0 111,219 · mc=1 6,275 @ 1.644.
+⏭ Parked (user): the rngfront TOP DECILE deserves its own study (FlushFader trimmed the
+top 2 deciles with a big mc=0/mc=1 discrepancy; here the front band hides good trades).
+Also noted (user recollection): FlushFader's rflow ≤ 0.95 cell was outright negative —
+here it is merely the worst band (1.53), another magnitude-shift across the flip.
+
+## Campaign 6-8: the slope trio — ALL DEAD, every ceiling INVERTED (verticality #5, #6, #7)
+
+Frame: S30b stack. Old gates at true mc=1: accel ≤ 80 → 1.662 (+0.018); slope20 > 10 →
+1.645 (removes 2 trips — the 0..10 band is n=8); slope5 ≤ 400 → **1.629 (LOWERS PF)**;
+all three → 1.640. Nothing to adopt.
+
+The structure is all at the steep end (mc0 / mc1 pf):
+
+| band | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf |
+|---|---|---|---|---|
+| accel ≥ 300 bp/min | 474 | 16.73 | 46 | 3.41 |
+| slope20 ≥ 250 | 2,789 | 5.33 | 150 | 3.31 |
+| slope5 400-700 | 6,142 | 2.93 | 493 | 2.25 |
+| slope5 700-1200 | 1,211 | 8.13 | 115 | 3.69 |
+| slope5 ≥ 1200 | 142 | 20.65 | 13 | 9.56 |
+
+The old spec REJECTED every one of these cells ("no vertical melt-up", "no late
+acceleration"). Short-side they are the best cells on their axes — monotone rising in
+all three tables. **The verticality inversion is now SEVEN-fold aligned** (eff_10m,
+eff diagonal S18b, rngfront cliff, ssf ceiling, accel, slope20, slope5): one coherent
+A-tier axis — MAXIMUM STEEPNESS of the pop, at every horizon, on every measure. ⏭ At
+assembly these should consolidate into ONE verticality voice (they overlap heavily),
+not seven tiny cells.
