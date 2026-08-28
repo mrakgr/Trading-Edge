@@ -1873,3 +1873,25 @@ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30 ∧ signal 
 The extension adds 118 net mc=1 trips (the 200-trip slice frees/steals some slots) at
 slice PF 1.802 — baseline-accretive in 2020/2022, neutral elsewhere, 2026's 9.32 on a
 tiny denominator. A small honest widening, adopted.
+
+## S34c — STACK += ac1_ewma ≥ −0.1 (user); the ≥0.2 region broken down
+
+**STACK (locked, 13 conditions): S34b ∧ ac1_ewma ≥ −0.1** — mc=1 **6,322 @ 1.709**
+(−25 trips, every year flat-to-up: 2021 1.76, 2023 1.52, 2026 2.15).
+
+**ac1 ≥ 0.2 fine bands** (on the gated stack):
+
+| band | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf | mc=1 years |
+|---|---|---|---|---|---|
+| 0.2-0.3 | 36,690 | 2.103 | 2,961 | 1.843 | 2.28 1.76 1.54 1.49 1.88 1.70 2.18 |
+| 0.3-0.4 | 22,544 | 2.787 | 1,903 | 1.964 | 2.37 1.79 1.77 1.64 1.75 2.37 2.07 |
+| 0.4-0.5 | 8,035 | 2.161 | 720 | 2.011 | 3.11 2.14 1.82 **0.72** 2.80 2.21 1.60 |
+| 0.5-0.6 | 2,036 | 4.084 | 205 | 2.106 | 2.71 4.71 3.76 **0.53** 2.23 2.16 1.02 |
+| 0.6-0.7 | 485 | 5.450 | 40 | 2.794 | (sparse-year cells) |
+| ≥0.7 | 98 | 497* | 6 | 96.65* | (*near-zero losers — artifact) |
+
+Monotone rising 1.84 → 2.79: persistent positive slot-autocorr (the trend that never
+paused) is ANOTHER verticality-cluster member — but ⚠ 2023 INVERTS above 0.4 (0.72/0.53),
+the first year-instability inside the cluster. The 0.2-0.4 mass (77% of the book) is
+solid everywhere. Ledger: ac1 ≥ 0.4 is a tier candidate with a 2023 asterisk; ≥0.6 cells
+are too thin to read.
