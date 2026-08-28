@@ -442,3 +442,67 @@ post-halt names look quiet (their tradeable-time rate stays high), and post-halt
 are bad fades — the LULD-elevator class the cascade gates were designed for. ⏭ Tomorrow's
 gate-by-gate pass should test: quiet defined on RAW wall time, or the halt-adjusted version
 paired with an explicit post-halt veto.
+
+# S12 (2026-08-28) — GATE-BY-GATE REBUILD, feature 1: volat_20m (the FlushFader 40bp floor)
+
+**Frame change (user): start from scratch — ALL spec gates OFF, the bare base_v2 corpus,
+one feature at a time.** mc=1 replayed greedily inside the bare frame (107,770 trips from
+2,088,578 mc=0).
+
+⚠ **The 40bp floor cannot be tested from this corpus: it is baked into the base run itself**
+(`volat band = volat_20m ∈ [40, inf) bp/30s` in the run log — `MinVolat20m = 0.004` is an
+ENTRY gate AND feeds the candidate reader). Bands 00-03 are empty; everything below is about
+whether the floor should be HIGHER. Testing below 40bp needs a base re-run with
+`MinVolat20m = 0`.
+
+## mc=1 fine bands (bare frame)
+
+| band | n | avg% | med% | p1 | win% | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| <50bp | 40,034 | −0.049 | 0.551 | −9.5 | 61.5 | 0.945 | 0.79 | 0.96 | 0.96 | 1.05 | 1.02 | 0.99 | 1.02 |
+| <60bp | 20,743 | 0.031 | 0.782 | −11.6 | 63.1 | 1.029 | 0.90 | 1.12 | 1.03 | 1.02 | 1.07 | 1.12 | 0.91 |
+| <80bp | 23,265 | 0.230 | 1.183 | −15.5 | 65.5 | 1.178 | 1.04 | 1.17 | 1.18 | 1.23 | 1.30 | 1.22 | 1.14 |
+| <100bp | 11,309 | 0.467 | 1.746 | −20.1 | 66.8 | 1.291 | 1.07 | 1.15 | 1.34 | 1.47 | 1.34 | 1.40 | 1.30 |
+| <150bp | 9,270 | 0.593 | 2.582 | −31.5 | 69.1 | 1.255 | 1.19 | 1.37 | 1.18 | 1.15 | 1.29 | 1.30 | 1.26 |
+| <200bp | 2,226 | 0.697 | 3.844 | −44.2 | 68.9 | 1.197 | 0.88 | 1.08 | 0.97 | 1.33 | 1.20 | 1.25 | 1.55 |
+| <300bp | 812 | 1.090 | 4.646 | −51.2 | 67.0 | 1.259 | 1.34 | 0.61 | 2.60 | 1.30 | 1.28 | 1.60 | 0.98 |
+| ≥300bp | 111 | 0.193 | 4.098 | −73.0 | 64.9 | 1.028 | 3.48 | 3.23 | NaN | 0.71 | 0.73 | 1.53 | 0.56 |
+
+(mc=0 table in session scratch `sf_s12.out`; same shape, PFs uniformly higher — the ≥300bp
+band reads 2.14 at mc=0 and collapses to 1.03 at mc=1, the usual multi-signal inflation.
+pf_clip = pf everywhere: no win exceeds +50% on this book.)
+
+## mc=1 floor sweep (kept book: volat_20m ≥ F)
+
+| floor | n | avg% | p1 | win% | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 40bp | 107,770 | 0.160 | −16.4 | 64.1 | 1.124 | 0.96 | 1.10 | 1.10 | 1.19 | 1.22 | 1.21 | 1.13 |
+| 50bp | 67,736 | 0.284 | −20.2 | 65.6 | 1.185 | 1.04 | 1.17 | 1.17 | 1.22 | 1.26 | 1.27 | 1.15 |
+| 60bp | 46,993 | 0.395 | −23.2 | 66.7 | 1.227 | 1.08 | 1.19 | 1.22 | 1.26 | 1.29 | 1.30 | 1.21 |
+| 70bp | 33,288 | 0.477 | −26.4 | 67.3 | 1.244 | 1.09 | 1.21 | 1.28 | 1.25 | 1.29 | 1.30 | 1.25 |
+| 80bp | 23,728 | 0.558 | −29.7 | 67.9 | 1.256 | 1.11 | 1.20 | 1.26 | 1.27 | 1.28 | 1.35 | 1.26 |
+| 100bp | 12,419 | 0.641 | −37.4 | 68.9 | 1.237 | 1.14 | 1.25 | 1.19 | 1.18 | 1.26 | 1.32 | 1.24 |
+| 120bp | 6,921 | 0.715 | −44.1 | 69.2 | 1.223 | 1.15 | 1.24 | 1.22 | 1.28 | 1.24 | 1.28 | 1.13 |
+
+A 300bp ceiling is cosmetic at any floor (n ≥300bp = 111; PF moves in the 3rd decimal).
+
+## Reads
+
+1. **The [40, 50)bp band — 37% of the mc=1 book — is under water standalone** (PF 0.945,
+   avg −5bp/trip), and [50, 60) is barely break-even. On the bare frame the floor earns its
+   keep only from ~60bp.
+2. **Monotone rise to a flat top at 70-100bp** (PF 1.24-1.26), every year ≥ 1.08 from floor
+   60 up. Per-trip avg keeps rising past that (0.72% at 120bp) but buys it with tail
+   (p1 −16% → −44%): higher floors are a sizing/stop question, not a free PF gain.
+3. 2020 is the weak year at every cut (1.04-1.15) — the short fader's worst regime, worth
+   remembering as gates stack.
+4. ⚠ Interaction note from the aborted spec-frame run (before the from-scratch pivot, in
+   `sf_s12.out` history): INSIDE the full 15-gate spec the high bands invert hard — volat
+   ≥150bp reads PF 0.96/0.95/0.20 with p1 −41..−56%. Standalone, high volat is fine to
+   300bp; inside the spec it is ruinous. A ceiling decision belongs to the stacked context,
+   not to feature 1.
+
+**Verdict on "is 40bp the right floor": 40bp is a base-corpus recording floor, not an edge
+floor — standalone the edge starts at ~60bp.** Whether to raise it in the rebuilt spec is
+deferred until the stack exists (the later gates may be doing the same work — inside the old
+spec the sub-60bp population was already down to 28% of the mc=1 book vs 56% here).
