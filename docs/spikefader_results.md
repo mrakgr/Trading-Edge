@@ -1699,3 +1699,25 @@ eff diagonal S18b, rngfront cliff, ssf ceiling, accel, slope20, slope5): one coh
 A-tier axis — MAXIMUM STEEPNESS of the pop, at every horizon, on every measure. ⏭ At
 assembly these should consolidate into ONE verticality voice (they overlap heavily),
 not seven tiny cells.
+
+## S31b — slope_10m shown; STACK += slope_5m ≥ 0 ∧ slope_20m ≥ 30 (user: trim the rare marginal trades)
+
+slope_10m (ols_slope_600 × 6e5) on the S30b stack — the family shape again, monotone up:
+
+| band bp/min | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf |
+|---|---|---|---|---|
+| <0 | 3 | 0.00 | 1 | 0.00 |
+| 0..30 | 1,651 | 1.386 | 322 | 1.532 |
+| 30..60 | 15,175 | 1.619 | 1,990 | 1.544 |
+| 60..120 | 47,383 | 2.076 | 3,731 | 1.790 |
+| 120..250 | 37,106 | 2.255 | 2,280 | 1.832 |
+| 250..500 | 8,932 | 2.787 | 544 | 1.949 |
+| ≥500 | 969 | 16.72 | 70 | 3.982 |
+
+Floors at true mc=1: s5 ≥ 0 alone −4 trips; s20 ≥ 30 → 1.663 @ 5,931; **BOTH → 1.665 @
+5,927 (+0.021 for −348 trips; every year flat-to-up except 2024 −0.03)**. Adding
+s10 ≥ 30 on top: +0.004 (−83 trips) — skipped.
+
+**STACK (locked): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 ∧
+k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30** —
+mc=1 baseline: **1.665 @ 5,927**.
