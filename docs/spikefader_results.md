@@ -1637,3 +1637,32 @@ direction), 1.5-2.5 → 1.72-1.75, 2.5-3 → 2.10, ≥3 → 1.81. The old z > 1.
 93 trips and LOWERS PF (1.642 → 1.624); z > 2 is flat (1.656 @ 4,529, no year
 improved meaningfully). **Verdict: no gate — fully absorbed by speed/dist; the weak-pop
 trim has nothing left to trim.**
+
+## Campaign 3-5: the leg-native trio (ssf / dlv / rflow) — mostly absorbed; ONE inversion, ONE survivor
+
+Frame: S26 stack, all three columns null-free. Old-spec gates at true mc=1:
+
+| gate | n | pf | Δ vs baseline 1.642 |
+|---|---|---|---|
+| ssf ∈ [25,375) bp/min | 5,492 | 1.657 | +0.015 (−803 trips) |
+| dlv > 3% | 6,275 | 1.644 | +0.002 (−20 trips) |
+| rflow ≤ 0.95 | 5,515 | **1.680** | +0.038 (−780 trips) |
+| all three (old spec) | 4,739 | 1.698 | +0.056 |
+
+**ssf (leg slope)** — the old band is inert, but its CEILING is INVERTED: the "vertical
+melt-up" the long spec rejected (≥ 375 bp/min) is the best cell — mc=0 375-600 → 5.825
+(n 988), ≥600 → 6.615 (n 227); true mc=1 3.190 (n 66) / 2.534 (n 22). Tiny n — the
+FOURTH verticality inversion (eff_10m, rngfront cliff, S18b diagonal, now ssf). ⏭ voice
+shortlist, too small alone.
+
+**dlv (leg stretch)** — absorbed: the stack's speed+dist already exclude the shallow leg
+(0-3% band = 65 mc=1 trips at 0.69); everything above is flat 1.64-1.90. No gate.
+
+**rflow (perfect-line rejector)** — THE ONE SURVIVOR of the trio: the ≥0.95 band is the
+worst rflow cell (1.533 mc=1, n 1,311) and the ≤0.95 gate improves every year or holds
+it (2021 1.72→1.82, 2022 1.23→1.30, 2025 1.65→1.72, 2026 2.10→2.15). A pop that is one
+clean regression line since the leg's first high is a DRIFT, not an exhaustion spike —
+the one piece of long-side logic that transfers unchanged. Modest (+0.04 PF for −12%
+trips); adoption = user's call.
+
+Full band tables in `sf_s30.out`.
