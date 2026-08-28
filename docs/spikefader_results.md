@@ -1533,3 +1533,36 @@ of the old quiet×continuous cell); rr < 1 → 2.022 @ 1,506; rr ≥ 5 → 1.982
 418 trips. (2) The quiet arm beats the loud arm in PF again (2.17 vs 1.98) now that its
 holes are gone; loud still owns the volume of opportunities at mc=0. (3) The voice
 family updates: quiet-rr (2.17 @ 879) and loud-rr (1.98 @ 1,566) on the NEW stack.
+
+## S27b — the A+ sizing cell + why rr's discrimination collapsed (user post-mortem)
+
+**rr < 0.5, true mc=1 on the S26 stack** (the user's proposed sizing tier, not a gate):
+
+| n | avg% | med% | p1 | win% | pf | trimmed pf (drop worst 5%) |
+|---|---|---|---|---|---|---|
+| 364 | 1.89 | 2.30 | −12.3 | 75.8 | **3.451** | 8.73 |
+
+| yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| pf | 8.17 | 2.05 | 5.34 | 2.07 | 3.00 | 3.30 | 4.97 |
+| n | 56 | 55 | 40 | 27 | 70 | 78 | 38 |
+
+~55 trips/yr, every year ≥ 2.05, losses concentrated in the bottom 5% (trimmed PF 8.7 —
+the PF−1 sizing rule would say big, but n=364 and no stops modeled: treat as a TIER, not
+a Kelly input yet).
+
+**Why the discrimination collapsed — three compounding reasons:**
+1. **It was never as big at true mc=1 as the mc=0 tables suggested.** S20's dramatic U
+   (1.6 trough vs 2.7 loud) was the mc=0 view — density-weighted toward blowout days.
+   The honest mc=1 U was always shallow in the middle; the loud arm's mc=0 counts
+   compress 16:1 into mc=1 (24,405 → 1,566) vs quiet's 9:1.
+2. **The stack absorbed rr's correlates**: K maturity selects sustained-volume days,
+   gap_adj eats sparsity, eff_10m eats dead tape. Marginal edge vs baseline moved:
+   quiet +0.17 → +0.53 (purified), loud +0.43 → +0.34 (partially absorbed),
+   middle ≈ 0 → ≈ 0.
+3. **This is what a maturing stack looks like** — the S12 lesson (the volat floor inert
+   inside the old spec) recurring as a success instead of a bug: features stop
+   discriminating when the stack already knows what they knew. The residual information
+   lives in the extremes → consume rr as TIERED SIZING (rr < 0.5 = A+), not as a gate.
+
+**User verdict adopted: NO loud-end trim; rr enters the system as a sizing tier only.**
