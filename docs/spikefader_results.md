@@ -1606,3 +1606,34 @@ that has climbed all day is the most tired thing the system sees. (3) ⏭ The in
 15:00 cutoff may be cutting GOOD trades: testing 15:00-16:00 needs a kstudy rerun with
 the entry window extended (cheap, ~13 min) — user's call; completion-room vs MOC
 interaction is the thing to watch (S31b/c logic may still bind at the very end).
+
+# S29 (2026-08-28) — the FlushFader base-spec campaign: test the old gates one by one on the S26 stack
+
+⏭ Deferred first (user): full-corpus rerun to test 15:00-16:00 entries; volat floor 20bp
+experiment (can high speed/dist compensate for low vol?).
+
+**The campaign list** (all recorded columns; already resolved: volat floor S12, speed
+pair S13, eff family S14, K family S16-S19, halt gates S23):
+1. rngfront (rng_300/rng_20m < 0.8) — TESTED BELOW
+2. z20 (20m vw-sigma z > 1.5) — TESTED BELOW
+3. ssf pair (slope_since_flow ∈ [25,375) bp/min) · 4. dlv (dist above leg vwap > 3%) ·
+5. rflow (r_since_flow ≤ 0.95) · 6. accel1020 ≤ 80 · 7. slope20 > 10 · 8. slope5 ≤ 400 ·
+9. eff_9ema_10m ≥ −0.10 · 10. vol10rate ≥ 0.75 · 11. dv_0945_tape ≥ $3M
+
+## Campaign 1: rngfront — DEAD, and the cliff cell INVERTED
+
+(rngfront = rng_300 / ln(signal_vwap/chan_lo), the S10-validated post-push form.)
+mc=0 bands: 1.97-2.38 flat below 0.8; **0.9-1.0 → 4.179 (n 375)** — the "pure cliff"
+(whole 20m range in the last 5m) that the long side REJECTED is the short side's best
+band. True mc=1: bands flat 1.73-2.00; the old <0.8 gate removes 84 trips for +0.011 PF
+(noise); the cliff ≥0.8 reads 1.916 @ 283. **Verdict: no gate; the cliff-rejection logic
+was long-side-specific (verticality is the short fade's FRIEND — consistent with S14).**
+
+## Campaign 2: z20 — DEAD; the stack already implies it
+
+The stack's speed+dist gates mechanically force z20 > 1 (the <1 band is EMPTY, n=0).
+True mc=1 bands: 1-1.5 → 2.320 (n 773, the LOW rim — mild inversion of the old gate's
+direction), 1.5-2.5 → 1.72-1.75, 2.5-3 → 2.10, ≥3 → 1.81. The old z > 1.5 gate removes
+93 trips and LOWERS PF (1.642 → 1.624); z > 2 is flat (1.656 @ 4,529, no year
+improved meaningfully). **Verdict: no gate — fully absorbed by speed/dist; the weak-pop
+trim has nothing left to trim.**
