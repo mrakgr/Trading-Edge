@@ -1049,3 +1049,46 @@ vs the gated book's 2.061.** k120 (2m) is the cleanest monotone fast lever.
 ⏭ Candidate tier-2 gates from this: k120 ≥ 32 (or ≥ 47 / ≥ 64 by appetite) on top of the
 K combo — needs the year table + iso-trip controls before adoption (this was a survey
 pass, no year columns yet).
+
+# S19 (2026-08-28) — STACK LOCKED (+ k180 ≥ 15); k120/k60 trim sweeps
+
+⏭ **Noted for a future VOICE FAMILY, not adopted (user)**: the S18b deep-diagonal cell
+`k120 ≥ 64 ∧ k180 ≥ 78` (PF 3.14 @ 21,127). ⚠ By the triangle it implies k300/k600 ≥ 64,
+i.e. as a GATE it would swallow the slow floors — that is why it stays a voice candidate.
+
+## The lock
+
+**STACK (locked, user): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧
+k600 ≥ 60 ∧ k180 ≥ 15.**
+
+| book | n | avg% | p1 | win% | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| K combo (S16c) | 144,724 | 1.78 | −25.3 | 72.8 | 2.061 | 2.60 | 2.01 | 1.49 | 1.61 | 1.86 | 2.17 | 2.58 |
+| **+ k180 ≥ 15 (LOCKED)** | 131,165 | 1.89 | −25.4 | 73.3 | **2.140** | 2.65 | 2.02 | 1.49 | 1.63 | 1.99 | 2.28 | **2.95** |
+
+The trim costs 9.4% of trips for +0.08 PF and a notably better 2026 (2.58 → 2.95).
+
+## k120 floor sweep (on the locked stack) — monotone, no knee
+
+| floor | n | avg% | pf | 2023 | 2026 |
+|---|---|---|---|---|---|
+| off | 131,165 | 1.89 | 2.140 | 1.63 | 2.95 |
+| ≥8 | 125,011 | 1.91 | 2.157 | 1.58 | 3.01 |
+| ≥12 | 121,462 | 1.93 | 2.175 | 1.57 | 3.06 |
+| ≥16 | 116,796 | 1.96 | 2.200 | 1.56 | 3.10 |
+| ≥20 | 109,549 | 2.01 | 2.238 | 1.53 | 3.16 |
+| ≥25 | 100,862 | 2.07 | 2.287 | 1.51 | 3.22 |
+| ≥32 | 89,351 | 2.15 | 2.349 | 1.50 | 3.37 |
+
+Every year improves EXCEPT 2023, which bleeds slowly (1.63 → 1.50). A book-size dial,
+not a threshold with structure.
+
+## k60 floor sweep — weaker, and pays with the recent years
+
+≥13 → 2.215 @ 101,847 but 2026 2.95 → 2.81 and 2024 1.99 → 1.94 (helping 2020/2021).
+The 2D floor combo confirms redundancy: at k120 ≥ 20, adding k60 ≥ 13 buys +0.05 PF for
+−17k trips.
+
+**Verdict: k120 trimming helps modestly and monotonically (2023 the lone cost); k60 adds
+nothing beyond k120 and trades the recent years for the COVID years — skip it.** Whether
+to take a k120 floor (≥12-16 looks sensible) is a book-size call at assembly.
