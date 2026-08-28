@@ -862,3 +862,35 @@ Iso-trip controls at n ≈ n_C = 144,724:
 **Adopted (user): stack += k300 ≥ 40 AND k600 ≥ 60.**
 **Stack now: speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 —
 mc=0: 144,724 trips · avg +1.78% · win 72.8% · PF 2.061 · every year ≥ 1.49.**
+
+## S16d — 2D k300 × k600 (user: "one strong, one weak?"). The mixed cell is the WORST on the board
+
+Mechanical fact first: both counters count the same event and differ only in reset
+frequency, so **k300 ≤ k600 always** (verified: 0 violations) — the grid is triangular and
+"k300 strong × k600 weak" cannot exist. The only mixed population is LOW k300 inside HIGH
+k600: a recent 5m-low breach (dip-and-recover) inside a mature 10m leg.
+
+pf (n), mc=0, frame = speed pair + eff_10m ≥ 0.3:
+
+| k300 \ k600 | <10 | 10-25 | 25-40 | 40-60 | 60-90 | ≥90 |
+|---|---|---|---|---|---|---|
+| <6 | 1.36 (51,291) | 1.35 (4,654) | **1.04** (3,218) | **1.06** (2,655) | 1.13 (2,245) | 1.20 (1,586) |
+| 6-15 | 1.40 (41,569) | 1.36 (61,784) | 1.32 (7,196) | 1.13 (6,215) | 1.17 (4,723) | 1.28 (3,600) |
+| 15-25 | — | 1.40 (98,238) | 1.28 (10,008) | 1.17 (9,042) | 1.29 (6,975) | 1.48 (5,234) |
+| 25-40 | — | — | 1.46 (104,882) | 1.55 (13,675) | 1.44 (12,864) | 1.64 (9,374) |
+| 40-60 | — | — | — | 1.52 (74,494) | 1.67 (14,188) | 2.03 (13,339) |
+| ≥60 | — | — | — | — | 1.74 (52,776) | **2.45 (64,421)** |
+
+Reads:
+1. **A fresh 5m leg inside a mature 10m leg is the worst fade on the board** (1.04-1.17):
+   the up-move already took a dip and RECOVERED — a move that survives its dips is
+   dangerous to fade. This is FlushFader's "5m trims the bottom" logic reappearing
+   short-side with a mechanism.
+2. The k600 dimension still pays WITHIN high k300: at k300 ≥ 60, k600 60-90 → 1.74 vs
+   ≥90 → **2.45 on n 64,421 (avg +2.32%)** — the deepest-maturity corner is the best
+   large cell found so far.
+3. This explains S16c: since high k300 implies high k600, a tightened k300-only floor is
+   nearly the combo already (A' 2.028 ≈ C 2.061); the combo's job is excluding the
+   dip-and-recover cells.
+⏭ Candidate tier-2 upgrade: k300 ≥ 60 ∧ k600 ≥ 90 (PF 2.45 @ 64,421) vs adopted 40/60
+   (2.061 @ 144,724) — book-size trade-off, user's call at assembly.
