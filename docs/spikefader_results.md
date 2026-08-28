@@ -1408,3 +1408,52 @@ trips; 14.4% have halts_today ≥ 1. All numbers gates-in-replay, one replay per
    1.00 at ≥20m. ⏭ Voice candidate (small): ht 1-3 ∧ since-resume <5m ∧ rr ≥ 3 —
    ~350 trips at ~2.1-2.4. Not adopted; n small and 2022-style cascade regimes untested
    year-by-year.
+
+# S24 (2026-08-28) — why rr is less decisive here than in MaxRiderV1 (user question)
+
+Benchmark being compared against: F22/F23 on MaxRiderV1 — quiet book PF 3.62, rate-ratio
+fine ladder rr < 0.2 → **5.90**, monotone quiet-dominant, on its 1m corpus.
+
+## Control: rr_15m amplitude with NO gates (bare base_v2, 2.089M trips, mc=0)
+
+| band | bare n | bare pf | speed-stack pf | locked-stack pf (S20) |
+|---|---|---|---|---|
+| <0.2 | 121,970 | 1.902 | 2.200 | ~2.5* |
+| [0.2,0.3) | 145,995 | 1.677 | 2.079 | 2.13* |
+| [0.3,0.5) | 315,123 | 1.478 | 1.778 | 2.52 |
+| [0.5,0.75) | 338,909 | 1.283 | 1.430 | 2.66 |
+| [0.75,1) | 249,208 | 1.223 | 1.286 | 1.95 |
+| [1,1.5) | 314,237 | 1.182 | 1.197 | 1.72 |
+| [1.5,2) | 182,459 | 1.221 | 1.216 | 1.60 |
+| [2,3) | 186,257 | 1.376 | 1.399 | 2.11 |
+| [3,5) | 133,262 | 1.387 | 1.398 | 2.22 |
+| ≥5 | 101,158 | 1.700 | 1.739 | 2.74 |
+
+(*S20 used coarser low bands.) The U exists at EVERY gate level, and the quiet arm's
+amplitude RELATIVE to its local baseline is roughly constant (~1.2-1.45×) — so **stack
+absorption is real but is NOT the main story: even the bare 1s corpus never shows
+MaxRider's 2-3× quiet dominance.**
+
+## The structural differences (in decreasing order of suspicion)
+
+1. 🛑 **The benchmark itself is suspect.** MaxRiderV1 runs on `diprider_v6_candidate`,
+   which carries the S39d lookahead pair (day-D ADJUSTED $1 floor = future-reverse-split
+   detector + episode-length warmup = outcome selection); the system is stamped INVALID
+   pending a clean-table rerun, and F22/F23 were deliberately run on the dirty table
+   (user: replicate first, clean later). The inflation concentrates in exactly the thin,
+   quiet, split-prone slices where the 5.90 cell lives. The honest MaxRider quiet number
+   is UNKNOWN and likely smaller.
+2. **Different universe.** diprider_v6_candidate = 1m-gated, rvol/dollar-floored,
+   IN-PLAY names. mr_candidate_1s_v2 = every tape with $2M by 09:45, no price floor, no
+   warmup — full of microcaps where "quiet" is the resting state, not a signal.
+3. **Different signal event.** MaxRider fires on 1m-bar SESSION highs (rare, a few per
+   day); the SpikeFader base samples every 1s 20m-channel high (dense). A dense
+   sampler's marginal signal is weaker, compressing all band contrasts.
+4. **Different exits.** MaxRider's 1m exit vs the 5m-low trail + MOC — PF scales are not
+   comparable across the two books even for identical selections.
+
+**Verdict: rr is a genuine but SECOND-ORDER lever on the 1s fader (best expressed as the
+quiet×continuous voice, S21-S22); MaxRider's decisive version was measured on an
+invalid universe with a rarer event and a different exit. ⏭ When the MaxRider clean-table
+rerun eventually happens, re-run F23's ladder first — it doubles as the honest benchmark
+for this comparison.**
