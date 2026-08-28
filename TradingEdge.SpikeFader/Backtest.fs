@@ -73,16 +73,15 @@ let defaultConfig =
                                         // signal (2026-08-27 clock fix — was 60 present bars)
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
-          // (MinAbsEff20m deleted — S40i: AbsEff20Lo is the abs floor)
-          MinVolat20m      = 0.004      // ⭐ SPEC v1.2 (S18): the 40bp volatility floor
+          MinVolat20m      = 0.004      // ⭐ the 40bp volatility floor (S12: a recording floor —
+                                        // the edge starts ~60bp; revisit at assembly)
           MaxVolat20m      = Double.PositiveInfinity
-          // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
-          // stack; disable individually for sweeps (see IntradayConfig for the
-          // off-conventions). Formulas identical to the recorded columns.
-          MinSpeed1m       = 0.02       // 🔄 spike speed > +2%/1m
-          MinDist1mLo      = 0.02      // ⭐ SPEC v1.9 (S40g): dist from 1m HIGH < -2% — the 1m
-                                        // conjunction (fast last minute AND a real 1m leg);
-                                        // first challenger to win at BOTH mc levels
+          // ⭐ S17 (user 2026-08-28): THE RATIFIED STACK replaces the FlushFader spec
+          // transplant — 15 unratified gates DELETED; these three were re-derived
+          // short-side on the bare corpus (S13-S15).
+          MinSpeed1m       = 0.02       // 🔄 spike speed > +2%/1m (S13: monotone, no knee at 2%)
+          MinDist1mLo      = 0.02       // dist from the 1m LOW > +2% — the speed conjunction (S13)
+          MinEff10m        = 0.3        // ⭐ S14: SIGNED eff_10m >= 0.3 — the vertical-spike floor
           HaltMinRunSec    = 58         // ⭐ S40x halt detector (user design; record-only)
           HaltMinRng300    = 0.04
           HaltMaxPreGap60  = 4        // ⭐ SPEC v2.6 (user, S42y): was 2. The detector must
@@ -91,43 +90,9 @@ let defaultConfig =
                                         // unclassified. Effect is small and all in the right
                                         // direction (S42w): +3.4% halted trips, S-tier cell
                                         // 224 -> 229, halt-band voice 5.86 -> 6.02.
-          MaxRSinceFlow    = 0.95      // ⭐ SPEC v2.1 (S40y): the falling-knife gate
-          CascadeHaltCount = 0 // 🔄 RECORD-ONLY (user 2026-08-26): LULD limit-UP cascade economics unmeasured short-side          // ⭐ SPEC v2.4 (S42n): the cascade-knife gate — reject
-          CascadeWindowSec = 1200       // ht>=3 signals < 20m after the last resume
-          ReopenBlockSec   = 0  // 🔄 RECORD-ONLY, see CascadeHaltCount        // ⭐ SPEC v2.5 (user, S42t): nothing in the first
-                                        // 2m after ANY resume (first 1-2 halts included)
-          MinZ20m          = 1.5       // ⭐ SPEC v2.3 (user, S41r): 20m vw-sigma z < -1.5 —
-                                        // trims the weak dip (429 @ 1.67; edge trim, both
-                                        // mc levels improve)
-          KBandLo          = 26         // highs_since_first_high ∈ [26, 50] — THE 2022 fix
-          KBandHi          = 50
-          AbsEff20Lo       = 0.3        // ⭐ S40i redesign: |eff_20m| ∈ [0.3, 0.5) — the exhaustion
-          AbsEff20Hi       = 0.5        // band, one |·| convention with |eff10| (sign = non-event)
-          MinAbsEff10m     = 0.15       // |eff_10m| >= 0.15 — no flat 10m tape
-          MinEff9Ema10m    = -0.10      // ⭐ SPEC v2.7 (S43al): eff_9ema_10m >= -0.10 — the whipsaw
-                                        // knife. ⚠ NEGATIVE bound; off = -infinity, NOT 0.
-          // ⭐ SPEC v2.2 (user, S41c/d): the LEG-NATIVE PAIR replaces the v2.0
-          // dvw < -5% + d20m-high < -10% distance pair (corr 0.946 = one
-          // feature twice; ssf x dlv corr 0.075). The v1.8 wall (DistHiLo)
-          // and both old fields are DELETED with their gates.
-          SsfLoBpm         = 25.0     // slope_since_flow >= -375bp/min (user tightened from
-                                        // -400; < -400 = 0.58, [-400,-375) = 0.63)
-          SsfHiBpm         = 375.0      // slope_since_flow < -25bp/min ([-25,0) = 1.96, >= 0 = 0.97)
-          MinDistLegVwap   = 0.03      // >= 3% below the leg's own vwap ([-3,0) = 1.15-1.71)
-          MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
-          MinHighs300       = 6          // ⭐ SPEC v1.4: >= 6 lows since the last 5m-high bounce (S38h)
-          MaxRngFront      = 0.8        // ⭐ SPEC v1.5: rng_300/rng_20m < 0.8 — no pure cliffs (S38k)
-          MaxAccel1020Bpm  = 80.0      // ⭐ SPEC v1.7 (S39o/r): accel(10m−20m) >= −80bp/min — reject
-                                        // the late-accelerating bleed band [−150,−80); −80 = the
-                                        // user's table boundary; all-years sweep at both mc levels
-          MinSlope20Bpm    = 10.0      // ⭐ SPEC v1.7 (user): slope_20m < −10bp/min — L-shape
-                                        // insurance (the 64-trip 0.438 flat-slope sliver)
-          MaxSlope5Bpm     = 400.0     // ⭐ SPEC v1.7 (user, S39s): slope_5m >= −400bp/min — no
-                                        // vertical last-5m collapse (66 trips @ 0.706/36.4%)
-          MinDv0945Tape    = 3e6        // ⭐ THE universe floor (S35): Σ vwap·vol over OUR 1s
-                                        // bars < 09:45, honest dollars — replaces the
-                                        // candidate dv_0945 gate (real dollars × adj_ratio,
-                                        // future-split-dependent; 20% of universe inflated in)
+          MinDv0945Tape    = 0.0        // ⭐ RECORD-FIRST (S17: the stack was derived with the
+                                        // floor OFF — the $3M cut is a post-hoc lever again;
+                                        // the honest tape-native floor when armed)
           // ⭐ price-acceptance stops (user, 2026-07-28): a fresh entry-channel low on
           // >=8x 1m/20m participation, or at <-1%/1m pace, is the market ACCEPTING the
           // lower price — stop out. S2 motivation: >=8x lows = PF 0.59-0.87 at entry.
@@ -306,6 +271,8 @@ CREATE TABLE trips (
     bars_since_first_high INTEGER, highs_since_first_high INTEGER,
     bars_since_first_high_300 INTEGER, highs_since_first_high_300 INTEGER,
     bars_since_first_high_600 INTEGER, highs_since_first_high_600 INTEGER,
+    highs_since_first_high_30 INTEGER, highs_since_first_high_60 INTEGER,
+    highs_since_first_high_120 INTEGER, highs_since_first_high_180 INTEGER,
     trade_idx INTEGER, open_at_signal INTEGER,
     vwap_1200 DOUBLE, chan_hi DOUBLE, chan_lo DOUBLE, exit_chan_lo DOUBLE,
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
@@ -519,6 +486,8 @@ type TripSink(outDir: string) =
             i p.BarsSinceFirstHigh; i p.HighsSinceFirstHigh
             i p.BarsSinceFirstHigh300; i p.HighsSinceFirstHigh300
             i p.BarsSinceFirstHigh600; i p.HighsSinceFirstHigh600
+            i p.HighsSinceFirstHigh30; i p.HighsSinceFirstHigh60
+            i p.HighsSinceFirstHigh120; i p.HighsSinceFirstHigh180
             i p.TradeIdx; i p.OpenAtSignal
             f p.Vwap1200; f p.ChanHi; f p.ChanLo; f p.ExitChanLo
             i p.Gap60; i p.Gap30; i p.Gap15

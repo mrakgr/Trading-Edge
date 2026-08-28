@@ -894,3 +894,35 @@ Reads:
    dip-and-recover cells.
 ⏭ Candidate tier-2 upgrade: k300 ≥ 60 ∧ k600 ≥ 90 (PF 2.45 @ 64,421) vs adopted 40/60
    (2.061 @ 144,724) — book-size trade-off, user's call at assembly.
+
+# S17 (2026-08-28) — ENGINE: spec transplant DELETED, stack baked as defaults, short-reset K ladder added, whitelist rerun
+
+**User directives (breakfast batch):** (1) add new-highs-since-last-{30s,1m,2m,3m}-low
+counters; (2) delete the FlushFader spec gates; (3) bake the ratified stack as the new
+default; (4) rerun on only the stack's ticker-days.
+
+## Engine changes (Intraday.fs / Backtest.fs / Program.fs)
+
+- **The 15-gate FlushFader spec transplant is DELETED** — config fields, gate expressions,
+  CLI flags, --base-run sentinels, banner. Gone: K band [26,50], |eff20| band, eff9ema,
+  ssf/dlv leg pair, rflow, z20, cascade/reopen, vol10rate, highs300 floor, rngfront,
+  accel1020, slope20/slope5. (All remain RECORDED columns — only the gates died.)
+- **Default gate set = the ratified stack**: speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3
+  (SIGNED SMA form — `MinEff10m` replaces `MinAbsEff10m`), + the signal definition
+  (volat ≥ 40bp, 20m channel, dv/tc 60s floors, barnum ≥ 22). `MinDv0945Tape` default
+  3e6 → 0 (the stack was derived with it OFF; it is a post-hoc lever again).
+  `--base-run` now zeroes just the four stack sentinels.
+- **New counters** `highs_since_first_high_{30,60,120,180}`: same new-high event as the
+  whole K family, legs reset by the existing brLo{30,60,120,180} breach trackers —
+  4 new INTEGER columns after the _600 pair. Bars twins not recorded (highs only).
+
+## The whitelist rerun (spikefader_kstudy)
+
+`spikefader_stk_cand` = mr_candidate_1s_v2 ∩ stack ticker-days = **25,736 tkds (2.2% of
+the 1.16M corpus)**; selected via `FF_CANDIDATE_TABLE`. Output:
+`data/spikefader_kstudy/` (+ .log). ⚠ Schema ≠ base_v2 (4 new columns) — do not mix dirs.
+
+**Smoke (July 2026): VALIDATED** — engine-gated trips = post-hoc SQL stack trips on
+base_v2, 8,088 = 8,088, zero key diffs both directions (the S19 bit-match discipline
+holds for the rewritten gate block). Counter ladder: k30 ≤ k60 ≤ k120 ≤ k180 ≤ k300,
+0 violations; none disarmed at signal; July PF 2.530 mc=0 on the whitelist (77.0% win).

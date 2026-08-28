@@ -402,6 +402,12 @@ type FlushPosition =
       HighsSinceFirstHigh300: int
       BarsSinceFirstHigh600: int
       HighsSinceFirstHigh600: int
+      // ⭐ S17: the short-reset ladder (record-only) — legs reset by the
+      // {30s,1m,2m,3m}-low breaches. S16d: the short reset dominates on disagreement.
+      HighsSinceFirstHigh30: int
+      HighsSinceFirstHigh60: int
+      HighsSinceFirstHigh120: int
+      HighsSinceFirstHigh180: int
       // ----- ⭐ S43bk (user, 2026-08-11): 1s TICK DIRECTION. A "tick" is the
       // sign of this present bar's vwap vs the PREVIOUS present bar's — the 1s
       // slim dataset has no close, so bar-vwap-to-bar-vwap IS the tick. Three
@@ -884,73 +890,20 @@ type IntradayConfig =
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
-      // ⭐ SPEC v1.2 GATES (baked 2026-07-29) — the S18 production stack as entry
-      // conditions, formulas IDENTICAL to the recorded columns. Each individually
-      // disable-able; a cold feature FAILS an armed gate (volatOk stance).
-      MinSpeed1m: float          // vwap/vwap_60_prev - 1 < this (flush speed). Default -0.02. 0 = off.
-      KBandLo: int               // highs_since_first_high >= this. Default 26. <= 0 = off.
-      KBandHi: int               // highs_since_first_high <= this. Default 50. <= 0 = off.
-      AbsEff20Lo: float          // ⭐ SPEC v2.0 REDESIGN (user, S40i): |eff_20m| >= this. Default 0.3.
-      AbsEff20Hi: float          // |eff_20m| < this. Default 0.5. lo <= 0 / hi = +Infinity = off.
-                                 // One |·| convention for both eff measures (mirrors |eff10|);
-                                 // ≡ the old signed band [-0.5,-0.3) to within ~30 trips — 99.9%
-                                 // of the residual universe has eff_20m < 0 (S40e). Unwarm eff
-                                 // fails the band like any other gate (S38n).
-      MinAbsEff10m: float        // |eff_10m| >= this. Default 0.15. 0 = off.
-      // ⭐ SPEC v2.7 (user, S43al): eff_9ema_10m >= this. Default -0.10 — the
-      // WHIPSAW knife. Below -0.10 the 20 slot-returns fought the 9-slot EMA
-      // more than they agreed with it: 211 trips of 7,789 at PF 1.23 / +0.35%,
-      // with a NEGATIVE expectancy ratio in 2020/2024/2025. The adjacent
-      // [-0.10, 0) band is the OPPOSITE — PF 8.06 — which is why the knife sits
-      // at -0.10 and NOT at 0 (a >= 0 cut LOWERS mc=3 PF, 3.899 -> 3.846).
-      // ⚠ THE THRESHOLD IS NEGATIVE, so 0 is a LIVE bound, not a sentinel.
-      // Off = NEGATIVE INFINITY only — the S43aj `--abs-eff20-hi 0` trap in
-      // mirror image. Verify from the BANNER, never from the flag.
-      MinEff9Ema10m: float
-      // ⭐ SPEC v2.2 (user, S41c/d): THE LEG-NATIVE PAIR replaces {dvw < -5%,
-      // d20m-high < -10%} — those two were ONE feature counted twice (corr
-      // 0.946); ssf (leg SPEED) x dlv (leg STRETCH) are corr 0.075 = two real
-      // dimensions. Beats the old pair at both mc levels (+0.066 mc=0 /
-      // +0.051 mc=1 for -8.6% trips). Unwarm slope / leg vwap FAILS an armed
-      // gate (at signal a leg always exists; defense only).
-      SsfLoBpm: float            // slope_since_flow x 6e5 >= this bp/min (no vertical crash;
-                                 // < -400 = 0.58, [-400,-375) = 0.63). Default -375 (user
-                                 // tightened from -400). -Infinity = off.
-      SsfHiBpm: float            // slope_since_flow x 6e5 < this bp/min (no shallow drift;
-                                 // [-25,0) = 1.96, >= 0 = 0.97). Default -25. >= 0 = off.
-      MinDistLegVwap: float      // vwap / (dv_leg/vol_leg) - 1 < this — stretched below the
-                                 // leg's OWN vwap (the [-3,0) shallow slice = 1.6). Default
-                                 // -0.03. >= 0 = off.
-      MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
-      MinHighs300: int            // ⭐ SPEC v1.4 (S38h): highs_since_first_high_300 >= this — kills the
-                                 // FAST-CHASE re-entry (5m bounce without a 20m leg reset leaves the
-                                 // K-band satisfied, re-signaling in seconds; that slice = PF 0.11 on
-                                 // the A++ cell). Default 6. 0 = off.
-      MaxRngFront: float         // ⭐ SPEC v1.5 (S38k): rng_300/rng_20m < this — reject the PURE
-                                 // CLIFF (the whole 20m range printed in the last 5m; monotone-worst
-                                 // at mc=1, 1.51/64.7). Degenerate/cold ranges FAIL (mirrors SQL
-                                 // nullif). Default 0.8. Infinity = off.
-      MaxAccel1020Bpm: float     // ⭐ SPEC v1.7 (S39o/r): (slope_10m − slope_20m)×6e5 >= this bp/min —
-                                 // reject the LATE-ACCELERATING decline (the [−150,−80) bleed band:
-                                 // 1.09/1.32/1.28 across three buckets; the RAW axis carries the
-                                 // signal, vol-normalizing washes it out, S39q). Default −80.
-                                 // −Infinity = off. Cold OLS FAILS an armed gate.
-      MinSlope20Bpm: float       // ⭐ SPEC v1.7 (user, S39m): slope_20m×6e5 < this bp/min — the
-                                 // L-SHAPE INSURANCE (flat 20m slope + dist ≤ −10% ⇒ tail-compressed
-                                 // late cliff; the 64-trip 0.438/43.8% sliver). Default −10.
-                                 // >= 0 = off. Cold OLS FAILS an armed gate.
-      MaxSlope5Bpm: float        // ⭐ SPEC v1.7 (user, S39s): slope_5m×6e5 >= this bp/min — reject the
-                                 // VERTICAL last-5m collapse (under the other v1.7 gates the < −400
-                                 // slice = 66 trips @ 0.706/36.4%, four years with ZERO winners).
-                                 // Default −400. −Infinity = off. Cold OLS FAILS an armed gate.
-      MinDv0945Tape: float       // ⭐ tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
+      // ⭐ THE RATIFIED STACK (S13-S15, 2026-08-28). The FlushFader spec transplant is
+      // GONE (S17): those 15 gates were never re-derived short-side, and the gate-by-gate
+      // rebuild replaced them with the three below, each re-derived on the bare corpus.
+      // Each individually disable-able; a cold feature FAILS an armed gate (volatOk stance).
+      MinSpeed1m: float          // vwap/vwap_60_prev - 1 > this (spike speed, S13). Default +0.02. <= 0 = off.
+      MinDist1mLo: float         // vwap/lo_60 - 1 > this — dist from the 1m LOW, the speed
+                                 // conjunction (S13: the two legs are one lever, AND kept for
+                                 // robustness). Default +0.02. <= 0 = off. Post-push max60 = lo_60.
+      MinEff10m: float           // ⭐ S14/S15: SIGNED eff_10m >= this — the vertical-spike floor
+                                 // (SMA slot form; monotone in BOTH mc views; EWMA forms are
+                                 // non-monotone and must not gate). Default +0.3. <= 0 = off.
+      MinDv0945Tape: float       // tape-native dv_0945 floor (Σ vwap·vol, 1s bars < 09:45).
                                  // Default 0 = RECORD-FIRST; the live-scanner-consistent
                                  // replacement for the candidate-table dv_0945 gate.
-      MinDist1mLo: float         // ⭐ SPEC v1.9 (user, S40g): vwap/lo_60 - 1 < this — the 1m-leg
-                                 // CONJUNCTION with the speed gate (fast last minute AND a real
-                                 // leg below the 1m high; the shallow slice above −2% = 2,261
-                                 // trips @ ~1.6, slot thieves — first both-mc-levels winner).
-                                 // Default −0.02. >= 0 = off. Same post-push max60 as lo_60.
       // ⭐ S40x HALT DETECTOR (user design, 2026-08-01): a tradeless run counts
       // as a HALT — and is EXCLUDED from the gap_adj_* counters — iff, at the
       // last bar BEFORE the hole: run >= HaltMinRunSec, 5m range (pre-hole,
@@ -963,33 +916,6 @@ type IntradayConfig =
       HaltMinRunSec: int         // default 58 (LULD pause = 5min nominal; jitter tolerance)
       HaltMinRng300: float       // default 0.04 (the LULD trigger state, pre-hole)
       HaltMaxPreGap60: int       // default 2 (< 2 missing seconds in the pre-halt minute)
-      MinZ20m: float             // ⭐ SPEC v2.3 (user, S41r): the 20m vw-sigma z (LOG space) < this —
-                                 // z = (ln vwap - L)/sigma_L on the 1200-bar window's own volume-
-                                 // weighted ln-price moments. Trims the WEAK DIP ([-1.5,-1) = 1.67
-                                 // full / 1.80 g60 — the flush that barely dents its own 20m
-                                 // dispersion; monotone on clean tape). Default -1.5. >= 0 = off.
-                                 // Cold/degenerate sigma FAILS an armed gate. (log vs normal =
-                                 // 0.997 — convention only.)
-      MaxRSinceFlow: float       // ⭐ SPEC v2.1 (user, S40y): r_since_flow >= this — reject the
-                                 // PERFECT-LINE flush (the leg one clean regression line since
-                                 // its first low = a drift, not a capitulation; the falling-knife
-                                 // quantifier: < -0.95 = 1.22 on 406). Default -0.95. <= -1 = off.
-                                 // Unwarm (leg < 3 bars) fails an armed gate.
-      CascadeHaltCount: int      // ⭐ SPEC v2.4 (user, S42n): the CASCADE-KNIFE gate — reject a
-                                 // signal iff haltsToday >= this AND secs since last resume <
-                                 // CascadeWindowSec. The halt NUMBER matters ONLY in the
-                                 // immediate aftermath (<20m: ht=3 = 1.25 / ht>=4 = 2.09 w/
-                                 // 2022 0.08; by [20,80m) every tier reverts fine). Both
-                                 // counters are causal running state. Default 3. 0 = off.
-      CascadeWindowSec: int      // the post-resume window (default 1200 = 20m)
-      ReopenBlockSec: int        // ⭐ SPEC v2.5 (user, S42t): no fade within this many
-                                 // seconds of ANY resume, the first 1-2 halts INCLUDED.
-                                 // Rationale (S42p): [2,5m) post-resume is where the next
-                                 // LULD trigger decides itself — a first-halt name still
-                                 // printing new lows there RE-HALTS (that state is
-                                 // structurally EMPTY for ht=1), so a sub-2m entry is
-                                 // taken blind to a cascade test the tape is about to
-                                 // run. Default 120. 0 = off. Subsumes the ht>=3 case.
       // ⭐ PRICE-ACCEPTANCE STOPS (user, 2026-07-28): while holding, exit if a NEW
       // entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= VolStopRatio, or
       // (tc_60/60)/(tc_1200/1200) >= TcStopRatio, or at vwap/vwap_60_prev - 1 <
@@ -1107,6 +1033,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // RECORD-ONLY: no gate reads them.
     let counters300 = NewHighCounters()
     let counters600 = NewHighCounters()
+    // ⭐ S17 (user 2026-08-28): the short-reset ladder — same new-high event, legs
+    // reset by the {30s,1m,2m,3m}-low breaches. S16d: when the 5m and 10m counters
+    // disagree (dip-and-recover), the SHORT one dominates — study the fast end.
+    let counters30 = NewHighCounters()
+    let counters60 = NewHighCounters()
+    let counters120 = NewHighCounters()
+    let counters180 = NewHighCounters()
     // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols300 = OlsSlopeMa 300                  // ⭐ S39p (user): the 5m slope — the missing
@@ -2170,6 +2103,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         counters.Step()
         counters300.Step()
         counters600.Step()
+        counters30.Step()
+        counters60.Step()
+        counters120.Step()
+        counters180.Step()
         // ⭐ S43bn: fold this bar's tick into the LEG totals. Runs with Step (so
         // it counts bars ELAPSED since the first low) and BEFORE the arming
         // branch below, which seeds the counters from the first-low bar itself.
@@ -2226,6 +2163,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             counters.OnNewHigh bar.etSec
             counters300.OnNewHigh bar.etSec
             counters600.OnNewHigh bar.etSec
+            counters30.OnNewHigh bar.etSec
+            counters60.OnNewHigh bar.etSec
+            counters120.OnNewHigh bar.etSec
+            counters180.OnNewHigh bar.etSec
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -2410,142 +2351,32 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
              || (match ew40.State with ValueSome v -> v >= cfg.MinVolat20m | ValueNone -> false))
             && (Double.IsPositiveInfinity cfg.MaxVolat20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVolat20m | ValueNone -> true))
-        // ⭐ SPEC v1.2 GATES — expressions mirror the recorded columns exactly, so an
-        // engine-gated run must bit-match the post-hoc SQL on the same trips (S19).
+        // ⭐ THE RATIFIED STACK GATES (S13-S15) — expressions mirror the recorded
+        // columns exactly, so an engine-gated run must bit-match the post-hoc SQL
+        // on the same trips (S19 discipline).
         let speedOk =
             cfg.MinSpeed1m <= 0.0
             || (match vwap60Prev with
                 | ValueSome pv when pv > 0.0 -> bar.vwap / pv - 1.0 > cfg.MinSpeed1m
                 | _ -> false)
-        // ⭐ SPEC v1.9 (S40g): post-push max60, identical to the recorded lo_60
-        // (no fullness requirement — the 1200-bar signal channel guarantees warmth).
+        // post-push max60, identical to the recorded lo_60 (no fullness
+        // requirement — the 1200-bar signal channel guarantees warmth).
         let d1mOk =
             cfg.MinDist1mLo <= 0.0
             || (match min60.State with
                 | ValueSome l when l > 0.0 -> bar.vwap / l - 1.0 > cfg.MinDist1mLo
                 | _ -> false)
-        // ⭐ SPEC v2.1 (S40y): reject the perfect-line flush. Unwarm r fails.
-        let rsfOk =
-            cfg.MaxRSinceFlow >= 1.0
-            || (let r = olsSinceFlow.R
-                not (Double.IsNaN r) && r <= cfg.MaxRSinceFlow)
-        // ⭐ SPEC v2.3 (S41r): same ln-moment sums as the recorded dlv_1200/dlv2_1200.
-        let z20Ok =
-            cfg.MinZ20m <= 0.0
-            || (match dlvSum1200.State, dlv2Sum1200.State, volSum1200.State with
-                | ValueSome dl, ValueSome dl2, ValueSome v
-                    when volSum1200.Count = volSum1200.WindowSize && v > 0.0 ->
-                    let mean = dl / v
-                    let var = dl2 / v - mean * mean
-                    var > 0.0 && (log bar.vwap - mean) / sqrt var > cfg.MinZ20m
-                | _ -> false)
-        // ⭐ SPEC v2.4/v2.5: the cascade-knife gate — no fading the LULD
-        // elevator. Mirrors the recorded halts_today / secs_since_halt exactly.
-        //
-        // Stated as the rule reads: HOW LONG must the tape run after a resume
-        // before we are willing to fade it? A case analysis on the halt count,
-        // whose three cases PARTITION ht (so they cannot overlap):
-        //     ht = 0        never halted today  ->  no wait
-        //     1 <= ht < N   ordinary halt       ->  ReopenBlockSec    (2m)
-        //     ht >= N       serial breaker      ->  CascadeWindowSec  (20m)
-        // ⚠ The middle case's UPPER bound is load-bearing. Written without it,
-        // as `(ht>=N & ssh>=20m) || (ht>=1 & ssh>=2m) || ht=0`, the weaker
-        // clause is satisfied by ht>=N names too and re-admits every serial
-        // breaker at ssh in [2m,20m) — 568 trips, the PF~1.5 core of exactly
-        // what this gate exists to remove.
-        // Each knob is independently switchable (0 = that rule off) and
-        // --base-run zeroes both, which zeroes every wait.
-        let cascadeOk =
-            let requiredWait =
-                if haltsToday = 0 then 0
-                elif cfg.CascadeHaltCount > 0 && haltsToday >= cfg.CascadeHaltCount then cfg.CascadeWindowSec
-                else cfg.ReopenBlockSec
-            requiredWait <= 0 || bar.etSec - lastHaltEnd >= requiredWait
-        // ⭐ SPEC v2.2 (S41c/d): the leg-native pair. Same slope/leg-cum sources
-        // as the recorded ols_slope_since_flow and dv_leg/vol_leg (SQL twins).
-        let ssfOk =
-            let s = olsSinceFlow.Slope * 6e5
-            (Double.IsNegativeInfinity cfg.SsfLoBpm
-             || (not (Double.IsNaN s) && s >= cfg.SsfLoBpm))
-            && (Double.IsPositiveInfinity cfg.SsfHiBpm
-                || (not (Double.IsNaN s) && s < cfg.SsfHiBpm))
-        let dlvOk =
-            cfg.MinDistLegVwap <= 0.0
-            || (let v = cumVol - legVolAnchor
-                let dv = cumDv - legDvAnchor
-                not (Double.IsNaN v) && v > 0.0 && dv > 0.0
-                && bar.vwap / (dv / v) - 1.0 > cfg.MinDistLegVwap)
-        let kBandOk =
-            (cfg.KBandLo <= 0 || counters.HighsSinceFirstHigh >= cfg.KBandLo)
-            && (cfg.KBandHi <= 0 || counters.HighsSinceFirstHigh <= cfg.KBandHi)
-        let eff20Signed =
-            match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
-            | ValueSome cur, ValueSome old, ValueSome s
-                when slotAbsSum.Count = slotAbsSum.WindowSize && old > 0.0 && s > 0.0 ->
-                ValueSome (log (cur / old) / s)
-            | _ -> ValueNone
-        let eff20BandOk =
-            // ⭐ S38n (SPEC v1.6): COLD eff_20m FAILS an armed edge — standard stance.
-            // Cold-at-signal = the one-slot warm-up gap (channel warm at 1,200 bars,
-            // eff at ~1,230) — a weak early-morning thin-tape fringe (471 trips @
-            // 1.78, hurting 2023) — or a degenerate dead tape (Σ|r| = 0). S40i
-            // redesign: ABSOLUTE band |eff_20m| ∈ [lo, hi) — SQL twin:
-            // abs(eff_20m) >= 0.3 AND abs(eff_20m) < 0.5.
-            (cfg.AbsEff20Lo <= 0.0
-             || (match eff20Signed with ValueSome e -> abs e >= cfg.AbsEff20Lo | ValueNone -> false))
-            && (Double.IsPositiveInfinity cfg.AbsEff20Hi
-                || (match eff20Signed with ValueSome e -> abs e < cfg.AbsEff20Hi | ValueNone -> false))
+        // ⭐ S14: SIGNED eff_10m floor (same slot chain as the recorded eff_10m;
+        // cold FAILS an armed gate — standard stance).
         let eff10Ok =
-            cfg.MinAbsEff10m <= 0.0
+            cfg.MinEff10m <= 0.0
             || (match slotLag20.Last, slotLag20.Lagged, slotAbsSum20.State with
                 | ValueSome cur, ValueSome old, ValueSome s
                     when slotAbsSum20.Count = slotAbsSum20.WindowSize && old > 0.0 && s > 0.0 ->
-                    abs (log (cur / old) / s) >= cfg.MinAbsEff10m
-                | _ -> false)
-        // ⭐ S43al: the eff_9ema_10m whipsaw knife. Same window and warmth guard
-        // as eff10Ok (slotSgnSum20 and slotAbsSum20 are pushed on identical
-        // slots, so one Count check covers both); cold FAILS, the standard
-        // armed-gate stance. SQL twin: eff_9ema_10m >= -0.10.
-        let eff9Ok =
-            Double.IsNegativeInfinity cfg.MinEff9Ema10m
-            || (match slotSgnSum20.State, slotAbsSum20.State with
-                | ValueSome num, ValueSome den
-                    when slotAbsSum20.Count = slotAbsSum20.WindowSize && den > 0.0 ->
-                    num / den >= cfg.MinEff9Ema10m
-                | _ -> false)
-        let vol10Ok =
-            // clock fix: /10 and /60 are seconds — read the time sums
-            cfg.MinVol10Rate <= 0.0
-            || (match tVolSum10.State, tVolSum60.State with
-                | ValueSome v10, ValueSome v60 when v60 > 0.0 ->
-                    (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
+                    log (cur / old) / s >= cfg.MinEff10m
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
-        let highs300Ok = cfg.MinHighs300 <= 0 || counters300.HighsSinceFirstHigh >= cfg.MinHighs300
-        let frontOk =
-            Double.IsPositiveInfinity cfg.MaxRngFront
-            || chanRng max300 min300 / chanRng max1200 min1200 < cfg.MaxRngFront
-        // ⭐ SPEC v1.7 (S39o/r): OLS gates. ols1200 warms exactly with the entry
-        // channel (both need 1200 present bars) so at any signal both slopes are
-        // warm; the ValueNone arms are pure defense.
-        let accelOk =
-            Double.IsPositiveInfinity cfg.MaxAccel1020Bpm
-            || (match ols600.State, ols1200.State with
-                | ValueSome m6, ValueSome m12
-                    when ols600.Count = ols600.WindowSize && ols1200.Count = ols1200.WindowSize ->
-                    (m6 - m12) * 6e5 <= cfg.MaxAccel1020Bpm
-                | _ -> false)
-        let slope20Ok =
-            cfg.MinSlope20Bpm <= 0.0
-            || (match ols1200.State with
-                | ValueSome m when ols1200.Count = ols1200.WindowSize -> m * 6e5 > cfg.MinSlope20Bpm
-                | _ -> false)
-        let slope5Ok =
-            Double.IsPositiveInfinity cfg.MaxSlope5Bpm
-            || (match ols300.State with
-                | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 <= cfg.MaxSlope5Bpm
-                | _ -> false)
-        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && highs300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && eff10Ok && dv0945TapeOk
         if inWindow && channelWarm && isNewHigh && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
@@ -2690,6 +2521,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       HighsSinceFirstHigh = counters.HighsSinceFirstHigh
                       BarsSinceFirstHigh300 = counters300.BarsSinceFirstHigh
                       HighsSinceFirstHigh300 = counters300.HighsSinceFirstHigh
+                      HighsSinceFirstHigh30 = counters30.HighsSinceFirstHigh
+                      HighsSinceFirstHigh60 = counters60.HighsSinceFirstHigh
+                      HighsSinceFirstHigh120 = counters120.HighsSinceFirstHigh
+                      HighsSinceFirstHigh180 = counters180.HighsSinceFirstHigh
                       BarsSinceFirstHigh600 = counters600.BarsSinceFirstHigh
                       HighsSinceFirstHigh600 = counters600.HighsSinceFirstHigh
                       TradeIdx = tradeIdx
@@ -3055,6 +2890,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // 20m-high bar implies both, keeping all three counters in sync.
         if brLo300.BarsSinceBreach = 0 then counters300.Reset()
         if brLo600.BarsSinceBreach = 0 then counters600.Reset()
+        if brLo30.BarsSinceBreach = 0 then counters30.Reset()
+        if brLo60.BarsSinceBreach = 0 then counters60.Reset()
+        if brLo120.BarsSinceBreach = 0 then counters120.Reset()
+        if brLo180.BarsSinceBreach = 0 then counters180.Reset()
         // the aux-mark lookback: remember this bar as "the previous bar"
         // (+ S40x pre-hole snapshots: this bar's adjusted 1m gap and post-push
         // 5m range become the classifier inputs if the NEXT bar reveals a hole)
