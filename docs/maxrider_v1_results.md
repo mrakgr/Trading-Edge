@@ -1114,3 +1114,31 @@ table permanent in trading.db). All pre-F24 tables quote contaminated numbers.
 **This also resolves SpikeFader S24**: the clean MaxRider quiet lever (~2.8-3.2) is the
 SAME order as the 1s fader's quiet cells (2.5-2.9) — the two systems agree once measured
 on honest universes.
+
+### F24b — the contamination mechanism, verified per-trip (user challenge: "the $1 floor should hurt a short system")
+
+Both runs used the identical range (2020-01-01..2026-06-30 in both log headers) — no date
+mismatch. The mechanism is admission-side, and the dirty CSV's own `adj_ratio` column
+proves it. Dirty corpus, pops > +2%, by rr band:
+
+| rr band | n | adj_ratio>1.5 % | adj_ratio>10 % | adj p90 | pf (all) | pf adj≤1.5 | pf adj>1.5 |
+|---|---|---|---|---|---|---|---|
+| < 0.2 | 5,631 | **93.2** | 84.0 | 20,000 | 5.902 | **2.310** | 6.434 |
+| 0.2-0.5 | 9,256 | 76.7 | 65.2 | 5,000 | 2.736 | 1.841 | 3.159 |
+| 0.5-0.7 | 7,691 | 70.4 | 58.6 | 3,200 | 2.202 | 1.971 | 2.309 |
+| ≥ 0.7 | 96,926 | 70.8 | 58.6 | 2,592 | 1.522 | 1.165 | 1.731 |
+
+1. **The dirty deep-quiet cell was 93% future-reverse-split names** (adj p90 = 20,000×).
+   Removing them leaves PF 2.310 — the residue ladder (2.31 / 1.84 / 1.97 / 1.17)
+   reproduces the CLEAN ladder (2.82 / ~2.1 / 1.95 / 1.34) almost exactly. The
+   contamination attribution is confirmed trip-level, not inferred.
+2. **Why a PRICE FLOOR helped a SHORT book** (the user's point cuts the other way only
+   on the exclusion side): among raw sub-$1 names, "ADJUSTED close ≥ $1" admits
+   precisely those with large future adj_ratio = future reverse-splitters = names in
+   TERMINAL DECLINE. Exclusion hurts shorts; this admission RULE is a future-decliner
+   selector — a gift to shorts. And leg (a), the $3M floor on adj-multiplied dollars,
+   let those genuinely illiquid names pass liquidity: ~70% of ALL dirty pop trips were
+   adj-affected, concentrated to 93% in the quiet band (illiquid ⇒ quiet).
+3. The two legs compound: fake-liquidity admission puts the walking dead INTO the book;
+   their terminal drift pays the short; their thinness lands them in the quiet band —
+   manufacturing the 5.9.
