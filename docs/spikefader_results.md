@@ -1493,3 +1493,43 @@ vs S19; 2022 stays the floor.
 the book.** For calibration: the old 15-gate transplant read 93.8 bp/day blended; the
 six-gate honest stack now clears it in every year but 2023's 80.7 ≈ its 64.6, with
 2026 at 227 vs 86.5. Costs/borrow/stops still unmodeled (standing caveat).
+
+# S27 (2026-08-28) — rr on the NEW stack (+ the trip-count question vs MaxRider)
+
+Frame: the S26 locked stack (111,460 mc=0 / 6,295 mc=1). User: MaxRider's pops frame had
+~17.8k quiet (<1) and only 4.4k loud (≥5) — how does SpikeFader split?
+
+## The count answer: the two systems are volume-arm MIRRORS
+
+| arm | MaxRider mc=0 (pops>2%) | SpikeFader mc=0 (new stack) | SpikeFader mc=1 |
+|---|---|---|---|
+| quiet (rr < 1) | ~17,800 | 13,990 | 1,506 |
+| loud (rr ≥ 5) | 4,417 | **24,405** | 1,566 |
+
+MaxRider is quiet-heavy (rare 1m session-high events on in-play names); SpikeFader is
+LOUD-heavy — the 1s sampler fires repeatedly on blowout days and the maturity stack
+selects into them. At true mc=1 the arms balance (~1.5k each).
+
+## The U on the new stack — the gap gate PURIFIED the quiet arm
+
+| rr band | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf |
+|---|---|---|---|---|
+| <0.3 | 554 | 3.156 | 92 | **3.888** |
+| 0.3-0.5 | 2,110 | **4.350** | 326 | **3.255** |
+| 0.5-0.75 | 4,667 | 3.712 | 720 | 2.100 |
+| 0.75-1 | 6,659 | 2.285 | 1,062 | 1.837 |
+| 1-1.5 | 15,142 | 1.881 | 1,871 | 1.535 |
+| 1.5-2 | 14,896 | 1.654 | 1,946 | 1.608 |
+| 2-3 | 21,159 | 2.287 | 2,306 | 1.719 |
+| 3-5 | 21,868 | 2.275 | 2,044 | 1.644 |
+| ≥5 | 24,405 | 2.759 | 1,566 | 1.982 |
+
+Arm gates at true mc=1: **rr < 0.75 → 2.170 @ 879** (was 1.698 pre-gap-gate — the
+continuity requirement is now baked into the stack, so the naked quiet arm carries most
+of the old quiet×continuous cell); rr < 1 → 2.022 @ 1,506; rr ≥ 5 → 1.982 @ 1,566
+(unchanged from S20d's 1.962); baseline 1.642.
+
+**Reads:** (1) deep quiet (<0.5) is now A-tier on the stack itself — 3.3-3.9 at mc=1 on
+418 trips. (2) The quiet arm beats the loud arm in PF again (2.17 vs 1.98) now that its
+holes are gone; loud still owns the volume of opportunities at mc=0. (3) The voice
+family updates: quiet-rr (2.17 @ 879) and loud-rr (1.98 @ 1,566) on the NEW stack.
