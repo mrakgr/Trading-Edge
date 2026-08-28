@@ -472,17 +472,22 @@ whether the floor should be HIGHER. Testing below 40bp needs a base re-run with
 band reads 2.14 at mc=0 and collapses to 1.03 at mc=1, the usual multi-signal inflation.
 pf_clip = pf everywhere: no win exceeds +50% on this book.)
 
-## mc=1 floor sweep (kept book: volat_20m ≥ F)
+## mc=1 floor sweep (kept book: volat_20m ≥ F) — AMENDED same day (S12d)
 
-| floor | n | avg% | p1 | win% | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 40bp | 107,770 | 0.160 | −16.4 | 64.1 | 1.124 | 0.96 | 1.10 | 1.10 | 1.19 | 1.22 | 1.21 | 1.13 |
-| 50bp | 67,736 | 0.284 | −20.2 | 65.6 | 1.185 | 1.04 | 1.17 | 1.17 | 1.22 | 1.26 | 1.27 | 1.15 |
-| 60bp | 46,993 | 0.395 | −23.2 | 66.7 | 1.227 | 1.08 | 1.19 | 1.22 | 1.26 | 1.29 | 1.30 | 1.21 |
-| 70bp | 33,288 | 0.477 | −26.4 | 67.3 | 1.244 | 1.09 | 1.21 | 1.28 | 1.25 | 1.29 | 1.30 | 1.25 |
-| 80bp | 23,728 | 0.558 | −29.7 | 67.9 | 1.256 | 1.11 | 1.20 | 1.26 | 1.27 | 1.28 | 1.35 | 1.26 |
-| 100bp | 12,419 | 0.641 | −37.4 | 68.9 | 1.237 | 1.14 | 1.25 | 1.19 | 1.18 | 1.26 | 1.32 | 1.24 |
-| 120bp | 6,921 | 0.715 | −44.1 | 69.2 | 1.223 | 1.15 | 1.24 | 1.22 | 1.28 | 1.24 | 1.28 | 1.13 |
+⚠ The original sweep filtered the bare-frame mc=1 book (replay-then-filter — the weaker
+order). Amended per user: filter FIRST, replay inside each floor's frame (a gate frees the
+ticker-day slot for later passing signals). Levels rise slightly; shape unchanged; the
+80bp peak sharpens.
+
+| floor | n | avg% | p1 | win% | pf | eqw bp/d | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 40bp | 107,770 | 0.160 | −16.4 | 64.1 | 1.124 | 30.1 | 0.96 | 1.10 | 1.10 | 1.19 | 1.22 | 1.21 | 1.13 |
+| 50bp | 71,352 | 0.282 | −19.8 | 65.5 | 1.186 | 47.7 | 1.04 | 1.18 | 1.17 | 1.21 | 1.26 | 1.27 | 1.16 |
+| 60bp | 50,211 | 0.393 | −23.0 | 66.7 | 1.229 | 66.4 | 1.09 | 1.21 | 1.22 | 1.25 | 1.29 | 1.31 | 1.18 |
+| 70bp | 36,038 | 0.486 | −26.2 | 67.5 | 1.252 | 85.8 | 1.12 | 1.24 | 1.27 | 1.26 | 1.29 | 1.33 | 1.21 |
+| 80bp | 26,120 | 0.596 | −29.5 | 68.2 | **1.278** | 103.9 | 1.14 | 1.26 | 1.29 | 1.30 | 1.30 | 1.37 | 1.24 |
+| 100bp | 14,092 | 0.715 | −37.1 | 69.4 | 1.269 | 128.9 | 1.22 | 1.22 | 1.26 | 1.21 | 1.27 | 1.37 | 1.26 |
+| 120bp | 8,066 | 0.778 | −43.9 | 69.4 | 1.245 | 147.0 | 1.15 | 1.26 | 1.24 | 1.25 | 1.26 | 1.33 | 1.18 |
 
 A 300bp ceiling is cosmetic at any floor (n ≥300bp = 111; PF moves in the 3rd decimal).
 
@@ -491,9 +496,10 @@ A 300bp ceiling is cosmetic at any floor (n ≥300bp = 111; PF moves in the 3rd 
 1. **The [40, 50)bp band — 37% of the mc=1 book — is under water standalone** (PF 0.945,
    avg −5bp/trip), and [50, 60) is barely break-even. On the bare frame the floor earns its
    keep only from ~60bp.
-2. **Monotone rise to a flat top at 70-100bp** (PF 1.24-1.26), every year ≥ 1.08 from floor
-   60 up. Per-trip avg keeps rising past that (0.72% at 120bp) but buys it with tail
-   (p1 −16% → −44%): higher floors are a sizing/stop question, not a free PF gain.
+2. **Monotone rise to a peak at 80bp** (PF 1.278, every year ≥ 1.14; ≥ 1.09 from floor 60
+   up). Per-trip avg and eqw/day keep rising past that (0.78% / 147bp at floor 120) but buy
+   it with tail (p1 −16% → −44%) and book size (108k → 8k): higher floors are a
+   sizing/stop question, not a free PF gain.
 3. 2020 is the weak year at every cut (1.04-1.15) — the short fader's worst regime, worth
    remembering as gates stack.
 4. ⚠ Interaction note from the aborted spec-frame run (before the from-scratch pivot, in
