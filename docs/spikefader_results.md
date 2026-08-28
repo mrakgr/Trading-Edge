@@ -570,3 +570,74 @@ pass has to re-earn honestly.
 
 **Verdict: the speed pair is real and monotone; 2% is defensible but not special — the
 threshold choice is a book-size decision, deferred until the stack is assembled.**
+
+# S14 (2026-08-28) — feature 3: EFFICIENCY, SMA vs EWMA forms (user question: which is better NOW that both are recorded)
+
+Frame: the speed stack (speed_1m > 2% AND dist_lo > 2%), mc=1 replayed inside it
+(72,682 trips), banded by each measure. corr(SMA, EWMA) on the book: 20m 0.644, 10m 0.510 —
+genuinely different measures. Full tables in scratch `sf_s14.out` / `sf_s14b.out`.
+
+## ⭐ THE SHAPE: the two SMA horizons point in OPPOSITE directions
+
+**SIGNED eff_20m (SMA)** — monotone DECREASING (backdrop should be inefficient/declining):
+
+| band | n | pf |
+|---|---|---|
+| [−.3,−.15) | 569 | 1.677 |
+| [−.15,0) | 12,547 | 1.283 |
+| [0,.15) | 27,024 | 1.202 |
+| [.15,.3) | 20,133 | 1.122 |
+| [.3,.5) | 9,397 | 1.104 |
+| [.5,.75) | 1,185 | 1.133 |
+
+**SIGNED eff_10m (SMA)** — monotone INCREASING (the spike itself should be efficient):
+
+| band | n | pf |
+|---|---|---|
+| [−.15,0) | 5,853 | 1.018 |
+| [0,.15) | 16,972 | 1.120 |
+| [.15,.3) | 20,802 | 1.200 |
+| [.3,.5) | 19,555 | 1.286 |
+| [.5,.75) | 7,642 | 1.225 |
+| ≥.75 | 981 | 1.371 |
+
+Archetype: a CLEAN VERTICAL SPIKE (efficient 10m) out of a CHOPPY/DECLINING backdrop
+(inefficient 20m) is the fade; an efficient 20m uptrend that keeps popping is the danger.
+
+**The EWMA forms are NON-MONOTONE** — both horizons hump then dip at [.15,.3)
+(eff_ewma_20m: 0.980 there vs 1.483 at [−.15,0); eff_ewma_10m: 1.060 vs 1.277) and flip
+sign again above. Mechanism: EWMA recency-weighting leaks the spike itself into the "20m"
+measure, blending the two opposing horizons into one number. **Verdict: SMA wins — clean
+monotone structure at both horizons, opposite signs, interpretable. EWMA eff is a mixed-
+horizon measure and should not gate.**
+
+## 2D joint (mc=1 inside speed stack) — pf (n)
+
+| eff_20m \ eff_10m | <0 | 0-.15 | .15-.3 | .3-.5 | ≥.5 |
+|---|---|---|---|---|---|
+| <−.15 | 1.81 (264) | 1.87 (144) | 1.74 (119) | 1.02 (71) | 3.73 (12) |
+| −.15-0 | 1.01 (1,523) | 1.30 (3,093) | 1.26 (3,803) | 1.44 (3,231) | 1.36 (897) |
+| 0-.15 | 1.01 (2,532) | 1.13 (6,684) | 1.24 (8,197) | 1.29 (7,287) | 1.24 (2,324) |
+| .15-.3 | 1.01 (1,909) | 1.03 (5,195) | 1.14 (5,922) | 1.24 (5,168) | 1.21 (1,939) |
+| ≥.3 | 0.90 (502) | 1.03 (1,856) | 1.10 (2,761) | 1.21 (3,798) | 1.22 (3,451) |
+
+## Candidate gates on top of speed>2% (mc=1 INSIDE each frame)
+
+| gate | n | avg% | p1 | pf | eqw bp/d | worst yr |
+|---|---|---|---|---|---|---|
+| (speed stack alone, S13) | 72,682 | 0.28 | −19.6 | 1.186 | 50.2 | — |
+| old transplant \|e20\|∈[.3,.5) & \|e10\|≥.15 | 25,463 | 0.50 | −22.1 | 1.313 | 73.6 | 1.19 (2020) |
+| A: e20<.15 & e10>.15 | 32,681 | 0.44 | −19.6 | 1.300 | 59.3 | 1.20 (2026) |
+| B: e20<0 & e10>.15 | 8,545 | 0.52 | −19.5 | 1.347 | 69.7 | 1.15 (2021) |
+| C: e20<0 & e10>.3 | 4,520 | 0.59 | −19.0 | 1.395 | 72.6 | 1.11 (2021) |
+| D: e20<.15 & e10>.3 | 21,108 | 0.53 | −20.4 | 1.366 | 68.2 | 1.24 (2021) |
+
+⚠ **The three-mc lesson recurred within this session**: the old transplant band reads PF
+~1.10-1.14 in the band tables (bare-replay banding) but 1.313 replayed inside its own frame
+— gating frees ticker-day slots for later qualifying signals. Band tables rank shapes;
+only inside-frame replays rank gates.
+
+**Verdict: efficiency is a real second lever on top of speed. SMA forms only. D
+(e20<.15 & e10>.3) is the leading candidate — PF 1.366 on a 21k book, every year ≥1.24,
+better p1 than the transplant — but the transplant band is NOT dead (best eqw/day at 73.6);
+final threshold choice deferred to stack assembly.**
