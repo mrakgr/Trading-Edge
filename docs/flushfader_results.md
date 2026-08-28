@@ -16530,3 +16530,19 @@ features attached: `data/equity/flushfader/v45_shape/`.
 > (~13 h; the builder refuses to mix precisions in one corpus), and rebuild the
 > universe from those bars. See `data/intraday_1s_slim/PRECISION.txt` and
 > [[project_ms_corpus_2026-08-22]].
+# ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
+
+User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s
+system, learning vehicle); the long-term plan is a SIMPLIFIED rebuild. Intermediate TODOs:
+
+1. **volat-slope simplification (FIRST)**: replace the volatility-slope OLS pair
+   (10m-vs-20m comparison) with the plain ratio volat_10m/volat_20m; test head-to-head.
+2. **volat floor OR-extension**: volat ≥ 40bp OR (volat ≥ 25bp ∧ speed ≥ 4%)
+   (SpikeFader S33/S34b: the compensation is real, small, honest).
+3. **ac1_ewma ≥ −0.1** as the whipsaw knife (SpikeFader S34d: disjoint from eff_9ema's
+   rejects and cuts actual junk — PF 0.71 vs 1.05; the direct measurement, not the proxy).
+4. **New-lows-since-last-{10m,5m,3m,2m}-high counters** — the SpikeFader K-ladder
+   mirrored back to the long side (S16-S19: floors not bands; dip-and-recover is
+   slow-horizon ungated, fractal inside the gate).
+Also: entry cutoff 15:00 → 15:30 (SpikeFader S33: the 15:00-15:30 bucket is the best on
+the clock there; re-derive long-side before adopting).
