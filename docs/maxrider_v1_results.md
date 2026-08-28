@@ -1048,3 +1048,15 @@ as a MEASURE comparison all three caveats hit both classifiers identically.
 
 ⏭ Port to SpikeFader: its analog is `vol_60 / (cum_vol × 60 / tradeable-secs-elapsed)` — every
 term recorded on the v2 corpus (cum_vol, signal_sec, halt_secs_cum), pure SQL.
+
+### F23b (2026-08-28) — first-15m baseline vs session-cum: EQUIVALENT at matched n (user, the Snoozer reference idea)
+
+`rr_15m = bar_vol / (vol_0945/15)` (candidate-table share volume, frozen 09:45, knowable) vs
+F23's `rr_cum`. Matched-n head-to-head on pops > +2% (n = 8,148 each): **rr_15m PF 4.963 /
+p1 −8.34 vs rr_cum 4.929 / −8.13 — statistically identical.** The fixed-threshold ladders
+differ only through selectivity (matched cutoffs: 0.117 vs 0.294 — the morning reference runs
+~2.5× louder than the day's average rate). Both 7/7 years in every quiet band (15m deep band
+year floor 3.28, cum 4.04). The Snoozer early-window advantage does NOT recur here, but
+nothing is lost; structural tie-breaks: 15m is frozen/knowable and free of the cum baseline's
+self-reference (a pop's own preceding volume inflates cum and makes later bars read quieter);
+cum adapts to the developing day. Either works as the gate measure.
