@@ -1769,3 +1769,63 @@ k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 
 rr < 0.5 (A+, 3.45), quiet-rr < 0.75 (2.17), loud-rr ≥ 5 (1.98), the consolidated
 VERTICALITY axis (7 aligned inversions), k120×k180 diagonal (3.14), fresh-resume pocket
 (2.42), rflow ≤ 0.95 (borderline gate).
+
+# S33 (2026-08-28) — base_v3: the two deferred questions answered (15-16 ET; volat 20bp + compensation)
+
+**Corpus**: `spikefader_base_v3` — BASE RUN (gates off), volat floor 20bp, entries
+09:45-16:00 (13:00 early closes), full universe, 2020-01-02..2026-08-27.
+**8,876,434 trips / 1,164,334 tkd / 3.7h / 89 parts / exit 0.** Integrity: restricted to
+base_v2 semantics it reproduces the v2 corpus at 100.13% (2,690 extras = the widened
+early-close window; 63 v2-only = 0.003% gate-boundary noise). Analyses below: the S31b
+10-gate stack applied post-hoc (129,238 mc=0 rows at volat ≥ 20bp); true mc=1 throughout.
+
+## A. The 15:00-16:00 window: the hour SPLITS
+
+(volat ≥ 40bp for S28 comparability)
+
+| bucket | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf | mc=1 years |
+|---|---|---|---|---|---|
+| 13:00-14:00 | 10,295 | 3.635 | 648 | 2.439 | 2.15 2.78 1.52 1.44 2.68 2.78 4.03 |
+| 14:00-15:00 | 8,601 | 2.492 | 545 | 2.087 | 4.40 2.04 1.73 0.94 5.90 1.44 1.25 |
+| **15:00-15:30** | 4,587 | 2.612 | 327 | **2.513** | 1.39 1.62 3.00 2.18 9.69 5.30 2.20 |
+| **15:30-16:00** | 5,212 | 1.366 | 341 | **1.107** | 1.23 1.39 1.40 0.98 1.87 0.46 0.99 |
+
+**The FlushFader hour-before-close rule was HALF right**: 15:30-16:00 is dead (three
+years ≤ 1.0 — completion room: a 15:30+ entry has < 30 min for the 5m-low cover to
+develop before MOC eats it). But **15:00-15:30 is the best bucket on the whole clock**
+(2.513). ⏭ Candidate: move the entry cutoff 15:00 → 15:30 (+327 mc=1 trips at 2.5).
+
+## B1. volat fine bands on the stack (whole day)
+
+| bp band | mc=0 n | mc=0 pf | mc=1 n | mc=1 pf |
+|---|---|---|---|---|
+| 20-25 | 777 | 0.957 | 121 | **0.757** |
+| 25-30 | 2,407 | 1.177 | 353 | 1.267 |
+| 30-35 | 3,933 | 1.499 | 535 | 1.348 |
+| 35-40 | 5,667 | 1.682 | 678 | 1.504 |
+| 40-50 | 14,138 | 1.688 | 1,346 | 1.553 |
+| 50-60 | 15,961 | 2.093 | 1,422 | 1.676 |
+| 60-80 | 28,282 | 2.313 | 2,002 | 1.831 |
+| 80-100 | 19,956 | 2.309 | 1,274 | **1.905** |
+| ≥100 | 38,117 | 2.381 | 1,836 | 1.697 |
+
+The S12 extrapolation confirmed with real sub-40 data: 20-25 is outright NEGATIVE, the
+edge builds continuously, 35-40 (1.504) ≈ 40-50 (1.553) — the 40bp floor is roughly
+right, maybe 5bp generous.
+
+## B2. Compensation: within LOW volat, can speed/dist rescue it? YES — at tiny n
+
+mc=1 pf (n), volat rows × speed cols [2-3 / 3-4 / 4-6 / ≥6%]:
+
+| volat | 2-3% | 3-4% | 4-6% | ≥6% |
+|---|---|---|---|---|
+| 20-30bp | 1.14 (362) | 0.93 (150) | 2.35 (61) | 4.17 (11) |
+| 30-40bp | 1.36 (866) | 1.49 (463) | 1.85 (186) | 2.22 (43) |
+| 40-60bp | 1.66 (1,958) | 1.62 (1,395) | 1.54 (769) | 2.08 (220) |
+
+× dist cols: same shape, more extreme (20-30bp × dist ≥6% → 10.17 on n=8).
+
+**Read: the compensation is REAL and monotone — a ≥4% pop on a 20-40bp name fades at
+1.85-4.2 — but the population is ~300 mc=1 trips total.** ⏭ Candidate OR-extension of
+the volat floor: volat ≥ 40bp OR (volat ≥ 25bp ∧ speed ≥ 4%) — a small honest add;
+user's call at assembly.
