@@ -1142,3 +1142,37 @@ proves it. Dirty corpus, pops > +2%, by rr band:
 3. The two legs compound: fake-liquidity admission puts the walking dead INTO the book;
    their terminal drift pays the short; their thinness lands them in the quiet band —
    manufacturing the 5.9.
+
+### F24c — the RAW 1m rebuild (user): same lineage, three legs fixed — confirms the tape-bridge numbers
+
+**`mr_candidate_raw`** (permanent in trading.db; builder in session scratch, 79s to build):
+same minute-agg source and causal plumbing as the dirty table (med 1m-bar vol ≥ 10k,
+nbar ≥ 10, rvol_0945_honest ≥ 0.1), with exactly the three legs fixed — NO price floor,
+warmup → causal ROW_NUMBER > 21, **dv_0945 = Σ(close·volume) over 09:30-09:45** (exact
+raw dollars, per user; avgprice_0945 was confirmed RAW in the builder, so the old
+×adj_ratio multiplied honest dollars by the future-split factor). All price context raw,
+adj_ratio := 1.
+406,147 rows / 262,627 clear the honest $3M floor — vs 328,258 clearing the INFLATED
+floor (the S35 "20% inflated in", reproduced). Run: 1,223,608 trips, baseline PF 1.281.
+
+**The three-way F23 ladder (pops > +2%):**
+
+| rr band | dirty pf | tape-clean pf (F24) | raw-1m pf (F24c) |
+|---|---|---|---|
+| < 0.2 | 5.902 | 2.816 | **2.556** (n 916) |
+| 0.2-0.3 | 3.380 | 2.328 | 2.124 |
+| 0.3-0.4 | 2.759 | 2.115 | 2.290 |
+| 0.4-0.5 | 2.375 | 1.972 | 2.058 |
+| 0.5-0.7 | 2.202 | 1.951 | 1.960 |
+| ≥ 0.7 | 1.522 | 1.344 | 1.330 |
+| baseline | 1.434 | 1.251 | 1.281 |
+
+Star cells (raw-1m): z-quiet → 2.046 [tape 1.976, dirty 3.621]; rr<0.2 ∧ entry ≥ $1 →
+2.797 [tape 3.163]. Deep-quiet years all ≥ 2.0, 7/7.
+
+**Verdict: two INDEPENDENT clean universes (1s tape-native and 1m-agg raw, different
+sources, different liquidity plumbing) agree to ~0.1-0.25 PF at every rung, while the
+dirty table doubles them at the quiet end. The contamination attribution is proven
+within the table's own lineage. The honest MaxRider quiet lever is ~2.5-3.2.**
+`mr_candidate_raw` is the go-forward 1m candidate table for MaxRider (and the template
+for cleaning the other S39d systems: SurgeRider/V2, DipRiderV6, PlungeRider).
