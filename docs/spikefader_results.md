@@ -1721,3 +1721,51 @@ s10 ≥ 30 on top: +0.004 (−83 trips) — skipped.
 **STACK (locked): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 ∧
 k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30** —
 mc=1 baseline: **1.665 @ 5,927**.
+
+## Campaign 9-11: eff_9ema / vol10rate / dv_0945_tape — all three inert. THE CAMPAIGN IS COMPLETE
+
+Frame: S31b stack (106,390 mc=0 / 5,927 mc=1 @ 1.665).
+
+**eff_9ema_10m** — old ≥ −0.10 knife removes 15 mc=1 trips (inert). Bands monotone up to
+1.844 at ≥0.5 (the efficiency family again); the −0.10..0 sliver reads 1.910 @ 164 —
+the same adjacent-band curio FlushFader saw (PF 8.06 there). No gate.
+
+**vol10rate** — old ≥ 0.75 floor: +0.006 for −150 trips (inert). The <0.4 dying-tape
+band is weak (1.399 @ 391) but tiny; 0.4-4 is flat 1.73-1.82 at mc=1 (the mc=0 hump at
+0.4-0.75 → 2.43 flattens under replay). No gate.
+
+**dv_0945_tape** — the $3M floor LOWERS PF (1.655, −716 trips, 2023 1.46 → 1.34); $1M is
+a no-op (universe floor $2M binds first). Bands flat 1.64-1.74 to $100M, then **≥$100M →
+1.480 @ 404** — the most-liquid tail is the one weak cell (heavily-traded in-play names
+mean-revert less). ⏭ a dv CEILING is the only idea here; not adopted.
+
+| band tables | mc0/mc1 in `sf_s32.out` |
+|---|---|
+
+## 🏁 CAMPAIGN SUMMARY — the old 15-gate FlushFader spec, fully adjudicated short-side
+
+| old gate | verdict |
+|---|---|
+| volat ≥ 40bp | recording floor; edge starts ~60bp (S12); 20bp test deferred |
+| speed > 2% + d1m > 2% | ✅ ADOPTED (S13, re-derived) |
+| \|eff_10m\| ≥ 0.15 | ✅ superseded → SIGNED eff_10m ≥ 0.3 (S14) |
+| \|eff_20m\| ∈ [0.3,0.5) | set aside (opposite-sign horizons, S14) |
+| K band [26,50] | ❌ dead → K FLOORS k300/k600/k180 (S16-S19) |
+| highs300 ≥ 6 | superseded by k300 ≥ 40 |
+| cascade/reopen | ❌ inverts (fresh resumes fade WELL, S23) |
+| rngfront < 0.8 | ❌ dead; cliff cell INVERTED (S29) |
+| z20 > 1.5 | ❌ absorbed by speed/dist (S29) |
+| ssf band | ❌ inert; ceiling INVERTED (S30) |
+| dlv > 3% | ✅ ADOPTED (S30b, user) |
+| rflow ≤ 0.95 | survivor, borderline (+0.04); unadopted |
+| accel/slope20/slope5 ceilings | ❌ ALL INVERTED (S31) → floors s5 ≥ 0, s20 ≥ 30 ADOPTED (S31b) |
+| eff_9ema ≥ −0.10 | ❌ inert (S32) |
+| vol10rate ≥ 0.75 | ❌ inert (S32) |
+| dv_0945_tape ≥ $3M | ❌ mildly negative; ceiling idea parked (S32) |
+
+**FINAL STACK (10 gates): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧
+k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30
+— true mc=1: 5,927 trips @ PF 1.665.** Sizing tiers/voices parked for assembly:
+rr < 0.5 (A+, 3.45), quiet-rr < 0.75 (2.17), loud-rr ≥ 5 (1.98), the consolidated
+VERTICALITY axis (7 aligned inversions), k120×k180 diagonal (3.14), fresh-resume pocket
+(2.42), rflow ≤ 0.95 (borderline gate).
