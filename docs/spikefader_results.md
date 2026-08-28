@@ -694,3 +694,58 @@ mc=0 n's). eff_20m fails (density-confounded at mc=0 — the mc=1 shape governs)
 consequence: the e20 < 0 gate variants (B/C) rest on the thin negative-backdrop population
 (~13k mc=1 trips); the milder D (e20 < .15 & e10 > .3) rests on broad n in BOTH views and
 is the safer construction.
+
+# S15 (2026-08-28) — stack += eff_10m ≥ 0.3 (user); sharpening the eff_10m TOP (mc=0, the ruled view)
+
+**User rulings recorded**: (a) mc=0 is the proper view for feature breakdowns while the
+stack is being assembled — the S14c density confound is a property of the unfinished stack;
+mc=1 is for scoring assembled candidates. (b) SMA eff confirmed over EWMA as GATES, but the
+EWMA versions' A-tier tail past 0.5 motivates using them as SHARPENERS. (c) Stack is now:
+speed_1m > 2% AND dist_lo > 2% AND **eff_10m ≥ 0.3**. eff_20m set aside for now.
+(Exit reminder: these trips are the engine default — cover on vwap < prior 300-bar min,
+else MOC. NOT the 7m fixed cover.)
+
+**New stack, mc=0**: 680,246 trips · avg 0.952% · p1 −25.9 · win 70.1% · **PF 1.540**.
+
+## Fine eff_10m bands on the new stack
+
+| band | n | avg% | p1 | win% | pf | weak yrs |
+|---|---|---|---|---|---|---|
+| [.3,.4) | 176,342 | 0.65 | −24.3 | 68.4 | 1.375 | — |
+| [.4,.5) | 174,079 | 0.81 | −25.9 | 69.8 | 1.457 | — |
+| [.5,.6) | 147,222 | 0.99 | −25.2 | 70.6 | 1.564 | — |
+| [.6,.7) | 100,357 | 1.17 | −27.1 | 71.1 | 1.655 | — |
+| [.7,.75) | 31,480 | 1.51 | −31.3 | 72.6 | 1.836 | 2026 1.42 |
+| [.75,.8) | 22,329 | 1.57 | −29.5 | 71.0 | 1.856 | — |
+| [.8,.85) | 14,191 | 1.57 | −29.7 | 72.9 | 1.850 | 2023 0.67 |
+| [.85,.9) | 8,268 | 1.37 | −27.6 | 69.1 | 1.634 | 2023 1.07 |
+| [.9,.95) | 4,217 | 2.31 | −18.9 | 74.5 | **2.569** | 2023 1.04 |
+| ≥.95 | 1,761 | 2.58 | −23.2 | 78.0 | **2.785** | 2023 0.46, 2024 0.23 |
+
+## ⭐ eff_10m ≥ .75 (n 14,246) cross-cut BY eff_ewma_10m — monotone sharpener
+
+| eff_ewma_10m | n | avg% | p1 | win% | pf |
+|---|---|---|---|---|---|
+| [.3,.5) | 19,037* | 0.88 | −25.6 | 68.5 | 1.491 |
+| [.5,.65) | 19,300* | 1.69 | −29.5 | 71.8 | 1.848 |
+| [.65,.75) | 5,996 | 3.15 | −41.1 | 79.1 | **2.507** |
+| [.75,.85) | 1,585 | 5.25 | −35.1 | 84.9 | **3.850** |
+| ≥.85 | 410 | 3.49 | −9.3 | 68.8 | **4.244** |
+
+(*bands span the full ≥.75 population; counts include sub-bands of it.) BY eff_ewma_20m:
+[.5,.65) → 3.235 (n 7,437). BY eff_20m: ≥.75 → **4.712 (n 2,810, win 80.3%)** — the
+"everything vertical" cell.
+
+## Reads
+
+1. **The A-tier exists and is where the user pointed**: within eff_10m ≥ .75, the EWMA
+   10m measure is a clean monotone sharpener — agreement of the equal-weight and
+   recency-weighted windows (both ≥ .65-.75) marks the pure parabolic ramp still at full
+   efficiency at signal. PF 2.5 → 4.2 with win% up to 85%.
+2. ⚠ **2023 is the weak year in every A-tier cell** (0.46-1.27; also 2024 0.23 at
+   eff_10m ≥ .95) — the blowouts are 2020/2021-heavy. Any gate built here needs the year
+   table shown before adoption. Extreme-cell year PFs (219, 211, 181) are tiny-denominator
+   artifacts, not signal.
+3. The [.85,.9) dip in the fine table repeats the S14 pattern of non-monotone pockets —
+   the top region is not one smooth gradient; the ewma cross-cut is smoother than the raw
+   fine bands.
