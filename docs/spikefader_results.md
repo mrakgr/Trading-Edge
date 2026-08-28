@@ -1139,3 +1139,36 @@ exactly there. The QUIET arm is density-clean (at/below the frame's average).
    before it is believed; do NOT adopt from this table.
 3. **The trough [1,3) is 46% of the book at PF 1.83** — the ordinary-rate pop is the
    weakest thing the locked stack admits (2023 1.25, p1 −27.5 to −33.3).
+
+## S20d — rr_15m at mc=1 (user): BOTH arms survive the inside-frame replay; loud ≥5 is the eqw engine
+
+("Inside-frame replay" = the three-mc-questions third form: the gate is live DURING the
+greedy replay, so failing signals never occupy the ticker-day slot.)
+
+**Milestone in passing**: the locked 6-gate stack at mc=1 = PF 1.530 @ 7,945 trips,
+eqw 100.9 bp/day — already matching the old 15-gate spec book (1.563 @ 4,997, 93.8
+bp/day) on 1.6× the trips, with every gate honestly derived.
+
+| gate (mc=1 inside frame) | n | avg% | p1 | pf | eqw bp/d | worst yr | 2026 |
+|---|---|---|---|---|---|---|---|
+| locked stack (no rr) | 7,945 | 0.83 | −21.8 | 1.530 | 100.9 | 1.15 (2022) | 1.96 |
+| quiet rr < 0.75 | 1,739 | 0.85 | **−15.9** | 1.698 | 98.2 | 1.44 (2020) | 2.48 |
+| quiet rr < 1 | 2,602 | 0.76 | −18.8 | 1.585 | 95.5 | 1.26 (2020) | 2.94 |
+| loud rr ≥ 3 | 3,070 | 1.20 | −25.0 | 1.672 | 151.2 | 1.05 (2022) | 1.63 |
+| **loud rr ≥ 5** | 1,668 | 1.67 | −26.6 | **1.962** | **179.0** | 1.42 (2022) | 1.78 |
+| U: <1 or ≥3 | 5,549 | 1.00 | −21.1 | 1.647 | 124.9 | 1.18 (2022) | 1.94 |
+
+Bare-replay band shape (view (a), scratch `sf_s20d.out`): the U flattens at mc=1 but
+persists — <0.3 → 3.05 (n 162, every year ≥ 2.36), trough 1-2 → 1.33-1.40, ≥5 → 1.78.
+
+**Reads:**
+1. **The loud arm survives the replay control** — the S20 density worry was about
+   within-day multi-signal inflation, and mc=1 removes exactly that: rr ≥ 5 still reads
+   1.962 with eqw 179 bp/day (baseline 101). What remains unresolved is regime tilt:
+   2022 = 1.42 (its worst), vs the quiet arm's 2022 = 1.59.
+2. **The quiet arm holds with the better TAIL** (p1 −15.9 vs −26.6) and the better
+   recent years (2026: 2.48/2.94 vs 1.78/1.63) — quiet and loud are different trades:
+   thin-fuel fades (safe, recent-regime-loving) vs blowout exhaustion (bigger per-trip,
+   2020/2024-loving, worse tails).
+3. The trough [1,3) exclusion nets 1.647 @ 5,549 — the honest aggregate if both arms
+   are kept as one gate; as VOICES they are better kept separate (opposite regime tilts).
