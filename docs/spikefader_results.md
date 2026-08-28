@@ -506,3 +506,61 @@ A 300bp ceiling is cosmetic at any floor (n ≥300bp = 111; PF moves in the 3rd 
 floor — standalone the edge starts at ~60bp.** Whether to raise it in the rebuilt spec is
 deferred until the stack exists (the later gates may be doing the same work — inside the old
 spec the sub-60bp population was already down to 28% of the mc=1 book vs 56% here).
+
+# S13 (2026-08-28) — feature 2: the SPEED pair (FlushFader's two legs, flipped short)
+
+`speed_1m = signal_vwap/vwap_60_prev − 1` (vwap_60_prev = (dv120b−dv60b)/(vol120b−vol60b), S8)
+and `dist_lo = signal_vwap/lo_60 − 1` (60-bar post-push low). Bare base_v2 frame; every book
+mc=1-replayed INSIDE its own gate frame. Full band tables in scratch `sf_s13.out`.
+
+## 1D bands (mc=1 inside bare frame) — the shape
+
+- **speed_1m**: monotone but shallow — 0.90 below 0.5%, ~1.02-1.10 in 0.5-2%, 1.14-1.23
+  above 2%. The corpus has NO speed < 0 trips: the base trigger is isNewHigh, which
+  mechanically floors speed at ~0.
+- **dist_lo**: the sharper leg — sub-1% is outright NEGATIVE (0.79-0.88, every year ≤ 1.1),
+  peak 1.24 at 2.5-3%, plateau ~1.18-1.20 above.
+- **2D joint**: the diagonal dominates (fresh pop ⇒ speed ≈ dist). Off-diagonal curiosity:
+  LOW speed + HIGH dist (pop happened minutes ago, still stretched, no longer moving) reads
+  PF 2.4-3.3 on ~100 trips — a "stalled pop" cell worth a look once the stack exists.
+
+## Joint-threshold sweep (speed > T AND dist > T, mc=1 inside each frame)
+
+| T | n | avg% | p1 | win% | pf | eqw bp/day |
+|---|---|---|---|---|---|---|
+| 0% | 107,770 | 0.160 | −16.4 | 64.1 | 1.124 | 30.1 |
+| 1.5% | 89,271 | 0.216 | −18.0 | 64.5 | 1.154 | 40.3 |
+| 2% | 72,682 | 0.282 | −19.6 | 65.0 | 1.186 | 50.2 |
+| 2.5% | 57,490 | 0.342 | −21.8 | 65.7 | 1.207 | 62.4 |
+| 3% | 45,512 | 0.414 | −23.8 | 66.4 | 1.231 | 72.9 |
+| 4% | 29,006 | 0.513 | −28.6 | 67.2 | 1.244 | 95.4 |
+
+**Monotone through 4% — no knee at 2%.** Deeper is better per-trip and per-day, paid for in
+n (107k → 29k) and tail (p1 −16 → −29).
+
+## Leg attribution at 2%
+
+speed-only 1.172 (n 78,397) · dist-only 1.174 (n 79,900) · both 1.186 (n 72,682) — the two
+legs are near-duplicates at matched threshold (the isNewHigh trigger makes a fresh high both
+fast AND stretched); the AND buys +0.013 PF for −7% n. Keep both for robustness, but they
+are one lever, not two.
+
+## Both >2% book, headline year table (mc=1)
+
+| yr | days | eqw bp | med bp | up% | tkd | trim bp |
+|---|---|---|---|---|---|---|
+| 2020 | 252 | 46.7 | 53.3 | 73.0 | 5,726 | 45.5 |
+| 2021 | 252 | 40.9 | 46.8 | 75.8 | 6,324 | 40.2 |
+| 2022 | 251 | 50.7 | 54.4 | 71.7 | 3,374 | 49.2 |
+| 2023 | 250 | 55.1 | 70.0 | 75.6 | 2,663 | 53.7 |
+| 2024 | 252 | 67.7 | 74.4 | 79.8 | 3,973 | 66.5 |
+| 2025 | 250 | 51.1 | 55.9 | 80.4 | 5,807 | 50.3 |
+| 2026 | 160 | 33.1 | 41.4 | 71.3 | 3,428 | 31.6 |
+
+Positive and trim-positive every year with volat + speed alone (+~50bp/day eqw blended);
+2026 is the weak year (33bp). The remaining 13 old-spec gates took the July book from here
+(PF 1.186 @ 72,682) to PF 1.563 @ 4,997 — that spread is what the rest of the gate-by-gate
+pass has to re-earn honestly.
+
+**Verdict: the speed pair is real and monotone; 2% is defensible but not special — the
+threshold choice is a book-size decision, deferred until the stack is assembled.**
