@@ -922,6 +922,10 @@ default; (4) rerun on only the stack's ticker-days.
 the 1.16M corpus)**; selected via `FF_CANDIDATE_TABLE`. Output:
 `data/spikefader_kstudy/` (+ .log). ⚠ Schema ≠ base_v2 (4 new columns) — do not mix dirs.
 
+**Full run: COMPLETE + VALIDATED** — 680,246 trips = the S15 stack exactly (13.1 min,
+exit 0, 7 parts); full-corpus trip keys ≡ base_v2 post-hoc stack (0 diffs both ways);
+counter ladder triangle invariant 0 violations, 0 disarmed at signal.
+
 **Smoke (July 2026): VALIDATED** — engine-gated trips = post-hoc SQL stack trips on
 base_v2, 8,088 = 8,088, zero key diffs both directions (the S19 bit-match discipline
 holds for the rewritten gate block). Counter ladder: k30 ≤ k60 ≤ k120 ≤ k180 ≤ k300,
