@@ -1092,3 +1092,50 @@ The 2D floor combo confirms redundancy: at k120 ≥ 20, adding k60 ≥ 13 buys +
 **Verdict: k120 trimming helps modestly and monotonically (2023 the lone cost); k60 adds
 nothing beyond k120 and trades the recent years for the COVID years — skip it.** Whether
 to take a k120 floor (≥12-16 looks sensible) is a book-size call at assembly.
+
+# S20 (2026-08-28) — the volume rate ratio, 1m vs FIRST-15m anchor (user: the cum baseline drifts intraday; anchor at the open)
+
+`rr_15m = vol_60 / (vol_0945_tape · 60/900)` — last-minute volume rate vs the day's
+opening-15m rate, both tape-native time-clock columns. Frame: LOCKED stack, mc=0,
+131,165 trips (rr never null). Median rr 2.23 (p10 0.77, p90 7.5).
+
+## Fine bands: the shape is a U, not the monotone quiet story
+
+| band | n | avg% | p1 | win% | pf | trips/tkd |
+|---|---|---|---|---|---|---|
+| <0.3 | 1,085 | 1.50 | — | 75.8 | 2.52* | 4.5 |
+| [0.3,0.5) | 3,842 | 1.53 | −13.5 | 72.4 | 2.517 | 5.4 |
+| [0.5,0.75) | 7,580 | 1.80 | −14.3 | 73.9 | 2.661 | 5.8 |
+| [0.75,1) | 9,452 | 1.34 | −19.4 | 70.7 | 1.948 | 5.9 |
+| [1,1.5) | 19,101 | 1.19 | −25.6 | 71.6 | 1.716 | 7.8 |
+| [1.5,2) | 17,490 | 1.17 | −33.3 | 72.6 | **1.599** | 7.6 |
+| [2,3) | 23,925 | 1.88 | −24.6 | 72.9 | 2.112 | 9.5 |
+| [3,5) | 23,406 | 2.10 | −23.7 | 73.4 | 2.222 | 11.2 |
+| ≥5 | 25,284 | 3.01 | −29.9 | 76.0 | 2.739 | **17.4** |
+
+(*bands <0.3 merged for the density line.) ⚠ **The loud arm carries the eff_20m density
+signature**: ≥5 fires 17.4 trips/tkd vs 4.5-5.9 quiet — mc=0 overweights blowout days
+exactly there. The QUIET arm is density-clean (at/below the frame's average).
+
+## Candidate gates (year columns)
+
+| gate | n | avg% | p1 | pf | worst yr | 2026 |
+|---|---|---|---|---|---|---|
+| locked stack | 131,165 | 1.89 | −25.4 | 2.140 | 1.49 | 2.95 |
+| **quiet rr < 0.75** | 12,507 | 1.69 | **−14.3** | **2.607** | 1.65 (2021) | 3.80 |
+| quiet rr < 1 | 21,959 | 1.54 | −16.8 | 2.275 | 1.66 | 3.60 |
+| trough [1,3) | 60,516 | 1.46 | −27.5 | 1.829 | 1.25 (2023) | 2.26 |
+| loud ≥ 3 ⚠ | 48,690 | 2.57 | −26.9 | 2.492 | 1.26 (2022) | 3.34 |
+| U: <1 or ≥3 | 70,649 | 2.25 | −23.5 | 2.440 | 1.34 (2022) | 3.38 |
+
+## Reads
+
+1. **The quiet lever survives the locked stack with the 15m anchor** (S11b/F23b
+   consistent): rr < 0.75 → PF 2.607 with the tail HALVED (p1 −14.3 vs −25.4), every
+   year ≥ 1.65, recent years the strongest (2025 3.18, 2026 3.80). Density-clean.
+   Mechanism reads true: a pop on thin volume has no fuel to squeeze.
+2. **The loud arm (≥3-5×) looks strong but is density-suspect** — 2-3× the signal rate
+   per ticker-day, 2022 its worst year (1.26). Needs a replay/tkd-level verification
+   before it is believed; do NOT adopt from this table.
+3. **The trough [1,3) is 46% of the book at PF 1.83** — the ordinary-rate pop is the
+   weakest thing the locked stack admits (2023 1.25, p1 −27.5 to −33.3).
