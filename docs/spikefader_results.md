@@ -1829,3 +1829,32 @@ mc=1 pf (n), volat rows × speed cols [2-3 / 3-4 / 4-6 / ≥6%]:
 1.85-4.2 — but the population is ~300 mc=1 trips total.** ⏭ Candidate OR-extension of
 the volat floor: volat ≥ 40bp OR (volat ≥ 25bp ∧ speed ≥ 4%) — a small honest add;
 user's call at assembly.
+
+# S34 (2026-08-28) — STACK += entry cutoff 15:30 (user); the VR/autocorr family tested
+
+**STACK (locked): the S31b 10 gates ∧ signal < 15:30** — frame moves to base_v3
+(volat ≥ 40bp post-hoc). ⏭ FlushFader port of the 15:30 cutoff parked (user).
+
+**New baseline: mc=1 6,229 @ PF 1.699** (was 5,927 @ 1.665) — years
+1.71 / 1.76 / 1.26 / 1.50 / 1.73 / 1.74 / 2.12, every year ≥ the old stack.
+
+## The VR family (F1-F8 lock lineage: EWMA variance ratios + autocorrs on 30s slot returns)
+
+**vr2_ewma** — no structure: 93% of the book sits in 1.0-1.5 at mc=1 1.77; the 1.5-2.0
+tail reads 2.161 @ 164.
+
+**vr4_ewma** — flat 1.63-1.92 through the mass; the ≥2.0 tail (hyper-trending at the
+4-slot horizon) reads **2.940 @ 165** — verticality-adjacent, joins that cluster.
+
+**ac1_ewma** — the one directional read: NEGATIVE lag-1 autocorr is bad
+(<−0.2 → 0.898 @ 16; −0.2..−0.1 → 0.977 @ 60; −0.1..0 → 1.560 @ 304) — a tape already
+whipsawing has done its own reverting. The ≥0 mass is flat 1.76-1.93.
+
+| band tables | `sf_s34.out` |
+|---|---|
+
+**Verdict: no gates. The family is absorbed like the rest of the campaign; two cells for
+the ledger — vr4 ≥ 2 (2.94 @ 165, verticality cluster) and ac1 < −0.1 (a 76-trip @ ~0.94
+sliver, too small to bother trimming).** The stack now stands at 11 conditions:
+speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 ∧ k180 ≥ 15 ∧
+gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30 ∧ signal < 15:30.
