@@ -1855,6 +1855,21 @@ whipsawing has done its own reverting. The ≥0 mass is flat 1.76-1.93.
 
 **Verdict: no gates. The family is absorbed like the rest of the campaign; two cells for
 the ledger — vr4 ≥ 2 (2.94 @ 165, verticality cluster) and ac1 < −0.1 (a 76-trip @ ~0.94
-sliver, too small to bother trimming).** The stack now stands at 11 conditions:
+sliver, too small to bother trimming).**
+
+## S34b — the volat OR-EXTENSION adopted too (user: that was the intended suggestion)
+
+**STACK (locked, 12 conditions): (volat_20m ≥ 40bp ∨ (volat_20m ≥ 25bp ∧ speed ≥ 4%)) ∧
 speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧ k600 ≥ 60 ∧ k180 ≥ 15 ∧
-gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30 ∧ signal < 15:30.
+gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30 ∧ signal < 15:30.**
+⏭ Both the OR-extension and the 15:30 cutoff are FlushFader port candidates (user).
+
+| book | mc=1 n | pf | years |
+|---|---|---|---|
+| volat ≥ 40 only (S34) | 6,229 | 1.699 | 1.71 1.76 1.26 1.50 1.73 1.74 2.12 |
+| **+ OR-extension** | 6,347 | 1.697 | 1.73 1.74 1.28 1.50 1.72 1.73 2.12 |
+| the added slice alone | 200 | 1.802 | 2.07 1.65 3.35 1.15 1.39 1.50 9.32 |
+
+The extension adds 118 net mc=1 trips (the 200-trip slice frees/steals some slots) at
+slice PF 1.802 — baseline-accretive in 2020/2022, neutral elsewhere, 2026's 9.32 on a
+tiny denominator. A small honest widening, adopted.
