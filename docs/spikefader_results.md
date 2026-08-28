@@ -749,3 +749,49 @@ else MOC. NOT the 7m fixed cover.)
 3. The [.85,.9) dip in the fine table repeats the S14 pattern of non-monotone pockets —
    the top region is not one smooth gradient; the ewma cross-cut is smoother than the raw
    fine bands.
+
+# S16 (2026-08-28) — feature 4: the K band (highs_since_first_high). The [26,50] transplant DOES NOT TRANSFER
+
+Frame: current stack (speed pair > 2% + eff_10m ≥ 0.3), mc=0. 680,246 trips.
+
+## highs_since_first_high (K) fine bands
+
+| band | n | avg% | p1 | win% | pf | weak yr |
+|---|---|---|---|---|---|---|
+| <5 | 30,787 | 0.70 | −22.5 | 69.5 | 1.450 | 2021 1.19 |
+| [5,10) | 40,109 | 0.75 | −22.8 | 70.0 | 1.480 | 2026 1.30 |
+| [10,15) | 43,433 | 0.78 | −23.6 | 70.1 | 1.491 | 2020 1.40 |
+| [15,20) | 43,476 | 0.81 | −23.9 | 70.5 | 1.505 | 2026 1.33 |
+| [20,26) | 48,819 | 0.82 | −24.0 | 70.9 | 1.495 | 2020 1.29 |
+| [26,35) | 66,244 | 0.80 | −25.6 | 70.5 | 1.454 | 2020 1.31 |
+| [35,50) | 89,007 | 0.83 | −26.2 | 69.8 | 1.461 | 2022 1.21 |
+| [50,75) | 108,885 | 0.81 | −28.8 | 69.5 | 1.421 | 2023 1.30 |
+| [75,100) | 76,115 | 0.92 | −29.8 | 69.5 | 1.467 | 2022 1.20 |
+| [100,150) | 81,753 | 1.16 | −26.9 | 69.3 | 1.619 | 2021 1.30 |
+| ≥150 | 51,618 | 2.10 | −22.2 | 72.5 | **2.315** | 2022 1.25 |
+
+Region contrast: below [26,50] → 1.487 · **in [26,50] → 1.458 (the WORST region)** ·
+above → 1.611. The FlushFader 2022 fix was a LONG-side calibration; flipped short there is
+no band — the signal is monotone INCREASING: the more highs the up-move has already made,
+the better it fades. Maturity/exhaustion, the mirror of the long side's "not too extended".
+
+## highs_since_first_high_300 (5m twin) — same story, smoother
+
+| band | n | pf |
+|---|---|---|
+| <3 | 29,363 | 1.298 |
+| [3,6) | 36,286 | 1.324 |
+| [6,10) | 54,537 | 1.344 |
+| [10,15) | 70,550 | 1.344 |
+| [15,25) | 129,497 | 1.371 |
+| [25,40) | 140,795 | 1.479 |
+| ≥40 | 219,218 | **1.866** |
+
+k300 ≥ 40 is a THIRD of the stack at PF 1.866 with every year ≥ 1.41 — the broadest
+candidate gate found so far. K ≥ 150: PF 2.315, all years ≥ 1.25 (2022 the weakest —
+the year the long side needed the band for).
+
+**Verdict: drop the [26,50] transplant; the short-side K lever is a FLOOR, not a band.**
+Candidates for the stack: k300 ≥ 40 (broad, smooth) and/or K ≥ 100-150 (sharper, smaller).
+⚠ Both correlate with move maturity/time-of-day and trend-day signal density — mc=0
+caveats apply; year columns clean throughout though.
