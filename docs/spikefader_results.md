@@ -1895,3 +1895,12 @@ paused) is ANOTHER verticality-cluster member — but ⚠ 2023 INVERTS above 0.4
 the first year-instability inside the cluster. The 0.2-0.4 mass (77% of the book) is
 solid everywhere. Ledger: ac1 ≥ 0.4 is a tier candidate with a 2023 asterisk; ≥0.6 cells
 are too thin to read.
+
+**S34d — ac1 IS the better whipsaw knife (user hypothesis, verified)**: on the stack
+frame, corr(ac1_ewma, eff_9ema_10m) = 0.266 and their reject sets are DISJOINT (621 vs
+362 mc=0 rejects, overlap 0). What each cuts: ac1 < −0.1 → PF 0.709 (real whipsaw junk);
+eff_9ema < −0.10 → PF 1.052 (roughly baseline noise — its knife never found anything
+short-side, S32). The autocorrelation measures the fighting tape DIRECTLY; the 9-EMA
+agreement was a proxy that doesn't transfer. ⏭ FlushFader port candidate #3: replace
+eff_9ema's knife with ac1_ewma ≥ −0.1 (alongside the 15:30 cutoff and the volat
+OR-extension).
