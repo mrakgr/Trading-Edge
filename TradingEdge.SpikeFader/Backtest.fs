@@ -79,8 +79,8 @@ let defaultConfig =
           // ⭐ S17 (user 2026-08-28): THE RATIFIED STACK replaces the FlushFader spec
           // transplant — 15 unratified gates DELETED; these three were re-derived
           // short-side on the bare corpus (S13-S15).
-          MinSpeed1m       = 0.02       // 🔄 spike speed > +2%/1m (S13: monotone, no knee at 2%)
-          MinDist1mLo      = 0.02       // dist from the 1m LOW > +2% — the speed conjunction (S13)
+          MinSpeedBe6030   = 0.02       // ⭐ S35f: vwap/vwap_ewp_6030_be - 1 > +2% — ONE speed
+                                        // feature (replaced the S13 speed_1m+dist_lo pair)
           MinEff10m        = 0.3        // ⭐ S14: SIGNED eff_10m >= 0.3 — the vertical-spike floor
           HaltMinRunSec    = 58         // ⭐ S40x halt detector (user design; record-only)
           HaltMinRng300    = 0.04
@@ -373,6 +373,11 @@ CREATE TABLE trips (
     dollar_vol_60_bar DOUBLE, dollar_vol_300_bar DOUBLE, dollar_vol_600_bar DOUBLE, dollar_vol_1200_bar DOUBLE,
     halt_secs_cum INTEGER,
     vwap_ew_60 DOUBLE, vwap_ew_60_prev DOUBLE,
+    vwap_ewp_12030_tv DOUBLE, vwap_ewp_6030_tv DOUBLE,
+    vwap_ewp_12060_te DOUBLE, vwap_ewp_12030_te DOUBLE, vwap_ewp_6030_te DOUBLE,
+    vwap_ewp_12060_tz DOUBLE, vwap_ewp_12030_tz DOUBLE, vwap_ewp_6030_tz DOUBLE,
+    vwap_ewp_12060_bv DOUBLE, vwap_ewp_12030_bv DOUBLE, vwap_ewp_6030_bv DOUBLE,
+    vwap_ewp_12060_be DOUBLE, vwap_ewp_12030_be DOUBLE, vwap_ewp_6030_be DOUBLE,
     vol_5_prior_max DOUBLE, vol_10_prior_max DOUBLE, vol_15_prior_max DOUBLE, vol_30_prior_max DOUBLE,
     vol_60_prior_max DOUBLE, vol_300_prior_max DOUBLE, vol_600_prior_max DOUBLE, vol_1200_prior_max DOUBLE,
     dollar_vol_60_prior_max DOUBLE, vol_ew_60 DOUBLE, vol_ew_60_prior_max DOUBLE,
@@ -592,6 +597,11 @@ type TripSink(outDir: string) =
             f p.DollarVol60Bar; f p.DollarVol300Bar; f p.DollarVol600Bar; f p.DollarVol1200Bar
             i p.HaltSecsCum
             f p.VwapEw60; f p.VwapEw60Prev
+            f p.VwapEwp12030Tv; f p.VwapEwp6030Tv
+            f p.VwapEwp12060Te; f p.VwapEwp12030Te; f p.VwapEwp6030Te
+            f p.VwapEwp12060Tz; f p.VwapEwp12030Tz; f p.VwapEwp6030Tz
+            f p.VwapEwp12060Bv; f p.VwapEwp12030Bv; f p.VwapEwp6030Bv
+            f p.VwapEwp12060Be; f p.VwapEwp12030Be; f p.VwapEwp6030Be
             f p.Vol5PriorMax; f p.Vol10PriorMax; f p.Vol15PriorMax; f p.Vol30PriorMax
             f p.Vol60PriorMax; f p.Vol300PriorMax; f p.Vol600PriorMax; f p.Vol1200PriorMax
             f p.Dv60PriorMax; f p.VolEw60; f p.VolEw60PriorMax

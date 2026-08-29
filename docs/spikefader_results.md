@@ -1904,3 +1904,234 @@ short-side, S32). The autocorrelation measures the fighting tape DIRECTLY; the 9
 agreement was a proxy that doesn't transfer. ⏭ FlushFader port candidate #3: replace
 eff_9ema's knife with ac1_ewma ≥ −0.1 (alongside the 15:30 cutoff and the volat
 OR-extension).
+
+## S35 (2026-08-29) — ONE window-difference speed vs the speed PAIR: the pair is replaceable
+
+**The question (user)**: replace the two speed-pair features (`speed_1m = signal_vwap/
+vwap_60_prev − 1` over the plain 120b/60b window difference, plus `dist_lo =
+signal_vwap/lo_60 − 1`) with a SINGLE decayed-sum window-difference speed. Grid:
+half-life pairs (120,60)/(120,30)/(60,30) × {bar-clock, time-clock} × {equal-weighted,
+volume-weighted}, plus a time-clock zero-fill EQ family — 15 cells.
+
+**The machinery (engine, S35/S35b)**: `DecaySumMa` grew a `GapValue` mode DU declaring
+what value the stream held during the gapCount missing seconds — `Zero` (gaps are real
+zero observations: volume/tc; the frozen original semantics), `Empty` (pushes only,
+gaps decay weightlessly: bar-clock prices), `Locf` (gaps hold the last value: the
+decayed TWAP of the LOCF-filled path; time-clock prices). Numerator and `Weight` update
+consistently per mode — the broken object is MIXING them (a zero-filled numerator over
+an every-second weight reads a "mean price" below every print; a 10, 5s-gap, 10 stream
+"averages" 3.4). Oracle: `TradingEdge.RollingMa/DecaySumWeight_Test.fsx` (per-second
+brute force, all modes ≤ 1.4e-15; on gap-0 streams all three modes coincide EXACTLY;
+sparse Zero/Empty weights diverge 16×; `Locf.Weight ≡ Zero.Weight`). Recorded columns
+`vwap_ewp_{12060,12030,6030}_{tv,te,tz,bv,be}` (t/b = time/bar clock, v = dv/vol,
+e = px/Weight LOCF-or-Empty, z = px/Weight Zero); `vwap_ew_60_prev` (S8) IS the
+12060_tv cell. Feature = `signal_vwap/col − 1`.
+
+**Corpus**: `data/spikefader_base_v4` — the v3 base config (volat ≥ 20bp, entries →
+16:00) rerun on the 212,822 tkds that produced ≥ 1 v3 trip (`spikefader_v3tkd_cand`;
+18% of the universe, 2h17m vs 3h41m). 8,867,876 trips. ⚠ 8,558 trips (0.10%) fewer
+than v3: v3 was launched with `--entry-end-sec-short 46800` (13:00 on NYSE early-close
+days) and v4 defaulted to 12:00 — verified the ONLY delta (254 tkds, all early-close
+dates; restricted to ≤ 12:00 the two corpora agree exactly). Carry the flag forward.
+
+**Frame**: background-11 = the S34c stack minus the speed pair and the volat condition
+(eff/k×3/gap_adj/dlv/slopes×2/15:30/ac1 on; volat ≥ 20bp floor) → 225,747 mc=0 rows.
+Reference S34c on v4: **6,313 @ 1.709**, years 1.73/1.76/1.29/1.52/1.72/1.74/2.15
+(v3 gave 6,322 @ 1.709 — the early-close delta, PF identical).
+
+**A1 — iso-trip, clean `volat ≥ 40bp` frame** (pair → single `wd_speed > t`, t bisected
+to the pair's mc=1 n; olap = share of the pair book's (tkd, signal) keys retained):
+
+| variant | thr | n | pf | olap | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PAIR 2%+2% | - | 6,196 | 1.710 | - | 1.71 | 1.77 | 1.27 | 1.53 | 1.73 | 1.75 | 2.15 |
+| tv12060 | 3.31% | 6,196 | 1.716 | 71.4% | 1.70 | 1.80 | 1.29 | 1.52 | 1.71 | 1.76 | 2.18 |
+| tv12030 | 2.93% | 6,196 | 1.720 | 72.4% | 1.70 | 1.80 | 1.29 | 1.53 | 1.71 | 1.78 | 2.19 |
+| tv6030 | 2.29% | 6,196 | 1.718 | 74.5% | 1.70 | 1.77 | 1.30 | 1.52 | 1.72 | 1.79 | 2.18 |
+| te12060 | 3.78% | 6,196 | 1.716 | 70.9% | 1.70 | 1.79 | 1.33 | 1.53 | 1.70 | 1.76 | 2.16 |
+| te12030 | 3.38% | 6,197 | 1.722 | 71.9% | 1.70 | 1.80 | 1.34 | 1.52 | 1.70 | 1.78 | 2.16 |
+| te6030 | 2.58% | 6,197 | 1.726 | 74.3% | 1.72 | 1.78 | 1.32 | 1.52 | 1.71 | 1.79 | 2.19 |
+| tz12060 | 7.49% | 6,197 | 1.698 | 62.0% | 1.74 | 1.77 | 1.43 | 1.46 | 1.68 | 1.70 | 2.03 |
+| tz12030 | 6.58% | 6,197 | 1.687 | 61.9% | 1.72 | 1.78 | 1.41 | 1.45 | 1.67 | 1.70 | 2.01 |
+| tz6030 | 4.81% | 6,196 | 1.673 | 60.9% | 1.70 | 1.74 | 1.39 | 1.43 | 1.67 | 1.68 | 2.03 |
+| bv12060 | 3.58% | 6,197 | 1.720 | 71.4% | 1.70 | 1.81 | 1.30 | 1.51 | 1.72 | 1.77 | 2.17 |
+| bv12030 | 3.17% | 6,196 | 1.720 | 72.4% | 1.71 | 1.79 | 1.32 | 1.52 | 1.72 | 1.77 | 2.17 |
+| bv6030 | 2.42% | 6,196 | 1.725 | 74.5% | 1.70 | 1.80 | 1.30 | 1.52 | 1.73 | 1.79 | 2.18 |
+| be12060 | 4.01% | 6,197 | 1.727 | 70.9% | 1.70 | 1.82 | 1.33 | 1.52 | 1.71 | 1.79 | 2.17 |
+| be12030 | 3.57% | 6,197 | 1.727 | 71.8% | 1.71 | 1.81 | 1.32 | 1.52 | 1.72 | 1.78 | 2.17 |
+| be6030 | 2.67% | 6,196 | 1.723 | 74.4% | 1.72 | 1.76 | 1.31 | 1.53 | 1.73 | 1.78 | 2.19 |
+
+**A2 — mc=0 PF by band** (same frame; n in thousands):
+
+| variant | 0-1% | 1-2% | 2-3% | 3-5% | 5-8% | ≥8% |
+|---|---|---|---|---|---|---|
+| tv12060 | 1.45 (0k) | 1.52 (4k) | 1.51 (23k) | 2.03 (54k) | 2.22 (41k) | 2.57 (38k) |
+| tv12030 | 2.34 (0k) | 1.37 (9k) | 1.68 (30k) | 2.15 (54k) | 2.23 (36k) | 2.61 (30k) |
+| tv6030 | 1.28 (1k) | 1.60 (28k) | 2.07 (38k) | 2.14 (46k) | 2.14 (27k) | 2.97 (18k) |
+| te12060 | 0.00 (0k) | 1.31 (2k) | 1.50 (15k) | 1.89 (46k) | 2.13 (44k) | 2.54 (52k) |
+| te12030 | 2.57 (0k) | 1.45 (5k) | 1.51 (21k) | 2.08 (50k) | 2.10 (41k) | 2.58 (43k) |
+| te6030 | 1.12 (1k) | 1.58 (21k) | 1.99 (34k) | 2.05 (47k) | 2.16 (31k) | 2.81 (25k) |
+| tz12060 | inf (0k) | 1.16 (0k) | 2.27 (3k) | 2.02 (17k) | 2.55 (29k) | 2.22 (111k) |
+| tz12030 | inf (0k) | 1.77 (1k) | 1.93 (6k) | 2.39 (21k) | 2.34 (32k) | 2.22 (101k) |
+| tz6030 | 0.93 (0k) | 1.86 (6k) | 2.38 (14k) | 2.34 (32k) | 2.04 (35k) | 2.32 (73k) |
+| bv12060 | inf (0k) | 1.40 (3k) | 1.59 (19k) | 2.00 (54k) | 2.14 (43k) | 2.57 (41k) |
+| bv12030 | 1.63 (0k) | 1.43 (7k) | 1.64 (28k) | 2.10 (56k) | 2.19 (38k) | 2.63 (32k) |
+| bv6030 | 1.36 (1k) | 1.61 (25k) | 2.06 (38k) | 2.10 (48k) | 2.12 (28k) | 2.98 (19k) |
+| be12060 | inf (0k) | 1.31 (1k) | 1.60 (13k) | 1.86 (46k) | 2.08 (46k) | 2.54 (53k) |
+| be12030 | 4.35 (0k) | 1.47 (4k) | 1.55 (20k) | 2.06 (50k) | 2.05 (42k) | 2.59 (44k) |
+| be6030 | 1.18 (0k) | 1.61 (19k) | 1.98 (33k) | 2.03 (49k) | 2.13 (32k) | 2.83 (26k) |
+
+**B — the FULL S34c frame, pair AND the volat OR arm swapped** (gate `s > t`, arm
+`s ≥ 2t` mirroring the reference's 4% = 2 × 2%; t bisected to the reference n):
+
+| variant | thr | n | pf | olap | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| REF pair | - | 6,313 | 1.709 | - | 1.73 | 1.76 | 1.29 | 1.52 | 1.72 | 1.74 | 2.15 |
+| tv12060 | 3.24% | 6,313 | 1.718 | 70.1% | 1.71 | 1.78 | 1.33 | 1.53 | 1.69 | 1.76 | 2.19 |
+| tv12030 | 2.88% | 6,314 | 1.718 | 70.8% | 1.70 | 1.77 | 1.32 | 1.53 | 1.70 | 1.78 | 2.18 |
+| tv6030 | 2.24% | 6,313 | 1.713 | 72.7% | 1.71 | 1.75 | 1.32 | 1.53 | 1.71 | 1.78 | 2.17 |
+| te12060 | 3.72% | 6,313 | 1.713 | 69.5% | 1.72 | 1.77 | 1.35 | 1.54 | 1.68 | 1.75 | 2.16 |
+| te12030 | 3.31% | 6,313 | 1.713 | 70.7% | 1.71 | 1.76 | 1.36 | 1.53 | 1.68 | 1.76 | 2.17 |
+| te6030 | 2.54% | 6,314 | 1.718 | 73.3% | 1.74 | 1.74 | 1.33 | 1.51 | 1.69 | 1.79 | 2.20 |
+| tz12060 | 10.05% | 6,314 | 1.590 | 50.4% | 1.75 | 1.57 | 1.39 | 1.34 | 1.61 | 1.57 | 1.82 |
+| tz12030 | 8.91% | 6,313 | 1.592 | 49.8% | 1.76 | 1.57 | 1.38 | 1.34 | 1.61 | 1.57 | 1.84 |
+| tz6030 | 6.66% | 6,313 | 1.609 | 47.3% | 1.74 | 1.63 | 1.43 | 1.39 | 1.66 | 1.55 | 1.78 |
+| bv12060 | 3.50% | 6,314 | 1.711 | 70.0% | 1.71 | 1.77 | 1.32 | 1.50 | 1.70 | 1.76 | 2.16 |
+| bv12030 | 3.10% | 6,313 | 1.716 | 71.1% | 1.71 | 1.78 | 1.32 | 1.51 | 1.70 | 1.76 | 2.17 |
+| bv6030 | 2.38% | 6,313 | 1.723 | 73.4% | 1.73 | 1.77 | 1.32 | 1.52 | 1.72 | 1.78 | 2.18 |
+| be12060 | 3.92% | 6,314 | 1.711 | 69.6% | 1.70 | 1.78 | 1.33 | 1.53 | 1.69 | 1.76 | 2.15 |
+| be12030 | 3.50% | 6,313 | 1.716 | 70.5% | 1.71 | 1.78 | 1.33 | 1.53 | 1.69 | 1.78 | 2.16 |
+| be6030 | 2.63% | 6,313 | 1.721 | 73.0% | 1.74 | 1.75 | 1.32 | 1.53 | 1.70 | 1.78 | 2.19 |
+
+**Verdicts**:
+1. **The pair is replaceable.** Every non-tz single variant matches or beats the pair
+   at identical n in BOTH frames (A1: 1.716-1.727 vs 1.710; B: 1.711-1.723 vs 1.709),
+   with the 2022 worst-year IMPROVING (1.29 → 1.32-1.36). `dist_lo` adds nothing the
+   smooth kernel doesn't already carry. One feature, one threshold, two conditions
+   retired.
+2. **Clock and weighting are nearly irrelevant** (be ≈ te, bv ≈ tv within ~0.005;
+   pairs within ~0.01 of each other) — at signal time the tape is dense (tc60 ≥ 60
+   entry floor), so bar-clock ≈ time-clock and EQ ≈ VW. The kernel SHAPE did the work.
+   Best cells: A1 be12060/be12030 1.727, B bv6030 1.723 / be6030 1.721 — (60,30)
+   slightly ahead in the full frame, retaining the most of the pair book (73%).
+3. **tz (zero-fill) is the one real loser** — A1 1.67-1.70, and its OR arm is TOXIC
+   (B: 1.59, overlap 50%): at 2t = 13-20% the arm admits volat-25-40bp trips selected
+   mostly by prior-window SPARSITY, not speed (A2: its ≥8% band holds 111k rows at
+   PF 2.22 vs the others' 2.5-3.0 tails — the density blend piles thin-tape rows into
+   the top band). Its 2022 = 1.38-1.43 (best of all variants) hints the sparsity blend
+   carries some 2022-specific information — a sizing-tier curiosity at most, not a gate.
+4. **Book overlap is only ~70-74%** at matched n: the single feature selects a
+   genuinely different book at equal-or-better PF — a real simplification, not a
+   re-labeling.
+
+⏭ Adoption decision (user): which cell replaces the pair — bv6030 (VW, honest vwap
+semantics, B-best 1.723) or be6030/be12060 (EQ, simplest machinery)? Threshold lands
+at ~2.4% (6030) / ~3.9-4.0% (12060) with the OR arm at 2×.
+
+**S35c — the UNION of the 12 non-tz variant books (user)**: replayed per the mc=1
+ruling as ONE gate stack whose speed condition is the OR of all 12 calibrated gates
+(each with its own 2× volat arm; thresholds from the B table, count-calibrated only):
+
+| book | n | pf | avg | win | ref-olap | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| REF pair | 6,313 | 1.709 | 1.16% | 72.0% | 100% | 1.73 | 1.76 | 1.29 | 1.52 | 1.72 | 1.74 | 2.15 |
+| UNION 12 | 6,704 | 1.707 | 1.13% | 72.4% | 73.7% | 1.71 | 1.75 | 1.37 | 1.52 | 1.68 | 1.75 | 2.14 |
+| UNION 13 (+pair) | 6,891 | 1.710 | 1.12% | 72.4% | 82.6% | 1.71 | 1.77 | 1.37 | 1.53 | 1.68 | 1.73 | 2.14 |
+| INTER 12 | 5,914 | 1.725 | 1.22% | 72.3% | 67.7% | 1.73 | 1.79 | 1.29 | 1.54 | 1.70 | 1.79 | 2.18 |
+
++6.2% trips at −0.002 PF (union-12), +9.2% at ±0.000 (union-13 with the pair), and
+2022 — the worst year — improves 1.29 → 1.37 in both; 2024 gives back 0.04. Coverage:
+every individual gate passes 79-82% of the union book — a consensus core plus
+complementary ~20% fringes that carry their weight. The 12-way INTERSECTION is a mild
+premium tier (1.725, avg 1.22%), consensus-as-sizing at best. ⚠ The union carries 12
+count-calibrated thresholds (12 dials vs bv6030's one at 1.723) — the PF was never
+tuned, but remember the dial count when comparing. ⏭ If pursued: prune to the 3-4
+maximally complementary kernels rather than all 12.
+
+**S35d — the REF/UNION symmetric difference decomposed (user)**: shared core 4,655 @
+1.717 (avg 1.31%). Slot-displaced trips (shared tkd, different second): ref-side 1,503
+@ 1.491, union-side 1,613 @ 1.242 — the non-consensus slots are worse entries. The
+tkd-exclusive fringes are near-perfect ON BOTH SIDES (ref 155 @ 19.45, 91.6% win;
+union 436 @ 19.39, 91.7% win) — NOT a single-signal-day effect (control: 1-trip tkds
+in the ref book run 1.82, not 19): DISAGREEMENT STRUCTURALLY EXCLUDES RUNNERS — a pop
+strong enough to run trips every construction, so a tkd only lands exclusive when the
+pop stayed borderline all day, and borderline pops are capped-loss fades (typical
+winner ~2.5%, loser ~1.4%, zero catastrophes). ⚠ "Exclusive day" is OUTCOME SELECTION
+as a label (whether other gates fire later is future information — the bounce-door
+class); the union banks those trips CAUSALLY, which is why its book PF holds.
+Net (eqw Σret): REF 7,345% · UNION 12 7,555% (+2.9%) · UNION 13 7,690% (+4.7%, 2022
+net 328 → 432).
+
+**S35e — 3-voice compression (user: "pick one (120,60)/(120,30)/(60,30) triple")**:
+within-family triples are a DEAD HEAT (tv-3 7,465% @ 1.714 · te-3 7,461 @ 1.712 ·
+be-3 7,458 @ 1.712 · bv-3 7,447 @ 1.711; n ≈ 6,460) — family is irrelevant, per-cell
+thresholds from the B table. The 64 mixed one-cell-per-horizon combos spread 7,417-
+7,566%: every top-5 combo CROSSES families (diversity across horizons is what pays;
+the bottom combos repeat similar constructions) and every top-5 includes tv12060 =
+the S8 `vwap_ew_60_prev` already in production. Best: `tv12060 + te12030 + be6030`
+(n 6,569 @ 1.719, 7,566% — all of union-12's net on 3 voices; top-5 within 11 net
+points = tie cluster, exact winner is noise).
+
+| book | n | pf | net | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| REF pair | 6,313 | 1.709 | 7,345% | 1,269 | 1,475 | 328 | 558 | 1,182 | 1,319 | 1,214 |
+| TRI mixed | 6,569 | 1.719 | 7,566% | 1,285 | 1,498 | 408 | 570 | 1,160 | 1,405 | 1,241 |
+| TRI + pair | 6,803 | 1.717 | 7,702% | 1,315 | 1,564 | 418 | 588 | 1,171 | 1,392 | 1,253 |
+| UNION 13 | 6,891 | 1.710 | 7,690% | 1,305 | 1,575 | 432 | 587 | 1,160 | 1,385 | 1,245 |
+
+**⏭ ADOPTION CANDIDATE — TRI + pair (4 voices, replaces the 13-voice union)**: the
+pair (speed > 2% ∧ dist > 2%, arm ≥ 4%) ∨ tv12060 > 3.24% ∨ te12030 > 3.31% ∨
+be6030 > 2.63% (each kernel with its own 2× volat arm). Beats UNION 13 on BOTH net
+(7,702% vs 7,690%) and PF (1.717 vs 1.710) at 6,803 trips; +4.9% net over the pair
+alone; 2022 net +27%.
+
+## S35f (2026-08-29) — ⭐ ADOPTED: the speed PAIR → single `be6030 > 2%` (flat threshold)
+
+**The flat-threshold probe (user: "the calibrated thresholds would be hard to deal
+with")** — every construction at the pair's own 2% gate / 4% arm:
+
+| book | n | pf | net | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| REF pair | 6,313 | 1.709 | 7,345% | 1.73 | 1.76 | 1.29 | 1.52 | 1.72 | 1.74 | 2.15 |
+| tv-3 @2% | 7,871 | 1.683 | 7,923% | 1.71 | 1.75 | 1.34 | 1.47 | 1.68 | 1.68 | 2.09 |
+| te-3 @2% | 8,183 | 1.675 | 7,995% | 1.70 | 1.75 | 1.35 | 1.46 | 1.68 | 1.67 | 2.07 |
+| bv-3 @2% | 8,044 | 1.674 | 7,915% | 1.69 | 1.75 | 1.34 | 1.45 | 1.68 | 1.67 | 2.09 |
+| be-3 @2% | 8,327 | 1.672 | 8,030% | 1.69 | 1.74 | 1.36 | 1.45 | 1.68 | 1.66 | 2.08 |
+| TRI @2% | 7,980 | 1.680 | 7,947% | 1.70 | 1.75 | 1.34 | 1.46 | 1.68 | 1.68 | 2.09 |
+| TRI+pair @2% | 7,980 | 1.680 | 7,944% | (pair fully absorbed) | | | | | | |
+| **be6030 @2%** | 7,243 | **1.704** | **7,817%** | 1.72 | 1.77 | 1.35 | 1.48 | 1.70 | 1.74 | 2.13 |
+
+**⭐ THE COLLAPSE FINDING**: at a COMMON threshold the union degenerates — tv-3 @2% ≡
+tv12060 @2% alone (identical books): the slow kernel's speed always reads larger than
+its faster siblings', so at equal thresholds the (120,60) cell is a SUPERSET of the
+rest, and the pair vanishes inside TRI+pair (7,947 → 7,944). Per-horizon calibration
+wasn't a nuisance — it was what made multiple voices real. Flat thresholds delete the
+ensemble. The one cell where a round 2% is NOT a giveaway is the fast (60,30) kernel
+(its calibrated value was 2.63%) — and be6030 @2% alone nets MORE than the calibrated
+4-voice TRI+pair (7,817% vs 7,702%) at near-reference PF on ONE dial.
+
+**ADOPTED (user)**: `speed_1m > 2% ∧ dist_lo > 2%` (two conditions) → **`be6030 > 2%`**
+(one), and the volat OR arm's `speed ≥ 4%` → **`be6030 ≥ 4%`**. Two features never
+measured two things. The stack is now 12 conditions:
+
+`(volat_20m ≥ 40bp ∨ (volat ≥ 25bp ∧ be6030 ≥ 4%)) ∧ be6030 > 2% ∧ eff_10m ≥ 0.3 ∧
+k300 ≥ 40 ∧ k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧
+slope_20m ≥ 30 ∧ signal < 15:30 ∧ ac1_ewma ≥ −0.1`
+where `be6030 = signal_vwap/vwap_ewp_6030_be − 1`.
+
+**The adopted book (v4, true mc=1)**: **7,243 @ PF 1.704, avg 1.08%, win 72.2%,
+net 7,817%** — +14.7% trips and +6.4% net vs the pair stack at −0.005 PF, worst year
+2022 UP 1.29 → 1.35 (net 328 → 427).
+
+| year | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| pf | 1.72 | 1.77 | 1.35 | 1.48 | 1.70 | 1.74 | 2.13 |
+| net | 1,341 | 1,616 | 427 | 555 | 1,201 | 1,421 | 1,255 |
+| n | 1,320 | 1,642 | 770 | 626 | 933 | 1,273 | 679 |
+
+**Engine**: `MinSpeed1m`/`MinDist1mLo` gates DELETED; `MinSpeedBe6030` (default 0.02)
+gates `vwap/vwap_ewp_6030_be − 1`, mirroring the recorded column (banner:
+`STACK (S35f)= speed_be6030 > +2% | eff10 >= 0.30 | dv0945tape >= off`). The volat OR
+arm stays post-hoc. ⏭ The union/TRI machinery stays on the shelf (S35c-e): calibrated
+TRI+pair (1.717 / 7,702%) remains the quality-tilted alternative if capacity ever
+matters more than dial count.

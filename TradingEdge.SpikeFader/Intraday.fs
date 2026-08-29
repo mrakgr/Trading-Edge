@@ -642,6 +642,26 @@ type FlushPosition =
                                  //   difference-of-exponentials prior-window vwap (weight
                                  //   0.5^(a/120)−0.5^(a/60) >= 0, no sparse-tape degeneracy).
                                  //   speed_ew = signal_vwap/vwap_ew_60_prev − 1 in SQL.
+      // ⭐ S35 (user, 2026-08-29): the FULL window-difference speed grid —
+      // {t=time-clock, b=bar-clock} × {v=volume-weighted, e=equal-weighted} ×
+      // pairs (120,60)/(120,30)/(60,30); hl in tradeable secs (t) or bars (b).
+      // VwapEw60Prev above IS the 12060_tv cell. speed = signal_vwap/x − 1.
+      VwapEwp12030Tv: float
+      VwapEwp6030Tv: float
+      VwapEwp12060Te: float
+      VwapEwp12030Te: float
+      VwapEwp6030Te: float
+      // S35b: tz = time-clock EQ, Zero mode — same every-second weight as te's
+      // Locf, numerator = prints only (te-vs-tz isolates the fill policy).
+      VwapEwp12060Tz: float
+      VwapEwp12030Tz: float
+      VwapEwp6030Tz: float
+      VwapEwp12060Bv: float
+      VwapEwp12030Bv: float
+      VwapEwp6030Bv: float
+      VwapEwp12060Be: float
+      VwapEwp12030Be: float
+      VwapEwp6030Be: float
       DollarVol60: float         // 60s time-sum of vwap*volume — the liquidity-floor value
       DollarVol300: float        // S40l: dv at every study window (the torrent axis
       DollarVol600: float        //   lived on dv/20m — now recorded at 5m/10m/20m
@@ -894,10 +914,12 @@ type IntradayConfig =
       // GONE (S17): those 15 gates were never re-derived short-side, and the gate-by-gate
       // rebuild replaced them with the three below, each re-derived on the bare corpus.
       // Each individually disable-able; a cold feature FAILS an armed gate (volatOk stance).
-      MinSpeed1m: float          // vwap/vwap_60_prev - 1 > this (spike speed, S13). Default +0.02. <= 0 = off.
-      MinDist1mLo: float         // vwap/lo_60 - 1 > this — dist from the 1m LOW, the speed
-                                 // conjunction (S13: the two legs are one lever, AND kept for
-                                 // robustness). Default +0.02. <= 0 = off. Post-push max60 = lo_60.
+      MinSpeedBe6030: float      // ⭐ S35f (user): THE speed gate — vwap/vwap_ewp_6030_be - 1 >
+                                 // this (bar-clock EQ (60,30) decayed window-difference; ONE
+                                 // feature replaced the S13 speed_1m+dist_lo PAIR: iso-trip
+                                 // equal-or-better in every frame, and at the pair's own 2%
+                                 // threshold nets MORE than the calibrated 4-voice union).
+                                 // Default +0.02. <= 0 = off. The volat OR arm uses 2x this.
       MinEff10m: float           // ⭐ S14/S15: SIGNED eff_10m >= this — the vertical-spike floor
                                  // (SMA slot form; monotone in BOTH mc views; EWMA forms are
                                  // non-monotone and must not gate). Default +0.3. <= 0 = off.
@@ -1155,10 +1177,42 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // unscaled decayed sums; S120 − S60 has weight 0.5^(a/120) − 0.5^(a/60) >= 0,
     // a smooth prior-window kernel with no sparse-tape degeneracy). Recorded as
     // vwap_ew_60 / vwap_ew_60_prev; speed_ew derives in SQL like the bar pair.
-    let dvDecay60 = DecaySumMa 60.0
-    let dvDecay120 = DecaySumMa 120.0
-    let volDecay60 = DecaySumMa 60.0
-    let volDecay120 = DecaySumMa 120.0
+    let dvDecay60 = DecaySumMa(60.0, GapValue.Zero)
+    let dvDecay120 = DecaySumMa(120.0, GapValue.Zero)
+    let volDecay60 = DecaySumMa(60.0, GapValue.Zero)
+    let volDecay120 = DecaySumMa(120.0, GapValue.Zero)
+    // ⭐ S35 (user, 2026-08-29): the FULL window-difference speed grid —
+    // {bar-clock, time-clock} × {equal-weighted, volume-weighted} × pairs
+    // (120,60)/(120,30)/(60,30). The existing dv/volDecay pair above is the
+    // time-clock VW (120,60) cell (vwap_ew_60_prev); these fill in the rest.
+    // Bar-clock = same DecaySumMa pushed with gapCount 0 (hl in BARS).
+    // GapValue declares each stream's gap-second convention (see RollingMa):
+    // volume/dv = Zero (a silent second genuinely traded nothing);
+    // time-clock price = Locf (the state persists — the EQ mean is the decayed
+    // TWAP of the LOCF-filled path, den = the instance's own Weight);
+    // bar-clock price = Empty (pushes only; gapCount is 0 here anyway).
+    let dvDecayT30 = DecaySumMa(30.0, GapValue.Zero)
+    let volDecayT30 = DecaySumMa(30.0, GapValue.Zero)
+    let pxDecayT30 = DecaySumMa(30.0, GapValue.Locf)
+    let pxDecayT60 = DecaySumMa(60.0, GapValue.Locf)
+    let pxDecayT120 = DecaySumMa(120.0, GapValue.Locf)
+    // S35b (user): the Zero-mode price twins — same every-second weight as
+    // Locf (oracle: Locf.Weight ≡ Zero.Weight), numerator = the PRINTS only
+    // (no fill). Locf-vs-Zero isolates the fill policy: on a sparse prior
+    // window the Zero "vwap" reads below every print, so speed against it
+    // deliberately blends pop speed with prior-window thinness.
+    let pxDecayTZ30 = DecaySumMa(30.0, GapValue.Zero)
+    let pxDecayTZ60 = DecaySumMa(60.0, GapValue.Zero)
+    let pxDecayTZ120 = DecaySumMa(120.0, GapValue.Zero)
+    let dvDecayB30 = DecaySumMa(30.0, GapValue.Zero)
+    let dvDecayB60 = DecaySumMa(60.0, GapValue.Zero)
+    let dvDecayB120 = DecaySumMa(120.0, GapValue.Zero)
+    let volDecayB30 = DecaySumMa(30.0, GapValue.Zero)
+    let volDecayB60 = DecaySumMa(60.0, GapValue.Zero)
+    let volDecayB120 = DecaySumMa(120.0, GapValue.Zero)
+    let pxDecayB30 = DecaySumMa(30.0, GapValue.Empty)
+    let pxDecayB60 = DecaySumMa(60.0, GapValue.Empty)
+    let pxDecayB120 = DecaySumMa(120.0, GapValue.Empty)
     // ⭐ S9 (user): the MaxRider F10/F12 "new session-VOLUME high" mirror —
     // per-rung session running max of the W-sec volume sums over windows
     // ending >= W tradeable secs ago (fully NON-overlapping, the analog of
@@ -1780,6 +1834,24 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         dvDecay120.Push(bar.vwap * bar.volume, volGap)
         volDecay60.Push(bar.volume, volGap)
         volDecay120.Push(bar.volume, volGap)
+        // S35: the window-difference speed grid's remaining sums
+        dvDecayT30.Push(bar.vwap * bar.volume, volGap)
+        volDecayT30.Push(bar.volume, volGap)
+        pxDecayT30.Push(bar.vwap, volGap)
+        pxDecayT60.Push(bar.vwap, volGap)
+        pxDecayT120.Push(bar.vwap, volGap)
+        pxDecayTZ30.Push(bar.vwap, volGap)
+        pxDecayTZ60.Push(bar.vwap, volGap)
+        pxDecayTZ120.Push(bar.vwap, volGap)
+        dvDecayB30.Push(bar.vwap * bar.volume, 0)
+        dvDecayB60.Push(bar.vwap * bar.volume, 0)
+        dvDecayB120.Push(bar.vwap * bar.volume, 0)
+        volDecayB30.Push(bar.volume, 0)
+        volDecayB60.Push(bar.volume, 0)
+        volDecayB120.Push(bar.volume, 0)
+        pxDecayB30.Push(bar.vwap, 0)
+        pxDecayB60.Push(bar.vwap, 0)
+        pxDecayB120.Push(bar.vwap, 0)
         // S9: per-rung prior-window session maxes — warm sums only, so Max
         // compares full windows to full windows.
         (match tVolSum5.State with ValueSome s -> tVol5PriorMax.Push(s, volGap) | ValueNone -> ())
@@ -1895,6 +1967,30 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             | ValueSome d2, ValueSome v2, ValueSome d1, ValueSome v1 when v2 - v1 > 0.0 ->
                 ValueSome ((d2 - d1) / (v2 - v1))
             | _ -> ValueNone
+        // S35: the rest of the window-difference speed grid — same guard as
+        // vwapEw60Prev (den difference must be strictly positive). EQ
+        // denominators read each px instance's own Weight, consistent with its
+        // GapValue mode by construction (DecaySumWeight_Test.fsx).
+        let wdVwap (ns: float voption) (ds: float voption) (nf: float voption) (df: float voption) =
+            match ns, ds, nf, df with
+            | ValueSome ns, ValueSome ds, ValueSome nf, ValueSome df when ds - df > 0.0 ->
+                ValueSome ((ns - nf) / (ds - df))
+            | _ -> ValueNone
+        // (the 12060_tv cell is vwapEw60Prev above — the pre-existing S8 pair)
+        let ewp12030Tv = wdVwap dvDecay120.Sum volDecay120.Sum dvDecayT30.Sum volDecayT30.Sum
+        let ewp6030Tv = wdVwap dvDecay60.Sum volDecay60.Sum dvDecayT30.Sum volDecayT30.Sum
+        let ewp12060Te = wdVwap pxDecayT120.Sum pxDecayT120.Weight pxDecayT60.Sum pxDecayT60.Weight
+        let ewp12030Te = wdVwap pxDecayT120.Sum pxDecayT120.Weight pxDecayT30.Sum pxDecayT30.Weight
+        let ewp6030Te = wdVwap pxDecayT60.Sum pxDecayT60.Weight pxDecayT30.Sum pxDecayT30.Weight
+        let ewp12060Tz = wdVwap pxDecayTZ120.Sum pxDecayTZ120.Weight pxDecayTZ60.Sum pxDecayTZ60.Weight
+        let ewp12030Tz = wdVwap pxDecayTZ120.Sum pxDecayTZ120.Weight pxDecayTZ30.Sum pxDecayTZ30.Weight
+        let ewp6030Tz = wdVwap pxDecayTZ60.Sum pxDecayTZ60.Weight pxDecayTZ30.Sum pxDecayTZ30.Weight
+        let ewp12060Bv = wdVwap dvDecayB120.Sum volDecayB120.Sum dvDecayB60.Sum volDecayB60.Sum
+        let ewp12030Bv = wdVwap dvDecayB120.Sum volDecayB120.Sum dvDecayB30.Sum volDecayB30.Sum
+        let ewp6030Bv = wdVwap dvDecayB60.Sum volDecayB60.Sum dvDecayB30.Sum volDecayB30.Sum
+        let ewp12060Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB60.Sum pxDecayB60.Weight
+        let ewp12030Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB30.Sum pxDecayB30.Weight
+        let ewp6030Be = wdVwap pxDecayB60.Sum pxDecayB60.Weight pxDecayB30.Sum pxDecayB30.Weight
         sessVwap.Push(bar.vwap * bar.volume, bar.volume)
         max30.Push bar.vwap
         max60.Push bar.vwap
@@ -2354,17 +2450,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ⭐ THE RATIFIED STACK GATES (S13-S15) — expressions mirror the recorded
         // columns exactly, so an engine-gated run must bit-match the post-hoc SQL
         // on the same trips (S19 discipline).
+        // ⭐ S35f: the single be6030 speed gate (mirrors vwap_ewp_6030_be).
         let speedOk =
-            cfg.MinSpeed1m <= 0.0
-            || (match vwap60Prev with
-                | ValueSome pv when pv > 0.0 -> bar.vwap / pv - 1.0 > cfg.MinSpeed1m
-                | _ -> false)
-        // post-push max60, identical to the recorded lo_60 (no fullness
-        // requirement — the 1200-bar signal channel guarantees warmth).
-        let d1mOk =
-            cfg.MinDist1mLo <= 0.0
-            || (match min60.State with
-                | ValueSome l when l > 0.0 -> bar.vwap / l - 1.0 > cfg.MinDist1mLo
+            cfg.MinSpeedBe6030 <= 0.0
+            || (match ewp6030Be with
+                | ValueSome pv when pv > 0.0 -> bar.vwap / pv - 1.0 > cfg.MinSpeedBe6030
                 | _ -> false)
         // ⭐ S14: SIGNED eff_10m floor (same slot chain as the recorded eff_10m;
         // cold FAILS an armed gate — standard stance).
@@ -2376,7 +2466,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     log (cur / old) / s >= cfg.MinEff10m
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
-        let specOk = speedOk && d1mOk && eff10Ok && dv0945TapeOk
+        let specOk = speedOk && eff10Ok && dv0945TapeOk
         if inWindow && channelWarm && isNewHigh && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
@@ -2689,6 +2779,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vwap60Prev = vv vwap60Prev
                       VwapEw60 = vv vwapEw60
                       VwapEw60Prev = vv vwapEw60Prev
+                      VwapEwp12030Tv = vv ewp12030Tv
+                      VwapEwp6030Tv = vv ewp6030Tv
+                      VwapEwp12060Te = vv ewp12060Te
+                      VwapEwp12030Te = vv ewp12030Te
+                      VwapEwp6030Te = vv ewp6030Te
+                      VwapEwp12060Tz = vv ewp12060Tz
+                      VwapEwp12030Tz = vv ewp12030Tz
+                      VwapEwp6030Tz = vv ewp6030Tz
+                      VwapEwp12060Bv = vv ewp12060Bv
+                      VwapEwp12030Bv = vv ewp12030Bv
+                      VwapEwp6030Bv = vv ewp6030Bv
+                      VwapEwp12060Be = vv ewp12060Be
+                      VwapEwp12030Be = vv ewp12030Be
+                      VwapEwp6030Be = vv ewp6030Be
                       DollarVol60 = vv tDvSum60.State
                       DollarVol300 = vv tDvSum300.State
                       DollarVol600 = vv tDvSum600.State

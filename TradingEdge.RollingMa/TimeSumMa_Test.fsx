@@ -96,7 +96,7 @@ check (sprintf "sum mismatches %d, lag mismatches %d / %d" sumBad lagBad denseVa
 
 printfn "4. DecaySumMa.Mean == EmaHlMa fed g explicit zeros then x (num = α·Sum, den = α·w)"
 let hl = 1200.0
-let a2, b2 = DecaySumMa hl, EmaHlMa hl
+let a2, b2 = DecaySumMa(hl, GapValue.Zero), EmaHlMa hl
 let mutable worstE = 0.0
 for struct (g, v) in stream do
     a2.Push(v, g)
@@ -105,20 +105,20 @@ for struct (g, v) in stream do
     let e = abs (vv a2.Mean - vv b2.State) / max 1e-12 (abs (vv b2.State))
     if e > worstE then worstE <- e
 check (sprintf "worst relerr Mean vs explicit-zero EmaHlMa %.2e" worstE) (worstE <= 1e-12)
-let c1, c2 = EmaHlMa 40.0, DecaySumMa 40.0
+let c1, c2 = EmaHlMa 40.0, DecaySumMa(40.0, GapValue.Zero)
 for v in denseVals |> Array.take 100 do c1.Push v; c2.Push(v, 0)
 approx "dense Mean == per-push EmaHlMa after 100 pushes" (vv c2.Mean) (vv c1.State) 1e-12
 
 printfn "5. Rate semantics — V=900 every (g+1)=10 secs at hl=1200: Mean ≈ 90/sec, not 900"
 // reading right after the impulse overweights it by ~(g/2)·α (phase bias), so
 // the read is ≈ 90 × 1.0026 at hl=1200 — loose 1% tolerance; the point is 90 vs 900.
-let r = DecaySumMa 1200.0
+let r = DecaySumMa(1200.0, GapValue.Zero)
 for _ in 1 .. 20000 do r.Push(900.0, 9)
 approx "steady-state rate" (vv r.Mean) 90.0 1e-2
 
 printfn "6. DecaySumMa oracle — brute-force decayed sum on the sparse stream, hl 60/120"
 for hl in [60.0; 120.0] do
-    let d = DecaySumMa hl
+    let d = DecaySumMa(hl, GapValue.Zero)
     let hist = ResizeArray<struct (int * float)>()
     let mutable clock = 0
     let mutable worstD = 0.0
@@ -133,8 +133,8 @@ for hl in [60.0; 120.0] do
 
 printfn "7. Difference-of-exponentials speed — S120−S60 positive; prior-window vwap sane"
 // constant price stream: any positive kernel must reproduce the price exactly.
-let dv60, dv120 = DecaySumMa 60.0, DecaySumMa 120.0
-let vl60, vl120 = DecaySumMa 60.0, DecaySumMa 120.0
+let dv60, dv120 = DecaySumMa(60.0, GapValue.Zero), DecaySumMa(120.0, GapValue.Zero)
+let vl60, vl120 = DecaySumMa(60.0, GapValue.Zero), DecaySumMa(120.0, GapValue.Zero)
 let mutable negDiff = 0
 let mutable worstPx = 0.0
 let px = 3.5

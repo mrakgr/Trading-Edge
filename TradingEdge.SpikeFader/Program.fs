@@ -29,7 +29,7 @@ type Args =
     | Min_Volat_20m of float
     | Max_Volat_20m of float
     // ----- the ratified stack gates (S13-S15; S17 deleted the FlushFader spec transplant) -----
-    | Min_Speed_1m of float
+    | Min_Speed_Be6030 of float
     | Min_Eff_10m of float
     | Min_Dv_0945_Tape of float
     // ----- price-acceptance stops -----
@@ -41,7 +41,6 @@ type Args =
     | Min_Rvol_0945 of float
     | Min_Prev_Close of float
     | Min_Barnum of int
-    | Min_Dist_1m of float
     | Halt_Min_Run of int
     | Halt_Min_Rng_300 of float
     | Halt_Max_Pre_Gap_60 of int
@@ -72,7 +71,7 @@ type Args =
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
-            | Min_Speed_1m _ -> "⭐ STACK (S13) 🔄: SPIKE speed gate — vwap/vwap_60_prev - 1 > this at the signal. Default +0.02. 0 = off."
+            | Min_Speed_Be6030 _ -> "⭐ STACK (S35f) 🔄: THE speed gate — vwap/vwap_ewp_6030_be - 1 > this at the signal (bar-clock EQ (60,30) decayed window-difference; replaced the S13 speed_1m+dist_lo PAIR). Default +0.02. 0 = off."
             | Min_Eff_10m _ -> "⭐ STACK (S14): SIGNED eff_10m >= this — the vertical-spike floor (SMA slot form; the EWMA twins are non-monotone and must not gate). Default +0.3. <= 0 = off."
             | Min_Dv_0945_Tape _ -> "Tape-native dv_0945 floor: Σ vwap·volume over OUR 1s bars strictly before 09:45 >= this (live-scanner-consistent; honest dollars). Default 0 = record-first. Pair with --min-dv-0945 0 when replacing the candidate-table gate."
             | Vol_Stop_Ratio _ -> "PRICE-ACCEPTANCE STOP: exit holders when a NEW entry-channel low prints on (vol_60/60)/(vol_1200/1200) >= this. Default Infinity = OFF (S16 A/B: stops gut the book). e.g. 8 to arm."
@@ -82,7 +81,6 @@ type Args =
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D RAW scale >= this (the `close_m1` column — already converted, no rescale; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
-            | Min_Dist_1m _ -> "⭐ STACK (S13) 🔄: vwap/lo_60 - 1 > this — dist from the 1m LOW; conjunction with the speed gate. Default +0.02. <= 0 = off."
             | Halt_Min_Run _ -> "⭐ S40x halt detector (record-only): a tradeless run >= this many seconds can classify as a HALT. Default 58."
             | Halt_Min_Rng_300 _ -> "⭐ S40x: pre-hole 5m range (ln hi/lo) >= this for the run to classify as a halt (the LULD trigger state). Default 0.04."
             | Halt_Max_Pre_Gap_60 _ -> "⭐ S40x: pre-hole ADJUSTED 1m gap < this (tape continuous up to the stop). Default 2."
@@ -119,7 +117,7 @@ let main argv =
         else
             // S17: the whole gate set is the ratified stack now — four sentinels.
             { d.Intraday with
-                MinSpeed1m = 0.0; MinDist1mLo = 0.0
+                MinSpeedBe6030 = 0.0
                 MinEff10m = 0.0; MinDv0945Tape = 0.0 }
     let cfg =
         { d with
@@ -131,8 +129,7 @@ let main argv =
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
-                    MinSpeed1m       = parsed.GetResult(Min_Speed_1m,       defaultValue = dI.MinSpeed1m)
-                    MinDist1mLo      = parsed.GetResult(Min_Dist_1m,        defaultValue = dI.MinDist1mLo)
+                    MinSpeedBe6030   = parsed.GetResult(Min_Speed_Be6030,   defaultValue = dI.MinSpeedBe6030)
                     MinEff10m        = parsed.GetResult(Min_Eff_10m,        defaultValue = dI.MinEff10m)
                     HaltMinRunSec    = parsed.GetResult(Halt_Min_Run,       defaultValue = d.Intraday.HaltMinRunSec)
                     HaltMinRng300    = parsed.GetResult(Halt_Min_Rng_300,   defaultValue = d.Intraday.HaltMinRng300)
@@ -223,9 +220,8 @@ let main argv =
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every stack gate OFF (signal definition only)")
-    printfn "  STACK (S17) = speed > %s | d1m > %s | eff10 >= %s | dv0945tape >= %s"
-        (if ic.MinSpeed1m <= 0.0 then "off" else sprintf "+%.0f%%/1m" (ic.MinSpeed1m * 100.0))
-        (if ic.MinDist1mLo <= 0.0 then "off" else sprintf "+%.0f%%" (ic.MinDist1mLo * 100.0))
+    printfn "  STACK (S35f)= speed_be6030 > %s | eff10 >= %s | dv0945tape >= %s"
+        (if ic.MinSpeedBe6030 <= 0.0 then "off" else sprintf "+%.0f%%" (ic.MinSpeedBe6030 * 100.0))
         (if ic.MinEff10m <= 0.0 then "off" else sprintf "%.2f" ic.MinEff10m)
         (if ic.MinDv0945Tape <= 0.0 then "off" else sprintf "$%.1fM" (ic.MinDv0945Tape / 1e6))
     printfn "  entry window= %s-%s ET   features fold from %s ET" (hhmmss ic.EntryStartSec) (hhmmss ic.EntryEndSec) (hhmmss ic.SessionStartSec)
