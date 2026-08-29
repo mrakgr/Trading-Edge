@@ -33,7 +33,7 @@ open TradingEdge.RollingMa
 //         stops fire only on qualified FRESH lows. The S2 tables motivate
 //         them: >=8x participation new lows run PF 0.59-0.87 at entry, and
 //         sustained <-1% pace is the continuing-flush signature.
-//   THE LEG MACHINE (NewLowCounters, ported verbatim from DipRiderV6):
+//   THE LEG MACHINE (LegCounters, RollingMa — DipRiderV6 lineage):
 //         armed by the leg's FIRST new low; BarsSinceFirstLow counts every
 //         bar, LowsSinceFirstLow counts further new lows (averaging-down
 //         depth); ⭐ RESET on a new ENTRY-channel HIGH (the user's "reset at
@@ -91,225 +91,6 @@ type SecBar =
       vwap: float
       volume: float
       tradeCount: int }
-
-/// Missing-second counter over a trailing WALL-CLOCK window (user, 2026-07-23):
-/// how many of the last `windowSecs` seconds (inclusive of the current bar's)
-/// had NO present bar. The engine's windows are present-bar-count (D1); this is
-/// the feature that records what that convention skips. `Push` the bar's etSec,
-/// then read `.Gaps`. Session-start clamp: before the window fills with session
-/// seconds, the denominator is the elapsed session span, so the first RTH bars
-/// don't read as one giant gap.
-/// ⭐ S40y (user): growing-window OLS of ln(vwap) vs present-bar index since an
-/// ANCHOR event (the leg's last 20m-high / the leg's first low) — the leg-shaped
-/// twins of the fixed-window ols_300/600/1200. O(1) push; Reset at the anchor;
-/// nan until 3 points.
-[<Sealed>]
-type AnchoredOls() =
-    let mutable n = 0.0
-    let mutable sx = 0.0
-    let mutable sy = 0.0
-    let mutable sxy = 0.0
-    let mutable sxx = 0.0
-    let mutable syy = 0.0
-    member _.Count = int n
-    member _.Push (y: float) =
-        let x = n
-        n <- n + 1.0
-        sx <- sx + x
-        sy <- sy + y
-        sxy <- sxy + x * y
-        sxx <- sxx + x * x
-        syy <- syy + y * y
-    /// ln per present bar (×6e5 ≈ bp/min in SQL, same convention as ols_slope_*).
-    member _.Slope =
-        if n < 3.0 then nan
-        else
-            let d = n * sxx - sx * sx
-            if d <= 0.0 then nan else (n * sxy - sx * sy) / d
-    /// Pearson r (signed; < 0 on a decline).
-    member _.R =
-        if n < 3.0 then nan
-        else
-            let dx = n * sxx - sx * sx
-            let dy = n * syy - sy * sy
-            if dx <= 0.0 || dy <= 0.0 then nan
-            else (n * sxy - sx * sy) / sqrt (dx * dy)
-    member _.Reset () =
-        n <- 0.0; sx <- 0.0; sy <- 0.0; sxy <- 0.0; sxx <- 0.0; syy <- 0.0
-
-/// ⭐ S40z (user): anchored Kaufman efficiency on 30-PRESENT-BAR SLOT vwaps —
-/// the SAME stream convention as eff_20m/10m. Sub-30s returns are
-/// MICROSTRUCTURE NOISE (the F7 vol-lock finding) — a bar-level path sum
-/// would be dominated by it. Slots are built INTERNALLY from the anchor, boundaries
-/// aligned to the anchor (not the global slot clock): net ln(V_last/V_first)
-/// over Σ|ln slot r| across all COMPLETED slots since the anchor. Signed; nan
-/// below 3 completed slots or on a zero path.
-[<Sealed>]
-type AnchoredEff(slotBars: int) =
-    let mutable slotDv = 0.0
-    let mutable slotVol = 0.0
-    let mutable slotN = 0
-    let mutable slots = 0
-    let mutable firstV = nan
-    let mutable prevV = nan
-    let mutable sumAbs = 0.0
-    // ⭐ S43am (user): the eff_9ema twin of this anchored segment. Shares the
-    // SAME anchor-aligned slots as .Eff by construction, so the two describe
-    // exactly the same path — only the numerator differs (trend-signed sum of
-    // every slot return, vs the two-endpoint displacement). The 9-slot EMA is
-    // built from the anchored slots too, so it seeds at the anchor.
-    let ema9 = EmaMa 9
-    let mutable sumSgn = 0.0
-    // ⭐ S43ao (user): volume-weighted log-price MOMENTS since the anchor, so the
-    // segment carries its own z-score. Accumulated PER PRESENT BAR (not per slot),
-    // matching the convention of the fixed-window z's (dlv_1200 / dlv2_1200 are
-    // SumMa over present bars) so z_since_* is directly comparable to z_20m.
-    let mutable sumV = 0.0
-    let mutable sumVL = 0.0
-    let mutable sumVL2 = 0.0
-    /// Completed slots since the anchor.
-    member _.Slots = slots
-    member _.Push (vwap: float, volume: float) =
-        if vwap > 0.0 && volume > 0.0 then
-            let lp = log vwap
-            sumV <- sumV + volume
-            sumVL <- sumVL + volume * lp
-            sumVL2 <- sumVL2 + volume * lp * lp
-        slotDv <- slotDv + vwap * volume
-        slotVol <- slotVol + volume
-        slotN <- slotN + 1
-        if slotN = slotBars then
-            let v = if slotVol > 0.0 then slotDv / slotVol else vwap
-            if slots = 0 then firstV <- v
-            elif prevV > 0.0 && v > 0.0 then
-                let r = log (v / prevV)
-                sumAbs <- sumAbs + abs r
-                // S43am: ema9 has absorbed prevV but NOT v (pushed below), so the
-                // sign is strictly-prior. Cold convention: the seed makes the
-                // segment's FIRST return read s = -1 (prevV > prevV is false).
-                let s = match ema9.State with ValueSome e when prevV > e -> 1.0 | _ -> -1.0
-                sumSgn <- sumSgn + s * r
-            ema9.Push v
-            prevV <- v
-            slots <- slots + 1
-            slotDv <- 0.0
-            slotVol <- 0.0
-            slotN <- 0
-    member _.Eff =
-        if slots < 3 || sumAbs <= 0.0 || not (firstV > 0.0) || not (prevV > 0.0) then nan
-        else log (prevV / firstV) / sumAbs
-    /// ⭐ S43am: the trend-signed efficiency over the same anchored segment.
-    /// ⚠ NOT SPAN-FREE — measured corr(eff9_since_high, slots) = -0.589, median
-    /// drifting 0.771 (10-20 slots) -> 0.139 (>= 80). Being a weighted mean of
-    /// +/-1 bounds it to [-1,1] but does NOT make it comparable across lengths:
-    /// a longer segment gives price more chances to cross its own 9-slot EMA, so
-    /// the signed terms cancel more. Same magnitude of drift as Kaufman's .Eff
-    /// (-0.771 -> -0.255) by a different mechanism. CONDITION ON .Slots — the
-    /// S43aj/ak lesson holds here too.
-    member _.Eff9Ema =
-        if slots < 3 || sumAbs <= 0.0 then nan else sumSgn / sumAbs
-    /// ⭐ S43ao: volume-weighted z of `px` against the anchored segment's own
-    /// log-price distribution. Same form as z_20m but over a VARIABLE-LENGTH
-    /// window anchored at the leg extreme, so ⚠ RECORD AND CONTROL THE SPAN
-    /// (.Slots) — every anchored ratio so far has drifted with it.
-    /// The current bar is already folded in when this is read at the signal bar,
-    /// exactly as the fixed-window z's include it.
-    member _.Z (px: float) =
-        if sumV <= 0.0 || not (px > 0.0) then nan
-        else
-            let mean = sumVL / sumV
-            let var = sumVL2 / sumV - mean * mean
-            if var <= 0.0 then nan else (log px - mean) / sqrt var
-    member _.Reset () =
-        slotDv <- 0.0
-        slotVol <- 0.0
-        slotN <- 0
-        slots <- 0
-        firstV <- nan
-        prevV <- nan
-        sumAbs <- 0.0
-        ema9.Reset ()
-        sumSgn <- 0.0
-        sumV <- 0.0
-        sumVL <- 0.0
-        sumVL2 <- 0.0
-
-[<Sealed>]
-type GapCounter(windowSecs: int, sessionStartSec: int) =
-    let q = System.Collections.Generic.Queue<int>()
-    let mutable lastSec = -1
-    member _.Push (sec: int) =
-        q.Enqueue sec
-        while q.Peek() <= sec - windowSecs do
-            q.Dequeue() |> ignore
-        lastSec <- sec
-    /// Missing seconds in the trailing window as of the last Push.
-    member _.Gaps =
-        if lastSec < 0 then 0
-        else
-            let span = min windowSecs (lastSec - sessionStartSec + 1)
-            max 0 (span - q.Count)
-    member _.Reset () =
-        q.Clear()
-        lastSec <- -1
-
-/// Bars-since-last-channel-breach, one per channel per side. -1 = this
-/// channel's extreme has not been breached this session; 0 = the CURRENT bar
-/// breached it; N = N present bars ago. Step FIRST each bar, then OnBreach if
-/// the bar broke the channel extreme, so the breach bar itself reads 0.
-[<Sealed>]
-type BreachCounter() =
-    let mutable bars = -1
-    member _.BarsSinceBreach = bars
-    member _.Step () = if bars >= 0 then bars <- bars + 1
-    member _.OnBreach () = bars <- 0
-    member _.Reset () = bars <- -1
-
-/// ⭐ The down-leg reset machine, ported verbatim from DipRiderV6.
-/// Armed by the leg's FIRST new low; disarmed (Reset) by a new entry-channel
-/// high. The two counters separate HOW DEEP INTO THE AVERAGING-DOWN SEQUENCE a
-/// trade is from HOW STALE the leg is:
-///   `LowsSinceFirstLow = 0` -> the FIRST low of the leg (the initial dip).
-///   `LowsSinceFirstLow = 3` -> the 4th consecutive new low (averaged down 3x).
-///   `BarsSinceFirstLow`     -> the leg's age in present bars.
-[<Sealed>]
-type NewLowCounters() =
-    let mutable bars = -1
-    let mutable lows = -1
-    // ⭐ S43be (user 2026-08-08): the leg's first-low WALL-CLOCK second. `bars`
-    // counts PRESENT bars, so on a sparse tape 390 bars spans ~17 min where on
-    // a dense one it spans ~7.6 — the same threshold is a different feature per
-    // era. This lets the same leg age be expressed in SECONDS, which is
-    // era-invariant. -1 = disarmed.
-    let mutable firstLowSec = -1
-    /// Bars since the FIRST new low of this down-leg. -1 = disarmed (no leg open).
-    member _.BarsSinceFirstLow = bars
-    /// ET second of this leg's FIRST new low. -1 = disarmed.
-    member _.FirstLowSec = firstLowSec
-    /// Seconds elapsed since the leg's first low, given the current bar's ET
-    /// second. -1 = disarmed (mirrors BarsSinceFirstLow's convention).
-    member _.SecsSinceFirstLow (etSec: int) = if firstLowSec < 0 then -1 else etSec - firstLowSec
-    /// Further new lows since the first of this leg. -1 = disarmed; 0 = this IS the
-    /// first low; N = the (N+1)th low, i.e. averaged down N times.
-    member _.LowsSinceFirstLow = lows
-    /// Is a down-leg currently open?
-    member _.Armed = bars >= 0
-    /// A new low fired: arm the leg (idempotent), or count another low into it.
-    /// `etSec` stamps the leg's first low so its age can be read in seconds.
-    member _.OnNewLow (etSec: int) =
-        if bars < 0 then
-            bars <- 0
-            lows <- 0
-            firstLowSec <- etSec
-        else
-            lows <- lows + 1
-    /// Advance one bar. No-op while disarmed.
-    member _.Step () = if bars >= 0 then bars <- bars + 1
-    /// A new entry-channel high fired: the down-leg is over — disarm.
-    member _.Reset () =
-        bars <- -1
-        lows <- -1
-        firstLowSec <- -1
 
 /// Trip life-cycle. Exit SIGNALS are detected at a bar's close but FILL at the
 /// next present bar's vwap — PendingExit carries the reason across that bar.
@@ -391,7 +172,7 @@ type FlushPosition =
       BreachLo60: int
       BreachLo30: int
       // ----- ⭐ the down-leg counters (the point of V6), read at the signal
-      // bar AFTER its OnNewLow — the entry bar IS a low, so both >= 0. -----
+      // bar AFTER its OnEvent — the entry bar IS a low, so both >= 0. -----
       BarsSinceFirstLow: int     // the leg's age in present bars
       SecsSinceFirstLow: int     // ⭐ S43be: the SAME leg age in WALL-CLOCK seconds
                                  // (era-invariant; the bar count is not — see S43be)
@@ -402,6 +183,36 @@ type FlushPosition =
       LowsSinceFirstLow300: int
       BarsSinceFirstLow600: int
       LowsSinceFirstLow600: int
+      // ⭐ S43cf (user, 2026-08-29): the SpikeFader S17 K-ladder mirrored back —
+      // 2m/3m rungs (counts only) + the volat EWMA shorts for the ratio study +
+      // the be window-difference speed cells (bar-clock EQ; long-side speed =
+      // signal_vwap/x − 1 in SQL) + the S34c autocorr port. All record-only.
+      LowsSinceFirstLow120: int
+      LowsSinceFirstLow180: int
+      Volat5m: float
+      Volat3m: float
+      VwapEwp12060Be: float
+      VwapEwp12030Be: float
+      VwapEwp6030Be: float
+      Ac1Ewma: float
+      Ac2Ewma: float
+      Ac3Ewma: float
+      // ⭐ S43cg (user, 2026-08-29): the vol-slope ladder extended — 5m/3m SMA
+      // rungs (FloatOls 10/6, same shared |r| ring) + EWMA slope twins at all
+      // four horizons (EwmaOlsMa, no hard warmup). SQL scale: ×2e4 = bp/min,
+      // same as volat_slope_20m. Record-only.
+      VolatSlope5m: float
+      VolatR5m: float
+      VolatSlope3m: float
+      VolatR3m: float
+      VolatEslope20m: float
+      VolatEr20m: float
+      VolatEslope10m: float
+      VolatEr10m: float
+      VolatEslope5m: float
+      VolatEr5m: float
+      VolatEslope3m: float
+      VolatEr3m: float
       // ----- ⭐ S43bk (user, 2026-08-11): 1s TICK DIRECTION. A "tick" is the
       // sign of this present bar's vwap vs the PREVIOUS present bar's — the 1s
       // slim dataset has no close, so bar-vwap-to-bar-vwap IS the tick. Three
@@ -982,6 +793,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let br30 = BreachCounter()
     let br60 = BreachCounter()
     let br120 = BreachCounter()
+    let br180 = BreachCounter()                  // S43cf: 3m rung for the K-ladder resets
     let br300 = BreachCounter()
     let br600 = BreachCounter()
     let br1200 = BreachCounter()
@@ -995,13 +807,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // ⭐ the leg machine + the per-leg trade counter (index of each SIGNAL
     // within the down-leg; reset together with the counters on the new
     // entry-channel high — NOT on new lows, unlike the momentum engines).
-    let counters = NewLowCounters()
+    let counters = LegCounters()
     // ⭐ S38e (user): the SAME new-low event counted under TIGHTER leg resets —
     // disarmed by a new 5m/10m high instead of the 20m one. A 20m-high breach
     // implies a 5m/10m breach (nested windows), so these never outlive `counters`.
     // RECORD-ONLY: no gate reads them.
-    let counters300 = NewLowCounters()
-    let counters600 = NewLowCounters()
+    let counters300 = LegCounters()
+    let counters600 = LegCounters()
+    // ⭐ S43cf (user): the SpikeFader S17 K-ladder mirrored back — the same
+    // new-low event under 2m/3m resets (br120 exists; br180 added for this).
+    // RECORD-ONLY, counts only (lows_since_first_low_{120,180}).
+    let counters120 = LegCounters()
+    let counters180 = LegCounters()
     // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols300 = OlsSlopeMa 300                  // ⭐ S39p (user): the 5m slope — the missing
@@ -1123,10 +940,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let dv2Sum1200 = SumMa 1200
     let dlvSum1200 = SumMa 1200
     let dlv2Sum1200 = SumMa 1200
+    // ⭐ S43cf (user): the be window-difference speed cells (SpikeFader S35 port) —
+    // bar-clock equal-weighted decayed sums of vwap, hl in BARS (pushed gap 0,
+    // GapValue.Empty: pushes only). wd vwap = (SumS−SumF)/(WeightS−WeightF);
+    // long-side speed = signal_vwap/wd − 1 (negative in a flush), post-hoc.
+    let pxDecayB30 = DecaySumMa(30.0, GapValue.Empty)
+    let pxDecayB60 = DecaySumMa(60.0, GapValue.Empty)
+    let pxDecayB120 = DecaySumMa(120.0, GapValue.Empty)
     // ----- the locked volatility block -----
     let slots = SlotVwapMa cfg.SlotBars
     let ew40 = EmaHlMa 40.0                      // volat_20m — THE driver (F7 lock)
     let ew20 = EmaHlMa 20.0                      // volat_10m — the trajectory twin
+    // ⭐ S43cf (user): the shorter volat twins for the EWMA ratio study (10 slots
+    // = 5m, 6 slots = 3m) + the SpikeFader S34c/S34d autocorr port (whipsaw
+    // knife candidate ac1_ewma ≥ −0.1). All RECORD-ONLY.
+    let ew10 = EmaHlMa 10.0                      // volat_5m
+    let ew6 = EmaHlMa 6.0                        // volat_3m
+    let acEwma = EwmaAutoCorrMa(40.0, 3)
     // ⭐ S38n: the 40-INTERVAL horizon STAYS (a 39-interval alignment variant was
     // built and rejected — it churned ~11% of the book through the eff band and
     // lost 5 of 7 years). eff_20m therefore warms at 41 slots ≈ 1,230 present
@@ -1196,10 +1026,22 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // zero-diff against the live scanner on the one-year audit.
     let volatOls20m = FloatOls 40
     let volatOls10m = FloatOls 20
+    // ⭐ S43cg (user): the 5m/3m rungs of the same ladder — same shared ring.
+    let volatOls5m = FloatOls 10
+    let volatOls3m = FloatOls 6
     let volatRoller =
         WindowRoller<float>(
             [| 40, [| volatOls20m :> IRoll<float> |]
-               20, [| volatOls10m :> IRoll<float> |] |])
+               20, [| volatOls10m :> IRoll<float> |]
+               10, [| volatOls5m :> IRoll<float> |]
+               6, [| volatOls3m :> IRoll<float> |] |])
+    // ⭐ S43cg (user): the EWMA slope twins — EwmaOlsMa on the SAME |r| stream,
+    // hl in slots matching each SMA window; no hard warmup (established ~3
+    // pushes), the ratio-study motivation made structural. Record-only.
+    let volatEols20m = EwmaOlsMa 40.0
+    let volatEols10m = EwmaOlsMa 20.0
+    let volatEols5m = EwmaOlsMa 10.0
+    let volatEols3m = EwmaOlsMa 6.0
     /// slope and SIGNED Pearson r (sign(slope)·√R²), FULL WINDOW ONLY — nan
     /// otherwise. Matches the live scanner's `fullSlope` read discipline.
     let volatOlsRead (o: FloatOls) =
@@ -1267,7 +1109,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // than on the last uptick. `dsu` asks "how clean is the tape RIGHT NOW";
     // this asks "how one-sided has the WHOLE leg been". The uptick twin makes
     // the balance and the density (vs bars_since_first_low) recoverable.
-    // -1 = disarmed, mirroring the NewLowCounters convention.
+    // -1 = disarmed, mirroring the LegCounters convention.
     let mutable dnFlow = -1
     let mutable upFlow = -1
     // ⭐ S43bo (user, 2026-08-11): count NEW 20m LOWS — not downtick bars — and
@@ -1405,6 +1247,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sMax30 : float voption = ValueNone
     let mutable sMax60 : float voption = ValueNone
     let mutable sMax120 : float voption = ValueNone
+    let mutable sMax180 : float voption = ValueNone   // S43cf: br180's strictly-prior high
     let mutable sMax300 : float voption = ValueNone
     let mutable sMax600 : float voption = ValueNone
     let mutable sMax1200 : float voption = ValueNone
@@ -1421,6 +1264,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sSessLow : float voption = ValueNone
 
     let vv (v: float voption) = match v with ValueSome x -> x | ValueNone -> nan
+    /// S43cf: prior-window wd vwap from two decayed sums (SpikeFader S35 form —
+    /// the den difference must be strictly positive).
+    let wdVwap (ns: float voption) (ds: float voption) (nf: float voption) (df: float voption) =
+        match ns, ds, nf, df with
+        | ValueSome ns, ValueSome ds, ValueSome nf, ValueSome df when ds - df > 0.0 ->
+            (ns - nf) / (ds - df)
+        | _ -> nan
     /// ln(high/low) of a channel pair, nan until both sides carry a value.
     let chanRng (hi: MaxMa) (lo: MinMa) =
         match hi.State, lo.State with
@@ -1448,6 +1298,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMax30 <- max30.State
         sMax60 <- max60.State
         sMax120 <- max120.State
+        sMax180 <- max180.State
         sMax300 <- max300.State
         sMax600 <- max600.State
         sMax1200 <- max1200.State
@@ -1665,6 +1516,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         max60.Push bar.vwap
         max120.Push bar.vwap
         max180.Push bar.vwap
+        // S43cf: the be speed cells — bar-clock, gap 0 by definition
+        pxDecayB30.Push(bar.vwap, 0)
+        pxDecayB60.Push(bar.vwap, 0)
+        pxDecayB120.Push(bar.vwap, 0)
         max300.Push bar.vwap
         max600.Push bar.vwap
         max1200.Push bar.vwap
@@ -1714,6 +1569,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  let ar = abs r
                  ew40.Push ar
                  ew20.Push ar
+                 ew10.Push ar                     // S43cf: volat_5m
+                 ew6.Push ar                      // S43cf: volat_3m
+                 acEwma.Push r                    // S43cf: SIGNED r (SpikeFader S34c port)
                  slotAbsSum.Push ar
                  slotAbsSum20.Push ar
                  // S43bd: the same slot step in PRICE space for the linear twins
@@ -1733,7 +1591,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                  if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
                  neffRet20.Push (NEffShannon.Zero.Add ar)
                  if neffRet20Count = 20 then neffRet20.Pop() else neffRet20Count <- neffRet20Count + 1
-                 volatRoller.Push ar                   // S42k: one queue, both windows
+                 volatRoller.Push ar                   // S42k: one queue, all four windows
+                 volatEols20m.Push ar                  // S43cg: the EWMA slope twins
+                 volatEols10m.Push ar
+                 volatEols5m.Push ar
+                 volatEols3m.Push ar
                  slotReturns <- slotReturns + 1
              | _ -> ())
             slotLag.Push v
@@ -1799,11 +1661,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let prevBr600 = br600.BarsSinceBreach
         let prevBr1200 = br1200.BarsSinceBreach
         let breached (prior: float voption) = match prior with ValueSome hi -> bar.vwap > hi | ValueNone -> false
-        brSess.Step(); br30.Step(); br60.Step(); br120.Step(); br300.Step(); br600.Step(); br1200.Step()
+        brSess.Step(); br30.Step(); br60.Step(); br120.Step(); br180.Step(); br300.Step(); br600.Step(); br1200.Step()
         if breached sSessHigh then brSess.OnBreach()
         if breached sMax30 then br30.OnBreach()
         if breached sMax60 then br60.OnBreach()
         if breached sMax120 then br120.OnBreach()
+        if breached sMax180 then br180.OnBreach()
         if breached sMax300 then br300.OnBreach()
         if breached sMax600 then br600.OnBreach()
         if breached sMax1200 then br1200.OnBreach()
@@ -1825,6 +1688,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         counters.Step()
         counters300.Step()
         counters600.Step()
+        counters120.Step()
+        counters180.Step()
         // ⭐ S43bn: fold this bar's tick into the LEG totals. Runs with Step (so
         // it counts bars ELAPSED since the first low) and BEFORE the arming
         // branch below, which seeds the counters from the first-low bar itself.
@@ -1878,9 +1743,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 runPreLowVwap <- prevVwap
                 runFirstLowVwap <- bar.vwap
             lowsSinceUp <- lowsSinceUp + 1
-            counters.OnNewLow bar.etSec
-            counters300.OnNewLow bar.etSec
-            counters600.OnNewLow bar.etSec
+            counters.OnEvent bar.etSec
+            counters300.OnEvent bar.etSec
+            counters600.OnEvent bar.etSec
+            counters120.OnEvent bar.etSec
+            counters180.OnEvent bar.etSec
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -2109,8 +1976,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 not (Double.IsNaN v) && v > 0.0 && dv > 0.0
                 && bar.vwap / (dv / v) - 1.0 < cfg.MaxDistLegVwap)
         let kBandOk =
-            (cfg.KBandLo <= 0 || counters.LowsSinceFirstLow >= cfg.KBandLo)
-            && (cfg.KBandHi <= 0 || counters.LowsSinceFirstLow <= cfg.KBandHi)
+            (cfg.KBandLo <= 0 || counters.EventsSinceFirst >= cfg.KBandLo)
+            && (cfg.KBandHi <= 0 || counters.EventsSinceFirst <= cfg.KBandHi)
         let eff20Signed =
             match slotLag.Last, slotLag.Lagged, slotAbsSum.State with
             | ValueSome cur, ValueSome old, ValueSome s
@@ -2153,7 +2020,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     (v10 / 10.0) / (v60 / 60.0) >= cfg.MinVol10Rate
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
-        let lows300Ok = cfg.MinLows300 <= 0 || counters300.LowsSinceFirstLow >= cfg.MinLows300
+        let lows300Ok = cfg.MinLows300 <= 0 || counters300.EventsSinceFirst >= cfg.MinLows300
         let frontOk =
             Double.IsPositiveInfinity cfg.MaxRngFront
             || chanRng max300 min300 / chanRng max1200 min1200 < cfg.MaxRngFront
@@ -2181,6 +2048,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
+            let struct (vs5m, vr5m) = volatOlsRead volatOls5m
+            let struct (vs3m, vr3m) = volatOlsRead volatOls3m
+            let eolsRead (o: EwmaOlsMa) =
+                match o.State with
+                | ValueSome (struct (sl, r)) -> struct (sl, r)
+                | ValueNone -> struct (nan, nan)
+            let struct (evs20m, evr20m) = eolsRead volatEols20m
+            let struct (evs10m, evr10m) = eolsRead volatEols10m
+            let struct (evs5m, evr5m) = eolsRead volatEols5m
+            let struct (evs3m, evr3m) = eolsRead volatEols3m
             pendingEntry <-
                 ValueSome
                     { SignalSec = bar.etSec
@@ -2284,13 +2161,35 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       BreachLo30 = brLo30.BarsSinceBreach
                       // ⭐ read the counters NOW — the reset in step 7 must not
                       // affect this trip. The entry bar IS a low, so both >= 0.
-                      BarsSinceFirstLow = counters.BarsSinceFirstLow
-                      SecsSinceFirstLow = counters.SecsSinceFirstLow bar.etSec
-                      LowsSinceFirstLow = counters.LowsSinceFirstLow
-                      BarsSinceFirstLow300 = counters300.BarsSinceFirstLow
-                      LowsSinceFirstLow300 = counters300.LowsSinceFirstLow
-                      BarsSinceFirstLow600 = counters600.BarsSinceFirstLow
-                      LowsSinceFirstLow600 = counters600.LowsSinceFirstLow
+                      BarsSinceFirstLow = counters.BarsSinceFirst
+                      SecsSinceFirstLow = counters.SecsSinceFirst bar.etSec
+                      LowsSinceFirstLow = counters.EventsSinceFirst
+                      BarsSinceFirstLow300 = counters300.BarsSinceFirst
+                      LowsSinceFirstLow300 = counters300.EventsSinceFirst
+                      BarsSinceFirstLow600 = counters600.BarsSinceFirst
+                      LowsSinceFirstLow600 = counters600.EventsSinceFirst
+                      LowsSinceFirstLow120 = counters120.EventsSinceFirst
+                      LowsSinceFirstLow180 = counters180.EventsSinceFirst
+                      Volat5m = vv ew10.State
+                      Volat3m = vv ew6.State
+                      VwapEwp12060Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB60.Sum pxDecayB60.Weight
+                      VwapEwp12030Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB30.Sum pxDecayB30.Weight
+                      VwapEwp6030Be = wdVwap pxDecayB60.Sum pxDecayB60.Weight pxDecayB30.Sum pxDecayB30.Weight
+                      Ac1Ewma = acEwma.Rho 1
+                      Ac2Ewma = acEwma.Rho 2
+                      Ac3Ewma = acEwma.Rho 3
+                      VolatSlope5m = vs5m
+                      VolatR5m = vr5m
+                      VolatSlope3m = vs3m
+                      VolatR3m = vr3m
+                      VolatEslope20m = evs20m
+                      VolatEr20m = evr20m
+                      VolatEslope10m = evs10m
+                      VolatEr10m = evr10m
+                      VolatEslope5m = evs5m
+                      VolatEr5m = evr5m
+                      VolatEslope3m = evs3m
+                      VolatEr3m = evr3m
                       TradeIdx = tradeIdx
                       OpenAtSignal = this.OpenCount
                       Vwap1200 =
@@ -2597,6 +2496,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // 20m-high bar implies both, keeping all three counters in sync.
         if br300.BarsSinceBreach = 0 then counters300.Reset()
         if br600.BarsSinceBreach = 0 then counters600.Reset()
+        // S43cf: the 2m/3m rungs of the same ladder (a 20m-high bar implies all)
+        if br120.BarsSinceBreach = 0 then counters120.Reset()
+        if br180.BarsSinceBreach = 0 then counters180.Reset()
         // the aux-mark lookback: remember this bar as "the previous bar"
         // (+ S40x pre-hole snapshots: this bar's adjusted 1m gap and post-push
         // 5m range become the classifier inputs if the NEXT bar reveals a hole)

@@ -16530,6 +16530,89 @@ features attached: `data/equity/flushfader/v45_shape/`.
 > (~13 h; the builder refuses to mix precisions in one corpus), and rebuild the
 > universe from those bars. See `data/intraday_1s_slim/PRECISION.txt` and
 > [[project_ms_corpus_2026-08-22]].
+## ⭐⭐ S43cf (2026-08-29) — engine prep + ms-era baseline + the vol-slope-vs-ratio verdict
+
+**Engine (S43cf prep, record-only)**: `volat_5m`/`volat_3m` (EmaHlMa 10/6 on the locked
+slot chain) · K-ladder 2m/3m rungs (`br180` BreachCounter added; `lows_since_first_low_
+{120,180}`, counts only, S38e-style resets) · the be window-difference speed cells
+(`vwap_ewp_{12060,12030,6030}_be`, bar-clock EQ DecaySumMa/GapValue.Empty — SpikeFader
+S35 port; long-side speed = signal_vwap/x − 1) · `ac1/ac2/ac3_ewma` (EwmaAutoCorrMa(40,3),
+signed slot r — the S34c/d whipsaw-knife port). Smoke-verified: ladder triangle 100%,
+be speeds all-negative at flush signals, volat EWMA family corr 0.98-0.99.
+
+**Corpora (both full-universe mr_candidate_1s_v2, 1,164,334 tkds, volat ≥ 20bp,
+entries 09:45-16:00 + 13:00 early-close, ms-era, causal)**:
+- `base_v17` — gates OFF: 10,197,587 trips, 3h16m, mc=0 PF 1.177 (arm/ladder/be substrate).
+- `v46_spec20` — SPEC v2.7 gates ON: 43,028 trips, 80m, mc=0 PF 2.110 (win 72.9%).
+  The classic frame recovers post-hoc as `volat_20m ≥ 40bp ∧ signal ≤ 15:00`.
+  ⚠ next-open exits + ms tape + v2.7 spec: numbers are a NEW baseline, never
+  comparable to the ns-era S42k tables' third decimal. ⚠ mr_candidate_1s_v2 lacks
+  `max_slot_absr_bp`, so the S39j volat prepass silently skips (wall-clock only).
+
+**S42k REPLICATION (g60 book frame: + gap_60 < 4 ∧ entry_px ≥ $1 → 11,017 trips;
+ns-era frame was 38,069 on the smaller v23 gate set)**:
+
+s20 = volat_slope_20m × 2e4 fine bands:
+
+| band | n | tkds | pf | avg% | med% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| <-6 | 424 | 95 | 12.73 | 3.92 | 3.92 | 11.39 | 7.54 | - | 15.45 | 12.91 | 35.66 | 5.28 |
+| [-6,-4) | 665 | 147 | 4.72 | 2.08 | 2.62 | 3.54 | 4.96 | inf | inf | 2.44 | 5.94 | 6.22 |
+| [-4,-2) | 1,569 | 324 | 5.13 | 2.39 | 2.67 | 6.47 | 5.88 | inf | 2.57 | 7.48 | 3.34 | 6.23 |
+| [-2,0) | 2,862 | 598 | 4.15 | 1.89 | 2.19 | 9.78 | 3.89 | 7.28 | 4.71 | 4.11 | 1.92 | 5.05 |
+| [0,2) | 3,263 | 687 | 3.25 | 1.79 | 2.39 | 13.63 | 7.63 | 2.85 | 1.28 | 1.67 | 2.94 | 3.29 |
+| [2,4) | 1,595 | 353 | 5.47 | 2.23 | 2.33 | 2.42 | 6.77 | 3.82 | 7.29 | 5.90 | 7.18 | 6.99 |
+| [4,6) | 449 | 102 | 3.44 | 2.51 | 3.29 | inf | 1.40 | 5.27 | 2.43 | inf | 7.29 | 2.44 |
+| >=6 | 190 | 38 | 5.20 | 4.07 | 4.58 | inf | inf | 0.00 | 5.72 | 7.64 | 11.64 | 1.57 |
+
+The S42k structure REPRODUCES: the U (extremes strong), and the >=6 2022 knife is
+EXACTLY 0.00 in both eras. sdiff = (s20 − s10)×2e4 — the ramp bucket:
+
+| band | n | tkds | pf | avg% | med% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **<-12 (ramp)** | **606** | 130 | **7.88** | 3.71 | 3.48 | 20.31 | 84.60 | 6.32 | 2.32 | 7.42 | 11.29 | 4.62 |
+| [-12,-6) | 2,082 | 462 | 4.40 | 2.37 | 2.69 | 11.16 | 4.48 | 1.90 | 1.82 | 4.17 | 2.60 | 32.83 |
+| [-6,-3) | 2,144 | 476 | 3.60 | 2.03 | 2.54 | 7.04 | 3.76 | 10.31 | 1.68 | 2.11 | 4.25 | 3.03 |
+| [-3,0) | 2,164 | 517 | 3.35 | 1.66 | 2.17 | 3.91 | 6.21 | 2.39 | 3.94 | 2.39 | 3.22 | 2.69 |
+| [0,3) | 1,678 | 402 | 3.84 | 1.82 | 2.27 | 5.15 | 6.62 | 5.14 | 3.20 | 3.18 | 2.56 | 5.94 |
+| [3,6) | 945 | 239 | 5.94 | 2.21 | 2.42 | 20.72 | 4.75 | 81.86 | 4.31 | 7.67 | 5.25 | 3.10 |
+| [6,12) | 825 | 185 | 4.45 | 1.76 | 2.01 | 15.42 | 2.44 | 1686 | 2.38 | 2.16 | 4.69 | 8.17 |
+| >=12 | 573 | 122 | 7.42 | 3.14 | 3.73 | 113.98 | 5.16 | 2.32 | 8831 | 8.35 | 7.93 | 3.41 |
+
+Ramp <-12 = 7.88 @ 606 (ns-era 6.09 @ 737), robust every year. The s20 × v20 contrast
+grammar also reproduces: cool+expand 6.73 (was 8.20) · hot+contract 7.80 (was 5.98) ·
+cool+contract worst 2.89 (was 2.45); hot+contract 2022 = zero losses.
+
+**THE RATIO STUDY — the S41z paradox RESOLVED**: corr(volat_10m/volat_20m, sdiff) =
+**−0.010** — the OLS slope difference and the EWMA level ratio are (nearly) UNCORRELATED
+measures. S41z's "vr = flat noise" and S42k's "ramp works" were never in tension: the
+ratio compares smoothed LEVELS, the slope pair compares TRENDS inside the windows. The
+corr ladder rises only as the ratio pair gets FAST: r520 −0.074 · r510 −0.128 ·
+r320 −0.179 · r310 −0.250 · **r35 −0.381**.
+
+Selectivity-matched test (top-n tail of each ratio at the ramp bucket's n = 606):
+
+| ratio | thr | n | pf | avg% | olap w/ ramp | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| ramp <-12 | - | 606 | **7.88** | 3.71 | 100% | 20.31 | 84.60 | 6.32 | 2.32 | 7.42 | 11.29 | 4.62 |
+| r1020 | ≥1.075 | 614 | 4.72 | 2.60 | 8.9% | 2.52 | 5.05 | 6.78 | 6.01 | 3.43 | 14.14 | 4.63 |
+| r520 | ≥1.211 | 606 | 3.97 | 2.36 | 9.9% | 86.05 | 2.70 | 5.91 | 6.27 | 1.44 | 9.83 | 3.66 |
+| r510 | ≥1.143 | 606 | 5.19 | 2.78 | 10.6% | 166.2 | 10.80 | 6.51 | 4.99 | 1.60 | 14.87 | 3.46 |
+| r320 | ≥1.366 | 608 | 4.29 | 2.36 | 12.7% | 84.08 | 8.91 | 6.64 | 5.57 | 0.96 | 11.45 | 2.84 |
+| r310 | ≥1.287 | 607 | 5.26 | 2.67 | 18.2% | 198.8 | 10.36 | 4.16 | 2.85 | 1.97 | 12.45 | 3.72 |
+| **r35** | **≥1.145** | 608 | **7.88** | 2.94 | 21.0% | 230.9 | 22.93 | 14.95 | 2.87 | 1.81 | 5.85 | 21.33 |
+
+**VERDICTS**: (1) the PORT-LEDGER #1 candidate `volat_10m/volat_20m` does NOT replicate
+the ramp — 4.72 at matched n, 9% overlap; the original TODO's premise fails. (2) But
+the RATIO FAMILY carries the explosion signal at the FAST end: **r35 = volat_3m/volat_5m
+≥ 1.145 matches ramp's PF exactly (7.88) on a 79%-DISJOINT trip set** — a potential
+SECOND explosion voice, not a replacement (⚠ its 2024 = 1.81 is the weak year; ramp's
+2023 = 2.32 is its own). r35's band shape is a U like s20's: its CONTRACTION side
+[.85,.95) = 5.89 @ 2,403 is a large strong region of its own. (3) monotone gradient in
+pair speed: r35 > r310 ≈ r510 > r320 > r520 > r1020. ⏭ NEXT: roster-level test —
+ramp-vs-r35 substitution AND both-as-voices (S43bm LOO format) on the vote book;
+whether ratio thresholds re-derive selectivity-matched on the traded g60 universe.
+
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
 User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s

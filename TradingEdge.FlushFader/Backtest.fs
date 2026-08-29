@@ -378,6 +378,13 @@ CREATE TABLE trips (
     up_15 INTEGER, up_30 INTEGER, up_60 INTEGER, up_120 INTEGER,
     gap_120 INTEGER,
     downticks_since_flow INTEGER, upticks_since_flow INTEGER, lows_since_uptick INTEGER, chg_since_last_uptick DOUBLE, chg_since_run_pre_low DOUBLE, chg_since_run_first_low DOUBLE, chg_since_run_first_dn DOUBLE,
+    lows_since_first_low_120 INTEGER, lows_since_first_low_180 INTEGER,
+    volat_5m DOUBLE, volat_3m DOUBLE,
+    vwap_ewp_12060_be DOUBLE, vwap_ewp_12030_be DOUBLE, vwap_ewp_6030_be DOUBLE,
+    ac1_ewma DOUBLE, ac2_ewma DOUBLE, ac3_ewma DOUBLE,
+    volat_slope_5m DOUBLE, volat_r_5m DOUBLE, volat_slope_3m DOUBLE, volat_r_3m DOUBLE,
+    volat_eslope_20m DOUBLE, volat_er_20m DOUBLE, volat_eslope_10m DOUBLE, volat_er_10m DOUBLE,
+    volat_eslope_5m DOUBLE, volat_er_5m DOUBLE, volat_eslope_3m DOUBLE, volat_er_3m DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -561,6 +568,13 @@ type TripSink(outDir: string) =
             i p.Up15; i p.Up30; i p.Up60; i p.Up120
             i p.Gap120
             i p.DownticksSinceFlow; i p.UpticksSinceFlow; i p.LowsSinceUptick; f p.ChgSinceLastUptick; f p.ChgSinceRunPreLow; f p.ChgSinceRunFirstLow; f p.ChgSinceRunFirstDn
+            i p.LowsSinceFirstLow120; i p.LowsSinceFirstLow180
+            f p.Volat5m; f p.Volat3m
+            f p.VwapEwp12060Be; f p.VwapEwp12030Be; f p.VwapEwp6030Be
+            f p.Ac1Ewma; f p.Ac2Ewma; f p.Ac3Ewma
+            f p.VolatSlope5m; f p.VolatR5m; f p.VolatSlope3m; f p.VolatR3m
+            f p.VolatEslope20m; f p.VolatEr20m; f p.VolatEslope10m; f p.VolatEr10m
+            f p.VolatEslope5m; f p.VolatEr5m; f p.VolatEslope3m; f p.VolatEr3m
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

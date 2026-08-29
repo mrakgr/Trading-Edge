@@ -1294,6 +1294,54 @@ type FloatOls(windowSize: int) =
     inherit OlsRoll<float>(windowSize)
     override _.Project v = v
 
+/// ⭐ Exponentially weighted OLS slope of a raw float stream vs push index
+/// (S43cg; user, 2026-08-29) — the EWMA counterpart of FloatOls: no hard
+/// window, every observation weighted λ^age, so the read is established within
+/// a few pushes instead of waiting for a full ring. Decayed moments with
+/// t = AGE (0 = newest), advanced recursively per push (O(1)):
+///   Stt ← λ(Stt + 2St + S0)   St ← λ(St + S0)   S0 ← λS0 + 1
+///   Sty ← λ(Sty + Sy)         Sy ← λSy + y      Syy ← λSyy + y²
+/// (order matters — each update uses the PRE-update values to its right).
+/// Regressing y on x = −age: slope = (St·Sy − S0·Sty)/(S0·Stt − St²), so a
+/// POSITIVE slope = y rising toward now — FloatOls's sign convention. State =
+/// struct(slope, sign(slope)·√R²), ValueNone below 3 pushes or on a
+/// degenerate denominator (mirrors FloatOls's "nan below 3 returns").
+/// Oracle: EwmaOls_Test.fsx.
+[<Sealed>]
+type EwmaOlsMa(halfLife: float) =
+    do if halfLife <= 0.0 then invalidArg (nameof halfLife) "halfLife must be > 0"
+    let lam = 0.5 ** (1.0 / halfLife)
+    let mutable s0 = 0.0
+    let mutable st = 0.0
+    let mutable stt = 0.0
+    let mutable sy = 0.0
+    let mutable sty = 0.0
+    let mutable syy = 0.0
+    let mutable n = 0
+    member _.Push (y: float) =
+        stt <- lam * (stt + 2.0 * st + s0)
+        st <- lam * (st + s0)
+        s0 <- lam * s0 + 1.0
+        sty <- lam * (sty + sy)
+        sy <- lam * sy + y
+        syy <- lam * syy + y * y
+        n <- n + 1
+    /// struct(slope, signed r), or ValueNone while unestablished.
+    member _.State =
+        if n < 3 then ValueNone else
+        let dxx = s0 * stt - st * st
+        let dyy = s0 * syy - sy * sy
+        if dxx <= 0.0 || dyy <= 0.0 then ValueNone else
+        let dxy = st * sy - s0 * sty
+        let slope = dxy / dxx
+        let r2 = min 1.0 (dxy * dxy / (dxx * dyy))
+        ValueSome (struct (slope, float (sign slope) * sqrt r2))
+    /// Clear the moments (see RollingMa.Reset).
+    member _.Reset () =
+        s0 <- 0.0; st <- 0.0; stt <- 0.0
+        sy <- 0.0; sty <- 0.0; syy <- 0.0
+        n <- 0
+
 // ===========================================================================
 // ⭐ TREND-PERSISTENCE STATISTICS (user, 2026-08-24) — autocorrelation, the
 // variance ratio, and sign persistence over a return stream. All O(1) per push.
@@ -1744,3 +1792,234 @@ type EwmaAutoCorrMa(halfLife: float, maxLag: int, minCount: int) =
         for e in mA do e.Reset()
         for e in mB do e.Reset()
         ring.Reset(); n <- 0
+
+// ===========================================================================
+// ⭐ SHARED 1s-ENGINE PRIMITIVES (factored 2026-08-29; user) — these classes
+// were copy-pasted between the FlushFader and SpikeFader Intraday.fs files
+// (byte-identical apart from the leg counter's low/high naming). ⚠ SurgeRider/
+// SurgeRiderV2/PlungeRider/DipRiderV6/MaxRiderV1/LongHiker and the live
+// Scanner still carry LOCAL copies that SHADOW these — migrate them
+// deliberately (the Scanner only together with a zero-diff parity rerun).
+// ===========================================================================
+
+/// ⭐ S40y (user): growing-window OLS of ln(vwap) vs present-bar index since an
+/// ANCHOR event (the leg's last 20m-high / the leg's first low) — the leg-shaped
+/// twins of the fixed-window ols_300/600/1200. O(1) push; Reset at the anchor;
+/// nan until 3 points.
+[<Sealed>]
+type AnchoredOls() =
+    let mutable n = 0.0
+    let mutable sx = 0.0
+    let mutable sy = 0.0
+    let mutable sxy = 0.0
+    let mutable sxx = 0.0
+    let mutable syy = 0.0
+    member _.Count = int n
+    member _.Push (y: float) =
+        let x = n
+        n <- n + 1.0
+        sx <- sx + x
+        sy <- sy + y
+        sxy <- sxy + x * y
+        sxx <- sxx + x * x
+        syy <- syy + y * y
+    /// ln per present bar (×6e5 ≈ bp/min in SQL, same convention as ols_slope_*).
+    member _.Slope =
+        if n < 3.0 then nan
+        else
+            let d = n * sxx - sx * sx
+            if d <= 0.0 then nan else (n * sxy - sx * sy) / d
+    /// Pearson r (signed; < 0 on a decline).
+    member _.R =
+        if n < 3.0 then nan
+        else
+            let dx = n * sxx - sx * sx
+            let dy = n * syy - sy * sy
+            if dx <= 0.0 || dy <= 0.0 then nan
+            else (n * sxy - sx * sy) / sqrt (dx * dy)
+    member _.Reset () =
+        n <- 0.0; sx <- 0.0; sy <- 0.0; sxy <- 0.0; sxx <- 0.0; syy <- 0.0
+
+/// ⭐ S40z (user): anchored Kaufman efficiency on 30-PRESENT-BAR SLOT vwaps —
+/// the SAME stream convention as eff_20m/10m. Sub-30s returns are
+/// MICROSTRUCTURE NOISE (the F7 vol-lock finding) — a bar-level path sum
+/// would be dominated by it. Slots are built INTERNALLY from the anchor, boundaries
+/// aligned to the anchor (not the global slot clock): net ln(V_last/V_first)
+/// over Σ|ln slot r| across all COMPLETED slots since the anchor. Signed; nan
+/// below 3 completed slots or on a zero path.
+[<Sealed>]
+type AnchoredEff(slotBars: int) =
+    let mutable slotDv = 0.0
+    let mutable slotVol = 0.0
+    let mutable slotN = 0
+    let mutable slots = 0
+    let mutable firstV = nan
+    let mutable prevV = nan
+    let mutable sumAbs = 0.0
+    // ⭐ S43am (user): the eff_9ema twin of this anchored segment. Shares the
+    // SAME anchor-aligned slots as .Eff by construction, so the two describe
+    // exactly the same path — only the numerator differs (trend-signed sum of
+    // every slot return, vs the two-endpoint displacement). The 9-slot EMA is
+    // built from the anchored slots too, so it seeds at the anchor.
+    let ema9 = EmaMa 9
+    let mutable sumSgn = 0.0
+    // ⭐ S43ao (user): volume-weighted log-price MOMENTS since the anchor, so the
+    // segment carries its own z-score. Accumulated PER PRESENT BAR (not per slot),
+    // matching the convention of the fixed-window z's (dlv_1200 / dlv2_1200 are
+    // SumMa over present bars) so z_since_* is directly comparable to z_20m.
+    let mutable sumV = 0.0
+    let mutable sumVL = 0.0
+    let mutable sumVL2 = 0.0
+    /// Completed slots since the anchor.
+    member _.Slots = slots
+    member _.Push (vwap: float, volume: float) =
+        if vwap > 0.0 && volume > 0.0 then
+            let lp = log vwap
+            sumV <- sumV + volume
+            sumVL <- sumVL + volume * lp
+            sumVL2 <- sumVL2 + volume * lp * lp
+        slotDv <- slotDv + vwap * volume
+        slotVol <- slotVol + volume
+        slotN <- slotN + 1
+        if slotN = slotBars then
+            let v = if slotVol > 0.0 then slotDv / slotVol else vwap
+            if slots = 0 then firstV <- v
+            elif prevV > 0.0 && v > 0.0 then
+                let r = log (v / prevV)
+                sumAbs <- sumAbs + abs r
+                // S43am: ema9 has absorbed prevV but NOT v (pushed below), so the
+                // sign is strictly-prior. Cold convention: the seed makes the
+                // segment's FIRST return read s = -1 (prevV > prevV is false).
+                let s = match ema9.State with ValueSome e when prevV > e -> 1.0 | _ -> -1.0
+                sumSgn <- sumSgn + s * r
+            ema9.Push v
+            prevV <- v
+            slots <- slots + 1
+            slotDv <- 0.0
+            slotVol <- 0.0
+            slotN <- 0
+    member _.Eff =
+        if slots < 3 || sumAbs <= 0.0 || not (firstV > 0.0) || not (prevV > 0.0) then nan
+        else log (prevV / firstV) / sumAbs
+    /// ⭐ S43am: the trend-signed efficiency over the same anchored segment.
+    /// ⚠ NOT SPAN-FREE — measured corr(eff9_since_{high,low}, slots) = -0.589, median
+    /// drifting 0.771 (10-20 slots) -> 0.139 (>= 80). Being a weighted mean of
+    /// +/-1 bounds it to [-1,1] but does NOT make it comparable across lengths:
+    /// a longer segment gives price more chances to cross its own 9-slot EMA, so
+    /// the signed terms cancel more. Same magnitude of drift as Kaufman's .Eff
+    /// (-0.771 -> -0.255) by a different mechanism. CONDITION ON .Slots — the
+    /// S43aj/ak lesson holds here too.
+    member _.Eff9Ema =
+        if slots < 3 || sumAbs <= 0.0 then nan else sumSgn / sumAbs
+    /// ⭐ S43ao: volume-weighted z of `px` against the anchored segment's own
+    /// log-price distribution. Same form as z_20m but over a VARIABLE-LENGTH
+    /// window anchored at the leg extreme, so ⚠ RECORD AND CONTROL THE SPAN
+    /// (.Slots) — every anchored ratio so far has drifted with it.
+    /// The current bar is already folded in when this is read at the signal bar,
+    /// exactly as the fixed-window z's include it.
+    member _.Z (px: float) =
+        if sumV <= 0.0 || not (px > 0.0) then nan
+        else
+            let mean = sumVL / sumV
+            let var = sumVL2 / sumV - mean * mean
+            if var <= 0.0 then nan else (log px - mean) / sqrt var
+    member _.Reset () =
+        slotDv <- 0.0
+        slotVol <- 0.0
+        slotN <- 0
+        slots <- 0
+        firstV <- nan
+        prevV <- nan
+        sumAbs <- 0.0
+        ema9.Reset ()
+        sumSgn <- 0.0
+        sumV <- 0.0
+        sumVL <- 0.0
+        sumVL2 <- 0.0
+
+/// Missing-second counter over a trailing WALL-CLOCK window (user, 2026-07-23):
+/// how many of the last `windowSecs` seconds (inclusive of the current bar's)
+/// had NO present bar. The engine's windows are present-bar-count (D1); this is
+/// the feature that records what that convention skips. `Push` the bar's etSec,
+/// then read `.Gaps`. Session-start clamp: before the window fills with session
+/// seconds, the denominator is the elapsed session span, so the first RTH bars
+/// don't read as one giant gap.
+[<Sealed>]
+type GapCounter(windowSecs: int, sessionStartSec: int) =
+    let q = System.Collections.Generic.Queue<int>()
+    let mutable lastSec = -1
+    member _.Push (sec: int) =
+        q.Enqueue sec
+        while q.Peek() <= sec - windowSecs do
+            q.Dequeue() |> ignore
+        lastSec <- sec
+    /// Missing seconds in the trailing window as of the last Push.
+    member _.Gaps =
+        if lastSec < 0 then 0
+        else
+            let span = min windowSecs (lastSec - sessionStartSec + 1)
+            max 0 (span - q.Count)
+    member _.Reset () =
+        q.Clear()
+        lastSec <- -1
+
+/// Bars-since-last-channel-breach, one per channel per side. -1 = this
+/// channel's extreme has not been breached this session; 0 = the CURRENT bar
+/// breached it; N = N present bars ago. Step FIRST each bar, then OnBreach if
+/// the bar broke the channel extreme, so the breach bar itself reads 0.
+[<Sealed>]
+type BreachCounter() =
+    let mutable bars = -1
+    member _.BarsSinceBreach = bars
+    member _.Step () = if bars >= 0 then bars <- bars + 1
+    member _.OnBreach () = bars <- 0
+    member _.Reset () = bars <- -1
+
+/// ⭐ The leg reset machine (DipRiderV6 lineage; factored 2026-08-29 from the
+/// twin NewLowCounters/NewHighCounters copies in FlushFader/SpikeFader —
+/// identical mechanics, opposite direction words). Armed by the leg's FIRST
+/// channel event (new LOW in a long flush engine, new HIGH in a short spike
+/// engine); disarmed (Reset) by a breach of the opposite channel extreme. The
+/// two counters separate HOW DEEP INTO THE SEQUENCE a trade is from HOW STALE
+/// the leg is:
+///   `EventsSinceFirst = 0` -> the leg's FIRST event.
+///   `EventsSinceFirst = 3` -> the 4th consecutive event (averaged in 3x).
+///   `BarsSinceFirst`       -> the leg's age in present bars.
+[<Sealed>]
+type LegCounters() =
+    let mutable bars = -1
+    let mutable events = -1
+    // ⭐ S43be (user 2026-08-08): the leg's first-low WALL-CLOCK second. `bars`
+    // counts PRESENT bars, so on a sparse tape 390 bars spans ~17 min where on
+    // a dense one it spans ~7.6 — the same threshold is a different feature per
+    // era. This lets the same leg age be expressed in SECONDS, which is
+    // era-invariant. -1 = disarmed.
+    let mutable firstEventSec = -1
+    /// Bars since the FIRST event of this leg. -1 = disarmed (no leg open).
+    member _.BarsSinceFirst = bars
+    /// ET second of this leg's FIRST event. -1 = disarmed.
+    member _.FirstEventSec = firstEventSec
+    /// Seconds elapsed since the leg's first event, given the current bar's ET
+    /// second. -1 = disarmed (mirrors BarsSinceFirst's convention).
+    member _.SecsSinceFirst (etSec: int) = if firstEventSec < 0 then -1 else etSec - firstEventSec
+    /// Further events since the first of this leg. -1 = disarmed; 0 = this IS the
+    /// first; N = the (N+1)th event.
+    member _.EventsSinceFirst = events
+    /// Is a leg currently open?
+    member _.Armed = bars >= 0
+    /// A channel event fired: arm the leg (idempotent), or count another event.
+    /// `etSec` stamps the leg's first event so its age can be read in seconds.
+    member _.OnEvent (etSec: int) =
+        if bars < 0 then
+            bars <- 0
+            events <- 0
+            firstEventSec <- etSec
+        else
+            events <- events + 1
+    /// Advance one bar. No-op while disarmed.
+    member _.Step () = if bars >= 0 then bars <- bars + 1
+    /// The opposite channel extreme was breached: the leg is over — disarm.
+    member _.Reset () =
+        bars <- -1
+        events <- -1
+        firstEventSec <- -1

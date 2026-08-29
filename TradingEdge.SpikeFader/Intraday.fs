@@ -33,7 +33,7 @@ open TradingEdge.RollingMa
 //         stops fire only on qualified FRESH lows. The S2 tables motivate
 //         them: >=8x participation new lows run PF 0.59-0.87 at entry, and
 //         sustained <-1% pace is the continuing-flush signature.
-//   THE LEG MACHINE (NewHighCounters, ported verbatim from DipRiderV6):
+//   THE LEG MACHINE (LegCounters, RollingMa — DipRiderV6 lineage):
 //         armed by the leg's FIRST new low; BarsSinceFirstHigh counts every
 //         bar, HighsSinceFirstHigh counts further new lows (averaging-down
 //         depth); ⭐ RESET on a new ENTRY-channel HIGH (the user's "reset at
@@ -91,225 +91,6 @@ type SecBar =
       vwap: float
       volume: float
       tradeCount: int }
-
-/// Missing-second counter over a trailing WALL-CLOCK window (user, 2026-07-23):
-/// how many of the last `windowSecs` seconds (inclusive of the current bar's)
-/// had NO present bar. The engine's windows are present-bar-count (D1); this is
-/// the feature that records what that convention skips. `Push` the bar's etSec,
-/// then read `.Gaps`. Session-start clamp: before the window fills with session
-/// seconds, the denominator is the elapsed session span, so the first RTH bars
-/// don't read as one giant gap.
-/// ⭐ S40y (user): growing-window OLS of ln(vwap) vs present-bar index since an
-/// ANCHOR event (the leg's last 20m-high / the leg's first low) — the leg-shaped
-/// twins of the fixed-window ols_300/600/1200. O(1) push; Reset at the anchor;
-/// nan until 3 points.
-[<Sealed>]
-type AnchoredOls() =
-    let mutable n = 0.0
-    let mutable sx = 0.0
-    let mutable sy = 0.0
-    let mutable sxy = 0.0
-    let mutable sxx = 0.0
-    let mutable syy = 0.0
-    member _.Count = int n
-    member _.Push (y: float) =
-        let x = n
-        n <- n + 1.0
-        sx <- sx + x
-        sy <- sy + y
-        sxy <- sxy + x * y
-        sxx <- sxx + x * x
-        syy <- syy + y * y
-    /// ln per present bar (×6e5 ≈ bp/min in SQL, same convention as ols_slope_*).
-    member _.Slope =
-        if n < 3.0 then nan
-        else
-            let d = n * sxx - sx * sx
-            if d <= 0.0 then nan else (n * sxy - sx * sy) / d
-    /// Pearson r (signed; < 0 on a decline).
-    member _.R =
-        if n < 3.0 then nan
-        else
-            let dx = n * sxx - sx * sx
-            let dy = n * syy - sy * sy
-            if dx <= 0.0 || dy <= 0.0 then nan
-            else (n * sxy - sx * sy) / sqrt (dx * dy)
-    member _.Reset () =
-        n <- 0.0; sx <- 0.0; sy <- 0.0; sxy <- 0.0; sxx <- 0.0; syy <- 0.0
-
-/// ⭐ S40z (user): anchored Kaufman efficiency on 30-PRESENT-BAR SLOT vwaps —
-/// the SAME stream convention as eff_20m/10m. Sub-30s returns are
-/// MICROSTRUCTURE NOISE (the F7 vol-lock finding) — a bar-level path sum
-/// would be dominated by it. Slots are built INTERNALLY from the anchor, boundaries
-/// aligned to the anchor (not the global slot clock): net ln(V_last/V_first)
-/// over Σ|ln slot r| across all COMPLETED slots since the anchor. Signed; nan
-/// below 3 completed slots or on a zero path.
-[<Sealed>]
-type AnchoredEff(slotBars: int) =
-    let mutable slotDv = 0.0
-    let mutable slotVol = 0.0
-    let mutable slotN = 0
-    let mutable slots = 0
-    let mutable firstV = nan
-    let mutable prevV = nan
-    let mutable sumAbs = 0.0
-    // ⭐ S43am (user): the eff_9ema twin of this anchored segment. Shares the
-    // SAME anchor-aligned slots as .Eff by construction, so the two describe
-    // exactly the same path — only the numerator differs (trend-signed sum of
-    // every slot return, vs the two-endpoint displacement). The 9-slot EMA is
-    // built from the anchored slots too, so it seeds at the anchor.
-    let ema9 = EmaMa 9
-    let mutable sumSgn = 0.0
-    // ⭐ S43ao (user): volume-weighted log-price MOMENTS since the anchor, so the
-    // segment carries its own z-score. Accumulated PER PRESENT BAR (not per slot),
-    // matching the convention of the fixed-window z's (dlv_1200 / dlv2_1200 are
-    // SumMa over present bars) so z_since_* is directly comparable to z_20m.
-    let mutable sumV = 0.0
-    let mutable sumVL = 0.0
-    let mutable sumVL2 = 0.0
-    /// Completed slots since the anchor.
-    member _.Slots = slots
-    member _.Push (vwap: float, volume: float) =
-        if vwap > 0.0 && volume > 0.0 then
-            let lp = log vwap
-            sumV <- sumV + volume
-            sumVL <- sumVL + volume * lp
-            sumVL2 <- sumVL2 + volume * lp * lp
-        slotDv <- slotDv + vwap * volume
-        slotVol <- slotVol + volume
-        slotN <- slotN + 1
-        if slotN = slotBars then
-            let v = if slotVol > 0.0 then slotDv / slotVol else vwap
-            if slots = 0 then firstV <- v
-            elif prevV > 0.0 && v > 0.0 then
-                let r = log (v / prevV)
-                sumAbs <- sumAbs + abs r
-                // S43am: ema9 has absorbed prevV but NOT v (pushed below), so the
-                // sign is strictly-prior. Cold convention: the seed makes the
-                // segment's FIRST return read s = -1 (prevV > prevV is false).
-                let s = match ema9.State with ValueSome e when prevV > e -> 1.0 | _ -> -1.0
-                sumSgn <- sumSgn + s * r
-            ema9.Push v
-            prevV <- v
-            slots <- slots + 1
-            slotDv <- 0.0
-            slotVol <- 0.0
-            slotN <- 0
-    member _.Eff =
-        if slots < 3 || sumAbs <= 0.0 || not (firstV > 0.0) || not (prevV > 0.0) then nan
-        else log (prevV / firstV) / sumAbs
-    /// ⭐ S43am: the trend-signed efficiency over the same anchored segment.
-    /// ⚠ NOT SPAN-FREE — measured corr(eff9_since_low, slots) = -0.589, median
-    /// drifting 0.771 (10-20 slots) -> 0.139 (>= 80). Being a weighted mean of
-    /// +/-1 bounds it to [-1,1] but does NOT make it comparable across lengths:
-    /// a longer segment gives price more chances to cross its own 9-slot EMA, so
-    /// the signed terms cancel more. Same magnitude of drift as Kaufman's .Eff
-    /// (-0.771 -> -0.255) by a different mechanism. CONDITION ON .Slots — the
-    /// S43aj/ak lesson holds here too.
-    member _.Eff9Ema =
-        if slots < 3 || sumAbs <= 0.0 then nan else sumSgn / sumAbs
-    /// ⭐ S43ao: volume-weighted z of `px` against the anchored segment's own
-    /// log-price distribution. Same form as z_20m but over a VARIABLE-LENGTH
-    /// window anchored at the leg extreme, so ⚠ RECORD AND CONTROL THE SPAN
-    /// (.Slots) — every anchored ratio so far has drifted with it.
-    /// The current bar is already folded in when this is read at the signal bar,
-    /// exactly as the fixed-window z's include it.
-    member _.Z (px: float) =
-        if sumV <= 0.0 || not (px > 0.0) then nan
-        else
-            let mean = sumVL / sumV
-            let var = sumVL2 / sumV - mean * mean
-            if var <= 0.0 then nan else (log px - mean) / sqrt var
-    member _.Reset () =
-        slotDv <- 0.0
-        slotVol <- 0.0
-        slotN <- 0
-        slots <- 0
-        firstV <- nan
-        prevV <- nan
-        sumAbs <- 0.0
-        ema9.Reset ()
-        sumSgn <- 0.0
-        sumV <- 0.0
-        sumVL <- 0.0
-        sumVL2 <- 0.0
-
-[<Sealed>]
-type GapCounter(windowSecs: int, sessionStartSec: int) =
-    let q = System.Collections.Generic.Queue<int>()
-    let mutable lastSec = -1
-    member _.Push (sec: int) =
-        q.Enqueue sec
-        while q.Peek() <= sec - windowSecs do
-            q.Dequeue() |> ignore
-        lastSec <- sec
-    /// Missing seconds in the trailing window as of the last Push.
-    member _.Gaps =
-        if lastSec < 0 then 0
-        else
-            let span = min windowSecs (lastSec - sessionStartSec + 1)
-            max 0 (span - q.Count)
-    member _.Reset () =
-        q.Clear()
-        lastSec <- -1
-
-/// Bars-since-last-channel-breach, one per channel per side. -1 = this
-/// channel's extreme has not been breached this session; 0 = the CURRENT bar
-/// breached it; N = N present bars ago. Step FIRST each bar, then OnBreach if
-/// the bar broke the channel extreme, so the breach bar itself reads 0.
-[<Sealed>]
-type BreachCounter() =
-    let mutable bars = -1
-    member _.BarsSinceBreach = bars
-    member _.Step () = if bars >= 0 then bars <- bars + 1
-    member _.OnBreach () = bars <- 0
-    member _.Reset () = bars <- -1
-
-/// ⭐ The down-leg reset machine, ported verbatim from DipRiderV6.
-/// Armed by the leg's FIRST new low; disarmed (Reset) by a new entry-channel
-/// high. The two counters separate HOW DEEP INTO THE AVERAGING-DOWN SEQUENCE a
-/// trade is from HOW STALE the leg is:
-///   `HighsSinceFirstHigh = 0` -> the FIRST low of the leg (the initial dip).
-///   `HighsSinceFirstHigh = 3` -> the 4th consecutive new low (averaged down 3x).
-///   `BarsSinceFirstHigh`     -> the leg's age in present bars.
-[<Sealed>]
-type NewHighCounters() =
-    let mutable bars = -1
-    let mutable highs = -1
-    // ⭐ S43be (user 2026-08-08): the leg's first-low WALL-CLOCK second. `bars`
-    // counts PRESENT bars, so on a sparse tape 390 bars spans ~17 min where on
-    // a dense one it spans ~7.6 — the same threshold is a different feature per
-    // era. This lets the same leg age be expressed in SECONDS, which is
-    // era-invariant. -1 = disarmed.
-    let mutable firstHighSec = -1
-    /// Bars since the FIRST new low of this down-leg. -1 = disarmed (no leg open).
-    member _.BarsSinceFirstHigh = bars
-    /// ET second of this leg's FIRST new low. -1 = disarmed.
-    member _.FirstHighSec = firstHighSec
-    /// Seconds elapsed since the leg's first low, given the current bar's ET
-    /// second. -1 = disarmed (mirrors BarsSinceFirstHigh's convention).
-    member _.SecsSinceFirstHigh (etSec: int) = if firstHighSec < 0 then -1 else etSec - firstHighSec
-    /// Further new lows since the first of this leg. -1 = disarmed; 0 = this IS the
-    /// first low; N = the (N+1)th low, i.e. averaged down N times.
-    member _.HighsSinceFirstHigh = highs
-    /// Is a down-leg currently open?
-    member _.Armed = bars >= 0
-    /// A new low fired: arm the leg (idempotent), or count another low into it.
-    /// `etSec` stamps the leg's first low so its age can be read in seconds.
-    member _.OnNewHigh (etSec: int) =
-        if bars < 0 then
-            bars <- 0
-            highs <- 0
-            firstHighSec <- etSec
-        else
-            highs <- highs + 1
-    /// Advance one bar. No-op while disarmed.
-    member _.Step () = if bars >= 0 then bars <- bars + 1
-    /// A new entry-channel high fired: the down-leg is over — disarm.
-    member _.Reset () =
-        bars <- -1
-        highs <- -1
-        firstHighSec <- -1
 
 /// Trip life-cycle. Exit SIGNALS are detected at a bar's close but FILL at the
 /// next present bar's vwap — PendingExit carries the reason across that bar.
@@ -391,7 +172,7 @@ type FlushPosition =
       BreachLo60: int
       BreachLo30: int
       // ----- ⭐ the down-leg counters (the point of V6), read at the signal
-      // bar AFTER its OnNewHigh — the entry bar IS a low, so both >= 0. -----
+      // bar AFTER its OnEvent — the entry bar IS a low, so both >= 0. -----
       BarsSinceFirstHigh: int     // the leg's age in present bars
       SecsSinceFirstHigh: int     // ⭐ S43be: the SAME leg age in WALL-CLOCK seconds
                                  // (era-invariant; the bar count is not — see S43be)
@@ -1048,20 +829,20 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // ⭐ the leg machine + the per-leg trade counter (index of each SIGNAL
     // within the down-leg; reset together with the counters on the new
     // entry-channel high — NOT on new lows, unlike the momentum engines).
-    let counters = NewHighCounters()
+    let counters = LegCounters()
     // ⭐ S38e (user): the SAME new-low event counted under TIGHTER leg resets —
     // disarmed by a new 5m/10m high instead of the 20m one. A 20m-high breach
     // implies a 5m/10m breach (nested windows), so these never outlive `counters`.
     // RECORD-ONLY: no gate reads them.
-    let counters300 = NewHighCounters()
-    let counters600 = NewHighCounters()
+    let counters300 = LegCounters()
+    let counters600 = LegCounters()
     // ⭐ S17 (user 2026-08-28): the short-reset ladder — same new-high event, legs
     // reset by the {30s,1m,2m,3m}-low breaches. S16d: when the 5m and 10m counters
     // disagree (dip-and-recover), the SHORT one dominates — study the fast end.
-    let counters30 = NewHighCounters()
-    let counters60 = NewHighCounters()
-    let counters120 = NewHighCounters()
-    let counters180 = NewHighCounters()
+    let counters30 = LegCounters()
+    let counters60 = LegCounters()
+    let counters120 = LegCounters()
+    let counters180 = LegCounters()
     // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols300 = OlsSlopeMa 300                  // ⭐ S39p (user): the 5m slope — the missing
@@ -1476,7 +1257,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // than on the last uptick. `dsu` asks "how clean is the tape RIGHT NOW";
     // this asks "how one-sided has the WHOLE leg been". The uptick twin makes
     // the balance and the density (vs bars_since_first_high) recoverable.
-    // -1 = disarmed, mirroring the NewHighCounters convention.
+    // -1 = disarmed, mirroring the LegCounters convention.
     let mutable dnFlow = -1
     let mutable upFlow = -1
     // ⭐ S43bo (user, 2026-08-11): count NEW 20m LOWS — not downtick bars — and
@@ -2256,13 +2037,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 runPreHighVwap <- prevVwap
                 runFirstHighVwap <- bar.vwap
             highsSinceDn <- highsSinceDn + 1
-            counters.OnNewHigh bar.etSec
-            counters300.OnNewHigh bar.etSec
-            counters600.OnNewHigh bar.etSec
-            counters30.OnNewHigh bar.etSec
-            counters60.OnNewHigh bar.etSec
-            counters120.OnNewHigh bar.etSec
-            counters180.OnNewHigh bar.etSec
+            counters.OnEvent bar.etSec
+            counters300.OnEvent bar.etSec
+            counters600.OnEvent bar.etSec
+            counters30.OnEvent bar.etSec
+            counters60.OnEvent bar.etSec
+            counters120.OnEvent bar.etSec
+            counters180.OnEvent bar.etSec
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -2606,17 +2387,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       BreachLo30 = brLo30.BarsSinceBreach
                       // ⭐ read the counters NOW — the reset in step 7 must not
                       // affect this trip. The entry bar IS a low, so both >= 0.
-                      BarsSinceFirstHigh = counters.BarsSinceFirstHigh
-                      SecsSinceFirstHigh = counters.SecsSinceFirstHigh bar.etSec
-                      HighsSinceFirstHigh = counters.HighsSinceFirstHigh
-                      BarsSinceFirstHigh300 = counters300.BarsSinceFirstHigh
-                      HighsSinceFirstHigh300 = counters300.HighsSinceFirstHigh
-                      HighsSinceFirstHigh30 = counters30.HighsSinceFirstHigh
-                      HighsSinceFirstHigh60 = counters60.HighsSinceFirstHigh
-                      HighsSinceFirstHigh120 = counters120.HighsSinceFirstHigh
-                      HighsSinceFirstHigh180 = counters180.HighsSinceFirstHigh
-                      BarsSinceFirstHigh600 = counters600.BarsSinceFirstHigh
-                      HighsSinceFirstHigh600 = counters600.HighsSinceFirstHigh
+                      BarsSinceFirstHigh = counters.BarsSinceFirst
+                      SecsSinceFirstHigh = counters.SecsSinceFirst bar.etSec
+                      HighsSinceFirstHigh = counters.EventsSinceFirst
+                      BarsSinceFirstHigh300 = counters300.BarsSinceFirst
+                      HighsSinceFirstHigh300 = counters300.EventsSinceFirst
+                      HighsSinceFirstHigh30 = counters30.EventsSinceFirst
+                      HighsSinceFirstHigh60 = counters60.EventsSinceFirst
+                      HighsSinceFirstHigh120 = counters120.EventsSinceFirst
+                      HighsSinceFirstHigh180 = counters180.EventsSinceFirst
+                      BarsSinceFirstHigh600 = counters600.BarsSinceFirst
+                      HighsSinceFirstHigh600 = counters600.EventsSinceFirst
                       TradeIdx = tradeIdx
                       OpenAtSignal = this.OpenCount
                       Vwap1200 =
