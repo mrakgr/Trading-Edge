@@ -16901,8 +16901,32 @@ S35f (one be cell beat the pair at the pair's own threshold) does NOT mirror: th
 LONG conjunction is two real conditions — d1m ("2% under the 1m HIGH") certifies the
 flush is CURRENT, and the smooth decay kernel blurs exactly that recency. Fading pops
 needs displacement only; buying knives needs displacement AND immediacy (S43as's
-"the pair is unbeaten" re-confirmed on ms-era with the modern roster). Port item
-CLOSED — the pair stays.
+"the pair is unbeaten" re-confirmed on ms-era with the modern roster). **be6030∧d1m follow-up (user)**: restoring d1m lifts the be leg to
+4.023 at matched n (still −0.105), and the TRIPLE (pair ∧ be6030@−2%) removes 3 trips
+at FLAT PF — **be6030 is a complete SUBSET of speed∧d1m** (the substitution test,
+strongest form). Capacity option ledgered: be6030∧d1m @−2% = 1,454 @ 3.988, net
+2,764%. Port item CLOSED — the pair stays.
+
+## S43cn (2026-08-30) — ❌ the 15:30 cutoff does NOT port: 15:00-15:30 is the long side's WORST bucket
+
+The S33 short-side finding INVERTS (the third side-asymmetry of the weekend: K
+ceiling, ac1 knife, now the clock). v47 frame (g60/$1/40bp/lows180 + ROSTER v3.3),
+mc=1 inside each bucket:
+
+| bucket | mc0 n | mc0 pf | mc1 n | mc1 pf | avg% |
+|---|---|---|---|---|---|
+| 09:45-11 | 3,337 | 7.68 | 599 | 4.381 | 2.00 |
+| 11-13 | 2,484 | 5.20 | 460 | 3.869 | 1.91 |
+| 13-14 | 879 | 5.07 | 161 | 4.140 | 2.03 |
+| 14-15 | 885 | 5.49 | 154 | 3.798 | 1.85 |
+| **15-15:30** | 371 | **1.05** | 59 | **1.007** | **+0.01** |
+| 15:30-16 | 558 | 2.09 | 105 | 1.513 | 1.69 |
+
+Cutoff books: 15:00 = 1,369 @ 4.128 / 2,682% (incumbent) · 15:30 = 1,428 @ 3.738 /
+2,683% (+59 trips at ~1.0, net FLAT) · 16:00 = 1,532 @ 3.155 / 2,857% (2025 → 2.30,
+2026 → 2.52, 38 overnight exits). SpikeFader's best clock bucket is FlushFader's
+worst: pops die INTO the close (fade them late); knives bought late have no
+completion room. ❌ Cutoff stays 15:00. Port ledger fully CLOSED.
 
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
