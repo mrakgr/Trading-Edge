@@ -17153,3 +17153,38 @@ the flawed 60+gap tc, interpolated-calendar, exact tradeable-time, EWMA. The ker
 and the clock were never the issue; the long side simply does not price relative
 volume rate beyond what the spec/roster already absorbed. S43cq stands; inversion #6
 is closed on exact columns.** Script: scratch ff12_rrt.py.
+
+## S43cq-d (2026-08-30, user pushback) — ⭐ the rr_t GRADIENT: real, time-clock-ONLY, roster-absorbed
+
+The user challenged the S43cq-c "no difference" ruling on the loud tail — correctly.
+Side-by-side on v49 (same trips, same denominator, only the numerator's clock):
+
+| band | bar pf | time pf |   | band | bar pf | time pf |
+|---|---|---|---|---|---|---|
+| <0.25 | 2.451 | 2.316 |   | [1.5,2) | 2.574 | **3.318** |
+| [0.25,0.5) | 2.337 | 2.386 |   | [2,3) | 2.843 | 3.001 |
+| [0.5,0.75) | 2.771 | 2.592 |   | [3,5) | 2.716 | **4.570** |
+| [0.75,1) | 2.735 | 2.596 |   | ≥5 | 3.205 | 3.299 |
+| [1,1.5) | 2.583 | 2.692 |   |  |  |  |
+
+**The time sequence is essentially MONOTONE rising; the bar sequence has no ordering
+at all.** The clock fix doesn't just clean semantics — it RECOVERS a quality axis that
+bar-counting scrambles (bar [3,5) = 2.72 w/ 2022 1.15 / 2023 0.82; time [3,5) = 4.57
+w/ every year ≥ 1.2). Halves at 1.5: frame 2.499 vs 3.344 (12% of trips); mc=0 BOOK
+5.890 vs 7.446 (16%). ⚠ Regime tilt: the upper half INVERTS in 2023 (frame 1.67 vs
+2.38; book 3.17 vs 4.69) and book-2026 flips the other way (4.05 vs 10.97); carried by
+2020/2022/2024-25. mc=0 book overall = 6.091 @ 7,585 vs mc=1 4.128 — the density
+caveat: loud-rr days are multi-trip days.
+
+**But NO ROSTER SEAT (S43cq-d workup, ff13)**: the voices already own ~82% of the
+loud-tail mc=1 slots (standalone replay [2,5) = 4.368 @ 206 — above book! — vs only
+38 NET-NEW trips from a [2,5) voice, @ 2.34 with **2023 = 0.00 and 2024 = 0.00**;
+[3,5) adds 10 @ 0.54). Every union lowers book PF (4.128 → 3.99-4.01). The S27b
+absorption story, long-side: what loud-rr knows, v20/dsu/legage already vote; the
+voiceless residual is adversely selected in exactly the fair-weather years.
+rr_ew (EWMA kernel) is strictly weaker everywhere — the windowed time form is the
+family's best member.
+
+**STATUS: KEPT IN MIND (user) — a real, monotone, time-clock-only quality gradient;
+if ever consumed, the evidence shape says SIZING TIER with a 2023 caveat, not a
+voice/gate.** Scripts: ff13_rrloud.py / ff14_rrhalves.py.
