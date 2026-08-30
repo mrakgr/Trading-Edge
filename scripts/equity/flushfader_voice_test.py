@@ -37,6 +37,7 @@ VOICES = [
     ("dslo",     "signal_vwap/sess_low - 1 >= 0.08"),
     ("vexp",     "(volat_slope_10m - volat_slope_20m)*2e4 > 12"),
     ("vcrush",   "volat_slope_5m*2e4 <= -24"),
+    ("acneg",    "ac1_ewma < -0.1"),
     ("legage",   f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}"),
     ("dsu",      "downticks_since_uptick >= 8"),
     ("haltband", "secs_since_halt >= 1200 AND secs_since_halt < 4800"),

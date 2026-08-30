@@ -47,6 +47,7 @@ BOOK_WHERE = """
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
     OR COALESCE((volat_slope_10m - volat_slope_20m)*2e4 > 12, false)
     OR COALESCE(volat_slope_5m*2e4 <= -24, false)
+    OR COALESCE(ac1_ewma < -0.1, false)
     OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= 450, false)
     OR COALESCE(downticks_since_uptick >= 8, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)

@@ -16788,6 +16788,67 @@ multipliers read A 1.75 / B 1.77 / C 1.18 (locked: 2.44/1.80/1.14; B ≈ A now) 
 re-derive at the next sizing pass. Historical sections keep the name "ramp"; it is
 `vexp` from here forward.
 
+## S43cj (2026-08-30) — the ac1_ewma port: the knife INVERTS on the long side — NOT adopted
+
+Port TODO #3 tested: SpikeFader's whipsaw knife `ac1_ewma ≥ −0.1` (S34d: cuts PF 0.71
+junk short-side) on the v47 g60 reference frame (post-e9 — the spec's `eff_9ema_10m ≥
+−0.10` already ran in-engine). mc=0 bands:
+
+| ac1_ewma | n | pf | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| [−0.3,−0.2) | 33 | inf | +3.99 | inf | - | - | inf | inf | inf | inf |
+| [−0.2,−0.1) | 61 | 153.6 | +5.85 | 21.6 | inf | inf | inf | inf | - | inf |
+| [−0.1,0) | 299 | 3.50 | 2.07 | 22.6 | 5.67 | inf | 23.0 | 4.80 | 0.78 | 7.41 |
+| [0,0.1) | 1,298 | 3.26 | 1.76 | 4.44 | 3.31 | **0.65** | 1.82 | 2.23 | 3.42 | 17.5 |
+| [0.1,0.2) | 3,584 | 3.92 | 2.13 | 5.67 | 3.24 | 10.6 | 5.60 | 2.69 | 4.28 | 3.80 |
+| [0.2,0.3) | 3,710 | 4.59 | 2.21 | 8.23 | 7.77 | 161 | 2.22 | 3.13 | 3.72 | 3.39 |
+| ≥0.3 | 2,032 | 5.19 | 2.11 | 13.3 | 7.82 | 4.53 | 2.36 | 6.22 | 3.82 | 2.61 |
+
+**The knife CUTS GOLD long-side**: the sub-−0.1 tail (94 trips) is near-LOSSLESS —
+deeply negative autocorrelation on the long side = oscillating mean-reverting tape =
+the regime a flush snaps back in (short-side it meant fighting the fade). On the book
+the knife removes 9 trips, ALL winners (avg +3.51%), PF 4.011 → 3.975. The S34d
+mechanism lesson stands but the mechanism is SIDE-DEPENDENT. ❌ No ac1 gate in the
+FlushFader spec. LEDGER: `ac1 < −0.1` = premium tier candidate (tiny, near-lossless);
+`ac1 ≥ 0.3` = the persistence sizing twin (5.19); the soft band is [0,0.1) (3.26,
+2022 = 0.65) — shape note only, not a trim (1,298-trip mid-band). Port TODO #3 CLOSED.
+
+## 🔒 S43ck (2026-08-30) — ROSTER v3.3: acneg adopted; e9×ac1 independence; the K ladder
+
+**The e9-disabled control (user; `v47_noe9k` = spec with e9 AND the K band disarmed,
+whitelist, 118,854 trips)**: e9's knife is REAL long-side — its fail slice (K∈[26,50]
+frame) = 335 @ **0.94**, avg −0.11% (unlike the short side, where S32 found e9's knife
+empty). And the ac1 gold is INDEPENDENT of e9: zero e9-fail trips in ac1 [−0.2,−0.1),
+3 in <−0.2 (all winners); e9's junk lives at ac1 ≈ 0 (fail × [−0.1,0.1) = 0.39-0.42)
+— exactly where ac1's tail never reaches. The two knives are complements (the S34d
+disjointness, long-side edition). e9 STAYS; the ac1 tail stands on its own.
+
+**🔒 ADOPTED (user): `acneg = ac1_ewma < −0.1` is the NINTH voice** (ROSTER v3.3).
+Deeply negative slot-return autocorrelation on the long side = oscillating
+mean-reverting tape = the snap-back regime (the S43cj inversion). Book (v47 ref
+frame, per-tkd mc=1): **1,387 @ 4.021, net 2,681%**, years 8.59 3.51 3.25 3.27 3.58
+3.53 4.16 — validated end-to-end through flushfader_book.py. All 8 roster scripts
+carry the voice.
+
+**❌ `ac1 ≥ 0.3` — NOT a voice, and a weak tier**: as a 10th voice +111 trades @ PF
+−0.169 with mediocre marginals (124 @ 2.43, avg 1.06%, 2026 = 1.02); in-book flag =
+272 @ 4.45 vs rest 3.93 with IDENTICAL avg (1.95 vs 1.93) — mild loss-asymmetry only,
+73.6% already covered (dslo 45%). The band table's 5.19 was the unvoted frame.
+Ledgered for the sizing pass only.
+
+**The K ladder (e9 restored post-hoc, K axis open, 30,392 mc=0)**: the spec band
+[26,50] RE-DERIVES on ms-era — below 26 degrades 1.22→2.40, peak [38,50] = 4.41,
+above 50 COLLAPSES with 2022 dying exactly there ((50,70] = 0.90, >70 = 0.64 — the
+2022-fix ceiling confirmed). Inside the band the NEW rungs are monotone freshness
+floors, sharpest at 3m: k180 2.68 (0-2) → 4.85 (15-21); k120's bottom is noisy
+(3.39) — the fastest dips are noise, long-side edition. Disagreement grids: the FAST
+rung dominates — k300 ≥ 22 ∧ k180 ≤ 5 (STALE pressure) = 2.89 @ 552 / 1.73 @ 69 vs
+4.3-5.6 diagonals. **k180 floor on the book = a quality-for-capacity trade, NOT a
+junk cut** (≥10: 1,245 @ 4.398, cut 287 @ 3.50; ≥15: 1,101 @ 4.606, cut 456 @ 3.40)
+— ❌ no spec gate (the marginal-trim class the user is retiring); → the SIZING ledger
+as a freshness axis, and a natural gate candidate for the SIMPLIFIED rebuild (where
+k180 could subsume lows300 ≥ 6). Port TODO #4 CLOSED.
+
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
 User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s
