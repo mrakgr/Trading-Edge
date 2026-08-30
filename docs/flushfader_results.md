@@ -16932,7 +16932,12 @@ completion room. ❌ Cutoff stays 15:00.
 `volat ∈ [25,40bp) ∧ speed<−4% ∧ d1m<−4%` on the v47 frame (voted, lows180): 19 mc=0
 trips @ **PF 0.36, avg −2.02%**; variants (3% pair / 30bp floor) ≤ 1.14; book +5
 trades at 4.128 → 4.090. The FIFTH side-inversion: short-side a 4% pop on a quiet
-name is a fade; long-side a 4% flush on a quiet name IS the repricing. Port TODO #2
+name is a fade; long-side a 4% flush on a quiet name IS the repricing. **The unconditioned control (user: no vote, no g60)**: the whole 25-40bp spec slice
+= 894 @ PF 1.00, avg 0.00% — DEAD FLAT; pair<−3% = 258 @ 1.25; pair<−4% = 54 @ 1.34
+(2025 = 0.00, 2026 empty). No corner works. ⭐ And the filters INVERT inside the dead
+band (pair<−4%: bare 1.34 → +g60 0.54 → +vote 0.42 → both 0.36): on a live band the
+voices flag aggravated OPPORTUNITY, on a dead band the same aggravators flag genuine
+REPRICINGS — the contrast-grammar-inversion at the frame level. Port TODO #2
 CLOSED ❌. Also (user ruling): **crest is DROPPED from the sizing queue** — judged
 subsumed by vcrush and contributed nothing as a voice (S43ch-e). Port ledger fully
 CLOSED — all five items adjudicated, five side-inversions measured.
