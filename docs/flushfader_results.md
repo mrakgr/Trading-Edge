@@ -16987,3 +16987,130 @@ costs/borrow/spreads unmodeled, escalation policy draft unadopted.
 
 **The weekend's law**: FIVE side-inversions vs SpikeFader (K ceiling, ac1, the clock,
 be-vs-pair, the low-volat arm) — cross-side ports are hypotheses, never transplants.
+
+# S43cq (2026-08-30) — rr tested long-side for the FIRST time: NO SEAT (inversion #6)
+
+The user noticed `rr` (SpikeFader's rr_15m relative-volume rate) had never been tested
+in FlushFader. Pure post-hoc — v47 carries `vol_60`, `vol_0945_tape`, `gap_60`.
+
+**⚠ CLOCK CORRECTION (user, two rounds)**: `vol_60` is 60 PRESENT bars while the
+denominator is a per-CALENDAR-second rate, so on sparse tape the bar-clock numerator
+rate is overstated. First fix `vol_60/(60+gap_60)` was WRONG TOO (user catch):
+`GapCounter` is a trailing CALENDAR window — gap_60 = missing seconds among the last
+60 CALENDAR seconds, NOT the gaps inside the 60-present-bar window's span. The proper
+calendar measure: present bars in the last 60 calendar seconds m = 60 − gap_60, and
+the volume of the last m present bars interpolated on the recorded ladder:
+
+    vol_cal = interp(m; (5,vol_5),(10,vol_10),(15,vol_15),(30,vol_30),(60,vol_60))
+    rr_cal  = (vol_cal / 60) / (vol_0945_tape / 900)
+
+— exact wherever per-bar volume is uniform between rungs (ladder densest at the short
+end). In-book the correction is tiny (gap_60 < 4 ⇒ m ≥ 57); on the mc=0 frame it
+matters. All three forms were run (bar-clock, the flawed tc, rr_cal) — conclusions
+IDENTICAL; tables below are **rr_cal**. ⚠ SpikeFader's rr_15m (S27) has the SAME
+bar-clock numerator — its in-book conclusions are bounded by gap_adj_60 < 10, but
+re-express calendar-natively before promoting that family anywhere.
+Frame = v47_spec20 + production guard (40bp ∧ ≤15:00 ∧ lows180 ≥ 3); book = $1 ∧ g60
+∧ ROSTER v3.3; per-tkd true mc=1. Scripts: scratch ff11_rr.py / ff11c_rrcal.py.
+
+## A. mc=0 rr_tc bands × years (unconditioned spec frame)
+
+| band | n | pf | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| <0.25 | 5,049 | 2.496 | 1.43 | 3.38 | 4.63 | 1.65 | 1.85 | 3.20 | 1.77 | 3.44 |
+| [0.25,0.5) | 10,062 | 2.340 | 1.40 | 2.90 | 3.11 | 1.11 | 2.28 | 3.37 | 2.23 | 2.14 |
+| [0.5,0.75) | 7,184 | 2.717 | 1.62 | 3.67 | 3.91 | 2.52 | 3.13 | 2.38 | 2.15 | 2.22 |
+| [0.75,1.0) | 4,436 | 2.365 | 1.48 | 3.94 | 3.38 | 2.56 | 2.13 | 1.67 | 1.91 | 1.79 |
+| [1.0,1.5) | 4,462 | 2.922 | 1.68 | 5.33 | 3.31 | 2.24 | 2.65 | 2.26 | 2.84 | 1.86 |
+| [1.5,2.0) | 1,818 | 2.673 | 1.47 | 2.90 | 4.12 | 0.96 | 2.31 | 1.66 | 3.41 | 8.80 |
+| [2.0,3.0) | 1,458 | 3.127 | 1.75 | 6.06 | 3.18 | 2.19 | 1.40 | 2.41 | 4.24 | 5.66 |
+| [3.0,5.0) | 613 | 3.578 | 2.05 | 5.68 | 1.49 | 4.72 | 0.65 | 14.74 | 11.71 | 9.06 |
+| ≥5 | 198 | 3.433 | 2.32 | 12.05 | 5.16 | 0.12 | 1.70 | 63.05 | 143.16 | 0.38 |
+
+FLAT through the mass (2.34-2.92). The loud tail's 3.4-3.6 is lottery-shaped (2022
+0.12, 2023 0.65-1.70, single-year monsters 63/143) — outcome concentration, not a
+band. **The quiet end — SpikeFader's A+ tier (rr < 0.5 = 3.45 on its book, every year
+≥ 2.05) — is NOTHING long-side (2.34-2.50, at/below the mass).**
+
+## B. within-BOOK rr_tc bands, true mc=1 (the tier view)
+
+BOOK 1,369 @ 4.128 → bands 3.91 / 3.84 / 4.51 / 3.24 / 5.13 / **11.63 @ 81** / 3.06 /
+6.78 / 1.12 — NON-MONOTONE noise. The [1.5,2) 11.6 sits between 5.1 and 3.1 with 2024
+= 2.57 (small-n order statistics, not structure); [0.25,0.5) carries 2021 1.65 / 2022
+0.81. No tier axis exists.
+
+## C. voice-seat test (vote ∪ rr-cell, added trips' quality)
+
+| cell | added n | added pf | added years |
+|---|---|---|---|
+| rr < 0.25 | 98 | 2.220 | 0.14 3.38 1.93 2.96 9.82 1.28 10.27 |
+| rr < 0.5 | 299 | 1.777 | 1.58 2.47 4.00 0.95 1.27 1.72 2.51 |
+| [0.5,0.75) | 220 | 1.413 | 3.46 2.80 8.08 0.98 0.67 1.13 0.77 |
+| rr ≥ 2 | 39 | 2.410 | 35.03 12.38 inf 0.00 0.00 20.10 inf |
+| rr ≥ 3 | 11 | 0.606 | inf 1.59 - 0.04 0.00 inf inf |
+
+Every candidate cell adds trips BELOW book quality (book avg +1.96% vs added +0.5-1.4%).
+
+**VERDICT: rr gets NO seat in FlushFader — not a voice (all unions dilutive), not a
+tier (no within-book gradient), not a gate (mass is flat). The roster/spec already
+carry its correlates (v20, dsu, legage, the K/lows ladders all select active tape).
+This is side-inversion #6: the quiet-tape arm that is SpikeFader's best sizing cell
+does not exist on the long side.** Cross-ref: SpikeFader S27b; the S43cp inversion law.
+
+# S43cr (2026-08-30) — ⭐⭐ THE CLOCK FIX: tradeable-time volume/tc/dv (SPEC v3.1), SpikeFader §S7 mirrored back
+
+The S43cq rr episode exposed the class bug: FlushFader's entire volume vocabulary was
+BAR-clock (60 "seconds" = 60 present bars, reaching minutes back on sparse tape) while
+every rate divided by second literals. SpikeFader fixed this 2026-08-27 (§S7); the user
+ordered the full mirror + the production Scanner in the same pass.
+
+## What changed (engine, `TradingEdge.FlushFader` + the Scanner fork)
+
+1. **`volGap = if haltClassified then 0 else int gapRun`** — the single halt-adjustment
+   point. TimeSumMa windows evict on the tradeable-second clock (1 + non-halt gap per
+   push): classified halts are DELETED from the time axis, ordinary sparsity counts as
+   real zero-volume time. `halt_secs_cum` recorded (signal_sec − halt_secs_cum = the
+   clock).
+2. **Canonical vol/tc/dv columns = TimeSumMa** (vol/tc 5-1200, dv 60-1200); the old
+   present-bar sums stay as `_bar` twins (substitution pair). `vol_60_prev`/`tc_60_prev`
+   = t120 − t60.
+3. **The FLOORS flipped (SPEC v3.1)**: DvFloor60/TcFloor60 ($100k / 60, thresholds
+   unchanged) now read tDvSum60/tTcSum60 — $/trades over the last 60 TRADEABLE seconds.
+4. **vol10rate stays BAR-clock (user decision)** — `(vol_10_bar/10)/(vol_60_bar/60)`.
+5. **The speed denominator: implementation swap, bar space kept (user decision)** —
+   `vwap_60_prev` = `(dv120−dv60)/(vol120−vol60)` window difference, replacing the
+   LagMa chains (vwap5/10/30/60, vol60, tc60 lags all deleted; algebraically identical,
+   warm at the same bar). PRICE features stay bar-clock everywhere (the §S7 convention).
+6. New record-only: `vol_ew_60`, `dv_ew_60` (DecaySumMa hl 60s, GapValue.Zero, .Mean =
+   per-tradeable-sec rate — SpikeFader's VolEw60 vocabulary).
+
+## v49_spec20 — the rerun (pared whitelist, user's speedup)
+
+Corpus = `flushfader_v49tkd_cand`: 7,520 tkds = base_v17 trips passing the FULL v2.7
+spec post-hoc (floors REMOVED — base_v17's floors were bar-clock ⊇ the new time floors,
+so nothing escapes; 1e-6 slack on the FP-shifted speed gate; all 6,467 v47 trip-tkds
+contained). 235,916 → 7,520 tkds turned a ~2h rerun into 92s. Flags = v47 frame (20bp,
+16:00/46800, lows180 off — record-first). ⚠ `--end-date` DEFAULTS TO 2026-07-17 — the
+first pass silently lost five weeks; always pass it explicitly.
+
+## Validation
+
+- **Substitution**: canonical ≡ `_bar` exactly on fully-gapless 20m windows (0 of
+  39,769); elsewhere ≤ 2e-15 relative (FP accumulation history). Monotonicity
+  `t ≤ bar`: 0 violations. Floor consistency on own columns: 0 violations. 8,815
+  trips carry halt-excised clocks.
+- **Churn vs v47**: 43,028 → 39,769. Lost 3,259 (7.6%), **gained 0** (the window-diff
+  speed swap produced zero admission churn). ALL BUT ONE lost trip has gap_60 ≥ 4 —
+  the sparse fringe, evenly spread across years (648/448/408/440/503/492/320); the one
+  book-frame loss is a $118k-bar-dv name honestly under $100k/60-tradeable-secs.
+- **⭐ THE BOOK IS BIT-IDENTICAL**: 1,369 @ 4.128 · win 78.2% · trimPF 9.860 · tiers
+  A153/B411/C239/D566 · every year table row unchanged. The production frame
+  (gap_60 < 4) bounds the floor delta to ≲5% and no book trip was near it.
+- **vol10rate bar-vs-time (user request)**: corr 0.996 on the g60 frame; a time-clock
+  0.75 gate would remove 8 book trips — pf 34.6, ALL WINNERS. Verdict: the bar-clock
+  gate STAYS; flipping it is measurably (mildly) harmful and buys nothing.
+
+## Scripts
+
+Equity scripts' `--trips` defaults bumped v47 → v49 (book verified identical first).
+base_v17/v18 remain valid base corpora (bar-clock floors — looser, superset).

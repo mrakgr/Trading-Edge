@@ -281,7 +281,7 @@ let main argv =
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
          else "   [rvol_0945_honest RECORDED, not gated]")
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
-    printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
+    printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f over 60 TRADEABLE SECS (S43cr clock fix)   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
     printfn "  EXIT        = vwap > prior %d-bar MAX (strict; ~5m high)  |  else NEXT OPEN   (fill: NEXT bar vwap)" ic.ExitChannelBars
     printfn "  accept stops= new %d-bar low on vr>=%s | tcr>=%s | 1m pace < %s   ⭐ price-acceptance (NO level stop — V6: destructive)"
@@ -297,7 +297,7 @@ let main argv =
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
-    printfn "  SPEC v3.0   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | eff9ema10 >= %s | vol10rate >= %s | lows300 >= %s | lows180 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
+    printfn "  SPEC v3.1   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | eff9ema10 >= %s | vol10rate >= %s (bar-clock) | lows300 >= %s | lows180 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))
         (if Double.IsNegativeInfinity ic.SsfLoBpm then "off" else sprintf "%.0f" ic.SsfLoBpm)

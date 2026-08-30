@@ -386,6 +386,11 @@ CREATE TABLE trips (
     volat_slope_5m DOUBLE, volat_r_5m DOUBLE, volat_slope_3m DOUBLE, volat_r_3m DOUBLE,
     volat_eslope_20m DOUBLE, volat_er_20m DOUBLE, volat_eslope_10m DOUBLE, volat_er_10m DOUBLE,
     volat_eslope_5m DOUBLE, volat_er_5m DOUBLE, volat_eslope_3m DOUBLE, volat_er_3m DOUBLE,
+    vol_5_bar DOUBLE, vol_10_bar DOUBLE, vol_15_bar DOUBLE, vol_30_bar DOUBLE, vol_60_bar DOUBLE, vol_300_bar DOUBLE, vol_600_bar DOUBLE, vol_1200_bar DOUBLE,
+    tc_5_bar DOUBLE, tc_10_bar DOUBLE, tc_15_bar DOUBLE, tc_30_bar DOUBLE, tc_60_bar DOUBLE, tc_300_bar DOUBLE, tc_600_bar DOUBLE, tc_1200_bar DOUBLE,
+    dollar_vol_60_bar DOUBLE, dollar_vol_300_bar DOUBLE, dollar_vol_600_bar DOUBLE, dollar_vol_1200_bar DOUBLE,
+    vol_60_prev_bar DOUBLE, tc_60_prev_bar DOUBLE,
+    vol_ew_60 DOUBLE, dv_ew_60 DOUBLE, halt_secs_cum INTEGER,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -576,6 +581,11 @@ type TripSink(outDir: string) =
             f p.VolatSlope5m; f p.VolatR5m; f p.VolatSlope3m; f p.VolatR3m
             f p.VolatEslope20m; f p.VolatEr20m; f p.VolatEslope10m; f p.VolatEr10m
             f p.VolatEslope5m; f p.VolatEr5m; f p.VolatEslope3m; f p.VolatEr3m
+            f p.Vol5Bar; f p.Vol10Bar; f p.Vol15Bar; f p.Vol30Bar; f p.Vol60Bar; f p.Vol300Bar; f p.Vol600Bar; f p.Vol1200Bar
+            f p.Tc5Bar; f p.Tc10Bar; f p.Tc15Bar; f p.Tc30Bar; f p.Tc60Bar; f p.Tc300Bar; f p.Tc600Bar; f p.Tc1200Bar
+            f p.DollarVol60Bar; f p.DollarVol300Bar; f p.DollarVol600Bar; f p.DollarVol1200Bar
+            f p.Vol60PrevBar; f p.Tc60PrevBar
+            f p.VolEw60; f p.DvEw60; i p.HaltSecsCum
             f qty; f pnl
             row.EndRow()
             total <- total + 1L

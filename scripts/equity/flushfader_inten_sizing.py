@@ -50,7 +50,7 @@ pd.set_option("display.width", 220)
 pd.set_option("display.max_columns", 40)
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v49_spec20/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450)
 ap.add_argument("--base", type=float, default=0.10)
 ap.add_argument("--trim", type=float, default=0.05)

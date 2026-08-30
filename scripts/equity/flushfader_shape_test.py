@@ -65,7 +65,7 @@ pd.set_option("display.width", 230)
 pd.set_option("display.max_columns", 50)
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v49_spec20/trips_p*.parquet")
 ap.add_argument("--db", default="data/trading.db")
 ap.add_argument("--book", action="store_true", help="restrict to the A++ book")
 ap.add_argument("--esf", type=int, default=450)

@@ -35,7 +35,7 @@ ap.add_argument("--edges", type=float, nargs="+", required=True,
                 help="LEFT edges; bucket i = [e_i, e_{i+1}), plus a final [e_last, inf)")
 ap.add_argument("--base", nargs="+", default=["g60p"],
                 choices=["full", "spec", "g60", "g60p", "book"])
-ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v49_spec20/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450, help="leg-age voice threshold (SPEC v2.9)")
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--mc", type=int, default=0, choices=[0, 1, 2],
