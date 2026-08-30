@@ -17188,3 +17188,18 @@ family's best member.
 **STATUS: KEPT IN MIND (user) — a real, monotone, time-clock-only quality gradient;
 if ever consumed, the evidence shape says SIZING TIER with a 2023 caveat, not a
 voice/gate.** Scripts: ff13_rrloud.py / ff14_rrhalves.py.
+
+## S43cr-b (2026-08-30 evening) — ⭐⭐ FULL-PERIOD PRODUCTION SEAL at SPEC v3.1
+
+Scanner `--from-bars` over ALL 1,667 days 2020-01-02..2026-08-21 vs v49_spec20 under
+the production frame (40bp ∧ lows180 ≥ 3 ∧ 15:00 with the 12:00 early-close rule):
+**32,689 = 32,689 trips · 0 key-exclusive either way · all 52 audit columns
+zero-diff · book 1,366 = 1,366, max |Δret| = 0.0.** The whole-history engine match
+now holds at v3.1.
+
+⚠ The canonical script book says 1,369 — the +3 are EARLY-CLOSE trips (AHPI + ISPC
+2021-11-26, RGC 2025-07-03, signals 12:00-13:00 on half-days, all winners; book PF
+4.128 → 4.121 without them): the scripts' flat `signal_sec <= 54000` keeps them, the
+engine's calendar-aware 12:00 cutoff refuses them. The ENGINE is the production
+truth; the script frame guard is documented as flat-cutoff (S43bc measured the same
+3-trip class). Diff: scratch full_diff_v31.py.
