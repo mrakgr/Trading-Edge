@@ -41,7 +41,7 @@ TRIPS = "/home/mrakgr/Trading-Edge/data/equity/flushfader/v45_nextopen/trips_p*.
 # the g60 universe — parity THERE is ~406s. 450 sits inside [406, 490] and
 # drops CADL 2024-12-11 (secs 480), tier C's -21.7% outlier.
 BOOK_WHERE = """
-  gap_60 < 4 AND {RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND (
+  gap_60 < 4 AND {RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)

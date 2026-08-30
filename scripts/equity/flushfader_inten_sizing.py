@@ -80,7 +80,7 @@ SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, ret_exit AS r,
             WHEN gap_adj_1200<15 THEN 'B'
             WHEN ols_slope_60*6e5<=-350 THEN 'C' ELSE 'D' END AS tier
 FROM read_parquet('{args.trips}')
-WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND ({voice})
+WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3 AND ({voice})
   AND volat_20m > 0 AND inten_60 IS NOT NULL
 ORDER BY symbol, trade_date, signal_sec""").fetchdf()
 keep, last, prev = np.zeros(len(F), bool), -1, None

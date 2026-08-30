@@ -87,7 +87,7 @@ VOICES = ["volat_20m*1e4 >= 140",
           "secs_since_halt >= 1200 AND secs_since_halt < 4800",
           "halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200"]
 voice = " OR ".join(f"COALESCE({e}, false)" for e in VOICES)
-where = f"{RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000" + (f" AND gap_60 < 4 AND ({voice})" if args.book else "")
+where = f"{RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3" + (f" AND gap_60 < 4 AND ({voice})" if args.book else "")
 
 con.execute(f"""CREATE OR REPLACE TEMP TABLE T AS
 SELECT t.symbol, t.trade_date, t.signal_sec, t.entry_sec, t.exit_sec, t.ret_exit,

@@ -60,8 +60,8 @@ WHERE = {
     "full": "1=1",
     "spec": "{RAWPX} >= 1",
     "g60":  "gap_60 < 4",
-    "g60p": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000",
-    "book": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND "
+    "g60p": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3",
+    "book": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3 AND "
             + BOOK_VOICES.replace("{ESF}", str(args.esf)),
 }
 con = duckdb.connect()

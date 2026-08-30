@@ -35,7 +35,7 @@ args = ap.parse_args()
 # The trading-book filter. NB S-tier is halts_today >= 1 (the engine cascade
 # gate means ht in {1,2}). {ESF} and {RAWPX} are substituted per run.
 BOOK_WHERE = """
-  {G60} {RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND (
+  {G60} {RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3 AND (
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)

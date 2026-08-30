@@ -632,6 +632,9 @@ type IntradayConfig =
                                  // leg's OWN vwap (the [-3,0) shallow slice = 1.6). Default
                                  // -0.03. >= 0 = off.
       MinVol10Rate: float        // (vol_10/10)/(vol_60/60) >= this (S17/S18 last-10s floor). Default 0.75. 0 = off.
+      MinLows180: int            // ⭐ SPEC v3.0 (S43cl, user 2026-08-30): lows_since_first_low_180
+                                 // >= this — the 3m freshness floor (net-FREE at 3: the mc=1 slots
+                                 // recycle; "never buy the first dip"). Default 3. 0 = off.
       MinLows300: int            // ⭐ SPEC v1.4 (S38h): lows_since_first_low_300 >= this — kills the
                                  // FAST-CHASE re-entry (5m bounce without a 20m leg reset leaves the
                                  // K-band satisfied, re-signaling in seconds; that slice = PF 0.11 on
@@ -2021,6 +2024,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | _ -> false)
         let dv0945TapeOk = cfg.MinDv0945Tape <= 0.0 || dv0945Tape >= cfg.MinDv0945Tape
         let lows300Ok = cfg.MinLows300 <= 0 || counters300.EventsSinceFirst >= cfg.MinLows300
+        let lows180Ok = cfg.MinLows180 <= 0 || counters180.EventsSinceFirst >= cfg.MinLows180
         let frontOk =
             Double.IsPositiveInfinity cfg.MaxRngFront
             || chanRng max300 min300 / chanRng max1200 min1200 < cfg.MaxRngFront
@@ -2044,7 +2048,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             || (match ols300.State with
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
-        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && lows300Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && lows300Ok && lows180Ok && frontOk && accelOk && slope20Ok && slope5Ok
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m

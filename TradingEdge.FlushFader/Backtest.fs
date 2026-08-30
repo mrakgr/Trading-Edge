@@ -115,6 +115,7 @@ let defaultConfig =
           MaxDistLegVwap   = -0.03      // >= 3% below the leg's own vwap ([-3,0) = 1.15-1.71)
           MinVol10Rate     = 0.75       // last-10s volume rate >= 0.75x the 1m rate (S17/S18)
           MinLows300       = 6          // ⭐ SPEC v1.4: >= 6 lows since the last 5m-high bounce (S38h)
+          MinLows180       = 3          // ⭐ SPEC v3.0 (S43cl): >= 3 lows on a live 3m segment — net-free
           MaxRngFront      = 0.8        // ⭐ SPEC v1.5: rng_300/rng_20m < 0.8 — no pure cliffs (S38k)
           MinAccel1020Bpm  = -80.0      // ⭐ SPEC v1.7 (S39o/r): accel(10m−20m) >= −80bp/min — reject
                                         // the late-accelerating bleed band [−150,−80); −80 = the

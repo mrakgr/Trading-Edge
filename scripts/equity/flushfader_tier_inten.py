@@ -84,7 +84,7 @@ SELECT t.symbol, t.trade_date, t.signal_sec, t.entry_sec, t.exit_sec,
        (t.dollar_vol_1200/1200.0) / nullif(u.dv_0945_tape/u.n_bars_1s, 0) AS inten_1200
 FROM read_parquet('{args.trips}') t
 JOIN db.mr_candidate_1s_v2 u ON u.ticker = t.symbol AND u.date = t.trade_date::DATE
-WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND ({voice})
+WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND lows_since_first_low_180 >= 3 AND ({voice})
   AND u.n_bars_1s > 0 AND u.dv_0945_tape > 0 AND t.volat_20m > 0
 ORDER BY t.symbol, t.trade_date, t.signal_sec""")
 F = con.execute("SELECT * FROM T").fetchdf()

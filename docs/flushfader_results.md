@@ -16849,6 +16849,39 @@ junk cut** (≥10: 1,245 @ 4.398, cut 287 @ 3.50; ≥15: 1,101 @ 4.606, cut 456 
 as a freshness axis, and a natural gate candidate for the SIMPLIFIED rebuild (where
 k180 could subsume lows300 ≥ 6). Port TODO #4 CLOSED.
 
+## 🔒 S43cl (2026-08-30) — SPEC v3.0: `lows180 ≥ 3` adopted (the net-FREE freshness floor); the K asymmetry closed
+
+**The side asymmetry (user question)**: the [26,50]-hump is the LONG side's signature
+at EVERY reset horizon — k600 and k300 full bands show the same rise-peak-collapse
+(peaks ≈ 3.9 at [26,50], collapse above 50 with 2022 at 0.31-0.80) — vs the short
+side's ceiling-free monotone rise. Pops exhaust; cascades reprice. **k600 CANNOT
+replace k20**: faster resets mean k600 ≤ k20, so the k600 band RE-ADMITS deep stale
+cascades (k20 > 50 ∧ k600 ∈ [26,50] = 2,064 @ 2.53 — the death-spiral class the
+ceiling exists to exclude); swap book 1,537 @ 3.660 (−0.36). THE GRAMMAR: **ceiling =
+absolute maturity (only the full-leg counter sees it); floor = freshness (the fast
+rungs); between them = sizing information.** `lows300 ≥ 6` nudges (8/10/12/15) all
+cut PROFITABLE slices (3.35-3.81) — left at 6.
+
+**🔒 ADOPTED (user): `lows_since_first_low_180 ≥ 3` — SPEC v3.0** (engine gate
+`MinLows180`, default 3, mirrors lows300; base-run zeroes it; banner updated). The
+k180 ladder's ≥3 rung is PARETO — net-FREE because the per-tkd mc=1 slots RECYCLE
+(a cut trip frees its day for a later, better entry):
+
+| k180 floor | n | pf | net | 2026 | cut slice |
+|---|---|---|---|---|---|
+| none | 1,387 | 4.021 | 2,681% | 4.16 | - |
+| **≥3 (ADOPTED)** | 1,369 | **4.128** | **2,682%** | **4.69** | 78 @ 3.59 (slots recycled) |
+| ≥5 | 1,344 | 4.168 | 2,630% | 4.73 | 114 @ 3.21 |
+| ≥10 | 1,252 | 4.413 | 2,553% | — | 290 @ 3.50 |
+| ≥15 | 1,107 | 4.620 | 2,352% | — | 460 @ 3.41 |
+
+Higher rungs = the same quality-for-capacity ladder as lows300 — sizing territory.
+Reading: "at least 3 of the leg's lows on a live 3m segment" — never buy the first
+dip. **BOOK (SPEC v3.0 × ROSTER v3.3): 1,369 @ 4.128, win 78.2%, avg +1.96%, trimPF
+9.860** — validated through flushfader_book.py (scripts carry the floor post-hoc in
+the frame guard until the next spec run; v47 predates the engine gate). ⚠ ac1≥0.3 and
+crest tier work still queue for the sizing pass.
+
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
 User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s
