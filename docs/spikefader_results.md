@@ -2223,3 +2223,38 @@ will most likely be just that — the system has to be MORE SELECTIVE." Tomorrow
 K-floor (k300/k600/k180) and eff tightening WITHIN the ≥140bp cells, then continue
 the port list (#2 d20a next). Candidate exclusion band [140,180) @ 1.104 × 365 waits
 on the same study (if tightening repairs it, no knife needed).
+
+## S37b — SCOUT (autonomous, evening 2026-08-30): the looseness hypothesis probed. DIRECTIONALLY CONFIRMED
+
+Run while the user was out, as PREP for tomorrow — scout tables only, nothing adopted.
+Replay-inside-gate per variant (scripts sf22/sf23).
+
+**K-floor ladder INSIDE volat ≥ 140bp** (eff ≥ 0.3 fixed; floors k300/k600/k180):
+
+| floors | n | pf | avg% | years |
+|---|---|---|---|---|
+| BASE 40/60/15 | 792 | 1.535 | +2.03 | 1.24 1.58 1.01 1.34 1.65 1.74 1.85 |
+| ×1.5 60/90/22 | 367 | 2.109 | +3.62 | 2.52 1.35 1.21 0.83 2.63 3.42 3.49 |
+| ×2 80/120/30 | 171 | **3.262** | +5.88 | 36.02 1.36 0.85 0.52 4.99 4.60 8.42 |
+| ×3 120/180/45 | 28 | 3.272 | +7.91 | (n-starved) |
+
+**eff is NOT the lever** (flat 1.52-1.56 through 0.3-0.5; mild 1.74 @ 0.6). K is.
+
+**⭐ THE ISO-CONTROL (the part that disciplines it)** — the same ladder everywhere:
+
+| frame | BASE | ×2 | lift |
+|---|---|---|---|
+| FULL stack | 1.704 @ 7,243 | 2.546 @ 1,433 | ×1.49 |
+| v < 140bp | 1.780 @ 6,588 | 2.338 @ 1,281 | ×1.31 |
+| v ≥ 140bp | 1.535 @ 792 | 3.262 @ 171 | **×2.12** |
+
+Two findings: (1) **higher K floors help EVERYWHERE** — the monotone-floor grammar is
+general (full-stack ×2 = 2.546 with every year ≥ 1.49 except 2023) — so "K ×2" is
+really a whole-system selectivity/size trade (7,243 → 1,433 trips), not a cell patch;
+(2) **the lift is genuinely LARGEST inside ≥ 140bp** (×2.12 vs ×1.31), and at K×2 the
+hot cell flips to ABOVE the rest (3.26 vs 2.34) — the user's squeeze mechanism is
+real: looseness hurts hyper-volatile pops disproportionately. ⚠ The repaired ≥140
+cell's middle years stay broken at every rung (2021-2023: 1.36/0.85/0.52 at ×2) —
+the repair is 2020 + 2024-26; a fair-weather check must gate any adoption. ⏭
+Tomorrow's decisions: where on the K ladder to sit (capacity vs quality), whether
+≥140 gets its own tier/arm at a higher rung, and the rest of the port list.
