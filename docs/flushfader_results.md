@@ -16882,6 +16882,28 @@ dip. **BOOK (SPEC v3.0 × ROSTER v3.3): 1,369 @ 4.128, win 78.2%, avg +1.96%, tr
 the frame guard until the next spec run; v47 predates the engine gate). ⚠ ac1≥0.3 and
 crest tier work still queue for the sizing pass.
 
+## S43cm (2026-08-30) — ❌ the be speed cells do NOT replace the pair (the S35f mirror FAILS long-side)
+
+Frame: `v48_nopair` (SPEC v3.0 minus the speed pair, in-engine; 66,938 trips — the
+pair cuts ~⅓ of the spec sampler) + g60/$1/40bp/≤15:00 + ROSTER v3.3, per-tkd mc=1.
+The incumbent restored post-hoc REPRODUCES the S43cl book exactly (1,369 @ 4.128).
+
+| gate | thr | n | pf | net | olap |
+|---|---|---|---|---|---|
+| PAIR speed<−2% ∧ d1m<−2% | - | 1,369 | **4.128** | 2,682% | - |
+| be6030 (matched) | −2.85% | 1,370 | 3.866 | 2,631% | 78.5% |
+| be12030 (matched) | −3.76% | 1,370 | 3.859 | 2,619% | 75.4% |
+| be12060 (matched) | −4.20% | 1,370 | 3.899 | 2,630% | 74.1% |
+| be6030 @−2% | −2% | 1,581 | 3.708 | 2,817% | 84.3% |
+
+Every be cell = −0.23..−0.27 PF at matched n; flat −2% = +6% net at −0.42. SpikeFader
+S35f (one be cell beat the pair at the pair's own threshold) does NOT mirror: the
+LONG conjunction is two real conditions — d1m ("2% under the 1m HIGH") certifies the
+flush is CURRENT, and the smooth decay kernel blurs exactly that recency. Fading pops
+needs displacement only; buying knives needs displacement AND immediacy (S43as's
+"the pair is unbeaten" re-confirmed on ms-era with the modern roster). Port item
+CLOSED — the pair stays.
+
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
 User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s
