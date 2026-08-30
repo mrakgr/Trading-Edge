@@ -16926,7 +16926,16 @@ Cutoff books: 15:00 = 1,369 @ 4.128 / 2,682% (incumbent) · 15:30 = 1,428 @ 3.73
 2,683% (+59 trips at ~1.0, net FLAT) · 16:00 = 1,532 @ 3.155 / 2,857% (2025 → 2.30,
 2026 → 2.52, 38 overnight exits). SpikeFader's best clock bucket is FlushFader's
 worst: pops die INTO the close (fade them late); knives bought late have no
-completion room. ❌ Cutoff stays 15:00. Port ledger fully CLOSED.
+completion room. ❌ Cutoff stays 15:00.
+
+**S43co — ❌ the low-volat ARM formally tested (user): NEGATIVE long-side.** The arm
+`volat ∈ [25,40bp) ∧ speed<−4% ∧ d1m<−4%` on the v47 frame (voted, lows180): 19 mc=0
+trips @ **PF 0.36, avg −2.02%**; variants (3% pair / 30bp floor) ≤ 1.14; book +5
+trades at 4.128 → 4.090. The FIFTH side-inversion: short-side a 4% pop on a quiet
+name is a fade; long-side a 4% flush on a quiet name IS the repricing. Port TODO #2
+CLOSED ❌. Also (user ruling): **crest is DROPPED from the sizing queue** — judged
+subsumed by vcrush and contributed nothing as a voice (S43ch-e). Port ledger fully
+CLOSED — all five items adjudicated, five side-inversions measured.
 
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
