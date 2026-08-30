@@ -2166,3 +2166,60 @@ years pf 1.72 / 1.77 / 1.35 / 1.48 / 1.70 / 1.74 / 2.13.
   SpikeFader-specific rulings (this stack, the 15:30 cutoff, the volat OR-arm, the
   ac1 ≥ −0.1 KNIFE) all remain SHORT-SIDE-ONLY facts. Blockers before any tradable
   claim: stops, cover-vs-costs, spreads, borrow/SSR.
+
+# S37 (2026-08-30) — the FlushFader-voice PORT CAMPAIGN opens: frame validated, v20 INVERTS (#7)
+
+The user's directive: try FlushFader's ROSTER v3.3 voices one by one in SpikeFader —
+each a HYPOTHESIS under the side-flip law, re-derived from scratch. (An rr detour ran
+first on the FlushFader side: no seat there in five forms, but a real monotone
+time-clock-only gradient — flushfader_results.md S43cq-b..d.)
+
+## The port list (mirrors; ingredients in base_v4 unless noted)
+
+1. v20 `volat_20m ≥ 140bp` (same side) · 2. d20a → arming POP ≥ +28%
+`(signal_vwap/first_high_vwap)·(1+d_lo_flow) − 1` · 3. dslo → dist off session HIGH
+≤ −8% (+ unflipped twin) · 4. vexp `(s10−s20)·2e4 > 12` · 5. vcrush `s5·2e4 ≤ −24`
+(❌ needs volat_slope_5m — engine add + whitelist rerun; defer pending vexp's verdict)
+· 6. legage → `secs_since_first_high ≤ 450` (⚠ K floors already gate maturity) ·
+7. dsu → `upticks_since_downtick ≥ 8` · 8. haltband (⚠ S23 already inverted the
+fresh-resume side — re-derive the band) · 9. acneg (already adjudicated: the stack
+GATES ac1 ≥ −0.1; acneg's tail IS the junk the knife cuts — skip).
+
+## Frame validation (match the book)
+
+The 12-condition S35f stack rebuilt as post-hoc SQL on base_v4 + true per-tkd mc=1
+replay reproduces the adopted book EXACTLY: **7,243 @ 1.704, avg +1.08%, win 72.2%,
+net 7,817%, years 1.72/1.77/1.35/1.48/1.70/1.74/2.13** (scratch sf20_stack.py — the
+reusable frame for every port study). ⚠ base_v4's `ret_exit` is ALREADY the short
+return — do NOT negate (a sign flip reproduces the exact mirror book, 0.587 = 1/1.704,
+which is itself a useful checksum).
+
+## Port #1 — v20: FlushFader's strongest voice is BELOW-BOOK short-side (inversion #7)
+
+volat_20m bands on the stack (S33-B1 redone on the CURRENT stack, top end resolved):
+
+| bp band | mc0 n | mc0 pf | mc1 n | mc1 pf | avg% | mc1 years |
+|---|---|---|---|---|---|---|
+| [40,60) | 47,754 | 1.961 | 2,757 | 1.599 | +0.60 | 1.83 2.02 0.92 1.23 1.60 1.52 1.75 |
+| [60,80) | 34,820 | 2.391 | 1,677 | 1.849 | +1.04 | 2.18 1.89 1.56 1.94 2.00 1.66 1.73 |
+| [80,100) | 21,270 | 2.326 | 947 | 1.834 | +1.36 | 1.72 1.73 2.61 2.00 1.56 1.56 2.87 |
+| [100,120) | 12,691 | 2.414 | 585 | 1.950 | +1.78 | 2.11 1.07 2.62 1.44 1.51 2.56 5.11 |
+| [120,140) | 7,607 | 2.576 | 322 | 1.945 | +2.08 | 1.32 1.85 1.23 0.96 2.68 4.28 3.34 |
+| [140,180) | 9,263 | 1.670 | 365 | **1.104** | +0.45 | 1.43 1.17 0.71 1.52 1.10 0.98 1.11 |
+| [180,250) | 5,874 | 2.519 | 219 | 2.084 | +3.24 | 1.18 7.19 7.40 5.16 1.56 3.50 1.87 |
+| ≥250 | 2,316 | 6.784 | 81 | 1.805 | +3.81 | 0.63 0.70 1.06 1.26 6.41 1.20 3.30 |
+
+The port cell `≥140bp` = **1.451 @ 665 vs the 1.704 book** (2022 0.84); `≥100bp` =
+1.654, also below. The short-side gradient rises to a 100-140bp plateau (~1.95) then
+[140,180) craters to 1.104 INSIDE the passing book, with a partial noisy recovery
+above 180. **FlushFader's #1 voice subtracts short-side — the cleanest side-flip yet,
+on the systems' single most shared feature.**
+
+**⏭ THE USER'S HYPOTHESIS (2026-08-30 close, tomorrow's program)**: the ≥140 cells
+fail because the stack is TOO LOOSE for them — entering too early into pops that keep
+squeezing. "In contrast to FlushFader which worked best in the [26,50] K band,
+SpikeFader only gets better as we raise the floors... getting the ≥140 cells to work
+will most likely be just that — the system has to be MORE SELECTIVE." Tomorrow: study
+K-floor (k300/k600/k180) and eff tightening WITHIN the ≥140bp cells, then continue
+the port list (#2 d20a next). Candidate exclusion band [140,180) @ 1.104 × 365 waits
+on the same study (if tightening repairs it, no knife needed).
