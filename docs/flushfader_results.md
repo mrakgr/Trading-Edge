@@ -17116,3 +17116,40 @@ first pass silently lost five weeks; always pass it explicitly.
 
 Equity scripts' `--trips` defaults bumped v47 → v49 (book verified identical first).
 base_v17/v18 remain valid base corpora (bar-clock floors — looser, superset).
+
+## S43cq-c (2026-08-30, post-clock-fix) — rr re-run on the TRUE time-clock columns: verdict UNCHANGED
+
+v49 carries the real tradeable-time `vol_60` and the EWMA `vol_ew_60`, so the S43cq
+interpolation is no longer needed. Both exact forms, same three views (frame = v49 +
+prod guard; book = v3.3 mc=1). NB the clocks genuinely diverge on this frame —
+corr(time vs bar form) = 0.937 with 17,965 gap_60 ≥ 4 rows — so this was a real test,
+not a formality.
+
+**rr_t = vol_60/(vol_0945_tape·60/900)** (the exact SpikeFader S20 construction):
+
+| band | n | pf | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| <0.25 | 4,236 | 2.316 | 2.70 | 4.11 | 1.33 | 2.01 | 3.22 | 1.58 | 2.96 |
+| [0.25,0.5) | 8,995 | 2.386 | 3.19 | 3.32 | 0.95 | 2.00 | 3.36 | 2.33 | 2.33 |
+| [0.5,0.75) | 7,010 | 2.592 | 3.78 | 3.66 | 2.13 | 2.58 | 1.96 | 2.07 | 3.17 |
+| [0.75,1.0) | 4,178 | 2.596 | 5.05 | 3.62 | 2.60 | 2.97 | 2.16 | 1.91 | 1.53 |
+| [1.0,1.5) | 4,280 | 2.692 | 4.03 | 2.91 | 2.55 | 3.50 | 1.84 | 2.74 | 1.92 |
+| [1.5,2.0) | 1,753 | 3.318 | 4.74 | 4.77 | 1.34 | 2.41 | 2.28 | 3.56 | 8.60 |
+| [2.0,3.0) | 1,444 | 3.001 | 6.50 | 2.70 | 2.25 | 1.39 | 2.69 | 3.64 | 6.08 |
+| [3.0,5.0) | 624 | 4.570 | 19.92 | 2.20 | 3.08 | 1.20 | 13.46 | 12.76 | 6.89 |
+| ≥5 | 221 | 3.299 | 9.62 | 4.08 | 0.11 | 1.61 | 62.51 | 147.58 | 0.56 |
+
+Mass flat 2.3-2.7; the loud tail is single-year monsters over sub-1 years — the same
+lottery. Book bands non-monotone (3.8/3.9/4.7/3.0/5.2/9.6/3.4/6.5/1.1). Voice test:
+quiet < 0.5 adds 296 @ 1.78; ≥ 2 adds 39 @ 2.40 (two 0.00 years); ≥ 3 adds 11 @ 0.61.
+
+**rr_ew = vol_ew_60/(vol_0945_tape/900)** (the hl-60s EWMA kernel): quiet end WORSE
+(< 0.25 = 2.185); [2,3) 3.46 but 2021 2.15 / 2023 1.72; ≥ 5 = 2.18 with two 0.00
+years. Book bands non-monotone (8.11 @ [1,1.5) sandwiched between 3.6 and 6.2).
+Voice test: quiet < 0.5 adds 350 @ 1.74; ≥ 2 adds 15 @ 0.78.
+
+**VERDICT (final): rr has NO seat in FlushFader in any of FIVE forms — bar-clock,
+the flawed 60+gap tc, interpolated-calendar, exact tradeable-time, EWMA. The kernel
+and the clock were never the issue; the long side simply does not price relative
+volume rate beyond what the spec/roster already absorbed. S43cq stands; inversion #6
+is closed on exact columns.** Script: scratch ff12_rrt.py.
