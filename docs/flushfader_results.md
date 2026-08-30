@@ -17007,9 +17007,11 @@ the volume of the last m present bars interpolated on the recorded ladder:
 — exact wherever per-bar volume is uniform between rungs (ladder densest at the short
 end). In-book the correction is tiny (gap_60 < 4 ⇒ m ≥ 57); on the mc=0 frame it
 matters. All three forms were run (bar-clock, the flawed tc, rr_cal) — conclusions
-IDENTICAL; tables below are **rr_cal**. ⚠ SpikeFader's rr_15m (S27) has the SAME
-bar-clock numerator — its in-book conclusions are bounded by gap_adj_60 < 10, but
-re-express calendar-natively before promoting that family anywhere.
+IDENTICAL; tables below are **rr_cal**. (SpikeFader's own rr_15m is NOT affected —
+its §S7 clock fix, 2026-08-27, predates the S20 rr work, so its `vol_60` numerator
+was already the tradeable-time window; only the FLUSHFADER-side reconstruction
+needed this correction. An earlier draft of this paragraph claimed otherwise —
+user catch, amended 2026-08-30.)
 Frame = v47_spec20 + production guard (40bp ∧ ≤15:00 ∧ lows180 ≥ 3); book = $1 ∧ g60
 ∧ ROSTER v3.3; per-tkd true mc=1. Scripts: scratch ff11_rr.py / ff11c_rrcal.py.
 
