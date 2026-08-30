@@ -35,7 +35,7 @@ ap.add_argument("--edges", type=float, nargs="+", required=True,
                 help="LEFT edges; bucket i = [e_i, e_{i+1}), plus a final [e_last, inf)")
 ap.add_argument("--base", nargs="+", default=["g60p"],
                 choices=["full", "spec", "g60", "g60p", "book"])
-ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450, help="leg-age voice threshold (SPEC v2.9)")
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--mc", type=int, default=0, choices=[0, 1, 2],
@@ -48,7 +48,8 @@ BOOK_VOICES = """(
     COALESCE(volat_20m*1e4 >= 140, false)
     OR COALESCE((signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28, false)
     OR COALESCE(signal_vwap/sess_low - 1 >= 0.08, false)
-    OR COALESCE((volat_slope_20m - volat_slope_10m)*2e4 < -12, false)
+    OR COALESCE((volat_slope_10m - volat_slope_20m)*2e4 > 12, false)
+    OR COALESCE(volat_slope_5m*2e4 <= -24, false)
     OR COALESCE(secs_since_first_low >= 0 AND secs_since_first_low <= {ESF}, false)
     OR COALESCE(downticks_since_uptick >= 8, false)
     OR COALESCE(secs_since_halt >= 1200 AND secs_since_halt < 4800, false)
@@ -58,8 +59,8 @@ WHERE = {
     "full": "1=1",
     "spec": "{RAWPX} >= 1",
     "g60":  "gap_60 < 4",
-    "g60p": "{RAWPX} >= 1 AND gap_60 < 4",
-    "book": "{RAWPX} >= 1 AND gap_60 < 4 AND "
+    "g60p": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000",
+    "book": "{RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND "
             + BOOK_VOICES.replace("{ESF}", str(args.esf)),
 }
 con = duckdb.connect()

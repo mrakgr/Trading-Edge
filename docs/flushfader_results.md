@@ -16613,6 +16613,181 @@ pair speed: r35 > r310 ≈ r510 > r320 > r520 > r1020. ⏭ NEXT: roster-level te
 ramp-vs-r35 substitution AND both-as-voices (S43bm LOO format) on the vote book;
 whether ratio thresholds re-derive selectivity-matched on the traded g60 universe.
 
+## ⭐⭐ S43cg (2026-08-29) — the vol-slope LADDER: the EWMA (10,5) ramp BEATS the incumbent
+
+**Machinery**: `EwmaOlsMa` NEW in RollingMa (decayed-moment weighted OLS of |r| vs
+push index, O(1), no hard window — established ~3 pushes; oracle EwmaOls_Test.fsx,
+brute-force parity ≤ 1e-11, planted-line recovery exact). FlushFader records the full
+ladder: SMA `volat_slope_{20m,10m,5m,3m}` (FloatOls 40/20/10/6, one shared |r| ring)
++ EWMA twins `volat_eslope_*` + signed-r columns. Corpora: `v47_spec20`/`base_v18`
+on the 235,916-tkd `flushfader_v17tkd_cand` whitelist — EXACT reproductions of the
+full-universe v46/v17 (identical trip counts/win/net; 17m vs 80m, 2h03m vs 3h16m).
+Shared primitives (AnchoredOls/AnchoredEff/GapCounter/BreachCounter/LegCounters)
+factored to RollingMa — bit-identity proven on both engines' smokes.
+
+**a. SMA vs EWMA slope corr per horizon** (g60 frame, 11,017): 20m +0.57 · 10m +0.28
+· 5m +0.34 · 3m +0.45 — the hard window and the smooth kernel are genuinely
+different measures at every horizon.
+
+**b. band shape**: EWMA slopes are far TIGHTER (e10 mass in [-2,2)); their tails are
+tiny premium pockets — e10 [2,6) = 13.72 @ 88, e5 [-24,-8) = 39.88 @ 101 (near-zero
+losses). The workhorse object is the PAIR DIFFERENCE, as with the SMA ramp.
+
+**c. pair differences — matched-selectivity NEGATIVE tail (n = 606 = the incumbent
+ramp bucket; ×2e4 units) + the BOTH-TAILS |d| twin**:
+
+| pair | thr | neg pf | avg% | olap | \|d\| n | \|d\| pf | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| sd2010 (ramp) | −12.02 | 7.88 | 3.71 | 100% | 1,166 | 7.61 | 3.44 | 28.3 | 15.1 | 3.70 | 9.38 | 7.73 | 9.09 | 3.91 |
+| sd105 | −37.34 | 3.63 | 2.93 | 25.6% | 815 | 4.37 | 3.10 | 9.35 | 15.8 | 1.73 | 6.91 | 3.50 | 9.16 | 2.03 |
+| sd53 | −67.15 | 4.06 | 2.54 | 15.8% | 1,050 | 6.49 | 3.21 | 5.92 | 93.8 | 3.98 | 6.85 | 8.55 | 4.68 | 4.71 |
+| sd205 | −42.67 | 3.62 | 2.77 | 43.1% | 738 | 3.95 | 2.82 | 7.56 | 15.6 | 7.41 | 3.83 | 2.61 | 5.84 | 2.24 |
+| ed2010 | −1.19 | 6.77 | 3.44 | 26.4% | 704 | 7.55 | 3.61 | 11.7 | 15.0 | 1.60 | 3.82 | 8.44 | 16.7 | 4.75 |
+| **ed105** | **−2.86** | **8.88** | 3.73 | 38.9% | **626** | **9.12** | **3.77** | 11.4 | 45.6 | 2.33 | 4.41 | 25.4 | 19.1 | 3.57 |
+| ed53 | −5.20 | 5.49 | 3.26 | 48.8% | 628 | 5.50 | 3.25 | 16.5 | 133 | 6.19 | 3.13 | 4.38 | 10.4 | 2.37 |
+| ed205 | −3.88 | 8.03 | 3.56 | 36.5% | 637 | 8.48 | 3.63 | 12.3 | 24.7 | 1.92 | 3.97 | 25.0 | 13.0 | 3.46 |
+
+**VERDICTS**: (1) the bisection independently reproduces the −12 ramp threshold
+(sd2010 thr = −12.02) — the incumbent was optimally placed. (2) The SMA ramp signal
+is specifically a (20,10) phenomenon — faster SMA pairs are noise-dominated (3.6-4.1).
+(3) ⭐⭐ **the EWMA family INVERTS that: `ed105 = eslope_10m − eslope_5m` beats the
+incumbent on BOTH constructions — neg tail 8.88 vs 7.88, both-tails |d| ≥ 2.86 →
+626 @ 9.12 avg 3.77%, every year ≥ 2.33 — with NO hard warmup** (established in
+minutes vs the SMA ramp's 20m fill) and only 39% trip overlap with ramp. (4) The
+both-tails |d| form matches or beats the negative tail across the EWMA family —
+the S43cf |ramp|-symmetry (user) generalizes. ⏭ The voice-seat test (roster
+LOO, S43bm format): challengers = |ramp| ≥ 12, r35, |ed105| ≥ threshold — with
+ed105 now the favorite on shape, warmth, and magnitude.
+
+## ⭐⭐ S43ch (2026-08-30) — roster tests, the volat 2D grids, and the CREST voice
+
+**a. Production roster tests (voice exprs verbatim from flushfader_voice_test.py;
+frame entry_px ≥ $1 ∧ gap_60 < 4 ∧ volat ≥ 40bp ∧ signal ≤ 15:00 on v47; true mc=1)**:
+
+| book | n | pf | net | years |
+|---|---|---|---|---|
+| ROSTER v3.0 (ramp) | 1,351 | 4.001 | 2,620% | 8.43 3.40 3.21 3.49 3.67 3.50 4.01 |
+| v3.1-U2 (\|ramp\|∨\|ed105\|) | 1,381 | 3.967 | 2,660% | 8.54 3.48 3.30 3.53 3.74 3.46 3.60 |
+| v3.1-edneg (ed105 neg) | 1,351 | 3.973 | 2,602% | 8.47 3.39 3.12 3.47 3.68 3.42 4.02 |
+| (no expansion voice) | 1,325 | 4.031 | | |
+
+⭐ The ms-era LOO REPLICATES S43bm seat-for-seat (dslo +0.157 vs ns +0.159 · d20a
++0.082/+0.090 · v20 +0.075/+0.080 · haltband +0.045/+0.050 · ramp +0.030/+0.022 ·
+stier −0.009/−0.008 · legage −0.054/−0.037 · dsu −0.078/−0.074) — an independent
+corpus rebuild landing on the same eight-voice fingerprint. U2's seat: +0.064 dilution
+on 56 marginal trades (vs ramp's +0.030 on 26) — the isolated-voice edge (S43cg) is
+mostly ABSORBED by the sitting voices. edneg swap strictly dominated (same n as ramp,
+worse pf AND net — \|ed105\| ≈ ed105-neg, its positive tail is a ~12-trip sliver).
+The r35hi arm's marginal trips (77 mc=1 in U2+r35hi): pf 4.74 but 2023 = 0.00, 2024 =
+1.18 — fair-weather money, no seat (r35's contraction tail: 4.68 — the weak one).
+
+**b. The "\|ramp\| = volatility proxy" concern (user recollection)**: measured co-fire
+with the v20 voice: ramp 36.1% · edneg 39.7% · U2 39.2%; median volat 124-135bp vs
+frame 93bp. Hot-SKEWED, not proxies (the S42k rejection hit the s20 EXPANSION tails).
+
+**c. The volat-EWMA 2D disagreement grids (user: "does the fast dominate?"; WIDE
+frame, volat ≥ 20bp, $1 ∧ g60 ∧ ≤15:00, mc=0 pf (n))**:
+
+| v20 \ v5 | [20,40) | [40,80) | [80,140) | ≥140 |
+|---|---|---|---|---|
+| [20,40) | 0.37 (109) | 2.13 (138) | - | - |
+| [40,80) | 4.45 (62) | 3.95 (3,159) | 3.02 (389) | - |
+| [80,140) | - | 2.18 (1,348) | 4.86 (4,228) | 4.56 (87) |
+| ≥140 | - | - | 5.04 (974) | 7.83 (770) |
+
+| v20 \ v10 | [20,40) | [40,80) | [80,140) | ≥140 |
+|---|---|---|---|---|
+| [20,40) | 0.75 (198) | 2.47 (49) | - | - |
+| [40,80) | inf (15) | 3.86 (3,451) | 2.60 (144) | - |
+| [80,140) | - | 2.21 (842) | 4.49 (4,780) | 3.67 (41) |
+| ≥140 | - | - | 3.51 (547) | 8.35 (1,197) |
+
+| v10 \ v5 | [20,40) | [40,80) | [80,140) | ≥140 |
+|---|---|---|---|---|
+| [20,40) | 0.42 (118) | 2.20 (95) | - | - |
+| [40,80) | 3.65 (53) | 3.28 (3,980) | 4.20 (309) | - |
+| [80,140) | - | 2.64 (570) | 4.46 (4,830) | **8.46 (71)** |
+| ≥140 | - | - | **10.12 (452)** | 7.05 (786) |
+
+| v5 \ v3 | [20,40) | [40,80) | [80,140) | ≥140 |
+|---|---|---|---|---|
+| [20,40) | 0.64 (135) | 0.57 (36) | - | - |
+| [40,80) | 5.88 (50) | 3.21 (4,117) | 2.76 (478) | - |
+| [80,140) | - | 3.06 (289) | 4.87 (5,124) | 3.84 (178) |
+| ≥140 | - | - | **19.34 (139)** | 6.40 (718) |
+
+THE ANSWER: disagreement ITSELF is the signal, one direction only — SLOW HOT, FAST
+COOLED (the level-space, zero-warmup cousin of S42k's hot+contract). The reverse
+(fast hotter) is mediocre. ⚠ The sub-40bp rows are GRIM long-side: compensation cells
+2.1-2.5, cool-agreement 0.4-0.8 — **the SpikeFader volat OR-arm (port TODO #2) likely
+does NOT port**.
+
+**d. ⭐⭐ THE CREST VOICE — derivation chain (user simplifications)**:
+banded OR {v10≥140 ∧ v5∈[80,140)} ∨ {v5≥140 ∧ v3∈[80,140)}: 591 @ 11.60 mc0 / 104 @
+6.75 mc1, years ≥ 2.34 → user's ordered form (`v10 ≥ 140 ∧ v5 < v10`; tie-free — zero exact EWMA
+equalities on the frame; its v5/v3 twin: 474 @ 12.30 / 81 @ 6.53): 1,082 @ 8.11 /
+163 @ 5.17, OR 1,088 @ 8.17 / 166 @ 5.31 net 481% — MORE harvest, but 2021 = 1.18 — decomposition: the both-hot ordered slice (630 @ 7.22, 2021
+0.49) is the drag; the deep-cool slice (v5 < 80) is EMPTY (adjacent EWMAs cannot
+diverge that far) → the band's LOWER edge does nothing, the UPPER edge is the load-
+bearing one, and v5 < 140 < v10 implies the ordering. FINAL ONE-THRESHOLD FORM:
+
+**`crest = (v10 ≥ 140 ∧ v5 < 140) ∨ (v5 ≥ 140 ∧ v3 < 140)`** ≡ the banded cell
+EXACTLY: **591 @ 11.60 mc0 · 104 @ 6.75 mc1 · net 318% · years 11.37 2.34 inf 14.61
+42.18 5.64 4.53** — "140bp crossed at the slow horizon, not yet at the fast" — the
+crest of the volatility explosion, one parameter, the SAME 140 the v20 voice uses.
+**e. Crest's roster seat (user: "is it additive?") — NO, and the proxy memory was
+RIGHT at the voice level**: on the reference frame 100% of crest's 591 mc=0 trips
+already carry a vote, **98.6% covered by the v20 voice alone** (v10/v5 ≥ 140 forces
+v20 ≈ hot — adjacent EWMAs cannot diverge that far). v3.0 + crest = v3.0 EXACTLY
+(1,351 @ 4.001, zero marginal trades). **BUT as an in-book TIER it is first-rate:
+crest-flagged book trades 90 @ 6.94, avg 3.15% vs the rest 1,261 @ 3.83, avg 1.85%**
+— the S42k ruling ("conditional info belongs to sizing") re-derived with sharper,
+one-threshold, warmup-free machinery. ⏭ crest → the SIZING ledger (test against/
+alongside the locked A/B/C/D intensity tiers); the roster stays v3.0, with the U2
+swap (S43ch-a) the only live voice question.
+
+## 🔒 S43ci (2026-08-30) — ROSTER v3.2: vcrush ADOPTED, ramp RENAMED vexp
+
+**The quadrant decomposition (user question — "is ramp firing on both-negative
+slopes?")**: NO. Inside the 606-trip bucket: s10 > 0 ∧ s20 < 0 (the intended "fresh
+expansion against the 20m trend") = 61.1% @ PF 9.74 · both > 0 (accelerating
+expansion) = 38.0% @ 5.82 · both < 0 = 1.0% (6 trips). Median s10 = +13.5, s5 =
++33.7. The voice blends two tiers (noted, kept as-is per user).
+
+**⭐ ramp ∩ s5neg = ZERO TRIPS** — the 5m-slope contraction tail (`volat_slope_5m ×
+2e4 ≤ −24`) is the OPPOSITE PHASE of the same volatility wave (88.6% of ramp trips
+have s5 > 0): ramp = the explosion building, s5neg = the explosion breaking. Both
+bracket the climax; marginal sets add exactly. Individual-slope audit (16 tails,
+count-matched 606): s5neg is the ONLY PF-accretive expansion-slot voice ever measured
+(+0.018 vs the no-voice base; ramp −0.030; s10neg +0.007; every expansion tail and
+every EWMA single worse, to −0.20). ⚠ Its marginals (33 @ 5.17) carry the fast-family
+2023-24 soft years (0.45/0.94).
+
+**🔒 ADOPTED (user)**: `vcrush = volat_slope_5m × 2e4 ≤ −24` joins as the 8th voice
+(vote ≥ 1, so seat-vs-merged is book-identical). `ramp` KEPT and RENAMED **`vexp`**
+with the sign FLIPPED for readability: `vexp = (volat_slope_10m − volat_slope_20m) ×
+2e4 > 12` (strict — set-identical to the old `< −12`; zero ties measured). U2/ed105/
+r35/crest all REJECTED for the seat (S43ch); crest stays a SIZING-tier candidate.
+
+**ROSTER v3.2** = {v20 ≥ 140 · d20a < −28% · dslo ≥ +8% · **vexp > 12** · legage ≤
+450s · dsu ≥ 8 · haltband ssh ∈ [20,80m) · **vcrush ≤ −24**} + S-tier, vote ≥ 1.
+
+| book (v47 ref frame, per-tkd mc=1) | n | pf | net | years |
+|---|---|---|---|---|
+| v3.0 | 1,351 | 4.001 | 2,620% | 8.43 3.40 3.21 3.49 3.67 3.50 4.01 |
+| **v3.2** | **1,378** | **4.011** | **2,670%** | 8.64 3.49 3.21 3.27 3.58 3.53 4.13 |
+
+**Scripts updated** (flushfader_{book,breakdown,kelly,voice_test,tier_inten,
+shape_test,inten_sizing,broker_volume}.py): vexp flipped-sign expr, vcrush added,
+`--trips` defaults → `v47_spec20`, and ⚠ the reference-frame guard `volat_20m ≥
+0.004 ∧ signal_sec ≤ 54000` added to every book WHERE — the old scripts relied on
+the corpus being 40bp/15:00-bounded, which v47 (20bp/16:00) is NOT; without the
+guard the book widens silently. **Validated end-to-end**: flushfader_book.py on v47
+reproduces 1,378 @ 4.011 / win 77.7% / avg +1.94% exactly. ⚠ Fresh ms-era tier
+multipliers read A 1.75 / B 1.77 / C 1.18 (locked: 2.44/1.80/1.14; B ≈ A now) —
+re-derive at the next sizing pass. Historical sections keep the name "ramp"; it is
+`vexp` from here forward.
+
 # ⏭ PORT LEDGER from the SpikeFader rebuild (2026-08-28) — user TODOs, work starts next session
 
 User verdict: FlushFader carries many marginal trims and is OVERENGINEERED (first 1s

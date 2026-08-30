@@ -52,7 +52,7 @@ pd.set_option("display.width", 220)
 pd.set_option("display.max_columns", 40)
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
 ap.add_argument("--db", default="data/trading.db")
 ap.add_argument("--q", type=float, default=0.80, help="quantile of inten_1200 -> absolute T")
 ap.add_argument("--esf", type=int, default=450)
@@ -67,7 +67,8 @@ RAWPX, SCHEMA = raw_px_expr(con, args.trips)
 VOICES = ["volat_20m*1e4 >= 140",
           "(signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28",
           "signal_vwap/sess_low - 1 >= 0.08",
-          "(volat_slope_20m - volat_slope_10m)*2e4 < -12",
+          "(volat_slope_10m - volat_slope_20m)*2e4 > 12",
+          "volat_slope_5m*2e4 <= -24",
           f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}",
           "downticks_since_uptick >= 8",
           "secs_since_halt >= 1200 AND secs_since_halt < 4800",
@@ -82,7 +83,7 @@ SELECT t.symbol, t.trade_date, t.signal_sec, t.entry_sec, t.exit_sec,
        (t.dollar_vol_1200/1200.0) / nullif(u.dv_0945_tape/u.n_bars_1s, 0) AS inten_1200
 FROM read_parquet('{args.trips}') t
 JOIN db.mr_candidate_1s_v2 u ON u.ticker = t.symbol AND u.date = t.trade_date::DATE
-WHERE {RAWPX} >= 1 AND gap_60 < 4 AND ({voice})
+WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000 AND ({voice})
   AND u.n_bars_1s > 0 AND u.dv_0945_tape > 0 AND t.volat_20m > 0
 ORDER BY t.symbol, t.trade_date, t.signal_sec""")
 F = con.execute("SELECT * FROM T").fetchdf()

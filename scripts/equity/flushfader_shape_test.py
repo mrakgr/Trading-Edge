@@ -65,7 +65,7 @@ pd.set_option("display.width", 230)
 pd.set_option("display.max_columns", 50)
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
 ap.add_argument("--db", default="data/trading.db")
 ap.add_argument("--book", action="store_true", help="restrict to the A++ book")
 ap.add_argument("--esf", type=int, default=450)
@@ -79,13 +79,14 @@ RAWPX, SCHEMA = raw_px_expr(con, args.trips)
 VOICES = ["volat_20m*1e4 >= 140",
           "(signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28",
           "signal_vwap/sess_low - 1 >= 0.08",
-          "(volat_slope_20m - volat_slope_10m)*2e4 < -12",
+          "(volat_slope_10m - volat_slope_20m)*2e4 > 12",
+          "volat_slope_5m*2e4 <= -24",
           f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}",
           "downticks_since_uptick >= 8",
           "secs_since_halt >= 1200 AND secs_since_halt < 4800",
           "halts_today >= 1 AND secs_since_halt >= 120 AND secs_since_halt < 1200"]
 voice = " OR ".join(f"COALESCE({e}, false)" for e in VOICES)
-where = f"{RAWPX} >= 1" + (f" AND gap_60 < 4 AND ({voice})" if args.book else "")
+where = f"{RAWPX} >= 1 AND volat_20m >= 0.004 AND signal_sec <= 54000" + (f" AND gap_60 < 4 AND ({voice})" if args.book else "")
 
 con.execute(f"""CREATE OR REPLACE TEMP TABLE T AS
 SELECT t.symbol, t.trade_date, t.signal_sec, t.entry_sec, t.exit_sec, t.ret_exit,

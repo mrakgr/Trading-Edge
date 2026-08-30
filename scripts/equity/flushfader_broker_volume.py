@@ -43,7 +43,7 @@ pd.set_option("display.width", 200)
 pd.set_option("display.max_columns", 40)
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
 ap.add_argument("--rate", type=float, default=0.0015)
 ap.add_argument("--equity", type=float, default=100_000)
 ap.add_argument("--base", type=float, default=0.10)
@@ -58,7 +58,8 @@ VOICES = {
     "v20":      "volat_20m*1e4 >= 140",
     "d20a":     "(signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28",
     "dslo":     "signal_vwap/sess_low - 1 >= 0.08",
-    "ramp":     "(volat_slope_20m - volat_slope_10m)*2e4 < -12",
+    "vexp":     "(volat_slope_10m - volat_slope_20m)*2e4 > 12",
+    "vcrush":   "volat_slope_5m*2e4 <= -24",
     "legage":   f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}",
     "dsu":      "downticks_since_uptick >= 8",
     "haltband": "secs_since_halt >= 1200 AND secs_since_halt < 4800",
@@ -73,7 +74,7 @@ SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, entry_px, volat_20m,
             WHEN gap_adj_1200<15 THEN 'B'
             WHEN ols_slope_60*6e5<=-350 THEN 'C' ELSE 'D' END AS tier
 FROM read_parquet('{args.trips}')
-WHERE {RAWPX} >= 1 AND entry_px > 0 AND volat_20m > 0
+WHERE {RAWPX} >= 1 AND entry_px > 0 AND volat_20m >= 0.004 AND signal_sec <= 54000
 ORDER BY symbol, trade_date, signal_sec""").fetchdf()
 VOICE = np.logical_or.reduce([F[n].values for n in VOICES])
 G60 = (F.gap_60 < 4).values

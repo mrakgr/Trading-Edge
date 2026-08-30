@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--cand", nargs="+", required=True, help="SQL predicate(s) to test as a voice")
-ap.add_argument("--trips", default="data/equity/flushfader/v45_nextopen/trips_p*.parquet")
+ap.add_argument("--trips", default="data/equity/flushfader/v47_spec20/trips_p*.parquet")
 ap.add_argument("--esf", type=int, default=450)
 ap.add_argument("--mult", type=float, nargs=4, default=[2.44, 1.80, 1.14, 1.00])
 ap.add_argument("--base", type=float, default=0.01)
@@ -35,7 +35,8 @@ VOICES = [
     ("v20",      "volat_20m*1e4 >= 140"),
     ("d20a",     "(signal_vwap/first_low_vwap)*(1+d_hi_flow) - 1 < -0.28"),
     ("dslo",     "signal_vwap/sess_low - 1 >= 0.08"),
-    ("ramp",     "(volat_slope_20m - volat_slope_10m)*2e4 < -12"),
+    ("vexp",     "(volat_slope_10m - volat_slope_20m)*2e4 > 12"),
+    ("vcrush",   "volat_slope_5m*2e4 <= -24"),
     ("legage",   f"secs_since_first_low >= 0 AND secs_since_first_low <= {args.esf}"),
     ("dsu",      "downticks_since_uptick >= 8"),
     ("haltband", "secs_since_halt >= 1200 AND secs_since_halt < 4800"),
@@ -54,7 +55,7 @@ SELECT symbol, trade_date, signal_sec, entry_sec, exit_sec, ret_exit, volat_20m,
             WHEN gap_adj_1200<15 THEN 'B'
             WHEN ols_slope_60*6e5<=-350 THEN 'C' ELSE 'D' END AS tier, {sel}
 FROM read_parquet('{args.trips}')
-WHERE {RAWPX} >= 1 AND gap_60 < 4
+WHERE {RAWPX} >= 1 AND gap_60 < 4 AND volat_20m >= 0.004 AND signal_sec <= 54000
 ORDER BY symbol, trade_date, signal_sec""").fetchdf()
 V = {n: F[n].values for n in NAMES}
 INC = np.logical_or.reduce([V[n] for n, _ in VOICES])
