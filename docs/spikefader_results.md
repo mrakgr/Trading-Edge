@@ -2135,3 +2135,34 @@ gates `vwap/vwap_ewp_6030_be − 1`, mirroring the recorded column (banner:
 arm stays post-hoc. ⏭ The union/TRI machinery stays on the shelf (S35c-e): calibrated
 TRI+pair (1.717 / 7,702%) remains the quality-tilted alternative if capacity ever
 matters more than dial count.
+
+# 📌 S36 — CURRENT STATE RECAP (2026-08-30, written at the FlushFader-weekend close)
+
+**THE 12-CONDITION STACK (S35f, adopted 2026-08-29)** — post-hoc over `base_v4`
+(the canonical corpus: volat ≥ 20bp, entries → 16:00, 15-cell wd-speed grid,
+whitelist `spikefader_v3tkd_cand`); engine stack gates = MinSpeedBe6030/MinEff10m/
+MinDv0945Tape:
+
+`(volat_20m ≥ 40bp ∨ (volat ≥ 25bp ∧ be6030 ≥ 4%)) ∧ be6030 > 2% ∧ eff_10m ≥ 0.3 ∧
+k300 ≥ 40 ∧ k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧
+slope_20m ≥ 30 bp/min ∧ signal < 15:30 ∧ ac1_ewma ≥ −0.1`,
+where `be6030 = signal_vwap/vwap_ewp_6030_be − 1` (bar-clock EQ (60,30) decayed
+window-difference; ONE feature replaced the S13 speed_1m+dist_lo pair).
+**True mc=1: 7,243 @ PF 1.704 · avg 1.08% · win 72.2% · net 7,817% eqw** ·
+years pf 1.72 / 1.77 / 1.35 / 1.48 / 1.70 / 1.74 / 2.13.
+
+**THE VOICE/TIER FAMILY (queued for breakdowns — the next work)**:
+- `rr_15m < 0.5` A+ SIZING tier (mc=1 3.45 @ 364; trimmed 8.7; losses all bottom-5%)
+- quiet rr < 0.75 arm (2.17 @ 879) · loud rr ≥ 5 arm (1.98 @ 1,566) — MaxRider's
+  mirrored U; consume as TIERS, not gates (S27b ruling)
+- CONSOLIDATED VERTICALITY axis — the 8 aligned inverted-guard cells (rngfront cliff,
+  ssf/accel/slope5/slope20 ceilings, eff_10m, vr4 ≥ 2) merge into ONE voice
+- k120×k180 diagonal (3.14 @ 21k mc=0; k120 ≥ 64 would swallow k300/k600 — voice only)
+- fresh-resume pocket (ht 1-3 ∧ ssh < 5m ∧ rr ≥ 3 → 2.42)
+- rflow ≤ 0.95 (borderline +0.04) · ac1 ≥ 0.4 tier (2.0-2.8, ⚠ 2023 inverts)
+- TODO (user): `gap_adj_1200` feature test
+- ⚠ from the FlushFader weekend (docs/flushfader_results.md S43cf-cp): FIVE side
+  inversions measured — NOTHING ports across the side flip without re-derivation;
+  SpikeFader-specific rulings (this stack, the 15:30 cutoff, the volat OR-arm, the
+  ac1 ≥ −0.1 KNIFE) all remain SHORT-SIDE-ONLY facts. Blockers before any tradable
+  claim: stops, cover-vs-costs, spreads, borrow/SSR.

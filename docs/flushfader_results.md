@@ -16958,3 +16958,32 @@ system, learning vehicle); the long-term plan is a SIMPLIFIED rebuild. Intermedi
    slow-horizon ungated, fractal inside the gate).
 Also: entry cutoff 15:00 → 15:30 (SpikeFader S33: the 15:00-15:30 bucket is the best on
 the clock there; re-derive long-side before adopting).
+
+# 📌 S43cp — CURRENT STATE RECAP (2026-08-30, post the port-ledger weekend)
+
+**SPEC v3.0** (in-engine gates; ms-era causal corpus; every item re-adjudicated):
+signal = new 1200-bar LOW · exit = 300-bar HIGH else NEXT OPEN (calendar-aware) ·
+volat_20m ≥ 40bp · dv60 ≥ $100k ∧ tc60 ≥ 60 · dv_0945_tape ≥ $3M · barnum ≥ 22 ·
+entries 09:45-15:00 (12:00 early-close). Gates: `speed < −2% ∧ d1m < −2%` (the pair —
+UNBEATEN, be6030 proven a complete subset) · ssf ∈ [−375,−25) bp/m · dlv < −3% ·
+rflow ≥ −0.95 · z20 < −1.5σ · cascade (ht≥3 → wait 20m; reopen block 2m) ·
+K ∈ [26,50] (ceiling = absolute maturity, k20-ONLY) · |eff20| ∈ [0.30,0.50) ·
+|eff10| ≥ 0.15 · eff_9ema ≥ −0.10 (validated: fail slice 0.94) · vol10rate ≥ 0.75 ·
+lows300 ≥ 6 · **lows180 ≥ 3 (NEW — net-free)** · rngfront < 0.80 · accel1020 ≥ −80 ·
+slope20 < −10 · slope5 ≥ −400.
+
+**BOOK** = $1 raw ∧ gap_60 < 4 ∧ vote ≥ 1 of **ROSTER v3.3** {v20 ≥ 140bp ·
+d20a < −28% · dslo ≥ +8% · **vexp = (s10−s20)×2e4 > 12** (ex-ramp, sign-flipped) ·
+**vcrush = s5×2e4 ≤ −24** (NEW — contraction phase, zero overlap w/ vexp) ·
+legage ≤ 450s · dsu ≥ 8 · haltband ssh ∈ [20,80m) · **acneg = ac1_ewma < −0.1**
+(NEW — the inverted knife)} + S-tier (ht ≥ 1 ∧ ssh ∈ [2,20m)), per-tkd mc=1:
+**1,369 @ PF 4.128 · win 78.2% · avg +1.96% · trimPF 9.860 · net 2,682%** (v47
+reference frame; scripts carry the 40bp ∧ ≤15:00 ∧ lows180 guard until the next
+spec engine run). SIZING: locked A 2.44/B 1.80/C 1.14/D 1.00 on {gap_adj_1200<15} ×
+{ols_slope_60 ≤ −350} — ⚠ ms-era re-derivation pending (reads A 1.75/B 1.77: B≈A,
+trim-fragile at n=155). Sizing queue: k180/k300 freshness gradients · ac1 tiers ·
+multiplier re-derivation. Crest DROPPED (user). Blockers before live: stops ruled out,
+costs/borrow/spreads unmodeled, escalation policy draft unadopted.
+
+**The weekend's law**: FIVE side-inversions vs SpikeFader (K ceiling, ac1, the clock,
+be-vs-pair, the low-volat arm) — cross-side ports are hypotheses, never transplants.
