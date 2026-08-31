@@ -2258,3 +2258,249 @@ cell's middle years stay broken at every rung (2021-2023: 1.36/0.85/0.52 at ×2)
 the repair is 2020 + 2024-26; a fair-weather check must gate any adoption. ⏭
 Tomorrow's decisions: where on the K ladder to sit (capacity vs quality), whether
 ≥140 gets its own tier/arm at a higher rung, and the rest of the port list.
+
+---
+
+# S37c (2026-08-31) — the 2023 holdout: five levers, one CLASS of failure; rf EXPOSED as a fit
+
+The user's program for the day: make the weak years (2022, 2023) stronger. Every
+lever below was measured on the **sf20 replay frame** (base_v4, mc=1 greedy
+replay INSIDE the gate), control `7,243 @ 1.704` re-verified at the top of every
+script.
+
+## The eff floors (user: "eff 20m and 10m to >= 0.75")
+
+| gate | n | PF | 2022 | 2023 |
+|---|---|---|---|---|
+| baseline (eff10 ≥ 0.3) | 7,243 | 1.704 | 1.354 | 1.479 |
+| eff10 ≥ 0.75 | 2,079 | 2.015 | **1.787** | 1.365 |
+| eff20 ≥ 0.75 | 248 | 2.460 | — | — |
+| both ≥ 0.75 | 226 | 2.740 | — | — |
+
+`eff_10m` has a genuine **interior peak at 0.75** (0.7 → 1.963, 0.75 → 2.015,
+0.8 → 1.820, 0.9 → 1.696) — a peak, not a plateau, which is the shape that
+overfits most easily. `eff_20m` is monotone but starves (248 trips = 3.4%);
+inside ≥140bp it leaves **21 trips**. ⚠ This CORRECTS S37b's "eff is not the
+lever" — that scout swept only 0.3-0.6, where the curve genuinely is flat. The
+action is all above 0.6.
+
+**eff20 at 0.25/0.5 (user):** 0.25 is INERT (touches 47 of 7,155 — note 88 trips
+have null/negative eff_20m, so every eff20 row is against 7,155 not 7,243). 0.5
+pays (1.833 @ 3,838) but **buys its lift from 2020/2024/2025 and leaves 2022-23
+flat-to-worse** — the signature of a gate that concentrates the good regime
+rather than repairing the bad one.
+
+## ⭐ The 2023 ANATOMY — it is not a selection failure
+
+| yr | n | PF | win% | avgW% | **avgL%** | gW/trip | gL/trip |
+|---|---|---|---|---|---|---|---|
+| 2020 | 1,320 | 1.717 | 72.2 | 3.37 | −5.10 | 2.43 | 1.42 |
+| 2022 | 770 | 1.354 | **68.4** | 3.10 | −4.96 | 2.12 | 1.57 |
+| **2023** | 626 | 1.479 | **71.6** | 3.82 | **−6.51** | 2.74 | **1.85** |
+| 2024 | 933 | 1.698 | 73.1 | 4.28 | −6.86 | 3.13 | 1.84 |
+
+**2022 and 2023 are broken in DIFFERENT ways.** 2022 stops winning (win rate
+68.4%); 2023's win rate is normal (71.6%, = 2020/2025) and its gross win/trip is
+above 2020's — it pays too much on the losers (avg loss −6.51%). That is why one
+selectivity lever repairs 2022 and cannot touch 2023: **tightening entry quality
+raises win rate, and 2023 does not have a win-rate problem.**
+
+Concentration: 9 of 12 months profitable; damage is Jan (0.852), Jun (0.816),
+Jul (0.777). Dropping the 5 worst trips: **1.479 → 1.942**, net 555% → 831%.
+Worst trip MSGM 2023-01-31 **−93.9%** (rr 1.59 — quiet by any band).
+
+## rr vs the big losers (user: "rr affects the worst-case loss")
+
+Confirmed on the TAIL, monotone — and it does NOT gate the catastrophes.
+
+| rr band | n | PF | p1 | min | avgL% | win% |
+|---|---|---|---|---|---|---|
+| <0.75 | 947 | **2.280** | −16.1 | **−44.1** | **−4.28** | 75.4 |
+| 0.75-1.5 | 1,847 | 1.655 | −23.2 | −75.7 | −5.24 | 72.8 |
+| 1.5-3 | 2,244 | 1.591 | −21.9 | −93.9 | −5.52 | 71.5 |
+| 3-5 | 1,142 | 1.615 | −25.6 | −85.5 | −6.11 | 71.2 |
+| ≥5 | 1,063 | 1.773 | −25.7 | −98.6 | −6.29 | 71.1 |
+
+avgL, p1, p5 and the worst-case bound ALL degrade monotonically with rr. But
+trips ≤ −20% have median rr **2.08** vs winners' 1.88 — barely separated, and 5
+of the 12 worst trips in the book had rr < 2. **rr shifts the distribution of
+losses; it does not remove the blow-ups.** By year: rr<0.75 lifts six of seven
+years, 2023 the sole exception (1.48 → 1.17).
+
+Also killed: the **$1 price floor** — 1.704 → 1.715 while dropping 1,195 trips
+and 1,464% of net; the sub-$1 slice runs PF 1.658 and is BETTER than book in
+2022/2023/2025. Disproportion test in reverse. Stacked on rr it subtracts
+(1.827 → 1.826) and hurts both weak years. Keep it for borrow/fee realism if at
+all, not for edge.
+
+## ⭐⭐ be12060 — the pop-HEIGHT gate (user: "short at higher levels")
+
+`be120 = signal_vwap / vwap_ewp_12060_be − 1`.
+
+| be120 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | ALL | n | net |
+|---|---|---|---|---|---|---|---|---|---|---|
+| BASE | 1.72 | 1.77 | 1.35 | 1.48 | 1.70 | 1.74 | 2.13 | 1.704 | 7,243 | 7,817% |
+| ≥10% | 1.91 | 1.78 | 1.82 | 1.34 | 1.75 | 1.99 | 1.95 | 1.802 | 2,108 | — |
+| **≥20%** | 2.27 | 2.94 | **2.41** | **1.11** | 2.59 | 2.47 | 1.87 | **2.150** | 557 | 2,232% |
+
+**Six of seven years up; 2023 monotone in the WRONG direction** (1.48 → 1.34 →
+1.11 → 0.93 at 30%). Inside ≥140bp: 1.535 → **1.955 @ 403, net 1,556% vs 1,609%**
+— i.e. **~the same net at half the trips**, the user's "vastly better PF at the
+same net" observation.
+
+⚠ **The tail anatomy REFUTES the parabolic-protection story**: selling higher
+does not shrink losses — avgL grows monotonically −13.31 → −16.13 → −18.00 →
+−19.46 (BASE → 20 → 30 → 40%). What improves is win rate (71.5 → 76.8) and
+avgWin (8.16 → 15.75). Shorting higher does not stop you being run over; it makes
+you right more often and paid more when right.
+
+⚠ **≥30% / ≥40% are NOT measurable**: 156 / 69 trips, 2022 has 8 / 2. The ≥40%
+headline 2.681 rests on 2024's 21 trips printing PF **282** (near-zero
+denominator). ≥20% is the deepest rung with a real year table.
+
+## 5m range, rng_front, and the SLOPES — height beats steepness
+
+`rng_300` IS the 5m range (rng_front = rng_300/rng_20m, FlushFader's numerator).
+Head-to-head inside ≥140bp, each gate ALONE:
+
+| gate | 2022 | 2023 | ALL | n |
+|---|---|---|---|---|
+| BASE | 1.01 | 1.34 | 1.535 | 792 |
+| be120 ≥ 20% | 1.35 | 1.22 | **1.955** | 403 |
+| rng_300 ≥ 25% | 1.35 | 1.18 | 2.012 | 365 |
+| s300 ≥ 300 bp/min | **0.80** | 1.14 | 1.752 | 551 |
+| s180 ≥ 400 bp/min | **0.73** | 1.23 | 1.644 | 540 |
+
+**The slopes LOSE and break 2022.** Steepness of ascent does not predict the
+blow-up; HEIGHT does. (`rng_300` ≈ be120 restated — both are "how big was the
+move".) Range FLOORS inside the be120 cell are inert because **be120 ≥ 20%
+already implies a large range** (cell min rng_120 ≈ 9.5%, rng_300 ≈ 17%).
+
+## 💀 rng_front ≥ 0.55 — ADOPTED FOR 20 MINUTES, THEN EXPOSED (user called it)
+
+It looked like the find of the day: inside be120 ≥ 20%, 2.284 @ 286 with
+**2022 2.80 and 2023 1.91** — the only arm that lifted both weak years.
+Composition looked right too (corr 0.487, conjunction 1.890 > either parent).
+
+The user: *"feels like overfit — it managed to avoid one of the big losers and
+that flipped the year massively."* Correct:
+
+| year | cell n | cell PF | rf n | rf PF | dropped worst | UNGATED PF minus its 1 worst trip |
+|---|---|---|---|---|---|---|
+| 2022 | **20** | 1.349 | 12 | **14.392** | NRSN −69% | **4.003** |
+| 2023 | **46** | 1.217 | 27 | 1.582 | TRVN −53% | 1.734 |
+
+2022's "repair" is **excluding one ticker**; the gated 2022 book has no
+meaningful loser at all (PF 14.4 on 12 trips). The year cells behind the
+headline were 12 and 27 trips. **RULE REINFORCED: a year column under ~40 trips
+is an anecdote — check the leave-one-out before reading a year table as a
+repair.** rf DROPPED.
+
+## The other partners (all fail the same way)
+
+Inside be120 ≥ 20%, vs rf's 2022 2.80 / 2023 1.91:
+
+| partner | 2022 | 2023 | ALL | n |
+|---|---|---|---|---|
+| s1200 ≥ 150 | 1.44 | 1.59 | 2.287 | 318 |
+| vratio (volat_10m/volat_20m) ≥ 1.0 | 1.35 | 1.16 | 2.157 | 363 |
+| s600 − s1200 ≥ 100 | 1.43 | 1.61 | 2.163 | 283 |
+| s300 − s1200 ≥ 200 | 1.38 | 1.08 | 2.066 | 339 |
+
+⚠ **The s1200 CEILING hypothesis is REFUTED** (user: "low s1200 + high be120"):
+every ceiling underperforms the unpartnered cell (`<200` 1.711, `<150` 1.606 vs
+1.955), and the band table inverts it — `[150,400)` **2.257** vs `[0,150)` 1.606.
+Despite corr(s1200, rf) = **−0.608**, suppressing the 20m slope does not
+reproduce rf; RAISING it does better.
+
+**Volatility slopes** (OLS on |r| over 40/20 slots — `vs20`, `vs10`, `vexp = vs10−vs20`,
+×2e4): `vs10 < 0` is the best STANDALONE gate found today — **1.704 → 1.855 @
+3,219**, six of seven years up including BOTH weak ones, cut at zero (no fitting).
+⚠ And `vexp` **splits the two weak years in OPPOSITE directions**: `vexp ≥ 12`
+gives 2022 2.79 / 2023 0.96; `vexp < 0` gives 2022 1.28 / 2023 1.55. The same
+feature, opposite signs, one per year — another face of the inversion law.
+
+## ⭐⭐ COUNTERFACTUAL RISK ANALYSIS (user) — the stop question is CLOSED
+
+For every book trade, price at entry+60…600 bars vs what it actually made.
+
+**(A) trades still OPEN at N — exit now vs run to target:**
+
+| N | n open | cf PF | actual PF | cf avg | actual avg |
+|---|---|---|---|---|---|
+| 60 | 6,798 | 1.148 | **1.761** | +0.12% | **+1.11%** |
+| 180 | 5,850 | 0.948 | **1.489** | −0.07% | +0.74% |
+| 300 | 4,117 | 0.392 | **0.751** | −1.23% | −0.51% |
+| 600 | 1,622 | 0.065 | **0.126** | −4.60% | −4.27% |
+
+**(B) the real policy min(target, N):** monotone — every time stop costs PF AND
+net (target 1.704 / 7,817% → 600-bar 1.651 / 7,276% → 60-bar 1.166 / 1,111%). It
+does cut avg loss (−5.52 → −2.02) and destroys far more on the winner side. Even
+a 600-bar cap does not reach MSGM's −93.9%.
+
+**Verdict: the mean reversion NEEDS TIME. Cutting losers earlier is wrong at
+every horizon.** Being open a long time is itself the bad signal — but realising
+it early is worse than waiting. This closes the stop hypothesis raised from the
+2023 anatomy.
+
+## ⭐⭐ EXIT CHANNEL SWEEP — 9m beats the production 5m (user's 7-9m prior)
+
+⚠ **A simulated sweep FAILED its control first** (chan=300 gave 2.102 vs the
+book's 1.704) even though all 7,243 exit *prices* matched exactly. Cause: the
+**return convention**. Verified empirically on the book: stored
+`ret_exit = −(exit_px/entry_px − 1)` — the SHORT sign is already applied.
+`entry/exit − 1` (the naive short form) inflates every return by r²/(1+r).
+⭐ Then the user pointed out the engine ALREADY RECORDS the marks
+(`aux_lo_{N}_px/_sec`) — no simulation needed. Control passes exactly at
+**7,243 @ 1.7038**.
+
+| chan | n | PF | net% | win% | med hold | unres% |
+|---|---|---|---|---|---|---|
+| 300* | 7,243 | 1.704 | 7,817 | 72.2 | 386 | 0.0 |
+| 420 (7m) | 7,064 | 1.734 | 9,042 | 72.0 | 562 | 0.1 |
+| 480 (8m) | 7,007 | 1.777 | 9,785 | 72.5 | 647 | 0.2 |
+| **540 (9m)** | 6,947 | **1.802** | **10,332** | 72.6 | 746 | 0.4 |
+| 600 | 6,894 | 1.791 | 10,598 | 72.6 | 843 | 0.6 |
+| 1200 | 6,714 | 1.847 | 13,038 | 73.0 | 1,492 | **16.9** |
+
+**540 gives PF +0.098 AND net +32% simultaneously.** In the be120 cell:
+1.955 → **2.488**; with s1200 ≥ 150: 2.287 → **2.999**.
+
+**The "unresolved" marks are NOT moc exits** (user asked): at chan 1200, 1,136 of
+1,137 are recorded `target` — the trade covered on its ORIGINAL 5m channel and
+the day ended before price printed a new 20m low. They carry PF **2.044**, ABOVE
+the resolved 1.820. On a like-for-like resolved-only basis 540/600/1200 are
+within 0.016 (1.816 / 1.805 / 1.820) — **the gain is in leaving 300, and it
+SATURATES at 480-540.** ⚠ 420/540 are not in the engine's `exitChanSet`
+{30,60,120,300,600,1200}; adopting needs a one-line Program.fs change.
+
+## be120 ∧ s1200 vs s1200 alone — the answer DIFFERS by frame
+
+| frame | arm | n | PF | 2022 | 2023 |
+|---|---|---|---|---|---|
+| v≥140bp | BOTH (be120≥20 ∧ s1200≥150) | 313 | 2.999 | 1.47 | 2.11 |
+| v≥140bp | s1200 ≥ 200 (same-n) | 294 | **3.839** | **0.97** | 2.38 |
+| FULL | BOTH | 358 | **2.363** | **1.78** | 1.49 |
+| FULL | s1200 ≥ 200 (same-n) | 317 | 2.547 | **1.02** | 1.44 |
+| FULL | be120 ≥ 25% (same-n) | 318 | 2.271 | 1.49 | 1.55 |
+
+Inside the hot cell s1200 alone can replace the pair at matched n; **on the full
+book it CANNOT** — its edge concentrates in years that were already fine (2022
+→ 1.02), and its ladder runs into empty cells fast (≥250: 2022 unprintable, 2024
+11.36; ≥300: 2026 **479.77**). corr(be120, s1200) = 0.633 full-book / 0.358 in
+the cell, yet the conjunction beats both parents in both frames. At the 9m exit
+the pair is **2.925 @ 353, net 2,375%, every year ≥ 1.66** — the most robust arm
+of the session.
+
+## Charts
+
+`spikefader_loser_charts.py` (scratchpad) — the FlushFader loser-chart twin,
+direction-flipped: ENTRY = new 20m HIGH, EXIT = 5m MIN cover target, and the
+point is the mirror image — **on a squeeze the cover target RATCHETS UP behind
+price**, so the short is carried the whole way before it may cover (MSGM: entered
+$11.47, covered $22.25, 48 min). ⚠ base_v4 has NO adj_ratio column (retired
+scheme); verified on MSGM that trip prices sit inside the raw bar range, so bars
+and trip prices share one axis with no rescaling. Also: `scrollZoom` is a plotly
+CONFIG flag, NOT part of `chart_controls.js` (which only does middle-click +
+a/s/d) — `flushfader_loser_charts.py` was missing it and has been fixed; all 29
+chart scripts now pass it.

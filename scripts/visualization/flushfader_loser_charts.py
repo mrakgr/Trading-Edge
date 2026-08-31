@@ -141,7 +141,11 @@ def render(symbol: str, date: str, bars, trips, out_path: str) -> None:
     if os.path.exists(CONTROLS):
         with open(CONTROLS) as fh:
             post = fh.read()
-    fig.write_html(out_path, post_script=post, include_plotlyjs="cdn")
+    # scrollZoom is a plotly CONFIG flag -- chart_controls.js only supplies the
+    # middle-click pan/zoom toggle and the a/s/d dragmode keys, so the config must
+    # be passed too or the wheel does nothing.
+    fig.write_html(out_path, config={"scrollZoom": True, "displayModeBar": True},
+                   post_script=post, include_plotlyjs="cdn")
 
 
 def main() -> None:

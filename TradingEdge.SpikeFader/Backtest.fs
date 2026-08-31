@@ -354,6 +354,15 @@ CREATE TABLE trips (
     aux_lo_420_px DOUBLE, aux_lo_420_sec INTEGER,
     aux_lo_480_px DOUBLE, aux_lo_480_sec INTEGER,
     aux_lo_540_px DOUBLE, aux_lo_540_sec INTEGER,
+    aux_lo_660_px DOUBLE, aux_lo_660_sec INTEGER,
+    aux_lo_720_px DOUBLE, aux_lo_720_sec INTEGER,
+    aux_lo_780_px DOUBLE, aux_lo_780_sec INTEGER,
+    aux_lo_840_px DOUBLE, aux_lo_840_sec INTEGER,
+    aux_lo_900_px DOUBLE, aux_lo_900_sec INTEGER,
+    aux_lo_960_px DOUBLE, aux_lo_960_sec INTEGER,
+    aux_lo_1020_px DOUBLE, aux_lo_1020_sec INTEGER,
+    aux_lo_1080_px DOUBLE, aux_lo_1080_sec INTEGER,
+    aux_lo_1140_px DOUBLE, aux_lo_1140_sec INTEGER,
     std_20m DOUBLE, std_20m_lag1m DOUBLE, std_10m DOUBLE, std_10m_lag1m DOUBLE,
     volat_20m_lag1m DOUBLE, volat_10m_lag1m DOUBLE, volat_20m_sessmax DOUBLE,
     eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
@@ -577,6 +586,15 @@ type TripSink(outDir: string) =
             f p.AuxLo420; auxSec p.AuxSec420
             f p.AuxLo480; auxSec p.AuxSec480
             f p.AuxLo540; auxSec p.AuxSec540
+            f p.AuxLo660; auxSec p.AuxSec660
+            f p.AuxLo720; auxSec p.AuxSec720
+            f p.AuxLo780; auxSec p.AuxSec780
+            f p.AuxLo840; auxSec p.AuxSec840
+            f p.AuxLo900; auxSec p.AuxSec900
+            f p.AuxLo960; auxSec p.AuxSec960
+            f p.AuxLo1020; auxSec p.AuxSec1020
+            f p.AuxLo1080; auxSec p.AuxSec1080
+            f p.AuxLo1140; auxSec p.AuxSec1140
             f p.Std20m; f p.Std20mLag1m; f p.Std10m; f p.Std10mLag1m
             f p.Volat20mLag1m; f p.Volat10mLag1m; f p.Volat20mSessMax
             f p.EffEwma20m; f p.EffEwma10m
