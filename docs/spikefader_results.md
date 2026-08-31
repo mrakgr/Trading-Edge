@@ -2612,3 +2612,90 @@ band, monotone decreasing — k60 [0,5) → PF−1 **1.632**, [5,15) 1.452, [15,
 1.233. S18b called low-fast the anti-signal on the **ungated mc=0** frame. Once
 the slow legs are mature, a quiet recent 1-2m stretch means the pop has STALLED.
 Not adopted (post-hoc band, no controls) but it is the opposite of a floor.
+
+---
+
+# S37t-v (2026-08-31) — volat buckets under the NEW spec; ports #2 (d20a) + the ROSTER opens
+
+## ⭐⭐ k600 ≥ 90 REPAIRED THE ≥140bp CELL (the thing that resisted all morning)
+
+The hot cell went from the WORST part of the book to the BEST, for free, off a
+maturity floor — no be120/rng_front/slope machinery needed:
+
+| cell | PF−1 | n | net | 2022 | 2023 |
+|---|---|---|---|---|---|
+| v ≥ 140bp, OLD spec (k600≥60) | 0.900 | 758 | 2,955% | 1.42 | 1.83 |
+| **v ≥ 140bp, NEW spec (k600≥90)** | **1.715** | 455 | 2,616% | 1.68 | 1.73 |
+| v < 140bp, NEW spec | 0.993 | 3,395 | 5,890% | 1.43 | 1.95 |
+
+Mechanism (user's squeeze thesis, confirmed): demanding a mature 10m leg stops us
+shorting hyper-volatile pops EARLY, and early is precisely where a hyper-volatile
+pop is most expensive. ⚠ The band dip MOVED under the new spec — it was
+`[140,200)` and is now `[80,100)` (PF−1 0.648). **A dip that relocates when an
+unrelated gate changes is noise in ~600-trip bands, not a feature of the
+volatility axis.** Do not build an exclusion band on it (this is what the S37
+"candidate exclusion band [140,180)" idea was, and it is hereby dropped).
+
+Volat bands, NEW spec, 12m exit: [40,60) 0.673 · [60,80) 0.910 · [80,100) 0.648 ·
+**[100,140) 2.118** · [140,200) 1.312 · [200,300) 3.350 · ≥300 5.932 (n 34).
+
+## 🛑 THE THREE mc VIEWS — a discrepancy the user caught, and the rule that fixes it
+
+The user spotted that dec9+10 of the d20a decile table (~1.68) contradicted the
+`d20a ≥ 45%` ladder row (1.434). Both numbers were right; they answer different
+questions, and mixing them in one comparison is the error.
+
+| view | how | d20a ≥ 0.419 |
+|---|---|---|
+| **SLICE** — build the mc=1 book ONCE, then slice it | voice / SIZING | **1.664** @ 755 |
+| **REPLAY-INSIDE** — filter signals, THEN greedy-replay | gate / ENTRY | 1.492 @ 1,143 |
+
+Reconciliation: the slice is a strict SUBSET (663 of 663 shared, 0 exclusive); the
+replay admits **342 extra trips at PF−1 1.089** which drag the mean down. Those are
+ticker-days whose FIRST qualifying signal had low d20a — the book took it and the
+slot was gone; filter first and a later, higher-d20a signal wins the slot instead.
+**Later entries into an already-run pop are worse.**
+
+**Rule:** a VOICE used for SIZING reads on the SLICE; a voice used as an OR-GATE
+(FlushFader's roster is a gate) reads REPLAY-INSIDE. State which one before
+quoting a number. See [[feedback_three_mc_questions]].
+
+## PORT #2 — d20a: PORTS SUCCESSFULLY (the leg's total pop height from its birth low)
+
+`d20a = signal_vwap / first_high_vwap · (1 + d_lo_flow) − 1` (mirror of
+FlushFader's arming-high depth). Deciles inside the new-spec book are monotone
+across the top half — dec6 1.009 → dec7 1.179 → dec8 1.121 → **dec9 1.734** →
+dec10 1.629, win rate 75.3 → 79.1.
+
+## THE ROSTER SO FAR — three voices, slice basis, vs the book's PF−1 1.098
+
+| voice | PF−1 | n | share | net | note |
+|---|---|---|---|---|---|
+| **volat ≥ 100bp** | **2.099** | 804 | 21.3% | 4,191% | best; most uniform year row (2022 = 2.54) |
+| **d20a ≥ 28%** | 1.460 | 1,495 | 39.6% | 5,476% | the CAPACITY voice |
+| d20a ≥ 42% | 1.661 | 750 | 19.9% | 3,567% | |
+| be120 ≥ 20% | 2.779 | 124 | 3.3% | 1,113% | ⚠ 3 of 7 years have < 10 trips |
+
+⚠⚠ **THEY ARE NEARLY ONE VOICE.** Of be120's 124 trips, **122 are also d20a and
+122 are also volat**; 594 of d20a's 750 are also volat. corr(d20a, volat) = 0.798,
+corr(d20a, be120) = 0.714. `d20a ONLY` = **0.486 — BELOW book**; `volat ONLY` =
+2.372. **Volat carries the family; d20a adds nothing independently.**
+
+**Vote-count tiers (monotone — the usable sizing ladder):**
+
+| votes | PF−1 | n | share | net |
+|---|---|---|---|---|
+| 0 | 0.742 | 2,816 | 74.6% | 3,539% |
+| 1 | 1.278 | 365 | 9.7% | 1,133% |
+| 2 | 1.831 | 475 | 12.6% | 2,250% |
+| 3 | 2.695 | 121 | 3.2% | 1,080% |
+
+⚠ With 122/124 nesting, tier 3 IS "be120 fired" under another name. Recommendation:
+`volat ≥ 100bp` primary + `d20a ≥ 28%` secondary (capacity), be120 DROPPED as
+redundant; the remaining ports must supply genuinely different families.
+
+**User framing (2026-08-31):** the roster is an OR-GATE in FlushFader, but voices
+may also be used for SIZING here — keep both views. And on capacity: *"It's not
+worth sacrificing the net directly anymore... trying to be too consistent isn't
+good either. It's good enough to find a sweet spot."* — hence volat ≥ 100bp enters
+as a VOICE, not as a raised floor.
