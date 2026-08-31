@@ -2699,3 +2699,86 @@ may also be used for SIZING here — keep both views. And on capacity: *"It's no
 worth sacrificing the net directly anymore... trying to be too consistent isn't
 good either. It's good enough to find a sweet spot."* — hence volat ≥ 100bp enters
 as a VOICE, not as a raised floor.
+
+---
+
+# S37w-x (2026-08-31) — ports #3/#6/#7/#8; ⭐ dslo is the FIND; legage CLOSED
+
+Slice basis (voice/sizing view) under the new spec, 12m exit, book PF−1 **1.098**.
+
+## ⭐⭐ PORT #3 — dslo (dist off the SESSION HIGH): the strongest voice yet, and INDEPENDENT
+
+| arm | PF−1 | n | share | net | win% |
+|---|---|---|---|---|---|
+| BOOK | 1.098 | 3,777 | 100% | 8,001% | 74.3 |
+| dslo ≤ −2% | 3.320 | 288 | 7.6% | 1,135% | 84.7 |
+| **dslo ≤ −5%** | **5.034** | 245 | 6.5% | 1,084% | **86.1** |
+| dslo ≤ −8% (the FF mirror) | 4.876 | 201 | 5.3% | 942% | 86.6 |
+| dslo ≤ −12% | 5.943 | 154 | 4.1% | 807% | 89.0 |
+
+Every rung ≥ 3.3, every year ≥ 3.36 at −8%. **91.3% of the book shorts within 0.1%
+of the session high** (median dslo = 0.0000) — so this fires on a small, genuinely
+distinct minority: *don't short AT the high, short the FAILED RETEST.*
+
+**⭐ It is the first roster voice that is actually INDEPENDENT**: corr(dslo, volat)
+= **−0.043**, corr(dslo, d20a) = **−0.010**; only 48 of 245 overlap volat, 100
+overlap d20a. And `dslo ONLY` (no other voice fires) = **PF−1 5.332 @ 144, win
+86.8%** — compare `d20a ONLY` = **0.486, BELOW book**. The height family is one
+voice measured three ways; dslo is a second family.
+
+## PORT #7 dsu / PORT #8 haltband — weak and partial
+
+* **dsu** `upticks_since_downtick ≥ 8` = **1.005, BELOW book**. The FF threshold
+  does not transfer (distribution here is tight: p50 3, p90 6, max 24). Only ≥3
+  does anything (1.397 @ 54.7%) and that is a tilt, not a voice.
+* **haltband**: the SIMPLE binary ports — `halts_today ≥ 1` = **1.609 @ 10.4%**
+  (vs 1.008 unhalted). The since-resume BANDS do not (all ~1.0-2.2 on thin cells,
+  no band shape) — consistent with S23 already inverting the fresh-resume side.
+  Take the binary, not FlushFader's windows.
+
+## 💀 PORT #6 legage — CLOSED on this side (and the first test was WRONG)
+
+⚠ The first attempt used `secs_since_first_high`, which ages the **MAIN (20m
+channel)** leg only and says nothing about the 5m/10m legs. Redone per-leg (the
+engine already records `bars_since_first_high_300/_600`, each reset on its own
+channel breach via `brLo300/brLo600 → countersN.Reset()`).
+
+All three leg ages are NON-MONOTONE and noisy at ~378 trips/decile:
+
+| leg | dec1 → dec10 (PF−1) |
+|---|---|
+| 10m (`_600`, the primary) | 0.671 · 1.739 · 1.090 · **0.490** · 0.750 · 1.498 · 1.301 · **2.037** · 1.008 · 1.289 |
+| 5m (`_300`) | 1.089 · **0.361** · 0.850 · 0.788 · 1.697 · 1.766 · 1.250 · 1.518 · 1.157 · 1.233 |
+| 20m (main) | 1.045 · 0.786 · **0.381** · 1.469 · 1.070 · **2.167** · 1.647 · 0.815 · 1.825 · 0.866 |
+
+Adjacent deciles swing by 4×. There IS a weak old-is-better tilt (and the FF
+direction — favour YOUNG legs — is definitely inverted: `secs_since_first_high ≤
+450` = **PF−1 −0.353**), but it is ~0.3-0.5 buried in ±0.8 of noise.
+
+**⭐ THE REASON (user, and it generalises):** *"FlushFader is a different system.
+The long fade uses a K band around [26,50], but the short side is unbounded, so
+`legage` doesn't apply."* A BOUNDED K band leaves age genuinely free to vary
+within it, so age carries information the counter does not. A MONOTONE K FLOOR
+(this side) pre-selects age directly — `corr(age10m, k600) = +0.437` — so leg age
+is a noisier restatement of the gate. **Same subsumption that killed the
+k180/k60/k120 trims.** Port closed; re-test only if k600 is ever lowered.
+
+## ROSTER STATE (voices, slice basis)
+
+| voice | PF−1 | n | share | family |
+|---|---|---|---|---|
+| **dslo ≤ −5%** | **5.034** | 245 | 6.5% | position vs session high — INDEPENDENT |
+| **volat ≥ 100bp** | 2.099 | 804 | 21.3% | height/energy — carries this family |
+| **d20a ≥ 42%** (user raised from 28%) | 1.661 | 750 | 19.9% | height — 28% included ~40% of the book, too coarse |
+| halts_today ≥ 1 | 1.609 | 394 | 10.4% | event |
+| ~~be120 ≥ 20%~~ | 2.779 | 124 | 3.3% | DROPPED — 122 of 124 nested inside d20a AND volat |
+
+⚠ **Vote-counting is NOT monotone** on the 4-voice set (0.579 / 0.858 / 2.089 /
+1.915 / 3.103) — the 1-vote tier is BELOW book. The voices differ too much in
+strength to count; weight them or split 0-1 vs 2+. As an OR-GATE (FlushFader
+semantics, replay-inside): **PF−1 1.378 @ 2,189, net 6,870%** vs book 1.098 /
+8,001% — +25% edge for −14% net.
+
+⏭ `d20a ≥ 28%` is a future SPEC candidate (user: "not right now").
+⏭ Remaining unported: **vcrush** (#5) — blocked on `volat_slope_5m`, needs an
+engine add + rerun.
