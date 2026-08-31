@@ -65,6 +65,12 @@ let defaultConfig =
     { Intraday =
         { EntryChannelBars = 1200       // ⭐ the ~20m flush channel: entry on its new LOW, leg reset
                                         // on its new HIGH. {60,120,300,600,1200}.
+          // ⭐⭐ SPEC 2026-08-31 (S37f-s, user): the POST-HOC stack's k600 floor moved
+          // 60 -> 90 (k300 stays 40). It is not an engine knob — the k-floors live in
+          // the documented STACK applied over the trip parquet — but it is recorded
+          // here so the engine file and the spec do not drift: any study/book built
+          // off this engine must gate `highs_since_first_high_600 >= 90`.
+          // PF-1 0.727 -> 1.098 (+51%) for -25.5% net; 7 of 7 years up.
           ExitChannelBars  = 540        // ⭐ S37f (user, 2026-08-31): the ~9m reversion target.
                                         // WAS 300 (~5m). The 1m..20m mark grid says 5m is
                                         // simply too short: full book 1.704 -> 1.802 AND net

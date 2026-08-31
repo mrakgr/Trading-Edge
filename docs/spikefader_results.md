@@ -1467,6 +1467,12 @@ systems AGREE once both are honest: quiet ≈ 2.5-3.2 on both.
 k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10** — six levers, all re-derived on honest
 corpora: speed (S13), verticality (S14), maturity ×3 (S16/S19), tape continuity (S21/S22).
 
+> ⚠⚠ **SUPERSEDED 2026-08-31 (S37f-s): `k600 ≥ 60` → `k600 ≥ 90`, and the EXIT
+> channel 300 → 540 bars.** k600 is the load-bearing maturity floor (k300 stays at
+> 40 — still load-bearing as a FLOOR, but useless as a lever). PF−1 0.727 → 1.098
+> (+51%) for −25.5% net, all seven years up, all four controls passed. The tables
+> in THIS section predate both changes; read S37f-s for the current spec.
+
 | view | book | n | avg% | p1 | win% | pf | eqw bp/d |
 |---|---|---|---|---|---|---|---|
 | mc=0 | S19 stack | 131,165 | 1.89 | −25.4 | 73.3 | 2.140 | — |
@@ -2504,3 +2510,105 @@ and trip prices share one axis with no rescaling. Also: `scrollZoom` is a plotly
 CONFIG flag, NOT part of `chart_controls.js` (which only does middle-click +
 a/s/d) — `flushfader_loser_charts.py` was missing it and has been fixed; all 29
 chart scripts now pass it.
+
+---
+
+# S37f-s (2026-08-31) — ⭐⭐ SPEC CHANGES ADOPTED: exit 5m → 9m, and k600 60 → 90
+
+Two adoptions today, both user-decided, both engine-verified. Everything below is
+on the **mc=1 replay INSIDE the gate**, control-exact (`chan 300` reproduces
+7,243 @ 1.7038 net 7,817% at the head of every script).
+
+## ⭐ THE PF−1 REFRAME (user, and it changes how every table below reads)
+
+> "the actual profit itself isn't the PF, but PF−1. So going from 1.832 to 2.308
+> isn't a 26% increase in profitability, but a 57.2% one."
+
+Correct, and it is the convention already recorded for sizing
+(`feedback_trim_bottom_5pct_when_comparing`: sizing = PF−1 on the trimmed book).
+**Every ladder in this section reports PF−1 as the edge term.** Under it, a gate
+that costs 30% of net to buy 55% more edge is a good trade, which is what made
+the k600 decision go the way it did. ⚠ Months of prior tables quote raw PF deltas
+and therefore *understate* the value of selectivity — re-read old ladders with
+this in mind.
+
+## ADOPTION 1 — the exit channel: 300 → 540 bars (5m → 9m)
+
+Engine-verified end to end (`ExitChannelBars = 540`): **6,945 @ PF 1.756, net
+9,969%** vs 7,243 @ 1.704 / 7,817%. Six of seven years up; 2022 the lone loser
+(1.35 → 1.22).
+
+| chan | n | PF | PF−1 | net% | win% | med hold | unres% |
+|---|---|---|---|---|---|---|---|
+| 300* | 7,243 | 1.704 | 0.704 | 7,817 | 72.2 | 386 | 0.0 |
+| 420 (7m) | 7,064 | 1.734 | 0.734 | 9,042 | 72.0 | 562 | 0.1 |
+| 480 (8m) | 7,007 | 1.777 | 0.777 | 9,785 | 72.5 | 647 | 0.2 |
+| **540 (9m)** | 6,947 | **1.802** | **0.802** | 10,332 | 72.6 | 746 | 0.4 |
+| 720 (12m) | 6,829 | 1.832 | 0.832 | 11,655 | 72.7 | 1,035 | 1.2 |
+| 1200 (20m) | 6,714 | 1.847 | 0.847 | 13,041 | 73.0 | 1,492 | 16.9 |
+
+**Not tail-driven**: trim-5% PF 3.297 → 3.491 and the **MEDIAN** trip 2.016% →
+2.638%; paired per-trip, 540 beats 300 on **76.5% of the SAME trips** (Wilcoxon
+p ≈ 6e-279). PF plateaus from 9m out (540/720/1200 within 0.05) while **net rises
+monotonically to 20m** — so 12m is the natural next step if more net is wanted;
+9m is the conservative rung. ⚠ avg LOSS widens with the hold (−5.52% → −6.77% →
+−7.52%): more net, fatter left tail.
+
+⚠ **Three latent bugs surfaced adopting this**: `exitChanSet` did not contain
+420/480/540 (the first 540 run ABORTED: "no 540-bar channel"); `chanMin` reached
+only the six legacy windows; the banner hardcoded "~5m". All fixed.
+
+## ADOPTION 2 — k600: 60 → 90 (k300 STAYS at 40)
+
+`k300 ≥ 60 ∧ k600 ≥ 90` was the user's proposal; the sweep says **k600 is the
+load-bearing floor and k300 is not a lever** — but k300 ≥ 40 is still a
+load-bearing FLOOR. Both facts matter and they are not the same claim.
+
+**k600 swept, k300 fixed at 60** (steep, monotone) vs **k300 swept, k600 fixed at
+90** (flat):
+
+| k600 (k300=60) | PF−1 | n | | k300 (k600=90) | PF−1 | n |
+|---|---|---|---|---|---|---|
+| ≥60 | 0.793 | 5,738 | | ≥50 | 1.100 | 3,512 |
+| ≥80 | 0.987 | 3,962 | | ≥60 | 1.155 | 3,281 |
+| **≥90** | **1.155** | 3,281 | | ≥70 | 1.159 | 3,007 |
+| ≥120 | 1.376 | 1,719 | | ≥90 | 1.194 | 2,484 |
+
+**THE ADOPTED ARM — `k300 ≥ 40 ∧ k600 ≥ 90`, one parameter changed:**
+
+| arm | n | PF | **PF−1** | net | avg/trade | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| BASE (k600≥60) | 6,824 | 1.727 | 0.727 | 10,742% | 1.574% | 1.80 | 1.72 | 1.18 | 1.56 | 1.69 | 2.06 | 1.95 |
+| **k600 ≥ 90** | 3,777 | 2.098 | **1.098** | 8,001% | 2.118% | 2.39 | 2.02 | 1.40 | 1.93 | 2.09 | 2.65 | 2.10 |
+| (k300≥60 too) | 3,281 | 2.155 | 1.155 | 7,240% | 2.207% | 2.65 | 1.96 | 1.54 | 1.83 | 2.07 | 3.00 | 1.90 |
+
+**+51.0% edge for −25.5% net** (the pair: +58.9% for −32.6% — worse ratio, two
+parameters, and only 2022 prefers it). **Every year improves.**
+
+**k300 ≥ 40 must STAY**: dropping it costs −21% edge (1.098 → 0.863) *and* net
+(8,001% → 7,025%) for +158 trips — strictly dominated. What it removes is 687
+trips (17.5%) at PF 1.298, avg +0.81%/trade vs the kept book's 2.12%. And 40 is a
+real knee (0.863 → 0.968 → **1.098** → 1.100), not an inherited number.
+
+**All four controls pass** for k600 ≥ 90:
+* **same-n** (~3,800): k600 **1.098** vs volat≥65bp 0.811, k120≥50 0.744, k180≥60 0.759.
+* **ticker-day resample**: observed 2.098, null max 1.948 over 2,000 draws → **p = 0.0000**.
+* **leave-one-year-out**: lift **1.463–1.571×**, no year carries it.
+* **year table**: 7 of 7 up.
+
+## What did NOT survive (the same day's rejects)
+
+| candidate | verdict |
+|---|---|
+| k180 ≥ 15 → higher | flat: 15 is a local peak; 70.7% of the SLOW book is already k180 ≥ 45 (the triangle) |
+| k60 / k120 / k30 trims | best rung buys +8.4% edge for −52% trips; ladders non-monotone |
+| k120 ≥ 64 ∧ k180 ≥ 78 (the S18b "A-cell") | **~30 trips** inside ≥140bp; "DIAG only" PF 0.730 on 16. The 3.14 @ 21,127 headline was an **mc=0 SURVEY** number with no year columns |
+| be300180 (5m,3m) | does NOT extend the be60→be120 ladder: same-n 2.412 vs be120's 2.445, non-monotone, **corr(be120,be300)=0.968** — a re-parameterisation. **be120 is the optimum window (~2 min)** |
+| be6030 raised | be120's trips are a strict SUBSET of be60's; the non-overlap runs 1.415 vs 2.778. Wider window = height, narrow = speed, and speed keeps losing |
+| UNION (SLOW ∨ be120) | 2.239 @ 3,523 — **below** plain SLOW (2.308 @ 3,282). be120's 544 trips carry avg loss −18.3% and widen the tail |
+
+⭐ **The fast-counter INVERSION**: inside SLOW, *low* fast counters are the BEST
+band, monotone decreasing — k60 [0,5) → PF−1 **1.632**, [5,15) 1.452, [15,30)
+1.233. S18b called low-fast the anti-signal on the **ungated mc=0** frame. Once
+the slow legs are mature, a quiet recent 1-2m stretch means the pop has STALLED.
+Not adopted (post-hoc band, no controls) but it is the opposite of a floor.
