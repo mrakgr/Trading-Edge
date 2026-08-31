@@ -363,6 +363,7 @@ CREATE TABLE trips (
     vol_leg DOUBLE, tc_leg DOUBLE, dv_leg DOUBLE, cum_dv DOUBLE,
     targets_today INTEGER, volat_20m_prev DOUBLE, vol_0945_tape DOUBLE,
     volat_slope_20m DOUBLE, volat_r_20m DOUBLE, volat_slope_10m DOUBLE, volat_r_10m DOUBLE,
+    volat_slope_5m DOUBLE, volat_r_5m DOUBLE, volat_slope_3m DOUBLE, volat_r_3m DOUBLE,   -- S37z: the vcrush rungs
     halts_1200 INTEGER, halts_600 INTEGER,
     upticks_since_downtick INTEGER, run_upticks INTEGER, secs_since_last_downtick INTEGER,
     dn_15 INTEGER, dn_30 INTEGER, dn_60 INTEGER, dn_120 INTEGER,
@@ -599,6 +600,7 @@ type TripSink(outDir: string) =
             f p.VolLeg; f p.TcLeg; f p.DvLeg; f p.CumDv
             i p.TargetsToday; f p.Volat20mPrev; f p.Vol0945Tape
             f p.VolatSlope20m; f p.VolatR20m; f p.VolatSlope10m; f p.VolatR10m
+            f p.VolatSlope5m; f p.VolatR5m; f p.VolatSlope3m; f p.VolatR3m
             i p.Halts1200; i p.Halts600
             i p.UpticksSinceDowntick; i p.RunUpticks; i p.SecsSinceLastDowntick
             i p.Dn15; i p.Dn30; i p.Dn60; i p.Dn120

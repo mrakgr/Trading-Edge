@@ -2782,3 +2782,83 @@ semantics, replay-inside): **PF−1 1.378 @ 2,189, net 6,870%** vs book 1.098 /
 ⏭ `d20a ≥ 28%` is a future SPEC candidate (user: "not right now").
 ⏭ Remaining unported: **vcrush** (#5) — blocked on `volat_slope_5m`, needs an
 engine add + rerun.
+
+---
+
+# S37y-z (2026-08-31) — deep-K voices CLOSED, k120 ceiling FAILS controls, vcrush ✗ — the port list is DONE
+
+## Deep-K cells as voices: all absorbed by k600 ≥ 90
+
+S18b's deep cells were flagged as voice candidates on the **mc=0 survey** frame.
+Re-tested as voices (slice basis) inside the new spec, they are gone:
+
+| candidate | PF−1 | n | "ONLY" cell (no other voice) |
+|---|---|---|---|
+| k600 ≥ 150 | 1.284 | 290 | **1.082** (book = 1.098) |
+| k300 ≥ 110 | 1.346 | 469 | **1.156** |
+| k20m ≥ 220 | 0.572 | 156 | **0.514** |
+| k120≥64 ∧ k180≥78 (the S18b diagonal) | **0.893** | 647 | — |
+| k60≥46 ∧ k120≥64 | **0.499** | 413 | — |
+
+Both S18b diagonals are now **BELOW book**. After k600 ≥ 90 the counter is squeezed
+into a narrow band (median k600 = 94, p75 = 114), so "deeper" is the top slice of an
+already-selected population. **The information was in the FLOOR and we already took
+it** — same subsumption that closed legage and the k180/k60/k120 trims.
+
+## The k120 CEILING (the S37p inversion) — real observation, FAILS as a voice
+
+Individual ladders confirm the inversion: k60's floor ladder DECAYS monotonically
+(1.066 → 1.022 → 0.874 → 0.747 → **0.431** at ≥60), and k120's octiles fall
+1.923 (oct1 [0,15]) → **0.708** (oct8 [85,218]). High fast counters are genuinely
+bad. But `k120 < 30` (PF−1 1.351 @ 1,340) does not survive:
+
+* **ticker-day resample p = 0.0925** — null p95 = 1.422 is ABOVE the observed 1.351.
+* **same-n controls BEAT it**: volat ≥ 85bp **1.601**, d20a ≥ 33% **1.567**; and the
+  sibling counters land in the same place (k60 < 16 = 1.296, k180 < 42 = 1.281) —
+  the mark of generic selectivity, not a k120 property.
+* **no knee**: the ladder is monotone from `<15` (1.953) to `<60` (1.245). A band
+  with no interior optimum is just "fewer trips".
+* (leave-one-year-out passes, 1.14-1.37× — but that only rules out one-year deps.)
+
+⚠ The band was chosen by INSPECTING the octile table, which is exactly when the
+controls matter most. Not adopted.
+
+## PORT #5 — vcrush ✗ (and the volatility-slope family lives at 10m, not 5m/3m)
+
+Engine add: `volat_slope_5m` + `volat_slope_3m` (+ Pearson-r twins), mirroring
+`TradingEdge.FlushFader/Intraday.fs` S43cg exactly — `FloatOls 10` / `FloatOls 6`
+on the shared 30s-slot |r| ring, record-only.
+
+| arm | PF−1 | n | share |
+|---|---|---|---|
+| BOOK | 1.098 | 3,777 | 100% |
+| **vs5 ≤ −24 (the FF mirror)** | **1.123** | 160 | 4.2% |
+| vs5 ≤ −12 | 1.353 | 401 | 10.6% |
+| vs5 ≥ 24 | 0.854 | 523 | 13.8% |
+| vs3 ≤ −24 | 1.068 | 469 | 12.4% |
+| **vs10 ≤ 0** | **1.410** | 1,131 | 29.9% |
+
+**No lift at the ported threshold**, octiles flat and non-monotone (1.376 · 0.834 ·
+0.828 · 0.923 · 1.568 · 1.255 · 1.310 · 0.927). Independence kills it: of the 160
+trips, **111 also fire volat and 96 also fire d20a**, and the isolated cell is
+**PF−1 −0.462 on 40 trips** (losing). The vs3 twin is uniformly worse, so it is not
+a calibration problem. ⭐ Only the WIDEST window shows anything (`vs10 ≤ 0` = 1.410),
+consistent with S37c's finding that `volat_slope_10m < 0` was the best standalone
+gate on the old spec. **The volatility-slope signal lives at 10m.**
+
+## 🏁 THE FLUSHFADER PORT LIST IS COMPLETE — 4 of 9 ported
+
+| # | voice | verdict | PF−1 | n | share |
+|---|---|---|---|---|---|
+| 3 | **dslo ≤ −5%** | ⭐ THE FIND — independent (corr −0.04 / −0.01) | **5.034** | 245 | 6.5% |
+| 1 | **volat ≥ 100bp** (v20 re-derived) | ports | 2.099 | 804 | 21.3% |
+| 2 | **d20a ≥ 42%** | ports; height-family redundant with volat | 1.661 | 750 | 19.9% |
+| 8 | **halts_today ≥ 1** | binary only — NOT the since-resume bands (S23) | 1.609 | 394 | 10.4% |
+| 4 | vexp | ✗ splits 2022/2023 in OPPOSITE directions | — | — | — |
+| 5 | vcrush | ✗ 1.123; isolated cell −0.462 | — | — | — |
+| 6 | legage | ✗ bounded-band vs monotone-floor (user) | — | — | — |
+| 7 | dsu | ✗ 1.005, below book | — | — | — |
+| 9 | acneg | skipped — already the stack's knife | — | — | — |
+
+⏭ Open: the roster's aggregation (vote-counting is NOT monotone — weight, or split
+0-1 vs 2+); `d20a ≥ 28%` as a future SPEC candidate; 12m exit as the next rung.

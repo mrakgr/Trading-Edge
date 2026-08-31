@@ -491,7 +491,11 @@ type FlushPosition =
       // allowed (filter post-hoc on slot_count). Record-only. -----
       VolatSlope20m: float       // OLS slope over last min(slot_count,40) |r|
       VolatR20m: float           // its Pearson r
-      VolatSlope10m: float       // 20-return twin
+      VolatSlope10m: float
+      VolatSlope5m: float
+      VolatR5m: float
+      VolatSlope3m: float
+      VolatR3m: float       // 20-return twin
       VolatR10m: float           // its Pearson r
       Vol0945Tape: float         // S41g: Σ volume < 09:45 (dv_0945_tape / vol_0945_tape =
                                  // the first-15m tape vwap — the day-anchor AVWAP)
@@ -1265,10 +1269,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // zero-diff against the live scanner on the one-year audit.
     let volatOls20m = FloatOls 40
     let volatOls10m = FloatOls 20
+    // ⭐ S37z (user, 2026-08-31): the 5m/3m rungs — the FlushFader vcrush port
+    // (`volat_slope_5m·2e4 ≤ −24`) needs the 5m one. Same shared ring, mirrors
+    // TradingEdge.FlushFader/Intraday.fs S43cg exactly (FloatOls 10 / 6 on the
+    // 30s-slot |r| stream). Record-only.
+    let volatOls5m = FloatOls 10
+    let volatOls3m = FloatOls 6
     let volatRoller =
         WindowRoller<float>(
             [| 40, [| volatOls20m :> IRoll<float> |]
-               20, [| volatOls10m :> IRoll<float> |] |])
+               20, [| volatOls10m :> IRoll<float> |]
+               10, [| volatOls5m :> IRoll<float> |]
+               6, [| volatOls3m :> IRoll<float> |] |])
     /// slope and SIGNED Pearson r (sign(slope)·√R²), FULL WINDOW ONLY — nan
     /// otherwise. Matches the live scanner's `fullSlope` read discipline.
     let volatOlsRead (o: FloatOls) =
@@ -2429,6 +2441,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if inWindow && channelWarm && isNewHigh && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
+            let struct (vs5m, vr5m) = volatOlsRead volatOls5m
+            let struct (vs3m, vr3m) = volatOlsRead volatOls3m
             // S9c: z of the current warm W-bar volume sum vs its session distribution
             let zOfSum (sum: SumMa) (z: CumStdMa) =
                 if sum.Count = sum.WindowSize then
@@ -2794,6 +2808,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       VolatSlope20m = vs20m
                       VolatR20m = vr20m
                       VolatSlope10m = vs10m
+                      VolatSlope5m = vs5m
+                      VolatR5m = vr5m
+                      VolatSlope3m = vs3m
+                      VolatR3m = vr3m
                       VolatR10m = vr10m
                       OlsSlope60 =
                         (match ols60.State with
