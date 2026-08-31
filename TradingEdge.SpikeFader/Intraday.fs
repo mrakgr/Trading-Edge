@@ -443,6 +443,7 @@ type FlushPosition =
       VwapEwp12060Be: float
       VwapEwp12030Be: float
       VwapEwp6030Be: float
+      VwapEwp300180Be: float
       DollarVol60: float         // 60s time-sum of vwap*volume — the liquidity-floor value
       DollarVol300: float        // S40l: dv at every study window (the torrent axis
       DollarVol600: float        //   lived on dv/20m — now recorded at 5m/10m/20m
@@ -558,46 +559,66 @@ type FlushPosition =
       // production 300 (~5m) to test "take the reversion sooner".
       AuxLo60: float
       AuxSec60: int
+      AuxMoc60: bool
       AuxLo120: float
       AuxSec120: int
+      AuxMoc120: bool
       AuxLo300: float
       AuxSec300: int
+      AuxMoc300: bool
       AuxLo600: float
       AuxSec600: int
+      AuxMoc600: bool
       AuxLo1200: float
       AuxSec1200: int
+      AuxMoc1200: bool
       // 🔄 v-fork exit re-sweep (user 2026-08-26): {3,4,6,7,8,9}m rungs beside
       // the inherited {1,2,5,10,20}m — the 7m cover was tuned on 1m bars.
       AuxLo180: float
       AuxSec180: int
+      AuxMoc180: bool
       AuxLo240: float
       AuxSec240: int
+      AuxMoc240: bool
       AuxLo360: float
       AuxSec360: int
+      AuxMoc360: bool
       AuxLo420: float
       AuxSec420: int
+      AuxMoc420: bool
       AuxLo480: float
       AuxSec480: int
+      AuxMoc480: bool
       AuxLo540: float
       AuxSec540: int
+      AuxMoc540: bool
       AuxLo660: float
       AuxSec660: int
+      AuxMoc660: bool
       AuxLo720: float
       AuxSec720: int
+      AuxMoc720: bool
       AuxLo780: float
       AuxSec780: int
+      AuxMoc780: bool
       AuxLo840: float
       AuxSec840: int
+      AuxMoc840: bool
       AuxLo900: float
       AuxSec900: int
+      AuxMoc900: bool
       AuxLo960: float
       AuxSec960: int
+      AuxMoc960: bool
       AuxLo1020: float
       AuxSec1020: int
+      AuxMoc1020: bool
       AuxLo1080: float
       AuxSec1080: int
+      AuxMoc1080: bool
       AuxLo1140: float
       AuxSec1140: int
+      AuxMoc1140: bool
       // ⭐ LongHiker grafts (2026-08-26): EWMA tightness (EwmaVarMa of ln slot
       // vwap over the SAME slot stream as volat — tight = std/volat is
       // dimensionless; ~6 = random walk, coil = left tail), lagged twins at
@@ -807,15 +828,41 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let min300 = MinMa 300
     let min600 = MinMa 600
     let min1200 = MinMa 1200
+    // 🔄 exit re-sweep channels {3,4,6,7,8,9}m (min180 already exists)
+    // S37f: + {11..19}m so chanMin (below) can select ANY recorded minute.
+    // ⚠ These must be declared BEFORE chanMin — F# needs declaration before use.
+    let min240 = MinMa 240
+    let min360 = MinMa 360
+    let min420 = MinMa 420
+    let min480 = MinMa 480
+    let min540 = MinMa 540
+    let min660 = MinMa 660
+    let min720 = MinMa 720
+    let min780 = MinMa 780
+    let min840 = MinMa 840
+    let min900 = MinMa 900
+    let min960 = MinMa 960
+    let min1020 = MinMa 1020
+    let min1080 = MinMa 1080
+    let min1140 = MinMa 1140
     let sessHigh = RunMaxMa<float>()
     let sessLow = RunMinMa<float>()
     let chanMax n : MaxMa =
         match n with
         | 30 -> max30 | 60 -> max60 | 120 -> max120 | 300 -> max300 | 600 -> max600 | 1200 -> max1200
         | _ -> invalidArg "n" $"no {n}-bar channel"
+    // S37f: the exit target may be ANY recorded minute 1m..20m (the aux-mark grid),
+    // so chanMin must reach every MinMa the engine maintains -- not just the six
+    // legacy windows. chanMax is unchanged: the ENTRY trigger set is still
+    // {30,60,120,300,600,1200} (validated in Program.fs), and no max rollers exist
+    // at the intermediate widths.
     let chanMin n : MinMa =
         match n with
-        | 30 -> min30 | 60 -> min60 | 120 -> min120 | 300 -> min300 | 600 -> min600 | 1200 -> min1200
+        | 30 -> min30 | 60 -> min60 | 120 -> min120 | 180 -> min180 | 240 -> min240
+        | 300 -> min300 | 360 -> min360 | 420 -> min420 | 480 -> min480 | 540 -> min540
+        | 600 -> min600 | 660 -> min660 | 720 -> min720 | 780 -> min780 | 840 -> min840
+        | 900 -> min900 | 960 -> min960 | 1020 -> min1020 | 1080 -> min1080
+        | 1140 -> min1140 | 1200 -> min1200
         | _ -> invalidArg "n" $"no {n}-bar channel"
     // 🔄 SPIKEFADER MIRROR: the trigger side is the MAX channel (fade the POP —
     // a new 20m HIGH), the leg-reset side the MIN channel, the reversion target
@@ -1012,6 +1059,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let pxDecayB30 = DecaySumMa(30.0, GapValue.Empty)
     let pxDecayB60 = DecaySumMa(60.0, GapValue.Empty)
     let pxDecayB120 = DecaySumMa(120.0, GapValue.Empty)
+    // ⭐ S37k (user, 2026-08-31): the WIDER be pair. be6030 (~1m speed) loses to
+    // be12060 (~2m height) in the >=140bp cell -- be120's trips are a strict SUBSET
+    // of be60's and the non-overlap runs 1.415 vs 2.778. If the ladder keeps going,
+    // (300,180) should beat (120,60). Same bar-clock GapValue.Empty convention.
+    let pxDecayB180 = DecaySumMa(180.0, GapValue.Empty)
+    let pxDecayB300 = DecaySumMa(300.0, GapValue.Empty)
     // ⭐ S9 (user): the MaxRider F10/F12 "new session-VOLUME high" mirror —
     // per-rung session running max of the W-sec volume sums over windows
     // ending >= W tradeable secs ago (fully NON-overlapping, the analog of
@@ -1113,21 +1166,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let acEwma = EwmaAutoCorrMa(40.0, 3)
     let hiRateE = [| 30.0; 60.0; 120.0; 180.0; 300.0; 600.0 |] |> Array.map EmaHlMa
     let loRateE = [| 30.0; 60.0; 120.0; 180.0; 300.0; 600.0 |] |> Array.map EmaHlMa
-    // 🔄 exit re-sweep channels {3,4,6,7,8,9}m (min180 already exists)
-    let min240 = MinMa 240
-    let min360 = MinMa 360
-    let min420 = MinMa 420
-    let min480 = MinMa 480
-    let min540 = MinMa 540
-    let min660 = MinMa 660
-    let min720 = MinMa 720
-    let min780 = MinMa 780
-    let min840 = MinMa 840
-    let min900 = MinMa 900
-    let min960 = MinMa 960
-    let min1020 = MinMa 1020
-    let min1080 = MinMa 1080
-    let min1140 = MinMa 1140
     let brLo180 = BreachCounter()
     let brLo240 = BreachCounter()
     let brLo360 = BreachCounter()
@@ -1687,6 +1725,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         pxDecayB30.Push(bar.vwap, 0)
         pxDecayB60.Push(bar.vwap, 0)
         pxDecayB120.Push(bar.vwap, 0)
+        // S37k: gapCount 0 = BAR clock (price features stay bar-clock by convention;
+        // the time-clock twins are the pxDecayT* family).
+        pxDecayB180.Push(bar.vwap, 0)
+        pxDecayB300.Push(bar.vwap, 0)
         // S9: per-rung prior-window session maxes — warm sums only, so Max
         // compares full windows to full windows.
         (match tVolSum5.State with ValueSome s -> tVol5PriorMax.Push(s, volGap) | ValueNone -> ())
@@ -1826,6 +1868,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let ewp12060Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB60.Sum pxDecayB60.Weight
         let ewp12030Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB30.Sum pxDecayB30.Weight
         let ewp6030Be = wdVwap pxDecayB60.Sum pxDecayB60.Weight pxDecayB30.Sum pxDecayB30.Weight
+        let ewp300180Be = wdVwap pxDecayB300.Sum pxDecayB300.Weight pxDecayB180.Sum pxDecayB180.Weight
         sessVwap.Push(bar.vwap * bar.volume, bar.volume)
         max30.Push bar.vwap
         max60.Push bar.vwap
@@ -2196,52 +2239,70 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // fills at THIS bar's vwap. Only highs printed STRICTLY AFTER the
             // entry fill bar count (prevEtSec > EntrySec), and only the FIRST
             // one per window per trip (mark still nan).
-            let inline auxStep px sec prevBr =
-                if Double.IsNaN px && prevBr = 0 && prevEtSec > p.EntrySec
-                then struct (bar.vwap, bar.etSec)
-                else struct (px, sec)
-            let struct (hi60, sc60) = auxStep p.AuxLo60 p.AuxSec60 prevBr60
-            let struct (hi120, sc120) = auxStep p.AuxLo120 p.AuxSec120 prevBr120
-            let struct (hi300, sc300) = auxStep p.AuxLo300 p.AuxSec300 prevBr300
-            let struct (hi600, sc600) = auxStep p.AuxLo600 p.AuxSec600 prevBr600
-            let struct (hi1200, sc1200) = auxStep p.AuxLo1200 p.AuxSec1200 prevBr1200
-            let struct (hi180, sc180) = auxStep p.AuxLo180 p.AuxSec180 prevBr180
-            let struct (hi240, sc240) = auxStep p.AuxLo240 p.AuxSec240 prevBr240
-            let struct (hi360, sc360) = auxStep p.AuxLo360 p.AuxSec360 prevBr360
-            let struct (hi420, sc420) = auxStep p.AuxLo420 p.AuxSec420 prevBr420
-            let struct (hi480, sc480) = auxStep p.AuxLo480 p.AuxSec480 prevBr480
-            let struct (hi540, sc540) = auxStep p.AuxLo540 p.AuxSec540 prevBr540
-            let struct (hi660, sc660) = auxStep p.AuxLo660 p.AuxSec660 prevBr660
-            let struct (hi720, sc720) = auxStep p.AuxLo720 p.AuxSec720 prevBr720
-            let struct (hi780, sc780) = auxStep p.AuxLo780 p.AuxSec780 prevBr780
-            let struct (hi840, sc840) = auxStep p.AuxLo840 p.AuxSec840 prevBr840
-            let struct (hi900, sc900) = auxStep p.AuxLo900 p.AuxSec900 prevBr900
-            let struct (hi960, sc960) = auxStep p.AuxLo960 p.AuxSec960 prevBr960
-            let struct (hi1020, sc1020) = auxStep p.AuxLo1020 p.AuxSec1020 prevBr1020
-            let struct (hi1080, sc1080) = auxStep p.AuxLo1080 p.AuxSec1080 prevBr1080
-            let struct (hi1140, sc1140) = auxStep p.AuxLo1140 p.AuxSec1140 prevBr1140
+            // ⭐ S37f (user, 2026-08-31): an unresolved mark now resolves at the MOC
+            // bar, exactly as maStep already does. A mark is unresolved when price
+            // never printed a new N-bar low before the close — the WIDER the channel
+            // the likelier that is (0.4% at 540, 16.9% at 1200), because a 20m low
+            // needs 1,200 bars of prior minimum exceeded and the session runs out.
+            // Leaving it NaN forced post-hoc studies to fall back on the trip's OWN
+            // (narrower) recorded exit, which silently measured the old channel and
+            // understated a wide rule: a real N-bar rule that never triggers goes to
+            // MOC, so that is what the mark must carry. NOT the next open — SpikeFader
+            // never holds a short overnight (Backtest.fs: toNextOpen = false).
+            // ⭐ S37f: returns (px, sec, isMoc). isMoc distinguishes a mark that
+            // resolved because the session ENDED (no N-bar low ever printed) from a
+            // genuine channel trigger — without it the two are indistinguishable in
+            // the parquet and a wide-channel study cannot tell a real cover from a
+            // forced close. The MOC branch is tested FIRST so a bar that is both the
+            // moc bar and a trigger is labelled moc (it is a forced close either way).
+            let inline auxStep px sec (moc: bool) prevBr =
+                if Double.IsNaN px then
+                    if bar.etSec >= mocSec then struct (bar.vwap, bar.etSec, true)
+                    elif prevBr = 0 && prevEtSec > p.EntrySec then struct (bar.vwap, bar.etSec, false)
+                    else struct (px, sec, moc)
+                else struct (px, sec, moc)
+            let struct (hi60, sc60, mc60) = auxStep p.AuxLo60 p.AuxSec60 p.AuxMoc60 prevBr60
+            let struct (hi120, sc120, mc120) = auxStep p.AuxLo120 p.AuxSec120 p.AuxMoc120 prevBr120
+            let struct (hi300, sc300, mc300) = auxStep p.AuxLo300 p.AuxSec300 p.AuxMoc300 prevBr300
+            let struct (hi600, sc600, mc600) = auxStep p.AuxLo600 p.AuxSec600 p.AuxMoc600 prevBr600
+            let struct (hi1200, sc1200, mc1200) = auxStep p.AuxLo1200 p.AuxSec1200 p.AuxMoc1200 prevBr1200
+            let struct (hi180, sc180, mc180) = auxStep p.AuxLo180 p.AuxSec180 p.AuxMoc180 prevBr180
+            let struct (hi240, sc240, mc240) = auxStep p.AuxLo240 p.AuxSec240 p.AuxMoc240 prevBr240
+            let struct (hi360, sc360, mc360) = auxStep p.AuxLo360 p.AuxSec360 p.AuxMoc360 prevBr360
+            let struct (hi420, sc420, mc420) = auxStep p.AuxLo420 p.AuxSec420 p.AuxMoc420 prevBr420
+            let struct (hi480, sc480, mc480) = auxStep p.AuxLo480 p.AuxSec480 p.AuxMoc480 prevBr480
+            let struct (hi540, sc540, mc540) = auxStep p.AuxLo540 p.AuxSec540 p.AuxMoc540 prevBr540
+            let struct (hi660, sc660, mc660) = auxStep p.AuxLo660 p.AuxSec660 p.AuxMoc660 prevBr660
+            let struct (hi720, sc720, mc720) = auxStep p.AuxLo720 p.AuxSec720 p.AuxMoc720 prevBr720
+            let struct (hi780, sc780, mc780) = auxStep p.AuxLo780 p.AuxSec780 p.AuxMoc780 prevBr780
+            let struct (hi840, sc840, mc840) = auxStep p.AuxLo840 p.AuxSec840 p.AuxMoc840 prevBr840
+            let struct (hi900, sc900, mc900) = auxStep p.AuxLo900 p.AuxSec900 p.AuxMoc900 prevBr900
+            let struct (hi960, sc960, mc960) = auxStep p.AuxLo960 p.AuxSec960 p.AuxMoc960 prevBr960
+            let struct (hi1020, sc1020, mc1020) = auxStep p.AuxLo1020 p.AuxSec1020 p.AuxMoc1020 prevBr1020
+            let struct (hi1080, sc1080, mc1080) = auxStep p.AuxLo1080 p.AuxSec1080 p.AuxMoc1080 prevBr1080
+            let struct (hi1140, sc1140, mc1140) = auxStep p.AuxLo1140 p.AuxSec1140 p.AuxMoc1140 prevBr1140
             let p =
                 { p with
-                    AuxLo60 = hi60; AuxSec60 = sc60
-                    AuxLo120 = hi120; AuxSec120 = sc120
-                    AuxLo300 = hi300; AuxSec300 = sc300
-                    AuxLo600 = hi600; AuxSec600 = sc600
-                    AuxLo1200 = hi1200; AuxSec1200 = sc1200
-                    AuxLo180 = hi180; AuxSec180 = sc180
-                    AuxLo240 = hi240; AuxSec240 = sc240
-                    AuxLo360 = hi360; AuxSec360 = sc360
-                    AuxLo420 = hi420; AuxSec420 = sc420
-                    AuxLo480 = hi480; AuxSec480 = sc480
-                    AuxLo540 = hi540; AuxSec540 = sc540
-                    AuxLo660 = hi660; AuxSec660 = sc660
-                    AuxLo720 = hi720; AuxSec720 = sc720
-                    AuxLo780 = hi780; AuxSec780 = sc780
-                    AuxLo840 = hi840; AuxSec840 = sc840
-                    AuxLo900 = hi900; AuxSec900 = sc900
-                    AuxLo960 = hi960; AuxSec960 = sc960
-                    AuxLo1020 = hi1020; AuxSec1020 = sc1020
-                    AuxLo1080 = hi1080; AuxSec1080 = sc1080
-                    AuxLo1140 = hi1140; AuxSec1140 = sc1140 }
+                    AuxLo60 = hi60; AuxSec60 = sc60; AuxMoc60 = mc60
+                    AuxLo120 = hi120; AuxSec120 = sc120; AuxMoc120 = mc120
+                    AuxLo300 = hi300; AuxSec300 = sc300; AuxMoc300 = mc300
+                    AuxLo600 = hi600; AuxSec600 = sc600; AuxMoc600 = mc600
+                    AuxLo1200 = hi1200; AuxSec1200 = sc1200; AuxMoc1200 = mc1200
+                    AuxLo180 = hi180; AuxSec180 = sc180; AuxMoc180 = mc180
+                    AuxLo240 = hi240; AuxSec240 = sc240; AuxMoc240 = mc240
+                    AuxLo360 = hi360; AuxSec360 = sc360; AuxMoc360 = mc360
+                    AuxLo420 = hi420; AuxSec420 = sc420; AuxMoc420 = mc420
+                    AuxLo480 = hi480; AuxSec480 = sc480; AuxMoc480 = mc480
+                    AuxLo540 = hi540; AuxSec540 = sc540; AuxMoc540 = mc540
+                    AuxLo660 = hi660; AuxSec660 = sc660; AuxMoc660 = mc660
+                    AuxLo720 = hi720; AuxSec720 = sc720; AuxMoc720 = mc720
+                    AuxLo780 = hi780; AuxSec780 = sc780; AuxMoc780 = mc780
+                    AuxLo840 = hi840; AuxSec840 = sc840; AuxMoc840 = mc840
+                    AuxLo900 = hi900; AuxSec900 = sc900; AuxMoc900 = mc900
+                    AuxLo960 = hi960; AuxSec960 = sc960; AuxMoc960 = mc960
+                    AuxLo1020 = hi1020; AuxSec1020 = sc1020; AuxMoc1020 = mc1020
+                    AuxLo1080 = hi1080; AuxSec1080 = sc1080; AuxMoc1080 = mc1080
+                    AuxLo1140 = hi1140; AuxSec1140 = sc1140; AuxMoc1140 = mc1140 }
             // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
             // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
             // mark still unresolved at/past MocSec resolves at this bar (the moc
@@ -2691,6 +2752,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       VwapEwp12060Be = vv ewp12060Be
                       VwapEwp12030Be = vv ewp12030Be
                       VwapEwp6030Be = vv ewp6030Be
+                      VwapEwp300180Be = vv ewp300180Be
                       DollarVol60 = vv tDvSum60.State
                       DollarVol300 = vv tDvSum300.State
                       DollarVol600 = vv tDvSum600.State
@@ -2809,44 +2871,64 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       FwdVwap1200 = nan
                       AuxLo60 = nan
                       AuxSec60 = -1
+                      AuxMoc60 = false
                       AuxLo120 = nan
                       AuxSec120 = -1
+                      AuxMoc120 = false
                       AuxLo300 = nan
                       AuxSec300 = -1
+                      AuxMoc300 = false
                       AuxLo600 = nan
                       AuxSec600 = -1
+                      AuxMoc600 = false
                       AuxLo1200 = nan
                       AuxSec1200 = -1
+                      AuxMoc1200 = false
                       AuxLo180 = nan
                       AuxSec180 = -1
+                      AuxMoc180 = false
                       AuxLo240 = nan
                       AuxSec240 = -1
+                      AuxMoc240 = false
                       AuxLo360 = nan
                       AuxSec360 = -1
+                      AuxMoc360 = false
                       AuxLo420 = nan
                       AuxSec420 = -1
+                      AuxMoc420 = false
                       AuxLo480 = nan
                       AuxSec480 = -1
+                      AuxMoc480 = false
                       AuxLo540 = nan
                       AuxSec540 = -1
+                      AuxMoc540 = false
                       AuxLo660 = nan
                       AuxSec660 = -1
+                      AuxMoc660 = false
                       AuxLo720 = nan
                       AuxSec720 = -1
+                      AuxMoc720 = false
                       AuxLo780 = nan
                       AuxSec780 = -1
+                      AuxMoc780 = false
                       AuxLo840 = nan
                       AuxSec840 = -1
+                      AuxMoc840 = false
                       AuxLo900 = nan
                       AuxSec900 = -1
+                      AuxMoc900 = false
                       AuxLo960 = nan
                       AuxSec960 = -1
+                      AuxMoc960 = false
                       AuxLo1020 = nan
                       AuxSec1020 = -1
+                      AuxMoc1020 = false
                       AuxLo1080 = nan
                       AuxSec1080 = -1
+                      AuxMoc1080 = false
                       AuxLo1140 = nan
                       AuxSec1140 = -1
+                      AuxMoc1140 = false
                       Ma10Px = nan
                       Ma10Sec = -1
                       Ma20Px = nan

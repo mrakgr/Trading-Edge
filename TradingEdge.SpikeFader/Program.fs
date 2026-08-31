@@ -185,7 +185,11 @@ let main argv =
     if not (List.contains cfg.Intraday.EntryChannelBars entryChanSet) then
         eprintfn "FATAL: --entry-channel-bars %d — must be one of %A." cfg.Intraday.EntryChannelBars entryChanSet
         exit 1
-    let exitChanSet = [ 30; 60; 120; 300; 600; 1200 ]
+    // S37f: the engine records exit-channel marks at EVERY minute 1m..20m, so the
+    // selectable set is the full grid (plus the legacy 30s). Was
+    // [30;60;120;300;600;1200] — 420/480/540 were unreachable despite being recorded.
+    let exitChanSet = [ 30; 60; 120; 180; 240; 300; 360; 420; 480; 540; 600
+                        660; 720; 780; 840; 900; 960; 1020; 1080; 1140; 1200 ]
     if not (List.contains cfg.Intraday.ExitChannelBars exitChanSet) then
         eprintfn "FATAL: --exit-channel-bars %d — must be one of %A." cfg.Intraday.ExitChannelBars exitChanSet
         exit 1
@@ -206,7 +210,8 @@ let main argv =
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
     printfn "  ENTRY       = vwap > prior %d-bar MAX (strict; new ~20m HIGH — SHORT)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
         ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
-    printfn "  EXIT        = vwap < prior %d-bar MIN (strict; ~5m LOW cover)  |  else MOC (🔄 NO overnight shorts)   (fill: NEXT bar vwap)" ic.ExitChannelBars
+    printfn "  EXIT        = vwap < prior %d-bar MIN (strict; ~%.0fm LOW cover)  |  else MOC (🔄 NO overnight shorts)   (fill: NEXT bar vwap)"
+        ic.ExitChannelBars (float ic.ExitChannelBars / 60.0)
     printfn "  accept stops= new %d-bar HIGH on vr>=%s | tcr>=%s | 1m pace > %s   ⭐ price-acceptance (NO level stop — V6: destructive)"
         ic.EntryChannelBars
         (if Double.IsPositiveInfinity ic.VolStopRatio then "off" else sprintf "%.0fx" ic.VolStopRatio)

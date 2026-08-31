@@ -65,8 +65,23 @@ let defaultConfig =
     { Intraday =
         { EntryChannelBars = 1200       // ⭐ the ~20m flush channel: entry on its new LOW, leg reset
                                         // on its new HIGH. {60,120,300,600,1200}.
-          ExitChannelBars  = 300        // ⭐ the ~5m reversion target (V6 F16's direction).
-                                        // {30,60,120,300,600,1200}.
+          ExitChannelBars  = 540        // ⭐ S37f (user, 2026-08-31): the ~9m reversion target.
+                                        // WAS 300 (~5m). The 1m..20m mark grid says 5m is
+                                        // simply too short: full book 1.704 -> 1.802 AND net
+                                        // 7,817% -> 10,332% (+32%) — PF and net together, not
+                                        // a trade. Not tail-driven: trim-5% PF 3.297 -> 3.491,
+                                        // MEDIAN trip 2.016% -> 2.638%; paired per-trip 540
+                                        // beats 300 on 76.5% of the SAME trips (Wilcoxon
+                                        // p ~ 6e-279); 6 of 7 years up (2022 the lone loser).
+                                        // The gain SATURATES at 480-540 (resolved-only
+                                        // 540/600/1200 = 1.816/1.805/1.820) — the win is in
+                                        // LEAVING 300, not in going long. 12m (720) is the
+                                        // other local high (1.832, and 2.024 in the >=140bp
+                                        // cell) and is the natural next step if more NET is
+                                        // wanted — net rises monotonically to 20m.
+                                        // ⚠ avg LOSS widens with the hold (-6.77% at 540 vs
+                                        // -5.52% at 300): more net, fatter left tail.
+                                        // Any minute 1m..20m (+30s) is selectable.
           ExitChannelBarsAfterHours = 0 // OFF — one target all session (see Intraday.fs).
           AfterHoursSec    = 57600      // 16:00, where the tighter target would take over.
           DvFloor60        = 100_000.0  // >= $100k traded over the last 60 TRADEABLE SECONDS at the
@@ -284,11 +299,11 @@ CREATE TABLE trips (
     vwap_5_prev DOUBLE, vwap_10_prev DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_600 DOUBLE, fwd_vwap_1200 DOUBLE,
-    aux_lo_60_px DOUBLE, aux_lo_60_sec INTEGER,
-    aux_lo_120_px DOUBLE, aux_lo_120_sec INTEGER,
-    aux_lo_300_px DOUBLE, aux_lo_300_sec INTEGER,
-    aux_lo_600_px DOUBLE, aux_lo_600_sec INTEGER,
-    aux_lo_1200_px DOUBLE, aux_lo_1200_sec INTEGER,
+    aux_lo_60_px DOUBLE, aux_lo_60_sec INTEGER, aux_lo_60_moc BOOLEAN,
+    aux_lo_120_px DOUBLE, aux_lo_120_sec INTEGER, aux_lo_120_moc BOOLEAN,
+    aux_lo_300_px DOUBLE, aux_lo_300_sec INTEGER, aux_lo_300_moc BOOLEAN,
+    aux_lo_600_px DOUBLE, aux_lo_600_sec INTEGER, aux_lo_600_moc BOOLEAN,
+    aux_lo_1200_px DOUBLE, aux_lo_1200_sec INTEGER, aux_lo_1200_moc BOOLEAN,
     ma_10m_px DOUBLE, ma_10m_sec INTEGER,
     ma_20m_px DOUBLE, ma_20m_sec INTEGER,
     ma_30m_px DOUBLE, ma_30m_sec INTEGER,
@@ -348,21 +363,21 @@ CREATE TABLE trips (
     up_15 INTEGER, up_30 INTEGER, up_60 INTEGER, up_120 INTEGER,
     gap_120 INTEGER,
     downticks_since_flow INTEGER, upticks_since_flow INTEGER, highs_since_downtick INTEGER, chg_since_last_downtick DOUBLE, chg_since_run_pre_high DOUBLE, chg_since_run_first_high DOUBLE, chg_since_run_first_up DOUBLE,
-    aux_lo_180_px DOUBLE, aux_lo_180_sec INTEGER,
-    aux_lo_240_px DOUBLE, aux_lo_240_sec INTEGER,
-    aux_lo_360_px DOUBLE, aux_lo_360_sec INTEGER,
-    aux_lo_420_px DOUBLE, aux_lo_420_sec INTEGER,
-    aux_lo_480_px DOUBLE, aux_lo_480_sec INTEGER,
-    aux_lo_540_px DOUBLE, aux_lo_540_sec INTEGER,
-    aux_lo_660_px DOUBLE, aux_lo_660_sec INTEGER,
-    aux_lo_720_px DOUBLE, aux_lo_720_sec INTEGER,
-    aux_lo_780_px DOUBLE, aux_lo_780_sec INTEGER,
-    aux_lo_840_px DOUBLE, aux_lo_840_sec INTEGER,
-    aux_lo_900_px DOUBLE, aux_lo_900_sec INTEGER,
-    aux_lo_960_px DOUBLE, aux_lo_960_sec INTEGER,
-    aux_lo_1020_px DOUBLE, aux_lo_1020_sec INTEGER,
-    aux_lo_1080_px DOUBLE, aux_lo_1080_sec INTEGER,
-    aux_lo_1140_px DOUBLE, aux_lo_1140_sec INTEGER,
+    aux_lo_180_px DOUBLE, aux_lo_180_sec INTEGER, aux_lo_180_moc BOOLEAN,
+    aux_lo_240_px DOUBLE, aux_lo_240_sec INTEGER, aux_lo_240_moc BOOLEAN,
+    aux_lo_360_px DOUBLE, aux_lo_360_sec INTEGER, aux_lo_360_moc BOOLEAN,
+    aux_lo_420_px DOUBLE, aux_lo_420_sec INTEGER, aux_lo_420_moc BOOLEAN,
+    aux_lo_480_px DOUBLE, aux_lo_480_sec INTEGER, aux_lo_480_moc BOOLEAN,
+    aux_lo_540_px DOUBLE, aux_lo_540_sec INTEGER, aux_lo_540_moc BOOLEAN,
+    aux_lo_660_px DOUBLE, aux_lo_660_sec INTEGER, aux_lo_660_moc BOOLEAN,
+    aux_lo_720_px DOUBLE, aux_lo_720_sec INTEGER, aux_lo_720_moc BOOLEAN,
+    aux_lo_780_px DOUBLE, aux_lo_780_sec INTEGER, aux_lo_780_moc BOOLEAN,
+    aux_lo_840_px DOUBLE, aux_lo_840_sec INTEGER, aux_lo_840_moc BOOLEAN,
+    aux_lo_900_px DOUBLE, aux_lo_900_sec INTEGER, aux_lo_900_moc BOOLEAN,
+    aux_lo_960_px DOUBLE, aux_lo_960_sec INTEGER, aux_lo_960_moc BOOLEAN,
+    aux_lo_1020_px DOUBLE, aux_lo_1020_sec INTEGER, aux_lo_1020_moc BOOLEAN,
+    aux_lo_1080_px DOUBLE, aux_lo_1080_sec INTEGER, aux_lo_1080_moc BOOLEAN,
+    aux_lo_1140_px DOUBLE, aux_lo_1140_sec INTEGER, aux_lo_1140_moc BOOLEAN,
     std_20m DOUBLE, std_20m_lag1m DOUBLE, std_10m DOUBLE, std_10m_lag1m DOUBLE,
     volat_20m_lag1m DOUBLE, volat_10m_lag1m DOUBLE, volat_20m_sessmax DOUBLE,
     eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
@@ -387,6 +402,7 @@ CREATE TABLE trips (
     vwap_ewp_12060_tz DOUBLE, vwap_ewp_12030_tz DOUBLE, vwap_ewp_6030_tz DOUBLE,
     vwap_ewp_12060_bv DOUBLE, vwap_ewp_12030_bv DOUBLE, vwap_ewp_6030_bv DOUBLE,
     vwap_ewp_12060_be DOUBLE, vwap_ewp_12030_be DOUBLE, vwap_ewp_6030_be DOUBLE,
+    vwap_ewp_300180_be DOUBLE,   -- S37k: the (300,180) pop-height twin
     vol_5_prior_max DOUBLE, vol_10_prior_max DOUBLE, vol_15_prior_max DOUBLE, vol_30_prior_max DOUBLE,
     vol_60_prior_max DOUBLE, vol_300_prior_max DOUBLE, vol_600_prior_max DOUBLE, vol_1200_prior_max DOUBLE,
     dollar_vol_60_prior_max DOUBLE, vol_ew_60 DOUBLE, vol_ew_60_prior_max DOUBLE,
@@ -515,11 +531,14 @@ type TripSink(outDir: string) =
             f p.FwdVwap60; f p.FwdVwap300; f p.FwdVwap600; f p.FwdVwap1200
             let inline auxSec (s: int) =
                 if s < 0 then row.AppendNullValue() |> ignore else row.AppendValue s |> ignore
-            f p.AuxLo60; auxSec p.AuxSec60
-            f p.AuxLo120; auxSec p.AuxSec120
-            f p.AuxLo300; auxSec p.AuxSec300
-            f p.AuxLo600; auxSec p.AuxSec600
-            f p.AuxLo1200; auxSec p.AuxSec1200
+            // S37f: aux_lo_{n}_moc — true when the mark resolved at the MOC bar
+            // (no N-bar low ever printed) rather than on a real channel trigger.
+            let inline b (v: bool) = row.AppendValue v |> ignore
+            f p.AuxLo60; auxSec p.AuxSec60; b p.AuxMoc60
+            f p.AuxLo120; auxSec p.AuxSec120; b p.AuxMoc120
+            f p.AuxLo300; auxSec p.AuxSec300; b p.AuxMoc300
+            f p.AuxLo600; auxSec p.AuxSec600; b p.AuxMoc600
+            f p.AuxLo1200; auxSec p.AuxSec1200; b p.AuxMoc1200
             f p.Ma10Px; auxSec p.Ma10Sec
             f p.Ma20Px; auxSec p.Ma20Sec
             f p.Ma30Px; auxSec p.Ma30Sec
@@ -580,21 +599,21 @@ type TripSink(outDir: string) =
             i p.Up15; i p.Up30; i p.Up60; i p.Up120
             i p.Gap120
             i p.DownticksSinceFlow; i p.UpticksSinceFlow; i p.HighsSinceDowntick; f p.ChgSinceLastDowntick; f p.ChgSinceRunPreHigh; f p.ChgSinceRunFirstHigh; f p.ChgSinceRunFirstUp
-            f p.AuxLo180; auxSec p.AuxSec180
-            f p.AuxLo240; auxSec p.AuxSec240
-            f p.AuxLo360; auxSec p.AuxSec360
-            f p.AuxLo420; auxSec p.AuxSec420
-            f p.AuxLo480; auxSec p.AuxSec480
-            f p.AuxLo540; auxSec p.AuxSec540
-            f p.AuxLo660; auxSec p.AuxSec660
-            f p.AuxLo720; auxSec p.AuxSec720
-            f p.AuxLo780; auxSec p.AuxSec780
-            f p.AuxLo840; auxSec p.AuxSec840
-            f p.AuxLo900; auxSec p.AuxSec900
-            f p.AuxLo960; auxSec p.AuxSec960
-            f p.AuxLo1020; auxSec p.AuxSec1020
-            f p.AuxLo1080; auxSec p.AuxSec1080
-            f p.AuxLo1140; auxSec p.AuxSec1140
+            f p.AuxLo180; auxSec p.AuxSec180; b p.AuxMoc180
+            f p.AuxLo240; auxSec p.AuxSec240; b p.AuxMoc240
+            f p.AuxLo360; auxSec p.AuxSec360; b p.AuxMoc360
+            f p.AuxLo420; auxSec p.AuxSec420; b p.AuxMoc420
+            f p.AuxLo480; auxSec p.AuxSec480; b p.AuxMoc480
+            f p.AuxLo540; auxSec p.AuxSec540; b p.AuxMoc540
+            f p.AuxLo660; auxSec p.AuxSec660; b p.AuxMoc660
+            f p.AuxLo720; auxSec p.AuxSec720; b p.AuxMoc720
+            f p.AuxLo780; auxSec p.AuxSec780; b p.AuxMoc780
+            f p.AuxLo840; auxSec p.AuxSec840; b p.AuxMoc840
+            f p.AuxLo900; auxSec p.AuxSec900; b p.AuxMoc900
+            f p.AuxLo960; auxSec p.AuxSec960; b p.AuxMoc960
+            f p.AuxLo1020; auxSec p.AuxSec1020; b p.AuxMoc1020
+            f p.AuxLo1080; auxSec p.AuxSec1080; b p.AuxMoc1080
+            f p.AuxLo1140; auxSec p.AuxSec1140; b p.AuxMoc1140
             f p.Std20m; f p.Std20mLag1m; f p.Std10m; f p.Std10mLag1m
             f p.Volat20mLag1m; f p.Volat10mLag1m; f p.Volat20mSessMax
             f p.EffEwma20m; f p.EffEwma10m
@@ -619,7 +638,7 @@ type TripSink(outDir: string) =
             f p.VwapEwp12060Te; f p.VwapEwp12030Te; f p.VwapEwp6030Te
             f p.VwapEwp12060Tz; f p.VwapEwp12030Tz; f p.VwapEwp6030Tz
             f p.VwapEwp12060Bv; f p.VwapEwp12030Bv; f p.VwapEwp6030Bv
-            f p.VwapEwp12060Be; f p.VwapEwp12030Be; f p.VwapEwp6030Be
+            f p.VwapEwp12060Be; f p.VwapEwp12030Be; f p.VwapEwp6030Be; f p.VwapEwp300180Be
             f p.Vol5PriorMax; f p.Vol10PriorMax; f p.Vol15PriorMax; f p.Vol30PriorMax
             f p.Vol60PriorMax; f p.Vol300PriorMax; f p.Vol600PriorMax; f p.Vol1200PriorMax
             f p.Dv60PriorMax; f p.VolEw60; f p.VolEw60PriorMax
