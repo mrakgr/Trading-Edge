@@ -3348,3 +3348,52 @@ Halts are a real phenomenon — repeated halts mean a violent pop — but that i
 precisely why they are a NOISY PROXY for the height family we already have. Same
 failure mode as `eff_9ema_20m` (S38g): passes both leave-one-out tests, fails
 same-n. ⏭ **User TODO: retest `gap_adj_1200`.**
+
+## S39b — REVERSAL: `ht ≥ 2 ∧ fresh [60,300)` IS ADOPTED (user)
+
+The statistical verdict above stands (33 trips, ticker-day p = 0.305, roster delta
++0.007 PF−1) — but the user adopted it anyway, on two grounds the PF−1 delta does
+not capture:
+
+> *"Those are 5 good extra trades... once we're trading bigger at 100k position
+> sizes, those 5 extra trades might be worth 20k. I bet the halt resumptions would
+> have a lot of liquidity to them."*
+
+**LIQUIDITY**: halt resumptions are auction-driven with concentrated volume, so
+these fills are likely EASIER at size than the median book trade — a
+capacity argument, invisible in an equal-weight PF.
+
+**And the marginal trades are better than the summary implied.** The trips this
+voice adds that NO other voice catches are 4 of 4 winners:
+
+| ticker | date | ret | ht | since resume | **volat** |
+|---|---|---|---|---|---|
+| LASE | 2024-10-08 | +8.46% | 2 | 100s | **74bp** |
+| PACW | 2023-05-05 | +6.03% | 6 | 69s | **77bp** |
+| WAL | 2023-03-16 | +3.95% | 4 | 96s | **58bp** |
+| CHK | 2020-06-08 | +3.40% | 7 | 61s | **75bp** |
+
+⭐ **All four sit BELOW the 100bp volat voice and below d20a/dslo thresholds.** The
+halts themselves SUPPRESS the measured volatility by removing tape — so a
+repeatedly-halted name reads as only moderately volatile. That is a real blind spot
+in the height family and a mechanistic reason for the voice to exist, not a
+statistical accident. (PACW/WAL = the Mar-May 2023 regional-bank halts; CHK = the
+Jun 2020 bankruptcy squeeze.)
+
+**THE ROSTER IS FIVE:**
+
+| voice | PF−1 | n | share | net | win% |
+|---|---|---|---|---|---|
+| `rr < 0.5` | 4.256 | 119 | 3.2% | 338% | 87.4 |
+| `dslo ≤ −5%` | 4.188 | 242 | 6.5% | 908% | 84.3 |
+| `volat ≥ 100bp` | 1.902 | 817 | 22.0% | 3,718% | 77.5 |
+| `d20a ≥ 42%` | 1.628 | 780 | 21.0% | 3,292% | 77.4 |
+| **`ht ≥ 2 ∧ since_halt ∈ [60,300)`** | 2.309 | 33 | 0.9% | 197% | 75.8 |
+
+**OR-gate (replay-inside): 1,527 @ PF−1 1.842, net 5,642%** (4-voice: 1,522 @
+1.835 / 5,621%).
+
+⚠ Note `halts_today ≥ 1` (the OLD binary) stays DROPPED — it made the roster worse
+(1.774). Only the multi-halt fresh cell is in. ⚠ Vote-counting remains
+non-monotone (0.695 / 1.824 / 2.011 / 1.680) — the aggregation question is
+unchanged and still open.
