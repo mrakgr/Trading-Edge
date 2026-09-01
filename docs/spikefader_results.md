@@ -2862,3 +2862,89 @@ gate on the old spec. **The volatility-slope signal lives at 10m.**
 
 ⏭ Open: the roster's aggregation (vote-counting is NOT monotone — weight, or split
 0-1 vs 2+); `d20a ≥ 28%` as a future SPEC candidate; 12m exit as the next rung.
+
+---
+
+# S38 (2026-09-01) — rr JOINS THE ROSTER (S-tier); the eff > 0.75 finding INVERTS under the new spec
+
+Slice basis, new spec (k600 ≥ 90), 12m exit. Book PF−1 **1.098**.
+
+## ⚠ Provenance correction first
+
+The "`rr < 0.5` is A-tier" recollection is **MaxRiderV1's**, not SpikeFader's — S24
+records `rr < 0.2 → 5.90` on MaxRider's *1m* corpus, and flags that benchmark as
+**suspect** (diprider_v6_candidate carries the S39d lookahead pair; the system is
+stamped INVALID). SpikeFader's own rr (S20/S20d) was second-order: `rr < 0.75` =
+PF 2.607 at mc=0 but **1.698 at mc=1**. So this is a fresh measurement, not a
+verification — and it lands well anyway.
+
+## ⭐⭐ rr < 0.5 — VOICE #5, and it is INDEPENDENT
+
+`rr_15m = vol_60 / (vol_0945_tape · 60/900)`.
+
+| arm | PF−1 | n | share | net | win% |
+|---|---|---|---|---|---|
+| BOOK | 1.098 | 3,777 | 100% | 8,001% | 74.3 |
+| **rr < 0.5** | **5.584** | 116 | 3.1% | 411% | **87.1** |
+| rr < 0.75 | 1.798 | 327 | 8.7% | 757% | 78.3 |
+| rr < 1.0 | 1.493 | 603 | 16.0% | 1,290% | 77.1 |
+| rr ≥ 3 (the loud arm) | 1.360 | 1,296 | 34.3% | 3,500% | 74.8 |
+
+**The U survives** in octiles: oct1 1.614, belly oct3-5 0.435-0.889, oct7-8
+1.476/1.250. Both tails beat the middle.
+
+**Independence**: corr(rr, volat) ≈ 0, corr(rr, d20a) ≈ 0, corr(rr, dslo) ≈ 0. Of
+116 trips only 34 fire NO other voice — and that isolated cell is **PF−1 4.642**
+(vs `d20a ONLY` = 0.486). A second genuinely orthogonal family alongside dslo.
+
+**Controls:** ticker-day resample **p = 0.0020** (null p99 = 4.075); LOYO lift
+**3.88-11.90×, every year**; and NOT one-trip-driven — 15 losers of 116, worst
+−11.7%, PF−1 without the three best trips still **4.979** (the test rng_front
+failed). Same-n: `dslo ≤ −12%` reaches 5.943 @ 154, but the two barely overlap, so
+they are complements not rivals.
+
+⚠ **Discount the magnitude, not the effect.** 116 trips (3.1%); 2022 has **zero
+losers** (PF = nan) and 2026 prints 119.71. The 5.584 will regress; the controls say
+the direction is real.
+
+## 💀 eff > 0.75 — THE OLD FINDING INVERTS UNDER k600 ≥ 90
+
+S37c (old spec): `eff_10m ≥ 0.75` → PF 2.015 vs a 1.704 book (**+18%**).
+Today (new spec): **0.718 vs 1.098 (−35%)**. A clean sign flip.
+
+| eff_10m | PF−1 | n | share | win% |
+|---|---|---|---|---|
+| BOOK | **1.098** | 3,777 | 100% | 74.3 |
+| ≥ 0.5 | 0.953 | 2,660 | 70.4% | 73.6 |
+| ≥ 0.7 | 0.704 | 977 | 25.9% | 72.7 |
+| ≥ 0.75 | 0.718 | 665 | 17.6% | 71.9 |
+| ≥ 0.9 | **0.367** | 110 | 2.9% | **60.0** |
+
+**Every rung is BELOW the book, monotonically**, win rate decaying 74.3 → 60.0.
+`eff_20m` matches until ≥0.7 where it turns up (1.359) — but that is 177 trips with
+2025 at 15.78; not readable.
+
+**Mechanism:** efficiency measures how directionally CLEAN the run is, and k600 ≥ 90
+already demands many highs in the 10m leg — i.e. a persistent, clean push. Stacking
+eff over-selects for *still running smoothly*, which is exactly what a fader must
+not buy. Same subsumption family as legage / deep-K, but here it goes PAST neutral
+into actively harmful. ⭐ **Third instance of the law: a monotone floor does not
+just absorb a correlated feature, it can INVERT it.** eff is not a voice; the
+CEILING side is the direction worth testing.
+
+## THE 5-VOICE ROSTER — adding rr made the aggregation MONOTONE
+
+| votes | PF−1 | n | share | net | win% |
+|---|---|---|---|---|---|
+| 0 | 0.610 | 2,520 | 66.7% | 2,693% | 71.9 |
+| 1 | 1.326 | 498 | 13.2% | 1,378% | 79.5 |
+| 2 | 2.125 | 486 | 12.9% | 2,319% | 79.2 |
+| 3 | 2.124 | 253 | 6.7% | 1,456% | 77.1 |
+| 4 | 2.534 | 20 | 0.5% | 156% | 90.0 |
+
+Monotone through tier 3 (the 4-voice version had a 1-vote tier BELOW book at 0.858),
+and the 0-vote tier fell 0.742 → 0.610. **OR-gate (replay-inside): PF−1 1.623 @
+1,568, net 6,067%** — up from 1.378 @ 2,189 with four voices.
+
+**ROSTER:** `rr < 0.5` (5.584, independent) · `dslo ≤ −5%` (5.034, independent) ·
+`volat ≥ 100bp` (2.099) · `d20a ≥ 42%` (1.661) · `halts_today ≥ 1` (1.609).
