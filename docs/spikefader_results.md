@@ -3019,3 +3019,61 @@ signal < 15:30 ∧ ac1_ewma ≥ −0.1`, **exit = 540-bar (9m) channel low**.
 **ROSTER:** `rr < 0.5` (5.607) · `dslo ≤ −5%` (5.086) · `volat ≥ 100bp` (2.099) ·
 `d20a ≥ 42%` (1.661) · `halts_today ≥ 1` (1.592). Vote tiers: 0.653 / 1.314 / 2.125
 / 2.124 / 2.534.
+
+---
+
+# S38f-g (2026-09-01) — the WHOLE eff FAMILY is CLOSED (EWMA / 9-EMA / range / entropy)
+
+User: *"It's unlikely that we'll find an improvement, but we should be thorough."*
+Correct on both counts.
+
+## Octile scan — 15 variants, none monotone
+
+Slice basis on the simplified spec (book PF−1 **1.136**). Octile PF−1 spread and
+the correlation with rr:
+
+| feature | median | oct1 → oct8 spread | monotone? |
+|---|---|---|---|
+| eff_ewma_10m / _20m | 0.466 / 0.376 | ~1.0-1.2 | no |
+| eff_9ema_10m / _20m | 0.486 / 0.362 | ~1.0-1.3 | no |
+| eff_rng_10m / _20m / _lin_* | 0.51-0.63 | 0.96-1.30 | no |
+| n_eff_shannon_300 / n_eff_hhi_300 | — | 0.82 / 1.41 | no |
+| n_eff_ret_10m, eff_since_flow, eff9_since_flow | — | 1.00-1.38 | no |
+
+Every variant zigzags by ~1.0-1.4 PF−1 between adjacent octiles. Quartile floors
+and ceilings on the four EWMA variants all land within ±0.15 of the book — noise at
+these sizes. A mild tilt toward CEILINGS on the 10m variants echoes the SMA result
+but is not monotone either.
+
+## The one candidate, and why it FAILS — `eff_9ema_20m ≥ 0.473` (1.540 @ 877)
+
+⚠ Chosen by inspecting a **15-feature × 8-bucket** table (~120 cells), so the bar is
+correspondingly high. Four controls:
+
+| control | result | verdict |
+|---|---|---|
+| **same-n (~877)** | `volat ≥ 95bp` = **1.730**, `volat ≥ 100bp` = **2.099** vs the arm's 1.540 — and ~2× the net (4,219% vs 2,223%) | ❌ **DOMINATED by a voice we already have** |
+| **ticker-day resample** | **p = 0.0775** (null p90 = 1.496, p95 = 1.608) | ❌ not significant, before any multiple-comparison correction |
+| leave-one-year-out | lift 1.20-1.51×, no year carries it | ✅ passes |
+| leave-one-trip-out | 211 losers of 877; top-3 trips = 2.3% of gross profit | ✅ passes |
+| threshold stability | 1.329 · 1.320 · 1.431 · **1.540** · 1.470 · **1.207** · 1.808 | ❌ knee vanishes at 0.55, reappears at 0.6 (n=285) |
+
+⭐ **A useful contrast in failure modes.** `rng_front` (S37c) failed because ONE
+ticker carried it — leave-one-trip-out caught it. This one passes both leave-one-out
+tests: it is a genuine broad tilt that simply is not SPECIFIC to eff_9ema.
+Volatility explains the same trips better and carries twice the net. **LOYO and
+leave-one-trip-out can only kill anecdotes; the same-n control is what kills
+redundancy.** Both are needed.
+
+## Verdict: eff is CLOSED in every form
+
+* SMA floor (`eff_10m ≥ 0.3`) — **inert**, not binding (post-stack p05 = 0.378).
+* SMA floors above 0.5 — **below book**, monotonically (S38).
+* SMA ceiling — **rejected**: it discards `dslo` trades running PF−1 10.68 (S38e).
+* EWMA / 9-EMA / range / entropy — **flat**, no monotone variant, best cell dominated.
+
+**Structural reason (the monotone-floor law, 4th instance):** `k600 ≥ 90` already
+demands a persistent clean push, so every "how clean is the run" measure is
+downstream of a gate we have already taken. eff is also **conditionally**
+informative — low eff is good in the general book but BAD inside dslo/rr — so no
+single threshold in either direction can express it.
