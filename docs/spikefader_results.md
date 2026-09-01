@@ -3014,7 +3014,14 @@ not measuring one thing.** An interaction term at best; not a gate, not a voice.
 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30bp/min ∧
 signal < 15:30 ∧ ac1_ewma ≥ −0.1`, **exit = 540-bar (9m) channel low**.
 
-**Book: 3,671 @ PF 2.136 (PF−1 1.136), net 8,035%, win 74.7%.**
+**Book: 3,717 @ PF 2.181 (PF−1 1.181), net 7,399%, win 74.4%** — at the adopted
+**9m (540)** exit.
+
+> ⚠ CORRECTION (2026-09-01): this line originally read *3,671 @ PF 2.136 (PF−1
+> 1.136), net 8,035%*, which is the **12m (720)** row — the S38e verification
+> script that produced it used `ch=720`. The spec's headline must be quoted at the
+> exit the spec actually adopts. 9m = 3,717 @ 1.181 / 7,399%; 11m = 3,680 @ 1.162 /
+> 7,888%; 12m = 3,671 @ 1.136 / 8,035%.
 
 **ROSTER:** `rr < 0.5` (5.607) · `dslo ≤ −5%` (5.086) · `volat ≥ 100bp` (2.099) ·
 `d20a ≥ 42%` (1.661) · `halts_today ≥ 1` (1.592). Vote tiers: 0.653 / 1.314 / 2.125
@@ -3175,3 +3182,72 @@ argument also stands independent of the measured means: an unexited short is a
 position that has already demonstrated it is not reverting, held through a window
 where there is no stopping out and the loss is unbounded above.
 See [[project_overnight_reversal_2026-08-12]] and the ShortSnoozer asymmetry.
+
+## S38k-l — the 9m/11m/12m decision, and rr as a TAIL control (it isn't)
+
+**EXIT DECISION: 9m (540) confirmed.** The three candidates are close and the
+evidence splits by metric:
+
+| exit | n | PF−1 | net% | med trip% | avgL% | worst% |
+|---|---|---|---|---|---|---|
+| **9m** | 3,717 | **1.181** | 7,399 | 2.82 | −6.57 | **−83.4** |
+| 11m | 3,680 | 1.162 | 7,888 | 3.16 | −7.12 | −83.4 |
+| 12m | 3,671 | 1.136 | 8,035 | 3.29 | −7.60 | **−139.0** |
+
+*For* longer: paired per-trip, 12m beats 9m on **65.8% of the SAME trips**
+(median delta +0.513%, Wilcoxon p≈3e-187) and net is +8.6%. *For* 9m: higher PF−1,
+and the ticker-day bootstrap says **12m beats 9m in only 21.9% of 1,000 resamples**.
+Both are true because extra time helps the typical trade a little and widens the
+left tail a lot. The **roster book decides it** — 1.774 / 1.699 / 1.632 at
+9/11/12m, worst −72.4% → −123.4%: the voice-selected trades (what gets sized up)
+degrade monotonically with time. Year table gives no tiebreak (9m wins 2021/24/26,
+11m 2020/25, 12m 2022/23).
+
+⭐ **User's rule for this system:** *"If this was the long system, I'd maybe
+prioritize net, but having a smaller worst-case is crucial for this system."* The
+tail widening is a real mechanism (more time = more room to be run over); the
+paired-trip edge is a small median gain. With no stop, weight the tail.
+
+## The worst trade — VERU 2022-04-11, −83.4%
+
+Short at $6.95 (10:21), covered $12.74 (11:54): **1.83× against the short in 92
+minutes**, never printing a new 9m low. A real biotech event (Phase 3 COVID
+results, ~+250% intraday). ⚠ **It looked utterly ordinary at entry**: volat 49bp
+(just over the 40bp floor), rr 2.24, dslo 0.00%, d20a 21.9% — **NO roster voice
+fired**.
+
+**The 12 worst tell an uncomfortable story about the roster:** 4 of 12 had no voice
+firing (incl. the two worst); the rest fired mostly volat/d20a — the HEIGHT family —
+with `volat ≥ 100bp` in six of them. **The voices raise expectancy, not safety**;
+they select for pop SIZE and big pops are where squeezes live. If the roster sizes
+UP, six of the twelve worst get sized up. Tail control must be a separate rule.
+(9 of 12 had `dslo = 0.00%` — shorting the session high itself — vs 91% of the book,
+so it does not discriminate, but it is consistent with dslo's mechanism.)
+
+## 💀 rr as a TAIL gate — the enrichment is real, the control is not
+
+User's hypothesis: the big losers skew high-rr, so an rr ceiling might pay in the
+tail even where it does not show in PF. Half right.
+
+**Real enrichment:** trades < −30% have median rr **2.54** vs winners' 2.05, and
+67.9% are rr ≥ 2 vs a **51.5% base rate**. `rr < 2` cuts 8 of the 12 worst
+(VERU, CAR, NRSN, GME among them).
+
+**But the tail barely moves:**
+
+| gate | n | PF−1 | worst% | p01% | CVaR5% | <−30 | <−50 |
+|---|---|---|---|---|---|---|---|
+| none | 3,717 | 1.181 | −83.4 | −24.5 | −20.22 | 28 | 9 |
+| rr < 2 | 2,074 | 1.122 | **−83.1** | −23.9 | −19.06 | 14 | 5 |
+| rr < 1.5 | 1,535 | 1.127 | −83.1 | −23.9 | −18.66 | 11 | 4 |
+| **rr < 1.2** | 1,128 | **1.801** | **−51.2** | −18.9 | −14.94 | **3** | 2 |
+
+`rr < 2` removes 44% of the book and moves the worst trade by **0.3pp**. Sub-−30%
+count halves — but so does the book, so the RATE is unchanged. At a 51.5% base rate
+the ceiling cuts winners nearly as fast as losers. ⭐ **The only real
+discontinuity is at rr < 1.2** (worst −51.2%, CVaR5 −14.94, PF−1 1.801) — i.e. the
+quiet-tape arm already serving as voice #5 — and it costs 70% of the book and 67% of
+net. VERU (rr 2.24) survives every ceiling one would actually run.
+
+**Verdict (user): "the price paid for reducing risk by using rr is just too high."**
+Tail control belongs in SIZING, not entry.
