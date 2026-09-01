@@ -3461,4 +3461,18 @@ DOWN-WEIGHTS the best trades and UP-WEIGHTS the ones whose measured volatility
 under-states their squeeze risk. This is structural, not fitted, so it should carry
 to any MR system.
 
-⏭ **TODO: reconsider vol-scaled sizing in FlushFader on the same grounds.**
+⭐ **The sharper objection (user): the ABSOLUTE-size failure mode.** Vol-scaling does
+not just misallocate between trades — it sets absolute notional as an INVERSE
+function of measured volatility, so a 20bp name gets **5×** the position of a 100bp
+one. The largest position in the book is therefore always taken where the risk
+estimate is smallest, i.e. where a WRONG estimate costs most. Stale tape, pre-halt
+quiet and about-to-gap-on-news all read as low volatility.
+
+**FlushFader is more exposed than SpikeFader**: (1) it HOLDS OVERNIGHT (S43bq), so
+its worst case is not bounded by a 9-minute window and runs through a gap it cannot
+stop out of; (2) its low-volatility names are cheap thin microcaps, so 5× notional
+is also ~5× participation — the fill degrades exactly when the position is largest.
+Any vol-scaled rule kept anywhere needs a hard ABSOLUTE cap that binds before the
+vol term does.
+
+⏭ **TODO: vol-scaled sizing to be REMOVED from FlushFader (user), most likely.**
