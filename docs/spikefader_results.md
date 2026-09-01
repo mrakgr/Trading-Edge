@@ -3397,3 +3397,68 @@ Jun 2020 bankruptcy squeeze.)
 (1.774). Only the multi-halt fresh cell is in. ⚠ Vote-counting remains
 non-monotone (0.695 / 1.824 / 2.011 / 1.680) — the aggregation question is
 unchanged and still open.
+
+---
+
+# S40 (2026-09-01) — `gap_adj_1200` CLOSED; ⭐⭐ VOL-SCALED SIZING IS WRONG FOR MR
+
+## `gap_adj_1200` — a real relationship, not an actionable one
+
+The 20m halt-excluded sparsity twin of the spec's `gap_adj_60 < 10`.
+
+| view | result |
+|---|---|
+| deciles | 1.365 · 0.839 · 1.442 · **1.779** · 1.040 · 1.374 · 1.280 · 1.129 · 0.936 · 0.841 — non-monotone, peak at dec4 |
+| quartiles | 1.128 · **1.390** · 1.187 · 1.024 — peak in Q2, so the LOWEST-gap bucket is NOT the best |
+| Spearman(gap, ret) | **ρ = −0.107**, p ≈ 0 — real but tiny |
+| Mann-Whitney halves | p ≈ 0 (win% 74.8 vs 73.9) |
+| **ticker-day resample (lower half)** | PF−1 1.245 vs null p95 **1.417** → **p = 0.3220** ❌ |
+| best ceiling | `< 60` = 1.295 (+10% edge) for **−47% net** — poor vs k600's +51%/−25% |
+
+⚠ **And the direction reverses on the tail**: avg loss by quartile is −8.35 / −6.55 /
+−6.13 / **−5.35** — SPARSER tape has SMALLER losses. Low-gap trades have both bigger
+gross wins and bigger losses, which is why the PF−1 profile is muddy: two effects
+partly cancel. **A `gap_adj_1200` ceiling would remove the SAFEST trades**, which
+for this system is the wrong direction. `gap_adj_60 < 10` already takes the signal.
+
+## ⭐ The net gradient WAS real — and it is a VOLATILITY gradient (user's hypothesis)
+
+Net falls monotonically across quartiles (2,243 / 2,095 / 1,636 / 1,425) even though
+PF−1 does not. The user asked whether the buckets differ in volatility. They do —
+though in the OPPOSITE direction to the guess: the HIGH-gap quartiles are **less**
+volatile.
+
+| quartile | volat_20m | sd(ret) | net% |
+|---|---|---|---|
+| 1/4 (gap ≤ 11) | **91bp** | 9.76% | 2,243 |
+| 2/4 | 81bp | 7.56% | 2,095 |
+| 3/4 | 71bp | 6.78% | 1,636 |
+| 4/4 (gap ≥ 296) | **65bp** | 6.17% | 1,425 |
+
+corr(gap_adj_1200, volat_20m) = **−0.245**. Sparse tape = a quieter name. So the net
+gradient is **position size in RISK terms, not an edge gradient** — equal-weight net
+conflates expectancy with per-trade volatility. Vol-scaling flattens it (net share
+30.3/28.3/22.1/19.3% → 25.4/28.8/24.4/21.4%), which confirms the diagnosis.
+
+## ⭐⭐ …but VOL-SCALED SIZING IS A MISTAKE HERE (and probably in FlushFader too)
+
+| sizing | PF−1 | net | sd | t | **worst trade** |
+|---|---|---|---|---|---|
+| **equal weight** | **1.181** | **7,399%** | 7.69% | **15.78** | **−83.4%** |
+| 1/√volat | 1.072 | 6,292% | 6.62% | 15.59 | **−98.6%** |
+| 1/volat | 0.988 | 5,498% | 6.26% | 14.42 | **−111.5%** |
+
+It does reduce dispersion as advertised (sd 7.69 → 6.26) — but PF−1, net AND the
+t-stat all fall, and **the worst trade gets WORSE** (−83.4% → −111.5%), because
+up-sizing low-volatility names up-sizes exactly the ones that surprise. VERU
+(−83.4%) entered at **49bp**, barely over the floor.
+
+⭐⭐ **THE PRINCIPLE (user):** *"in mean reversion trading the high volatility trades
+are the best ones, so it's a mistake to try equalizing the volatility of all the
+trades by a formula."* Volatility IS the edge signal here — `volat ≥ 100bp` is a
+roster voice worth PF−1 1.902. Any rule that equalises volatility deliberately
+DOWN-WEIGHTS the best trades and UP-WEIGHTS the ones whose measured volatility
+under-states their squeeze risk. This is structural, not fitted, so it should carry
+to any MR system.
+
+⏭ **TODO: reconsider vol-scaled sizing in FlushFader on the same grounds.**
