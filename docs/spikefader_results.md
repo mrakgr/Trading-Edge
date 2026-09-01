@@ -2948,3 +2948,74 @@ and the 0-vote tier fell 0.742 → 0.610. **OR-gate (replay-inside): PF−1 1.62
 
 **ROSTER:** `rr < 0.5` (5.584, independent) · `dslo ≤ −5%` (5.034, independent) ·
 `volat ≥ 100bp` (2.099) · `d20a ≥ 42%` (1.661) · `halts_today ≥ 1` (1.609).
+
+---
+
+# S38d-e (2026-09-01) — ⭐ SPEC: the 25bp LOW-VOLAT ARM is DELETED (flat `volat_20m ≥ 40bp`)
+
+Both gates were stripped from the stack to sweep BELOW their floors (replay-inside
+view — these are SPEC gates, not voices).
+
+## ⭐ The low-volatility arm is HARMFUL — strictly dominated
+
+The old condition: `volat_20m ≥ 40bp ∨ (volat_20m ≥ 25bp ∧ be6030 ≥ 4%)`.
+
+| arm | PF−1 | n | net | win% |
+|---|---|---|---|---|
+| volat arm AS SPECCED | 1.098 | 3,777 | 8,001% | 74.3 |
+| **the ≥40bp arm ALONE** | **1.136** | 3,671 | **8,035%** | **74.7** |
+| ⚠ the 25bp arm alone | **0.290** | 198 | 108% | 67.2 |
+| no be60 condition (flat ≥25bp) | 0.951 | 3,843 | 7,333% | 72.5 |
+
+The 106 trips the low arm admits run **PF−1 0.290** — a quarter of the book's edge.
+Deleting it **improves PF AND net at once** (+3.5% edge, +34pp net, 6 of 7 years up),
+and removes a special case. The `be6030 ≥ 4%` escape hatch rescues nothing: at 3%
+the arm is NEGATIVE (−0.083), at 4% it is 0.290, at 5% it is 0.285 on 68 trips —
+no threshold earns its place. And 40bp is itself a knee (25bp 0.951 · 30bp 0.982 ·
+**40bp 1.136** · 50bp 1.188).
+
+⭐ **Cross-system confirmation (user): the low-volat arm was tried in FlushFader too
+and did not work there either.** Failing on BOTH sides means it was never a real
+effect — not merely something the new k600 floor absorbed. (Contrast eff/legage/
+deep-K, which genuinely DID work before the floor moved.)
+
+**ADOPTED — the volatility condition is now flat `volat_20m ≥ 0.004`.**
+
+## eff_10m ≥ 0.3 is INERT (not wrong — simply not binding)
+
+Every rung from *gate OFF* through 0.30 yields the **identical** book (3,777 @
+1.098): after the rest of the stack, `eff_10m`'s 5th percentile is already **0.378**.
+Raising it does nothing either (0.35 → 1.102, 0.40 → 1.093, 0.50 → 1.084 — flat).
+Some other gate (k600 + the be6030 speed condition) already implies it. Keep it as
+documentation; it filters nothing.
+
+## The eff CEILING — tested as a spec candidate, REJECTED (it eats the S-tier voices)
+
+The slice table looks tempting (`eff_10m < 0.4` → PF−1 2.032) but that is selection,
+not signal. What `eff_10m < 0.6` DESTROYS:
+
+| voice | kept | **lost slice PF−1** |
+|---|---|---|
+| rr < 0.5 | 71/116 (61%) | **5.541** |
+| dslo ≤ −5% | 139/245 (57%) | **10.680** |
+| volat ≥ 100bp | 497/804 (62%) | 1.683 |
+| d20a ≥ 42% | 435/750 (58%) | 1.369 |
+
+It discards dslo trades running **PF−1 10.68** — better than the ones it keeps — and
+inside each voice it degrades them monotonically (dslo 5.034 → 4.666 → 3.274 →
+2.134 at ceilings 0.7/0.6/0.5). As a gate it is also a poor buy: +29% edge for −51%
+net at `<0.5`, versus k600 ≥ 90's +51% for −25%. ⭐ **eff is CONDITIONALLY
+informative — low eff is good in the general book but BAD inside dslo/rr — so it is
+not measuring one thing.** An interaction term at best; not a gate, not a voice.
+
+## THE SPEC AS OF 2026-09-01
+
+`volat_20m ≥ 40bp ∧ be6030 > 2% ∧ eff_10m ≥ 0.3 (inert) ∧ k300 ≥ 40 ∧ **k600 ≥ 90**
+∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30bp/min ∧
+signal < 15:30 ∧ ac1_ewma ≥ −0.1`, **exit = 540-bar (9m) channel low**.
+
+**Book: 3,671 @ PF 2.136 (PF−1 1.136), net 8,035%, win 74.7%.**
+
+**ROSTER:** `rr < 0.5` (5.607) · `dslo ≤ −5%` (5.086) · `volat ≥ 100bp` (2.099) ·
+`d20a ≥ 42%` (1.661) · `halts_today ≥ 1` (1.592). Vote tiers: 0.653 / 1.314 / 2.125
+/ 2.124 / 2.534.
