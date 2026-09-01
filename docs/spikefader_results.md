@@ -3077,3 +3077,101 @@ demands a persistent clean push, so every "how clean is the run" measure is
 downstream of a gate we have already taken. eff is also **conditionally**
 informative — low eff is good in the general book but BAD inside dslo/rr — so no
 single threshold in either direction can express it.
+
+---
+
+# S38h-j (2026-09-01) — exit RE-SWEEP under the simplified spec; the OVERNIGHT question SETTLED
+
+## The exit optimum moved IN, not out: 9m is now a genuine interior maximum
+
+Yesterday's sweep (S37f) was this system too, but under the OLD spec (k600 ≥ 60,
+two-arm volat). Re-derived on the simplified spec:
+
+| min | chan | PF−1 | PF−1 res | net% | avg loss | moc% |
+|---|---|---|---|---|---|---|
+| 8 | 480 | 1.165 | 1.188 | 7,058 | −6.22 | 0.1 |
+| **9** | **540** | **1.181** | 1.253 | 7,399 | −6.57 | 0.3 |
+| 11 | 660 | 1.162 | 1.260 | 7,888 | −7.12 | 0.5 |
+| 12 | 720 | 1.136 | **1.278** | 8,035 | −7.60 | 0.5 |
+| 15 | 900 | 1.073 | 1.251 | 8,328 | −8.17 | 0.9 |
+| 20 | 1200 | 0.996 | 1.203 | 8,301 | −8.58 | 1.8 |
+
+**Under the old spec the curve was FLAT from 9m to 20m; now it PEAKS at 9m and
+declines.** The roster book is sharper still — 1.774 at 9m falling to 1.457 at 20m,
+with avg loss widening −9.70% → −12.56%. Tightening entry (k600 ≥ 90 + the flat
+40bp floor) selects more mature, higher-energy pops that revert FASTER, so time past
+9m buys worse fills while the left tail keeps growing. ⚠ Do NOT read across from
+MaxRider's 7m optimum — different corpus (1m bars), different exit rule, and S24
+flags that system's candidate table as contaminated.
+
+**DECISION: exit stays 540 (9m)** — now an optimum rather than a conservative pick
+on a plateau.
+
+## 🛑 HOLDING THE UNEXITED TO THE NEXT OPEN — decisively WORSE (policy CONFIRMED)
+
+`Backtest.fs` carries `toNextOpen = false` with the standing directive *"NEVER hold
+a short overnight — the gap is UNBOUNDED (the ShortSnoozer asymmetry)."* Tested
+directly (only MOC-resolved marks are affected, 0.3-1.8% of trips):
+
+| chan | close-cover PF−1 | next-open PF−1 | delta | n rolled |
+|---|---|---|---|---|
+| 540 | 1.181 | 1.091 | **−0.089** | 10 |
+| 720 | 1.136 | 0.978 | **−0.158** | 19 |
+| 1200 | 0.996 | 0.888 | −0.108 | 66 |
+
+Every channel loses, net falls everywhere. The 10 rolled trades at 9m: mean
+−19.79% → **−46.11%**, worst −54.6% → **−185.9%** — one trade supplies most of the
+damage (median delta only −6.83%). At 20m the median delta actually turns POSITIVE
+(+1.02%) and win rate rises 33% → 44%, yet the mean still falls: **you win small
+often and lose enormously rarely**, which is unsizeable when you cannot stop out.
+
+⭐ Structural reason: **a trade unexited after 9-20 minutes never printed a new
+N-bar low all session** — it is a short that went against you and stayed there
+(close-cover PF−1 ≈ −0.98, near-total losses either way). Holding it overnight
+compounds a position that has already proven it is not reverting.
+
+## The overnight LONG question (user) — real effect, wrong shape, DIFFERENT system
+
+The user asked whether the short-side loss implies a long-side edge. Differencing
+two SHORT figures is not the right quantity; the clean one is
+`(open_p1 + div_p1) / close_d − 1`, exit-independent (it varies only +2.10% to
++2.75% across channels 300→1200, so it is a property of the POPULATION):
+
+| | value |
+|---|---|
+| n | 3,706 |
+| mean | **+3.10%** |
+| median | **+0.24%** |
+| t | **9.01** |
+| positive | 51.1% |
+| mean excl. top 1% | +1.86% |
+| **mean excl. top 5%** | **−0.36%** |
+
+| yr | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|
+| mean | +6.20 | +3.12 | +1.99 | +0.98 | **+4.74** | +1.90 | −0.72 |
+| t | 6.52 | 4.78 | 2.86 | 0.77 | 4.68 | 2.75 | −0.52 |
+
+⚠ **CORRECTION**: an earlier read of this called it "a 2020-21 meme-era artifact
+decaying to nothing." That was measured off each trade's own COVER price (scattered
+through the session) and was too strong — 2024 is the second-best year and six of
+seven are positive. The real objection is the TAIL, not decay: removing the top 5%
+of moves turns the mean NEGATIVE, and the median is +0.24% on 51.1% positive. A
+lottery-ticket distribution paid by rare enormous gaps (max +234.7%, min −81.9%).
+Genuine (t = 9.01) but a different system from SpikeFader, not an exit variant —
+and unsizeable unhedged on single names.
+
+## ⭐⭐ THE ASYMMETRY, STATED ONCE (user)
+
+*"For FlushFader it's different. FlushFader trades that get carried overnight have a
+positive edge for doing so; for the short system we don't want to take the
+overnight."*
+
+**One skew, opposite signs.** These names carry a fat RIGHT tail overnight.
+FlushFader is LONG into it — S43bq measured next-open beating MOC (mean −5.98% →
+−3.55%, win rate more than doubled) and adopted it. SpikeFader is SHORT into the
+same tail, so the identical distribution produces −54.6% → −185.9%. The risk
+argument also stands independent of the measured means: an unexited short is a
+position that has already demonstrated it is not reverting, held through a window
+where there is no stopping out and the loss is unbounded above.
+See [[project_overnight_reversal_2026-08-12]] and the ShortSnoozer asymmetry.
