@@ -3251,3 +3251,100 @@ net. VERU (rr 2.24) survives every ceiling one would actually run.
 
 **Verdict (user): "the price paid for reducing risk by using rr is just too high."**
 Tail control belongs in SIZING, not entry.
+
+---
+
+# S39 (2026-09-01) — THE HALT STUDY, done properly. Voice DROPPED; the roster is FOUR.
+
+The halt voice was added on a thin basis in S37w; the user asked to study it
+without the spec's price filters in the way, and with the mc=0 view.
+
+## ⚠ First, a correction: `ReopenBlockSec` is NOT in SpikeFader
+
+An earlier note flagged "97 halted trips with `secs_since_halt` < 120 — the
+`ReopenBlockSec = 120` gate isn't holding." **Wrong.** `ReopenBlockSec` (and
+`CascadeHaltCount`) exist only in **FlushFader** and its Scanner fork; they were
+never ported to SpikeFader. Nothing is broken — the fresh-resume window here is
+simply **ungated**, which turns out to matter.
+
+## ⭐ The fresh-resume window is GOOD here — FlushFader's block would COST us
+
+| arm | PF−1 | n | net |
+|---|---|---|---|
+| SPEC BOOK | 1.181 | 3,717 | 7,399% |
+| `since_halt ∈ [0,120)` (what FF blocks) | **1.808** | 97 | 578% |
+| **with a FF-style 120s reopen block** | **1.147** | 3,620 | 6,821% |
+
+Adding the block costs −0.034 PF−1 and −578% net. ⭐ **Another confirmed
+side-flip** (extends S23): a halt-and-resume is an EXHAUSTION event — it helps a
+short and hurts a long fade. **Do not port the reopen block.**
+
+## The bare frame (spec stripped to `gap_adj_60 < 10`) — the shape IS real at mc=0
+
+mc=0 n=496,304 (PF−1 0.033); halted 17.7%. `ht ≥ 1` = **0.279** vs `ht = 0` =
+**−0.035** — the unhalted majority is a LOSING population and the halted minority
+carries the frame.
+
+**PF−1 by since-resume band × halt count (mc=0), with win% corroborating:**
+
+| band | ht=1 | ht=2 | ht=3 | ht≥4 | (win% ht≥1) |
+|---|---|---|---|---|---|
+| [0,60) | 0.392 | 0.355 | 0.219 | **1.516** | 70.2 |
+| **[60,120)** | 0.637 | **2.898** | **5.120** | **2.510** | **77.6** |
+| [120,300) | 0.862 | 0.644 | **3.864** | 1.403 | 74.3 |
+| [300,600) | 0.471 | 0.382 | 0.231 | 0.595 | 65.9 |
+| [600,1200) | 0.776 | 0.744 | 1.102 | 0.020 | 66.1 |
+| **[1200,2400)** | −0.144 | −0.032 | 1.330 | **−0.517** | **61.8** |
+| [2400,4800) | 0.037 | −0.033 | −0.313 | 0.118 | 66.8 |
+| [9600,∞) | 0.654 | 0.476 | 1.382 | 0.228 | 69.5 |
+
+Two independent statistics agree: **[60,300) is the peak and [1200,4800) — exactly
+FlushFader's GOOD band — is the trough here.** The clean side-flip, at 9-15k
+signals per cell. The shape: *short a name that has halted MULTIPLE times and
+resumed 1-5 minutes ago.*
+
+## 🛑 …and it evaporates at mc=1 inside the spec — CLUSTERING
+
+| cell | mc=0 n | inside-spec mc=1 n |
+|---|---|---|
+| `halts_600 ≥ 2` | 4,362 | **36** |
+| `ht≥2 ∧ [60,300)` | ~1,700 | **33** (1-9 per year) |
+
+`ht≥2 ∧ [60,300)` reads PF−1 2.309 on **33 trips**; ticker-day resample
+**p = 0.3055** (null p95 = 7.291 at 32 tkds), and dropping 3 trades takes it to
+1.478. ⭐ **The mc=0 sample sizes here are almost entirely illusory** — halted days
+emit many signals on few ticker-days, which is exactly the
+[[feedback_three_mc_questions]] warning. The since-resume TIMING adds nothing once
+inside the spec.
+
+## The best halt form is `ht ≥ 2` — real, but REDUNDANT
+
+| control | result |
+|---|---|
+| slice | PF−1 **2.150** @ 201 (5.4%) vs book 1.181 |
+| independence | 137/201 also volat, 138/201 also d20a; corr +0.335 / +0.365. *ONLY* cell = **1.635** (above book — so it is NOT junk, unlike `ht≥1`'s 0.333) |
+| **same-n (~200)** | `dslo ≤ −7%` **4.213**, `rr < 0.6` **3.331**, `volat ≥ 180bp` 2.643 — **every existing voice, tightened, beats it** ❌ |
+| ticker-day | **p = 0.1005** ❌ |
+| LOYO | lift 1.54-2.37×, every year ✅ |
+| leave-one-trip-out | top-3 = 7.6% of gross profit ✅ |
+
+**Roster test (OR-gate, replay-inside) — the practical answer:**
+
+| roster | n | PF−1 | net |
+|---|---|---|---|
+| **4 voices (rr, dslo, volat, d20a)** | 1,522 | **1.835** | 5,621% |
+| 4 + `halts_today ≥ 1` (the old 5th) | 1,580 | **1.774** | 5,663% |
+| 4 + `ht ≥ 2` | 1,540 | 1.828 | 5,663% |
+
+**The old halt binary made the roster WORSE.** `ht ≥ 2` is a wash (+0.7% net,
+−0.007 PF−1).
+
+## ⭐ VERDICT: halt voice DROPPED. THE ROSTER IS FOUR.
+
+`rr < 0.5` (5.607) · `dslo ≤ −5%` (5.086) · `volat ≥ 100bp` (2.099) ·
+`d20a ≥ 42%` (1.661). **Roster OR-gate: 1,522 @ PF−1 1.835, net 5,621%.**
+
+Halts are a real phenomenon — repeated halts mean a violent pop — but that is
+precisely why they are a NOISY PROXY for the height family we already have. Same
+failure mode as `eff_9ema_20m` (S38g): passes both leave-one-out tests, fails
+same-n. ⏭ **User TODO: retest `gap_adj_1200`.**
