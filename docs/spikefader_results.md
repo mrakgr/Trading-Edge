@@ -3476,3 +3476,67 @@ Any vol-scaled rule kept anywhere needs a hard ABSOLUTE cap that binds before th
 vol term does.
 
 ⏭ **TODO: vol-scaled sizing to be REMOVED from FlushFader (user), most likely.**
+
+---
+
+# S41 (2026-09-01) — `upticks_since_downtick` (dsu): CLOSED in every form
+
+Tested as a SPEC GATE (user's proposal) and then as a ROSTER VOICE, 9m exit,
+current spec. Book PF−1 **1.181**; 5-voice roster **1.842 @ 1,527**.
+
+## As a spec gate — flat, then it just costs capacity
+
+| gate | PF−1 | n | net | avgL% |
+|---|---|---|---|---|
+| none | 1.181 | 3,717 | 7,399% | −6.57 |
+| dsu ≥ 2 | 1.189 | 3,642 | 7,315% | −6.66 |
+| dsu ≥ 3 | **1.176** | 3,476 | 7,004% | −6.78 |
+| dsu ≥ 6 | 1.268 | 2,386 | 5,379% | −7.02 |
+| dsu ≥ 10 | 1.546 | 764 | 2,278% | −8.01 |
+
+Nothing until ≥6, which costs 36% of trips and 27% of net for +7% edge. ⚠ The
+earlier `≥3 → 1.397` (S37w) does NOT reproduce — that was the OLD spec (k600 ≥ 60)
+on the slice basis; under k600 ≥ 90 it is **1.176, below book**. Another feature
+absorbed by the maturity floor (cf. eff, legage, deep-K). ⚠ Note avg loss grows
+monotonically with the floor (−6.57 → −8.01) — more consecutive upticks means a
+stronger push and FATTER typical losses, the wrong direction for a
+tail-prioritised system.
+
+## As a roster voice — the deep ladder is NOISE, and ≥20 is NEGATIVE
+
+The user correctly noted a roster member acts as a GATE (replay-inside), so it was
+re-tested that way:
+
+| roster | PF−1 | n | net | bootstrap vs 5-voice |
+|---|---|---|---|---|
+| **5 voices (baseline)** | **1.842** | 1,527 | 5,642% | — |
+| + dsu ≥ 8 | 1.464 | 2,245 | 6,168% | — |
+| + dsu ≥ 16 | 1.845 | 1,553 | 5,688% | **58.0%** |
+| + dsu ≥ 17 | 1.842 | 1,544 | 5,668% | — |
+| + dsu ≥ 18 | 1.840 | 1,540 | 5,653% | **41.7%** |
+| + dsu ≥ 19 | 1.843 | 1,539 | 5,655% | — |
+| + dsu ≥ 20 | **1.838** | 1,532 | 5,631% | **35.7%** |
+| + dsu ≥ 22 | 1.845 | 1,529 | 5,651% | — |
+
+⭐ **THE DECIDING TEST (user): "It being worse at dsu ≥ 20 is what convinced me."**
+A real effect STRENGTHENS as you go deeper into it. This one oscillates within
+±0.004 of baseline across 16/17/18/19/20/22 and **reverses** — `≥20` is −10.4pp of
+P&L and loses the bootstrap at 35.7%.
+
+**Why it is flat: there is nothing there.** `dsu ≥ 18` is **120 of 80,617 signals
+(0.15%)**, `≥20` is 60. Too few to move a 1,527-trade book — what the table shows is
+a handful of SLOT SWAPS, not a population effect.
+
+⚠ **And the swaps are harmful.** At every rung the voice displaces the roster's best
+NOK 2021-01-27 trade (**+30.22%**) with a later one on the same ticker-day (+0.40%
+at ≥16, +0.77% at ≥20). High-dsu signals occur LATE in an uptick run, so wherever
+both fire the dsu voice takes the worse slot. This is the S37v displacement
+mechanism again, here doing net damage.
+
+**Composition note:** the trades it adds are all `volat` 40-95bp and `d20a` 16-41%
+— below both height thresholds — and are large/mid-cap meme-era squeezes (CCIV,
+PLTR, GME, NOK, SQ, PDD, MARA; 13 of 32 in 2020-21). "Relentless one-directional
+grind in a liquid name" is a real phenomenon but a different one from what the
+roster selects.
+
+**VERDICT: dsu is CLOSED — not a spec gate, not a voice. The roster stays at FIVE.**
