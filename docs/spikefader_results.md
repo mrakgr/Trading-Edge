@@ -3540,3 +3540,88 @@ grind in a liquid name" is a real phenomenon but a different one from what the
 roster selects.
 
 **VERDICT: dsu is CLOSED — not a spec gate, not a voice. The roster stays at FIVE.**
+
+---
+
+# S42 (2026-09-01) — ⭐⭐ ROSTER AGGREGATION SOLVED: grade the trade, size = PF−1 × baseline
+
+Vote-counting never worked (the tiers were non-monotone at every roster size). The
+diagnosis and the fix:
+
+## Why counting failed: IDENTITY dominates COUNT
+
+Within the 1-vote tier the spread is enormous — a single vote is worth 7× more from
+one voice than another:
+
+| the only voice firing | n | PF−1 | win% |
+|---|---|---|---|
+| `dslo` | 119 | **5.973** | 84.9 |
+| `rr` | 40 | **4.294** | 92.5 |
+| `volat` | 189 | 1.947 | 76.7 |
+| `d20a` | 161 | **0.869** | 79.5 |
+
+Counting them as equal units destroys that. And the voices are not independent —
+pairwise Jaccard puts `volat`↔`d20a` at **0.613** (one voice measured twice) vs
+`rr`↔`dslo` 0.249 and everything else ≈ 0.01-0.05. Three families: quiet-tape
+(rr/dslo), height (volat/d20a), halts.
+
+## STEP 1 — `d20a` is DROPPED (it was hurting)
+
+Its unique cell is **0.869, BELOW the book's 1.181**, and dropping it raises the
+roster from PF−1 1.842 → **1.950**. **Leave-one-year-out: the 4-voice roster beats
+the 5-voice one in ALL SEVEN folds.** 61% redundant with volat, and its independent
+contribution is negative.
+
+## STEP 2 — the GRADE: rank by the STRONGEST voice firing (MAX, not sum)
+
+| grade | voice | n | PF−1 | win% | worst |
+|---|---|---|---|---|---|
+| **A** | `rr < 0.5` | 119 | **4.256** | 87.4 | **−15.6%** |
+| **B** | `dslo ≤ −5%` | 170 | 3.866 | 84.1 | −52.5% |
+| **C** | `ht≥2 ∧ fresh[60,300)` | 32 | 2.196 | 75.0 | −24.4% |
+| **D** | `volat ≥ 100bp` | 736 | 1.849 | 77.2 | −72.4% |
+| **E** | none | 2,660 | 0.710 | 72.4 | −83.4% |
+
+Monotone by construction, and it sidesteps the volat/d20a double-count. ⭐ Grade A
+also has the TIGHTEST tail (−15.6%) — quiet tape is both highest-edge and safest.
+
+## STEP 3 — SIZING: `weight = (PF−1) / max(PF−1)`, so grade A = baseline
+
+**A 1.00 · B 0.91 · C 0.52 · D 0.43 · E 0.17.** Normalising to the MAX (not the
+mean) makes the rule strictly risk-REDUCING rather than leveraging:
+
+| scheme | net | avg exp | **net/exposure** | t | **worst** | maxDD |
+|---|---|---|---|---|---|---|
+| equal weight | 7,399% | 1.000 | 7,399 | 15.78 | **−83.4%** | 133% |
+| **linear PF−1/max** | 2,942% | 0.283 | **10,378** | 15.59 | **−47.7%** | **48%** |
+| sqrt(PF−1)/max | 4,455% | 0.505 | 8,828 | 16.17 | −50.0% | 67% |
+
+**HELD-OUT TEST (weights fitted on 6 years, applied to the 7th):** linear returns
+**+2.722%/trade per unit of exposure vs equal weight's +2.019% — 1.35×**, and it beat
+equal weight in **all seven** held-out years. sqrt gets only 1.17×.
+
+⚠ **The known weakness, accepted (user: "We have the data, so we might as well make
+use of it. We'll change things if it doesn't work out"):** the linear weights are
+unstable year to year — grade C runs 0.41-1.00 across folds, E 0.11-0.22 (sqrt
+damps these to 0.48-1.00 and 0.26-0.46). This matters less than it looks because C
+is 32 trades (0.9% of the book); the load-bearing weights (D, E) cover 91% of trades
+and are steadier. **Revisit if live results diverge.** sqrt(PF−1)/max is the
+documented conservative fallback at 1.17×.
+
+⚠ **Do NOT boost grade E.** In-sample the t-stat peaks at E≈0.35, but held-out that
+REVERSES (linear 1.35× → 1.07×). E belongs at its fitted ~0.17 — it is genuinely
+profitable (PF−1 0.710, 2,660 trades, 40% of book net) but earns a small weight.
+
+⚠ And this is EDGE-based sizing, not volatility-based —
+see [[feedback_no_vol_scaled_sizing_in_mr]]: inverse-vol sizing cut PF−1, net AND t
+and made the worst trade WORSE. Size on the edge estimate, never on 1/vol.
+
+## THE SYSTEM AS OF 2026-09-01
+
+**SPEC:** `volat_20m ≥ 40bp ∧ be6030 > 2% ∧ eff_10m ≥ 0.3 (inert) ∧ k300 ≥ 40 ∧
+k600 ≥ 90 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥
+30bp/min ∧ signal < 15:30 ∧ ac1_ewma ≥ −0.1`, **exit = 540-bar (9m) channel low**,
+cover at the close (never overnight).
+
+**BOOK:** 3,717 @ PF 2.181 (PF−1 1.181), net 7,399%, win 74.4%.
+**GRADED + SIZED:** net/exposure 10,378 (1.40× equal), worst trade −47.7%, maxDD 48%.
