@@ -33,7 +33,9 @@ BASE = ['symbol','trade_date','signal_sec','signal_vwap','entry_sec','entry_px',
         'highs_since_first_high','highs_since_first_high_300','highs_since_first_high_600',
         'highs_since_first_high_180','ols_slope_300','ols_slope_1200','ac1_ewma',
         'vwap_ewp_6030_be','first_high_vwap','aux_lo_540_px','aux_lo_540_sec',
-        'fwd_vwap_60','fwd_vwap_300','fwd_vwap_600','fwd_vwap_1200']
+        'fwd_vwap_60','fwd_vwap_300','fwd_vwap_600','fwd_vwap_1200',
+        'cum_dv','cum_vol'] + [f'{c}_{h}' for h in ('1h','2h','3h') for c in
+        ('avwap','avwap_chk_sec','post_chk_lo300_px','post_chk_lo300_sec','post_chk_lo300_moc')]
 
 DERIVED = """
   , vol_60 / NULLIF(vol_0945_tape / 15.0, 0)                 AS brv15_tape
@@ -57,6 +59,18 @@ def load(where=None, cols=None, dirpath=DIR):
     q = f"SELECT {', '.join(cols)} {DERIVED} FROM read_parquet('{dirpath}/*.parquet')" + (f" WHERE {where}" if where else "")
     df = duckdb.query(q).df()
     df['ret'] = df['ret_exit']                      # MOC exit; SHORT sign already applied
+    # ⭐⭐ THE AVWAP RULE (user 2026-09-03): at h after entry, if the anchored VWAP is
+    # ABOVE the entry, the MOC order is replaced with a 5m-low exit (the recorded
+    # post-check mark, MOC-resolved if no 5m low ever prints). Unchecked (day ended
+    # before h) -> the trip keeps its MOC exit. Also the 'always switch' control.
+    for h in ('1h','2h','3h'):
+        chk = ~df[f'avwap_chk_sec_{h}'].isna()
+        px  = df[f'post_chk_lo300_px_{h}'].where(~df[f'post_chk_lo300_px_{h}'].isna(), df['exit_px'])
+        sw  = -(px / df['entry_px'] - 1.0)
+        above = chk & (df[f'avwap_{h}'] > df['entry_px'])
+        df[f'rule_{h}']   = np.where(above, sw, df['ret'])      # the rule
+        df[f'always_{h}'] = np.where(chk, sw, df['ret'])        # control: switch regardless of AVWAP
+        df[f'switched_{h}'] = above
     df['year'] = pd.to_datetime(df['trade_date']).dt.year
     df['entry_min'] = df['entry_sec'] // 60
     return df
@@ -111,10 +125,10 @@ def year_table(df, mask=None, name='all'):
 
 def same_n(df, cand_mask, incumbents, label):
     """Control: tighten each incumbent to the candidate's n (mc=0 slice view)."""
-    n = int(cand_mask.sum()); rows = [dict(gate=label, n=n, **stats(df[cand_mask]['ret']))]
+    n = int(cand_mask.sum()); rows = [dict(gate=label, **stats(df[cand_mask]['ret']))]
     for inc, hi in incumbents:
         di = df[~df[inc].isna()].sort_values(inc, ascending=not hi).head(n)
-        rows.append(dict(gate=f'tighten {inc} ({"top" if hi else "bottom"})', n=len(di), **stats(di['ret'])))
+        rows.append(dict(gate=f'tighten {inc} ({"top" if hi else "bottom"})', **stats(di['ret'])))
     rng = np.random.default_rng(0)
     rs = [pfm1(df.iloc[rng.choice(len(df), n, replace=False)]['ret']) for _ in range(30)]
     rows.append(dict(gate='RANDOM same-n mean(30)', n=n, **{'PF-1': round(float(np.mean(rs)), 3)}))

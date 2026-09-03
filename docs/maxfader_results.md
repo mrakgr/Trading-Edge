@@ -109,3 +109,123 @@ new structure). New record-only marks: `avwap_{1h,2h,3h}` at entry+{3600,7200,10
 and, when that AVWAP > entry, the FIRST 300-bar-low breach after the check (px + sec).
 The existing per-minute lo marks fire from entry, not from the check time, so this is a
 small genuine addition; the horizon study is then post-hoc SQL on one run.
+
+## §S1 — the 2023+ base run: MaxFlyerV2's gates fail causally; the AVWAP rule works (2026-09-03/04)
+
+Corpus `data/maxfader_wl_2023p` (`--base-run`, 2023-01-03..2026-08-21, 257,701 whitelisted
+ticker-days, 2.9 h): **953,166 trips / 35,726 tkd**. 2020–2022 runs tomorrow (sibling dir,
+same glob). Everything below is mc=0 attribution unless marked mc=1. Tables:
+`data/maxfader_study1.log` (`scripts/analysis/maxfader_study1.py`).
+
+### S1a — the bare session-high short is barely a system, and its tail is 4× its net
+
+| view | n | PF−1 | net% | win% | worst% | p1% | p5% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| mc=0 | 953,166 | 0.133 | 537,258 | 55.9 | −887.1 | −56.1 | −18.2 | 4.41 |
+| mc=1 | 35,726 | 0.048 | 5,243 | 53.3 | −887.1 | −35.2 | −12.3 | 2.33 |
+
+Trips below −20%: 42,029 (4.41%) netting **−2,073,066%** against a corpus net of +537,258%
+— the squeeze tail is four times the book. By year (mc=0 PF−1): 2023 0.365, 2024 0.058,
+2025 0.154, 2026 0.050. **28 of the 30 worst trips are ONE ticker-day** (DRUG 2024-10-15,
+`halts_today = 1`, brv20d_prior 500–870, entered +56%..+118% on the day; −887% = the
+price went 9.9×). The tail is halted, extended, high-volume names — exactly the ones
+every MaxFlyerV2 lever selects FOR.
+
+### S1b — ⭐⭐ MaxFlyerV2's volume gates do NOT reproduce causally, and they buy mean by buying the tail
+
+**`brv15_tape`** (the causal `bar_rvol_15m`), monotone floors:
+
+| floor | n | PF−1 | win% | worst% | p5% | <−20% |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 953,166 | 0.133 | 55.9 | −887 | −18.2 | 4.41 |
+| 4 | 78,189 | 0.258 | 61.7 | −887 | −37.3 | 10.28 |
+| 8 | 19,112 | 0.227 | 63.0 | −866 | −45.8 | 12.62 |
+| 12 | 7,309 | 0.445 | 67.9 | −266 | −49.4 | 11.53 |
+| 20 | 1,960 | 0.397 | 72.0 | −192 | −64.0 | 9.44 |
+| 40 | 238 | 13.88 | 86.1 | **−9.7** | −7.5 | **0.00** |
+
+The smoke's "tail vanishes at ≥8" was an anecdote: on the corpus the tail share TRIPLES
+from 4.4% to 12.6% up the ladder, and only the ≥40 rung (n = 238) is clean. By year
+brv15≥12 is 1.71 / 0.89 / 1.02 / **−0.21** (2026, 18% tail); brv15≥8 is −0.10 in 2024.
+
+**`brv20d_prior`** (the causal `brv20d`): ≥100 gives PF−1 0.325 unguarded, **0.128
+split-guarded** (`n == 1`, n = 43,760), tail 15%, 2026 −0.096. **MaxFlyerV2's "S bucket"
+(brv20d ≥ 100 = PF 6.65 / 88.7% win) was a lookahead + split-straddle artifact.** 35% of
+trips carry `n ≠ 1`; the unguarded ladder is inflated by near-zero denominators.
+
+**`volhigh60`** (the STRICT volume-high gate): 0.279 vs 0.117 without, all four years
+positive (0.12–0.52) — but it loses the same-n control decisively (below).
+
+**⭐ SAME-N: every volume gate loses to `k600`, and `k600` is the only incumbent that does
+not fatten the tail** (PF−1 / <−20% at the candidate's n):
+
+| candidate | its PF−1 / tail | tighten k600 | tighten dlv | tighten volat_20m | tighten chg_1d | random |
+|---|---|---|---|---|---|---|
+| brv15 ≥ 8 (19,112) | 0.227 / 12.6% | **1.193 / 4.1%** | 0.902 / 16.3% | 1.009 / 14.0% | 0.805 / 18.4% | 0.131 |
+| brv15 ≥ 12 (7,309) | 0.445 / 11.5% | **1.791 / 3.6%** | 1.827 / 13.2% | 1.477 / 14.1% | 2.378 / 12.3% | 0.124 |
+| volhigh60 (63,925) | 0.279 / 7.8% | **0.738 / 3.9%** | 0.571 / 15.3% | 0.843 / 12.9% | 0.303 / 18.2% | 0.130 |
+
+`k600` deciles: PF−1 −0.011 → 0.005 → 0.032 → 0.124 → 0.276 → **0.629** with the tail FLAT
+(5.4 → 4.0%). Every other lever — volume magnitude, extension (`chg_1d ≥ 1.5`: 0.372 at
+19% tail), volatility (top decile 0.599 at 13.7%), distance above the low (0.487 at
+14.4%) — raises the mean by raising squeeze exposure. **The breakout count raises the
+mean without it.** "Raw highs and lows are formidable" transfers to the hold-to-close
+short intact, and MaxFlyerV2's whole volume vocabulary ranks below it.
+
+Entry time INVERTS the 1m finding ("robust all day"): 09:45–10:30 PF−1 0.17–0.19 at a 2.7–3.9%
+tail; 10:30–11:00 negative; the tail grows monotonically to 9% by 12:00–13:00.
+
+### S1c — ⭐⭐ THE AVWAP RULE (user's design): 2h is the horizon; the rule is a tail trade
+
+`rule_h`: at entry+h, if the anchored VWAP > entry, exit at the first 5m low after the
+check (MOC if none prints; 99.5% print one) — else MOC. `always_h`: switch regardless.
+
+**All trips, mc=0 (n = 953,166):**
+
+| exit | PF−1 | net% | win% | worst% | p1% | p5% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| MOC (hold to close) | 0.133 | 537,258 | 55.9 | −887 | −56.1 | −18.2 | 4.41 |
+| RULE 1h (49% switched) | 0.161 | 513,004 | 50.3 | −448 | −42.2 | −14.5 | 3.22 |
+| always 1h | 0.171 | 439,395 | 56.4 | −266 | −37.2 | −12.2 | 2.58 |
+| **RULE 2h (47% switched)** | **0.178** | **610,097** | 52.0 | **−456** | −45.6 | −15.5 | **3.58** |
+| always 2h | 0.181 | 552,925 | 56.2 | −331 | −42.8 | −14.2 | 3.22 |
+| RULE 3h (45% switched) | 0.137 | 509,910 | 53.1 | −558 | −51.3 | −16.5 | 3.91 |
+| always 3h | 0.118 | 412,721 | 55.9 | −558 | −50.1 | −15.8 | 3.72 |
+
+**mc=1 (n = 35,726):** MOC 0.048 / net 5,243 / tail 2.33 / worst −887 → **RULE 2h 0.079 /
+7,435 / 1.76 / −331** (+65% PF−1, +42% net).
+
+Readings:
+1. **2h is the horizon.** It is the only setting that improves PF−1 (+34%), net (+14%),
+   tail share (−19%) and worst (−887 → −456) TOGETHER. 1h is too early — the AVWAP has
+   not discriminated yet (rule 0.161 vs always 0.171: the condition adds nothing), and
+   always-switching at 1h buys the best tail by exiting winners (net −18%). 3h is too late
+   — net falls back to MOC — though by then the AVWAP does discriminate (0.137 vs 0.118).
+2. **The rule is a tail trade, not a mean trade.** On the switched trips at 1h (470,576),
+   MOC gives PF−1 −0.632 / win 36% — the AVWAP correctly flags the losers — and the rule's
+   exit on them nets −2,096,887% vs MOC's −2,072,634% (−1.2%) while cutting the worst from
+   −887% to −266% and the tail from 7.5% to 5.1%. It pays ~1% of the switched net to cap
+   the disaster. That is the whole point.
+3. **By year** (mc=0, rule 2h vs MOC): 2023 0.305 vs 0.365 (loses, the best MOC year), 2024
+   0.076 vs 0.058, 2025 0.232 vs 0.154, 2026 0.139 vs 0.050. The tail improves every year.
+4. **Inside the k600 book (top 2 deciles, n = 241,658):** MOC 0.406 / 394,150 / 4.21% →
+   RULE 2h **0.482 / 399,579 / 3.38%** — PF and net both up. brv15≥12: 0.445 → RULE 3h 0.825
+   (net 27k → 38k). `chg_1d ≥ 0.5`: the rule barely moves its 14% tail — the
+   extension-tail is NOT fixed by an AVWAP check; `volhigh60`: rule ≈ MOC.
+
+### S1d — verdicts and tomorrow
+
+* **MaxFlyerV2's levers: CLOSED as gates.** brv15/brv20d/volhigh60/chg_1d all lose same-n
+  to `k600`, all fatten the tail, brv20d≥100 was an artifact. Kept as recorded columns.
+* **`k600` (breakout count) = the candidate master voice**, as in SpikeFader. ⏭ needs its
+  own year table, mc=1 replay, and the AVWAP rule measured INSIDE a k600-gated mc=1 book.
+* **The AVWAP rule at 2h: ADOPTED as the working exit** — it replaces stop-outs and
+  re-entries with one check and one channel, and improves PF, net and tail at once.
+* ⏭ **Halts:** the 28 worst trips share `halts_today = 1`. A halt gate (or the S40x
+  detector's `secs_since_halt`) is the obvious tail lever to test next — with the
+  disproportion test, since halted names are a small fraction of the book.
+* ⏭ 2020–2022 (`maxfader_run_wl.sh 2020-01-02 2022-12-31 2020_22`), then the merged
+  year table with 2026 first.
+* Caveats: 2023+ only; mc=0 attribution throughout unless marked; brv15≥40 is n = 238;
+  the bare book is weak (mc=1 0.048) so the rule's value must be re-read inside a gated
+  book; DRUG 2024-10-15 dominates the worst-30 list.
