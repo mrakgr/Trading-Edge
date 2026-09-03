@@ -189,6 +189,55 @@ type FlushPosition =
       HighsSinceFirstHigh60: int
       HighsSinceFirstHigh120: int
       HighsSinceFirstHigh180: int
+      // ----- ⭐ S44 (user 2026-09-03): THE SMA BREAKOUT BLOCK (record-only) ---
+      // A 30-bar SMA, the {3,5,10,20}m Min reset channels and the 20m breakout
+      // counters run ON it, plus MAGNITUDE and RATE since each channel's last
+      // reset -- on the SMA channels AND on the raw ones. The counts are a
+      // head-to-head against the raw ladder the engine already carries; the
+      // magnitude/rate pair is the genuinely new measurement (distance
+      // travelled since the reset, and that distance per minute).
+      SmaPx: float                 // the 30-bar SMA at the signal bar (nan pre-warm)
+      SmaDist: float               // log(signal_vwap / sma) -- how far price sits above its own SMA
+      // reset-channel state ON THE SMA
+      SmaBrLo180Bars: int          // bars since the SMA's 3m low was breached (-1 = never)
+      SmaBrLo300Bars: int
+      SmaBrLo600Bars: int
+      SmaBrLo1200Bars: int
+      SmaBrLo180Secs: int          // the SAME staleness in wall-clock seconds
+      SmaBrLo300Secs: int
+      SmaBrLo600Secs: int
+      SmaBrLo1200Secs: int
+      SmaBrLo180Mag: float         // log(sma_now / breached_low) -- travel since reset
+      SmaBrLo300Mag: float
+      SmaBrLo600Mag: float
+      SmaBrLo1200Mag: float
+      SmaBrLo180Rate: float        // the same magnitude PER MINUTE elapsed
+      SmaBrLo300Rate: float
+      SmaBrLo600Rate: float
+      SmaBrLo1200Rate: float
+      // the 20m breakout side on the SMA + its leg ladder
+      SmaBrHi1200Bars: int         // bars since the SMA broke its 20m high
+      SmaBrHi1200Mag: float
+      SmaBrHi1200Rate: float
+      SmaHighs300: int             // SMA-breakout depth, leg reset by the SMA 5m low
+      SmaHighs600: int             // ... by the SMA 10m low
+      SmaHighs1200: int            // ... by the SMA 20m low
+      SmaBars1200: int             // the SMA leg's age in bars
+      // ----- the RAW-channel reset stamps (same channels as brLo*, stamped) --
+      // `RawBrLo*Bars` is a by-construction duplicate of the production
+      // BreachLo* columns -- kept as the substitution test for this block.
+      RawBrLo180Bars: int
+      RawBrLo300Bars: int
+      RawBrLo600Bars: int
+      RawBrLo1200Bars: int
+      RawBrLo180Mag: float         // log(signal_vwap / breached_low)
+      RawBrLo300Mag: float
+      RawBrLo600Mag: float
+      RawBrLo1200Mag: float
+      RawBrLo180Rate: float
+      RawBrLo300Rate: float
+      RawBrLo600Rate: float
+      RawBrLo1200Rate: float
       // ----- ⭐ S43bk (user, 2026-08-11): 1s TICK DIRECTION. A "tick" is the
       // sign of this present bar's vwap vs the PREVIOUS present bar's — the 1s
       // slim dataset has no close, so bar-vwap-to-bar-vwap IS the tick. Three
@@ -912,6 +961,79 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let counters60 = LegCounters()
     let counters120 = LegCounters()
     let counters180 = LegCounters()
+
+    // =========================================================================
+    // ⭐ S44 (user 2026-09-03): THE SMA BREAKOUT BLOCK — the same reset-channel
+    // machinery the engine already runs on raw vwap, re-run on a 30-BAR SMA,
+    // plus the RESET MAGNITUDE + RATE that neither copy currently records.
+    //
+    // Why smooth: on a constant-drift series every bar is a new high, but noise
+    // shatters that into short runs. Smoothing does not make the DETECTOR more
+    // accurate -- the synthetic bake-off (2026-09-03, N=4000) put raw / sma30 /
+    // ema_hl30 at d' 2.245 / 2.267 / 2.365 (AUC 0.943 / 0.942 / 0.945) on a
+    // 60-bar breakout window, i.e. a dead heat -- what it changes is the
+    // OPERATING POINT: the null breakout fraction moves 0.078 -> 0.26 -> 0.32.
+    // The counter comes off the floor, so a THRESHOLD on it has real dynamic
+    // range instead of separating 0 from 1. That is the whole claim; it is not
+    // "the EMA is a better trend detector".
+    //
+    // ⚠ The features to actually watch here are NOT the counts (the engine has
+    // four ladders of those already, and S43c showed the monotone floors have
+    // eaten their variance) but MAGNITUDE and RATE since reset -- distance the
+    // tape has travelled since the channel last broke, and that distance over
+    // elapsed seconds. No existing column expresses either.
+    // =========================================================================
+    let smaPx = AvgMa 30
+    /// The SMA as of the CURRENT bar (nan until the first push). Read after the
+    /// per-bar push; the strictly-prior value is snapshotted separately.
+    let mutable smaCur = nan
+    // Min reset channels ON THE SMA, mirroring the raw {3,5,10,20}m ladder.
+    let sMin180 = MinMa 180
+    let sMin300s = MinMa 300
+    let sMin600s = MinMa 600
+    let sMin1200s = MinMa 1200
+    // The 20m breakout side on the SMA -- the event the leg counters count.
+    let sMax1200s = MaxMa 1200
+    // Strictly-prior snapshots of every SMA channel (same discipline as the raw
+    // side: captured BEFORE this bar folds in, so a breach test is causal).
+    let mutable pSmaMin180 : float voption = ValueNone
+    let mutable pSmaMin300 : float voption = ValueNone
+    let mutable pSmaMin600 : float voption = ValueNone
+    let mutable pSmaMin1200 : float voption = ValueNone
+    let mutable pSmaMax1200 : float voption = ValueNone
+    // Breach counters on the SMA channels -- STAMPED (price + ET second), so
+    // magnitude and rate since the reset are readable.
+    let smaBrLo180 = BreachCounter()
+    let smaBrLo300 = BreachCounter()
+    let smaBrLo600 = BreachCounter()
+    let smaBrLo1200 = BreachCounter()
+    let smaBrHi1200 = BreachCounter()
+    // ⭐ The RAW-side reset stamps (user: "we'll add the reset magnitude
+    // features for the raw bar reset channels as well"). These are SEPARATE
+    // counters from brLo180/300/600/1200 rather than a mutation of them: the
+    // originals feed live gates and the aux-mark logic, and adding a stamp to
+    // a counter whose OnBreach is called from ~40 sites is a change with more
+    // blast radius than a parallel copy. Same channels, same events, stamped.
+    let rawBrLo180 = BreachCounter()
+    let rawBrLo300 = BreachCounter()
+    let rawBrLo600 = BreachCounter()
+    let rawBrLo1200 = BreachCounter()
+    // Leg counters on the SMA: armed by an SMA 20m-high breakout, reset by the
+    // SMA {5m,10m,20m}-low breaches -- the exact pairing the raw counters use.
+    let smaCounters300 = LegCounters()
+    let smaCounters600 = LegCounters()
+    let smaCounters1200 = LegCounters()
+    /// log(px / stampPx) since a stamped breach; nan when never breached.
+    let resetMag (br: BreachCounter) (px: float) =
+        let b = br.BreachPx
+        if Double.IsNaN b || b <= 0.0 || px <= 0.0 then nan else log (px / b)
+    /// Reset magnitude per MINUTE of elapsed wall-clock. nan when never
+    /// breached or when the breach is on this very bar (0 elapsed seconds) --
+    /// a rate over zero time is not a number, not an infinity.
+    let resetRate (br: BreachCounter) (px: float) (etSec: int) =
+        let m = resetMag br px
+        let dt = br.SecsSinceBreach etSec
+        if Double.IsNaN m || dt <= 0 then nan else m / (float dt / 60.0)
     // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols300 = OlsSlopeMa 300                  // ⭐ S39p (user): the 5m slope — the missing
@@ -1564,6 +1686,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sExitMin <- exitMin.State
         sSessHigh <- sessHigh.State
         sSessLow <- sessLow.State
+        // S44: strictly-prior SMA channels -- captured here, with every other
+        // prior snapshot, BEFORE this bar folds into the SMA or its channels.
+        pSmaMin180 <- sMin180.State
+        pSmaMin300 <- sMin300s.State
+        pSmaMin600 <- sMin600s.State
+        pSmaMin1200 <- sMin1200s.State
+        pSmaMax1200 <- sMax1200s.State
         // strictly-prior {10..60}m means for the MA-exit marks (partial-tolerant:
         // an early-session window degrades to the session-so-far mean)
         let inline sumMean (s: SumMa) = match s.State with ValueSome v when s.Count > 0 -> v / float s.Count | _ -> nan
@@ -1909,6 +2038,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         min300.Push bar.vwap
         min600.Push bar.vwap
         min1200.Push bar.vwap
+        // S44: the 30-bar SMA advances FIRST, then its own channels see the new
+        // smoothed value -- so an SMA channel is a channel OF the SMA, never a
+        // mix of one bar's SMA against another's.
+        smaPx.Push bar.vwap
+        smaCur <- match smaPx.State with ValueSome v -> v | ValueNone -> nan
+        if not (Double.IsNaN smaCur) then
+            sMin180.Push smaCur
+            sMin300s.Push smaCur
+            sMin600s.Push smaCur
+            sMin1200s.Push smaCur
+            sMax1200s.Push smaCur
         sessHigh.Push bar.vwap
         sessLow.Push bar.vwap
         ols60.Push (log bar.vwap)
@@ -2116,6 +2256,55 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if breachedLo sMinX1080 then brLo1080.OnBreach()
         brLo1140.Step()
         if breachedLo sMinX1140 then brLo1140.OnBreach()
+        // ===== S44: the SMA + stamped-raw reset channels =====
+        // Same Step-then-mark discipline as above. The STAMP records the price
+        // of the extreme that was broken and this bar's ET second, so the
+        // reader can form magnitude-since-reset and its rate. Raw stamps use
+        // the SAME snapshots the production counters use, so `raw_*_bars` is a
+        // by-construction duplicate of the corresponding brLo* column -- that
+        // equality is the substitution test for this whole block.
+        rawBrLo180.Step(); rawBrLo300.Step(); rawBrLo600.Step(); rawBrLo1200.Step()
+        match sMinX180 with
+        | ValueSome lo when bar.vwap < lo -> rawBrLo180.OnBreachAt(lo, bar.etSec)
+        | _ -> ()
+        match sMin300 with
+        | ValueSome lo when bar.vwap < lo -> rawBrLo300.OnBreachAt(lo, bar.etSec)
+        | _ -> ()
+        match sMin600 with
+        | ValueSome lo when bar.vwap < lo -> rawBrLo600.OnBreachAt(lo, bar.etSec)
+        | _ -> ()
+        match sMin1200 with
+        | ValueSome lo when bar.vwap < lo -> rawBrLo1200.OnBreachAt(lo, bar.etSec)
+        | _ -> ()
+        smaBrLo180.Step(); smaBrLo300.Step(); smaBrLo600.Step(); smaBrLo1200.Step(); smaBrHi1200.Step()
+        // ⚠ Every SMA breach test is guarded on a warm SMA: before the first
+        // push `smaCur` is nan and every comparison is false, which is the
+        // fail-closed reading (no event) rather than a spurious breach.
+        if not (Double.IsNaN smaCur) then
+            match pSmaMin180 with
+            | ValueSome lo when smaCur < lo -> smaBrLo180.OnBreachAt(lo, bar.etSec)
+            | _ -> ()
+            match pSmaMin300 with
+            | ValueSome lo when smaCur < lo -> smaBrLo300.OnBreachAt(lo, bar.etSec)
+            | _ -> ()
+            match pSmaMin600 with
+            | ValueSome lo when smaCur < lo -> smaBrLo600.OnBreachAt(lo, bar.etSec)
+            | _ -> ()
+            match pSmaMin1200 with
+            | ValueSome lo when smaCur < lo -> smaBrLo1200.OnBreachAt(lo, bar.etSec)
+            | _ -> ()
+            match pSmaMax1200 with
+            | ValueSome hi when smaCur > hi -> smaBrHi1200.OnBreachAt(hi, bar.etSec)
+            | _ -> ()
+        // The SMA leg machine: armed by the SMA 20m-high breakout, reset by the
+        // SMA low breaches. Step FIRST (age = bars ELAPSED); the RESETS fire in
+        // step 7 with the raw ones, so an entry on this bar reads pre-reset
+        // counters -- the convention the raw ladder already uses.
+        smaCounters300.Step(); smaCounters600.Step(); smaCounters1200.Step()
+        if smaBrHi1200.BarsSinceBreach = 0 then
+            smaCounters300.OnEvent bar.etSec
+            smaCounters600.OnEvent bar.etSec
+            smaCounters1200.OnEvent bar.etSec
         // ⭐ the leg machine. Step FIRST so BarsSinceFirstHigh counts bars
         // ELAPSED since the leg's first low. STRICT inequalities on both
         // events (V6 F21: `<=` re-fired on round-number pinning ties — two
@@ -2588,6 +2777,48 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       HighsSinceFirstHigh60 = counters60.EventsSinceFirst
                       HighsSinceFirstHigh120 = counters120.EventsSinceFirst
                       HighsSinceFirstHigh180 = counters180.EventsSinceFirst
+                      // ----- S44: the SMA breakout block -----
+                      SmaPx = smaCur
+                      SmaDist = (if Double.IsNaN smaCur || smaCur <= 0.0 then nan
+                                 else log (bar.vwap / smaCur))
+                      SmaBrLo180Bars = smaBrLo180.BarsSinceBreach
+                      SmaBrLo300Bars = smaBrLo300.BarsSinceBreach
+                      SmaBrLo600Bars = smaBrLo600.BarsSinceBreach
+                      SmaBrLo1200Bars = smaBrLo1200.BarsSinceBreach
+                      SmaBrLo180Secs = smaBrLo180.SecsSinceBreach bar.etSec
+                      SmaBrLo300Secs = smaBrLo300.SecsSinceBreach bar.etSec
+                      SmaBrLo600Secs = smaBrLo600.SecsSinceBreach bar.etSec
+                      SmaBrLo1200Secs = smaBrLo1200.SecsSinceBreach bar.etSec
+                      // magnitude/rate on the SMA channels are measured on the
+                      // SMA itself -- the series the channel is a channel of.
+                      SmaBrLo180Mag = resetMag smaBrLo180 smaCur
+                      SmaBrLo300Mag = resetMag smaBrLo300 smaCur
+                      SmaBrLo600Mag = resetMag smaBrLo600 smaCur
+                      SmaBrLo1200Mag = resetMag smaBrLo1200 smaCur
+                      SmaBrLo180Rate = resetRate smaBrLo180 smaCur bar.etSec
+                      SmaBrLo300Rate = resetRate smaBrLo300 smaCur bar.etSec
+                      SmaBrLo600Rate = resetRate smaBrLo600 smaCur bar.etSec
+                      SmaBrLo1200Rate = resetRate smaBrLo1200 smaCur bar.etSec
+                      SmaBrHi1200Bars = smaBrHi1200.BarsSinceBreach
+                      SmaBrHi1200Mag = resetMag smaBrHi1200 smaCur
+                      SmaBrHi1200Rate = resetRate smaBrHi1200 smaCur bar.etSec
+                      SmaHighs300 = smaCounters300.EventsSinceFirst
+                      SmaHighs600 = smaCounters600.EventsSinceFirst
+                      SmaHighs1200 = smaCounters1200.EventsSinceFirst
+                      SmaBars1200 = smaCounters1200.BarsSinceFirst
+                      // raw-channel stamps: measured on the RAW bar vwap.
+                      RawBrLo180Bars = rawBrLo180.BarsSinceBreach
+                      RawBrLo300Bars = rawBrLo300.BarsSinceBreach
+                      RawBrLo600Bars = rawBrLo600.BarsSinceBreach
+                      RawBrLo1200Bars = rawBrLo1200.BarsSinceBreach
+                      RawBrLo180Mag = resetMag rawBrLo180 bar.vwap
+                      RawBrLo300Mag = resetMag rawBrLo300 bar.vwap
+                      RawBrLo600Mag = resetMag rawBrLo600 bar.vwap
+                      RawBrLo1200Mag = resetMag rawBrLo1200 bar.vwap
+                      RawBrLo180Rate = resetRate rawBrLo180 bar.vwap bar.etSec
+                      RawBrLo300Rate = resetRate rawBrLo300 bar.vwap bar.etSec
+                      RawBrLo600Rate = resetRate rawBrLo600 bar.vwap bar.etSec
+                      RawBrLo1200Rate = resetRate rawBrLo1200 bar.vwap bar.etSec
                       BarsSinceFirstHigh600 = counters600.BarsSinceFirst
                       HighsSinceFirstHigh600 = counters600.EventsSinceFirst
                       TradeIdx = tradeIdx
@@ -3014,6 +3245,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if brLo60.BarsSinceBreach = 0 then counters60.Reset()
         if brLo120.BarsSinceBreach = 0 then counters120.Reset()
         if brLo180.BarsSinceBreach = 0 then counters180.Reset()
+        // S44: the SMA leg ladder resets on its own channel breaches -- the
+        // 20m counter on the 20m low, and the tighter two on the 5m/10m lows,
+        // mirroring the raw ladder's pairing exactly.
+        if smaBrLo300.BarsSinceBreach = 0 then smaCounters300.Reset()
+        if smaBrLo600.BarsSinceBreach = 0 then smaCounters600.Reset()
+        if smaBrLo1200.BarsSinceBreach = 0 then smaCounters1200.Reset()
         // the aux-mark lookback: remember this bar as "the previous bar"
         // (+ S40x pre-hole snapshots: this bar's adjusted 1m gap and post-push
         // 5m range become the classifier inputs if the NEXT bar reveals a hole)

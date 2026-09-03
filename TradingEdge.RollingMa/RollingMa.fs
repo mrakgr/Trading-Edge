@@ -1967,13 +1967,41 @@ type GapCounter(windowSecs: int, sessionStartSec: int) =
 /// channel's extreme has not been breached this session; 0 = the CURRENT bar
 /// breached it; N = N present bars ago. Step FIRST each bar, then OnBreach if
 /// the bar broke the channel extreme, so the breach bar itself reads 0.
+///
+/// ⭐ 2026-09-03 (user): the counter also STAMPS the breach — the price the
+/// channel extreme sat at when it was broken, and that bar's ET second. A
+/// bars-since count says HOW STALE the reset is but nothing about HOW FAR the
+/// tape has travelled since; with the stamp the reader gets both the MAGNITUDE
+/// since the reset (`log(px / BreachPx)`) and its RATE (magnitude / elapsed),
+/// which is the distance-over-time the raw counters cannot express.
+/// `OnBreach()` with no stamp is still valid — the legacy call sites keep the
+/// count-only behaviour and read `BreachPx = nan`.
 [<Sealed>]
 type BreachCounter() =
     let mutable bars = -1
+    let mutable px = nan
+    let mutable sec = -1
     member _.BarsSinceBreach = bars
+    /// Price of the channel extreme that was breached, as of the LAST breach.
+    /// nan = never breached this session (or breached without a stamp).
+    member _.BreachPx = px
+    /// ET second of the last breach. -1 = never breached this session.
+    member _.BreachSec = sec
+    /// Seconds elapsed since the last breach, given the current bar's ET
+    /// second. -1 = never breached (mirrors BarsSinceBreach's convention).
+    member _.SecsSinceBreach (etSec: int) = if sec < 0 then -1 else etSec - sec
     member _.Step () = if bars >= 0 then bars <- bars + 1
     member _.OnBreach () = bars <- 0
-    member _.Reset () = bars <- -1
+    /// Mark a breach AND stamp it with the breached extreme's price and the
+    /// breaching bar's ET second.
+    member _.OnBreachAt (breachedPx: float, etSec: int) =
+        bars <- 0
+        px <- breachedPx
+        sec <- etSec
+    member _.Reset () =
+        bars <- -1
+        px <- nan
+        sec <- -1
 
 /// ⭐ The leg reset machine (DipRiderV6 lineage; factored 2026-08-29 from the
 /// twin NewLowCounters/NewHighCounters copies in FlushFader/SpikeFader —

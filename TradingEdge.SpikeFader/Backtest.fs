@@ -294,6 +294,29 @@ CREATE TABLE trips (
     bars_since_first_high_600 INTEGER, highs_since_first_high_600 INTEGER,
     highs_since_first_high_30 INTEGER, highs_since_first_high_60 INTEGER,
     highs_since_first_high_120 INTEGER, highs_since_first_high_180 INTEGER,
+    -- ⭐ S44 (2026-09-03): the SMA breakout block. 30-bar SMA, the {3,5,10,20}m
+    -- Min reset channels + 20m breakout counters run ON it, and MAGNITUDE /
+    -- RATE since each channel's last reset -- on the SMA channels and on the
+    -- raw ones. `raw_brlo_*_bars` duplicates `breach_lo_*` by construction:
+    -- that equality is this block's substitution test.
+    sma_px DOUBLE, sma_dist DOUBLE,
+    sma_brlo_180_bars INTEGER, sma_brlo_300_bars INTEGER,
+    sma_brlo_600_bars INTEGER, sma_brlo_1200_bars INTEGER,
+    sma_brlo_180_secs INTEGER, sma_brlo_300_secs INTEGER,
+    sma_brlo_600_secs INTEGER, sma_brlo_1200_secs INTEGER,
+    sma_brlo_180_mag DOUBLE, sma_brlo_300_mag DOUBLE,
+    sma_brlo_600_mag DOUBLE, sma_brlo_1200_mag DOUBLE,
+    sma_brlo_180_rate DOUBLE, sma_brlo_300_rate DOUBLE,
+    sma_brlo_600_rate DOUBLE, sma_brlo_1200_rate DOUBLE,
+    sma_brhi_1200_bars INTEGER, sma_brhi_1200_mag DOUBLE, sma_brhi_1200_rate DOUBLE,
+    sma_highs_300 INTEGER, sma_highs_600 INTEGER, sma_highs_1200 INTEGER,
+    sma_bars_1200 INTEGER,
+    raw_brlo_180_bars INTEGER, raw_brlo_300_bars INTEGER,
+    raw_brlo_600_bars INTEGER, raw_brlo_1200_bars INTEGER,
+    raw_brlo_180_mag DOUBLE, raw_brlo_300_mag DOUBLE,
+    raw_brlo_600_mag DOUBLE, raw_brlo_1200_mag DOUBLE,
+    raw_brlo_180_rate DOUBLE, raw_brlo_300_rate DOUBLE,
+    raw_brlo_600_rate DOUBLE, raw_brlo_1200_rate DOUBLE,
     trade_idx INTEGER, open_at_signal INTEGER,
     vwap_1200 DOUBLE, chan_hi DOUBLE, chan_lo DOUBLE, exit_chan_lo DOUBLE,
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
@@ -525,6 +548,25 @@ type TripSink(outDir: string) =
             i p.BarsSinceFirstHigh600; i p.HighsSinceFirstHigh600
             i p.HighsSinceFirstHigh30; i p.HighsSinceFirstHigh60
             i p.HighsSinceFirstHigh120; i p.HighsSinceFirstHigh180
+            // S44 -- POSITIONAL: this run must match the schema block above.
+            f p.SmaPx; f p.SmaDist
+            i p.SmaBrLo180Bars; i p.SmaBrLo300Bars
+            i p.SmaBrLo600Bars; i p.SmaBrLo1200Bars
+            i p.SmaBrLo180Secs; i p.SmaBrLo300Secs
+            i p.SmaBrLo600Secs; i p.SmaBrLo1200Secs
+            f p.SmaBrLo180Mag; f p.SmaBrLo300Mag
+            f p.SmaBrLo600Mag; f p.SmaBrLo1200Mag
+            f p.SmaBrLo180Rate; f p.SmaBrLo300Rate
+            f p.SmaBrLo600Rate; f p.SmaBrLo1200Rate
+            i p.SmaBrHi1200Bars; f p.SmaBrHi1200Mag; f p.SmaBrHi1200Rate
+            i p.SmaHighs300; i p.SmaHighs600; i p.SmaHighs1200
+            i p.SmaBars1200
+            i p.RawBrLo180Bars; i p.RawBrLo300Bars
+            i p.RawBrLo600Bars; i p.RawBrLo1200Bars
+            f p.RawBrLo180Mag; f p.RawBrLo300Mag
+            f p.RawBrLo600Mag; f p.RawBrLo1200Mag
+            f p.RawBrLo180Rate; f p.RawBrLo300Rate
+            f p.RawBrLo600Rate; f p.RawBrLo1200Rate
             i p.TradeIdx; i p.OpenAtSignal
             f p.Vwap1200; f p.ChanHi; f p.ChanLo; f p.ExitChanLo
             i p.Gap60; i p.Gap30; i p.Gap15
