@@ -415,36 +415,6 @@ CREATE TABLE trips (
     dollar_vol_60_prior_max DOUBLE, vol_ew_60 DOUBLE, vol_ew_60_prior_max DOUBLE,
     vol_z_log DOUBLE, vol_z_n INTEGER,
     vol_z_log_5 DOUBLE, vol_z_log_10 DOUBLE, vol_z_log_15 DOUBLE, vol_z_log_30 DOUBLE, vol_z_log_60 DOUBLE,
-    -- ⭐⭐ S43 z-quantile counters (2026-09-02)
-    zq_sum_z300_t1_0_1200 DOUBLE, zq_dec_z300_t1_0_1200 DOUBLE, zq_sum_z300_t1_0_3600 DOUBLE, zq_dec_z300_t1_0_3600 DOUBLE,
-    zq_sum_z300_t1_5_1200 DOUBLE, zq_dec_z300_t1_5_1200 DOUBLE, zq_sum_z300_t1_5_3600 DOUBLE, zq_dec_z300_t1_5_3600 DOUBLE,
-    zq_sum_z300_t1_7_1200 DOUBLE, zq_dec_z300_t1_7_1200 DOUBLE, zq_sum_z300_t1_7_3600 DOUBLE, zq_dec_z300_t1_7_3600 DOUBLE,
-    zq_sum_z300_t2_0_1200 DOUBLE, zq_dec_z300_t2_0_1200 DOUBLE, zq_sum_z300_t2_0_3600 DOUBLE, zq_dec_z300_t2_0_3600 DOUBLE,
-    zq_sum_z300_t2_5_1200 DOUBLE, zq_dec_z300_t2_5_1200 DOUBLE, zq_sum_z300_t2_5_3600 DOUBLE, zq_dec_z300_t2_5_3600 DOUBLE,
-    zq_sum_z300_t3_0_1200 DOUBLE, zq_dec_z300_t3_0_1200 DOUBLE, zq_sum_z300_t3_0_3600 DOUBLE, zq_dec_z300_t3_0_3600 DOUBLE,
-    zq_sum_z1200_t1_0_1200 DOUBLE, zq_dec_z1200_t1_0_1200 DOUBLE, zq_sum_z1200_t1_0_3600 DOUBLE, zq_dec_z1200_t1_0_3600 DOUBLE,
-    zq_sum_z1200_t1_5_1200 DOUBLE, zq_dec_z1200_t1_5_1200 DOUBLE, zq_sum_z1200_t1_5_3600 DOUBLE, zq_dec_z1200_t1_5_3600 DOUBLE,
-    zq_sum_z1200_t1_7_1200 DOUBLE, zq_dec_z1200_t1_7_1200 DOUBLE, zq_sum_z1200_t1_7_3600 DOUBLE, zq_dec_z1200_t1_7_3600 DOUBLE,
-    zq_sum_z1200_t2_0_1200 DOUBLE, zq_dec_z1200_t2_0_1200 DOUBLE, zq_sum_z1200_t2_0_3600 DOUBLE, zq_dec_z1200_t2_0_3600 DOUBLE,
-    zq_sum_z1200_t2_5_1200 DOUBLE, zq_dec_z1200_t2_5_1200 DOUBLE, zq_sum_z1200_t2_5_3600 DOUBLE, zq_dec_z1200_t2_5_3600 DOUBLE,
-    zq_sum_z1200_t3_0_1200 DOUBLE, zq_dec_z1200_t3_0_1200 DOUBLE, zq_sum_z1200_t3_0_3600 DOUBLE, zq_dec_z1200_t3_0_3600 DOUBLE,
-    zq_sess_cnt_t1_0 DOUBLE, zq_sess_rate_t1_0 DOUBLE, zq_sess_cnt_t1_5 DOUBLE, zq_sess_rate_t1_5 DOUBLE,
-    zq_sess_cnt_t1_7 DOUBLE, zq_sess_rate_t1_7 DOUBLE, zq_sess_cnt_t2_0 DOUBLE, zq_sess_rate_t2_0 DOUBLE,
-    zq_sess_cnt_t2_5 DOUBLE, zq_sess_rate_t2_5 DOUBLE, zq_sess_cnt_t3_0 DOUBLE, zq_sess_rate_t3_0 DOUBLE,
-    zq_sess_bars INTEGER, zq_lo180_cnt_t1_0 DOUBLE, zq_lo180_rate_t1_0 DOUBLE, zq_lo180_cnt_t1_5 DOUBLE,
-    zq_lo180_rate_t1_5 DOUBLE, zq_lo180_cnt_t1_7 DOUBLE, zq_lo180_rate_t1_7 DOUBLE, zq_lo180_cnt_t2_0 DOUBLE,
-    zq_lo180_rate_t2_0 DOUBLE, zq_lo180_cnt_t2_5 DOUBLE, zq_lo180_rate_t2_5 DOUBLE, zq_lo180_cnt_t3_0 DOUBLE,
-    zq_lo180_rate_t3_0 DOUBLE, zq_lo180_bars INTEGER, zq_lo300_cnt_t1_0 DOUBLE, zq_lo300_rate_t1_0 DOUBLE,
-    zq_lo300_cnt_t1_5 DOUBLE, zq_lo300_rate_t1_5 DOUBLE, zq_lo300_cnt_t1_7 DOUBLE, zq_lo300_rate_t1_7 DOUBLE,
-    zq_lo300_cnt_t2_0 DOUBLE, zq_lo300_rate_t2_0 DOUBLE, zq_lo300_cnt_t2_5 DOUBLE, zq_lo300_rate_t2_5 DOUBLE,
-    zq_lo300_cnt_t3_0 DOUBLE, zq_lo300_rate_t3_0 DOUBLE, zq_lo300_bars INTEGER, zq_lo600_cnt_t1_0 DOUBLE,
-    zq_lo600_rate_t1_0 DOUBLE, zq_lo600_cnt_t1_5 DOUBLE, zq_lo600_rate_t1_5 DOUBLE, zq_lo600_cnt_t1_7 DOUBLE,
-    zq_lo600_rate_t1_7 DOUBLE, zq_lo600_cnt_t2_0 DOUBLE, zq_lo600_rate_t2_0 DOUBLE, zq_lo600_cnt_t2_5 DOUBLE,
-    zq_lo600_rate_t2_5 DOUBLE, zq_lo600_cnt_t3_0 DOUBLE, zq_lo600_rate_t3_0 DOUBLE, zq_lo600_bars INTEGER,
-    zq_lo1200_cnt_t1_0 DOUBLE, zq_lo1200_rate_t1_0 DOUBLE, zq_lo1200_cnt_t1_5 DOUBLE, zq_lo1200_rate_t1_5 DOUBLE,
-    zq_lo1200_cnt_t1_7 DOUBLE, zq_lo1200_rate_t1_7 DOUBLE, zq_lo1200_cnt_t2_0 DOUBLE, zq_lo1200_rate_t2_0 DOUBLE,
-    zq_lo1200_cnt_t2_5 DOUBLE, zq_lo1200_rate_t2_5 DOUBLE, zq_lo1200_cnt_t3_0 DOUBLE, zq_lo1200_rate_t3_0 DOUBLE,
-    zq_lo1200_bars INTEGER, z_bar_300 DOUBLE, z_bar_1200 DOUBLE,
     qty DOUBLE, net_pnl DOUBLE
 )"""
 
@@ -682,29 +652,6 @@ type TripSink(outDir: string) =
             f p.Dv60PriorMax; f p.VolEw60; f p.VolEw60PriorMax
             f p.VolZLog; i p.VolZN
             f p.VolZLog5; f p.VolZLog10; f p.VolZLog15; f p.VolZLog30; f p.VolZLog60
-            f p.ZqSumZ300T1_0W1200; f p.ZqDecZ300T1_0W1200; f p.ZqSumZ300T1_0W3600; f p.ZqDecZ300T1_0W3600; f p.ZqSumZ300T1_5W1200
-            f p.ZqDecZ300T1_5W1200; f p.ZqSumZ300T1_5W3600; f p.ZqDecZ300T1_5W3600; f p.ZqSumZ300T1_7W1200; f p.ZqDecZ300T1_7W1200
-            f p.ZqSumZ300T1_7W3600; f p.ZqDecZ300T1_7W3600; f p.ZqSumZ300T2_0W1200; f p.ZqDecZ300T2_0W1200; f p.ZqSumZ300T2_0W3600
-            f p.ZqDecZ300T2_0W3600; f p.ZqSumZ300T2_5W1200; f p.ZqDecZ300T2_5W1200; f p.ZqSumZ300T2_5W3600; f p.ZqDecZ300T2_5W3600
-            f p.ZqSumZ300T3_0W1200; f p.ZqDecZ300T3_0W1200; f p.ZqSumZ300T3_0W3600; f p.ZqDecZ300T3_0W3600; f p.ZqSumZ1200T1_0W1200
-            f p.ZqDecZ1200T1_0W1200; f p.ZqSumZ1200T1_0W3600; f p.ZqDecZ1200T1_0W3600; f p.ZqSumZ1200T1_5W1200; f p.ZqDecZ1200T1_5W1200
-            f p.ZqSumZ1200T1_5W3600; f p.ZqDecZ1200T1_5W3600; f p.ZqSumZ1200T1_7W1200; f p.ZqDecZ1200T1_7W1200; f p.ZqSumZ1200T1_7W3600
-            f p.ZqDecZ1200T1_7W3600; f p.ZqSumZ1200T2_0W1200; f p.ZqDecZ1200T2_0W1200; f p.ZqSumZ1200T2_0W3600; f p.ZqDecZ1200T2_0W3600
-            f p.ZqSumZ1200T2_5W1200; f p.ZqDecZ1200T2_5W1200; f p.ZqSumZ1200T2_5W3600; f p.ZqDecZ1200T2_5W3600; f p.ZqSumZ1200T3_0W1200
-            f p.ZqDecZ1200T3_0W1200; f p.ZqSumZ1200T3_0W3600; f p.ZqDecZ1200T3_0W3600; f p.ZqSessCntT1_0; f p.ZqSessRateT1_0
-            f p.ZqSessCntT1_5; f p.ZqSessRateT1_5; f p.ZqSessCntT1_7; f p.ZqSessRateT1_7; f p.ZqSessCntT2_0
-            f p.ZqSessRateT2_0; f p.ZqSessCntT2_5; f p.ZqSessRateT2_5; f p.ZqSessCntT3_0; f p.ZqSessRateT3_0
-            i p.ZqSessBars; f p.ZqLo180CntT1_0; f p.ZqLo180RateT1_0; f p.ZqLo180CntT1_5; f p.ZqLo180RateT1_5
-            f p.ZqLo180CntT1_7; f p.ZqLo180RateT1_7; f p.ZqLo180CntT2_0; f p.ZqLo180RateT2_0; f p.ZqLo180CntT2_5
-            f p.ZqLo180RateT2_5; f p.ZqLo180CntT3_0; f p.ZqLo180RateT3_0; i p.ZqLo180Bars; f p.ZqLo300CntT1_0
-            f p.ZqLo300RateT1_0; f p.ZqLo300CntT1_5; f p.ZqLo300RateT1_5; f p.ZqLo300CntT1_7; f p.ZqLo300RateT1_7
-            f p.ZqLo300CntT2_0; f p.ZqLo300RateT2_0; f p.ZqLo300CntT2_5; f p.ZqLo300RateT2_5; f p.ZqLo300CntT3_0
-            f p.ZqLo300RateT3_0; i p.ZqLo300Bars; f p.ZqLo600CntT1_0; f p.ZqLo600RateT1_0; f p.ZqLo600CntT1_5
-            f p.ZqLo600RateT1_5; f p.ZqLo600CntT1_7; f p.ZqLo600RateT1_7; f p.ZqLo600CntT2_0; f p.ZqLo600RateT2_0
-            f p.ZqLo600CntT2_5; f p.ZqLo600RateT2_5; f p.ZqLo600CntT3_0; f p.ZqLo600RateT3_0; i p.ZqLo600Bars
-            f p.ZqLo1200CntT1_0; f p.ZqLo1200RateT1_0; f p.ZqLo1200CntT1_5; f p.ZqLo1200RateT1_5; f p.ZqLo1200CntT1_7
-            f p.ZqLo1200RateT1_7; f p.ZqLo1200CntT2_0; f p.ZqLo1200RateT2_0; f p.ZqLo1200CntT2_5; f p.ZqLo1200RateT2_5
-            f p.ZqLo1200CntT3_0; f p.ZqLo1200RateT3_0; i p.ZqLo1200Bars; f p.ZBar300; f p.ZBar1200
             f qty; f pnl
             row.EndRow()
             total <- total + 1L
