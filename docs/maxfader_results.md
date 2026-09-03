@@ -94,3 +94,18 @@ ladder is monotone and **the tail vanishes up it**: ≥4 → PF−1 1.69 (n 708,
 `volhigh60` fires on 12.5% of session-high signals. Five days; the corpus decides.
 
 ---
+
+## ⏭ The risk rule (user, 2026-09-03 evening) — to build after the base-run tables
+
+MaxFlyerV2's stop-out / re-entry machinery is rejected ("ridiculous, doesn't fit my
+style"). Instead: an **anchored VWAP on the entry**, and the trade runs regardless. At
+**{1h, 2h, 3h} after entry**, if the AVWAP is **above the entry** (the short is losing on
+a volume-weighted basis), the MOC order is **replaced with a 5m-low exit** — and that is
+the entire rule. Then find the horizon at which holding to the close stops making sense.
+
+Engine mapping: the AVWAP is the window difference of the running session-VWAP sums
+(stamp `cumDv`/`cumVol` at entry; `(cumDv − dv₀)/(cumVol − vol₀)` at any later bar — no
+new structure). New record-only marks: `avwap_{1h,2h,3h}` at entry+{3600,7200,10800}s
+and, when that AVWAP > entry, the FIRST 300-bar-low breach after the check (px + sec).
+The existing per-minute lo marks fire from entry, not from the check time, so this is a
+small genuine addition; the horizon study is then post-hoc SQL on one run.
