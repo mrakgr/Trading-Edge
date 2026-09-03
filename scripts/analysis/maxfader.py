@@ -23,7 +23,7 @@ Report worst / p1 / p5 / %<-20% on EVERY table, not just PF.
 """
 import numpy as np, pandas as pd, duckdb, sys
 
-DIR = 'data/maxfader_wl'
+DIR = 'data/maxfader_wl_*'   # one dir per date range, merged by glob
 
 BASE = ['symbol','trade_date','signal_sec','signal_vwap','entry_sec','entry_px','exit_sec','exit_px',
         'ret_exit','exit_reason','volat_20m','volat_10m','eff_10m','eff_20m','bars_present',

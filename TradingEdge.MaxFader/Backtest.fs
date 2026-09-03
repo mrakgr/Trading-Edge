@@ -355,6 +355,14 @@ CREATE TABLE trips (
     vwap_5_prev DOUBLE, vwap_10_prev DOUBLE,
     dollar_vol_60 DOUBLE, cum_vol DOUBLE, cum_tc DOUBLE,
     fwd_vwap_60 DOUBLE, fwd_vwap_300 DOUBLE, fwd_vwap_600 DOUBLE, fwd_vwap_1200 DOUBLE,
+    -- ⭐⭐ the AVWAP risk rule (user 2026-09-03): session sums at entry+{1h,2h,3h}, the
+    -- derived anchored VWAP, and the post-check 5m-low exit mark (see Intraday.fs)
+    avwap_cum_dv_1h DOUBLE, avwap_cum_vol_1h DOUBLE, avwap_1h DOUBLE, avwap_chk_sec_1h INTEGER,
+    post_chk_lo300_px_1h DOUBLE, post_chk_lo300_sec_1h INTEGER, post_chk_lo300_moc_1h BOOLEAN,
+    avwap_cum_dv_2h DOUBLE, avwap_cum_vol_2h DOUBLE, avwap_2h DOUBLE, avwap_chk_sec_2h INTEGER,
+    post_chk_lo300_px_2h DOUBLE, post_chk_lo300_sec_2h INTEGER, post_chk_lo300_moc_2h BOOLEAN,
+    avwap_cum_dv_3h DOUBLE, avwap_cum_vol_3h DOUBLE, avwap_3h DOUBLE, avwap_chk_sec_3h INTEGER,
+    post_chk_lo300_px_3h DOUBLE, post_chk_lo300_sec_3h INTEGER, post_chk_lo300_moc_3h BOOLEAN,
     aux_lo_60_px DOUBLE, aux_lo_60_sec INTEGER, aux_lo_60_moc BOOLEAN,
     aux_lo_120_px DOUBLE, aux_lo_120_sec INTEGER, aux_lo_120_moc BOOLEAN,
     aux_lo_300_px DOUBLE, aux_lo_300_sec INTEGER, aux_lo_300_moc BOOLEAN,
@@ -617,6 +625,13 @@ type TripSink(outDir: string) =
             // S37f: aux_lo_{n}_moc — true when the mark resolved at the MOC bar
             // (no N-bar low ever printed) rather than on a real channel trigger.
             let inline b (v: bool) = row.AppendValue v |> ignore
+            // ⭐⭐ the AVWAP risk rule marks (after the auxSec/b helpers they use)
+            f p.AvwapCumDv1h; f p.AvwapCumVol1h; f p.Avwap1h; auxSec p.AvwapChkSec1h
+            f p.PostChkLo300Px1h; auxSec p.PostChkLo300Sec1h; b p.PostChkLo300Moc1h
+            f p.AvwapCumDv2h; f p.AvwapCumVol2h; f p.Avwap2h; auxSec p.AvwapChkSec2h
+            f p.PostChkLo300Px2h; auxSec p.PostChkLo300Sec2h; b p.PostChkLo300Moc2h
+            f p.AvwapCumDv3h; f p.AvwapCumVol3h; f p.Avwap3h; auxSec p.AvwapChkSec3h
+            f p.PostChkLo300Px3h; auxSec p.PostChkLo300Sec3h; b p.PostChkLo300Moc3h
             f p.AuxLo60; auxSec p.AuxSec60; b p.AuxMoc60
             f p.AuxLo120; auxSec p.AuxSec120; b p.AuxMoc120
             f p.AuxLo300; auxSec p.AuxSec300; b p.AuxMoc300

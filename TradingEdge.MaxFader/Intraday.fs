@@ -625,6 +625,36 @@ type FlushPosition =
       FwdVwap300: float
       FwdVwap600: float
       FwdVwap1200: float
+      // ----- ⭐⭐ THE AVWAP RISK RULE (user, 2026-09-03): an anchored VWAP on the
+      // entry; at {1h,2h,3h} after entry, if the AVWAP is ABOVE the entry the MOC
+      // order is REPLACED with a 5m-low exit. Recorded so the rule — and the
+      // horizon at which holding stops making sense — is post-hoc SQL:
+      //   avwap_h > entry_px  ->  exit at post_chk_lo300_px_h  else  MOC (ret_exit).
+      // The anchor is cum_dv/cum_vol (signal bar, inclusive) = the sums strictly
+      // BEFORE the fill bar, so the AVWAP includes the fill bar. The post-check mark
+      // is recorded UNCONDITIONALLY (the avwap>entry predicate lives in SQL), so
+      // "always switch to a 5m low at h" is a free control. -----
+      AvwapCumDv1h: float        // session Σ vwap·vol at the first present bar >= entry + 3600s
+      AvwapCumVol1h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      Avwap1h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      AvwapChkSec1h: int         // the check bar's ET second (-1 = the day ended first)
+      PostChkLo300Px1h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      PostChkLo300Sec1h: int
+      PostChkLo300Moc1h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      AvwapCumDv2h: float        // session Σ vwap·vol at the first present bar >= entry + 7200s
+      AvwapCumVol2h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      Avwap2h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      AvwapChkSec2h: int         // the check bar's ET second (-1 = the day ended first)
+      PostChkLo300Px2h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      PostChkLo300Sec2h: int
+      PostChkLo300Moc2h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      AvwapCumDv3h: float        // session Σ vwap·vol at the first present bar >= entry + 10800s
+      AvwapCumVol3h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      Avwap3h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      AvwapChkSec3h: int         // the check bar's ET second (-1 = the day ended first)
+      PostChkLo300Px3h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      PostChkLo300Sec3h: int
+      PostChkLo300Moc3h: bool    // resolved at the MOC bar (no 5m low printed after the check)
       // ----- ⭐ AUX-HIGH marks, retargeted for MR: the post-hoc EXIT-WINDOW SWEEP.
       // The first NEW {120,300,600,1200}-present-bar HIGH made STRICTLY AFTER the entry
       // fill bar, MARKED AT THE FOLLOWING BAR's vwap (the fill discipline). Detection is
@@ -2497,6 +2527,37 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     FwdVwap300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
                     FwdVwap600 = if Double.IsNaN p.FwdVwap600 && bar.etSec >= p.EntrySec + 600 then bar.vwap else p.FwdVwap600
                     FwdVwap1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200 }
+            // ⭐⭐ the AVWAP rule marks. The check stamps the SESSION sums (post-fold,
+            // so inclusive of the check bar) at the first present bar >= entry + h;
+            // the post-check 5m-low mark uses the aux discipline: the PREVIOUS bar
+            // printed the new 300-bar low (prevBr300 = 0), strictly after the check
+            // bar, marked at THIS bar's vwap; unresolved at the MOC bar -> moc.
+            let inline avwapStep (cdv: float) (cvol: float) (chk: int) (h: int) =
+                if chk < 0 && bar.etSec >= p.EntrySec + h then struct (cumDv, cumVol, bar.etSec)
+                else struct (cdv, cvol, chk)
+            let inline postStep px sec (moc: bool) (chk: int) =
+                if chk < 0 || not (Double.IsNaN px) then struct (px, sec, moc)
+                elif bar.etSec >= mocSec then struct (bar.vwap, bar.etSec, true)
+                elif prevBr300 = 0 && prevEtSec > chk then struct (bar.vwap, bar.etSec, false)
+                else struct (px, sec, moc)
+            let struct (cdv1h, cvol1h, chk1h) = avwapStep p.AvwapCumDv1h p.AvwapCumVol1h p.AvwapChkSec1h 3600
+            let struct (plo1h, pls1h, plm1h) = postStep p.PostChkLo300Px1h p.PostChkLo300Sec1h p.PostChkLo300Moc1h chk1h
+            let struct (cdv2h, cvol2h, chk2h) = avwapStep p.AvwapCumDv2h p.AvwapCumVol2h p.AvwapChkSec2h 7200
+            let struct (plo2h, pls2h, plm2h) = postStep p.PostChkLo300Px2h p.PostChkLo300Sec2h p.PostChkLo300Moc2h chk2h
+            let struct (cdv3h, cvol3h, chk3h) = avwapStep p.AvwapCumDv3h p.AvwapCumVol3h p.AvwapChkSec3h 10800
+            let struct (plo3h, pls3h, plm3h) = postStep p.PostChkLo300Px3h p.PostChkLo300Sec3h p.PostChkLo300Moc3h chk3h
+            let p =
+                { p with
+                    AvwapCumDv1h = cdv1h; AvwapCumVol1h = cvol1h; AvwapChkSec1h = chk1h
+                    Avwap1h = (if chk1h >= 0 && cvol1h - p.CumVol > 0.0 then (cdv1h - p.CumDv) / (cvol1h - p.CumVol) else nan)
+                    PostChkLo300Px1h = plo1h; PostChkLo300Sec1h = pls1h; PostChkLo300Moc1h = plm1h
+                    AvwapCumDv2h = cdv2h; AvwapCumVol2h = cvol2h; AvwapChkSec2h = chk2h
+                    Avwap2h = (if chk2h >= 0 && cvol2h - p.CumVol > 0.0 then (cdv2h - p.CumDv) / (cvol2h - p.CumVol) else nan)
+                    PostChkLo300Px2h = plo2h; PostChkLo300Sec2h = pls2h; PostChkLo300Moc2h = plm2h
+                    AvwapCumDv3h = cdv3h; AvwapCumVol3h = cvol3h; AvwapChkSec3h = chk3h
+                    Avwap3h = (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
+                    PostChkLo300Px3h = plo3h; PostChkLo300Sec3h = pls3h; PostChkLo300Moc3h = plm3h
+                }
             // aux-high marks: the PREVIOUS bar's breach-counter snapshot reads
             // 0 -> the previous bar printed the new N-bar high -> the mark
             // fills at THIS bar's vwap. Only highs printed STRICTLY AFTER the
@@ -3202,6 +3263,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       FwdVwap300 = nan
                       FwdVwap600 = nan
                       FwdVwap1200 = nan
+                      AvwapCumDv1h = nan; AvwapCumVol1h = nan; Avwap1h = nan; AvwapChkSec1h = -1
+                      PostChkLo300Px1h = nan; PostChkLo300Sec1h = -1; PostChkLo300Moc1h = false
+                      AvwapCumDv2h = nan; AvwapCumVol2h = nan; Avwap2h = nan; AvwapChkSec2h = -1
+                      PostChkLo300Px2h = nan; PostChkLo300Sec2h = -1; PostChkLo300Moc2h = false
+                      AvwapCumDv3h = nan; AvwapCumVol3h = nan; Avwap3h = nan; AvwapChkSec3h = -1
+                      PostChkLo300Px3h = nan; PostChkLo300Sec3h = -1; PostChkLo300Moc3h = false
                       AuxLo60 = nan
                       AuxSec60 = -1
                       AuxMoc60 = false
