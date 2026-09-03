@@ -235,6 +235,21 @@ type FlushPosition =
       RawLegRate: float
       RawLegRate300: float
       RawLegRate600: float
+      // ⭐ the leg's ELAPSED SECONDS, recorded RAW alongside the derived rate
+      // (user 2026-09-03). The rate bakes in a division that cannot be undone
+      // post-hoc: with elapsed time as its own column the reader can re-bucket
+      // by leg AGE, try a different time normalization, and tell a big move
+      // apart from a short leg when the rate reads extreme. -1 = disarmed.
+      // (The 20m raw leg's age is already SecsSinceFirstHigh, S43be.)
+      RawLegSecs300: int
+      RawLegSecs600: int
+      SmaLegSecs300: int
+      SmaLegSecs600: int
+      SmaLegSecs1200: int
+      // the SMA legs' age in BARS too — bar-clock and wall-clock diverge on a
+      // sparse tape, which is the whole reason S43be added the second axis.
+      SmaLegBars300: int
+      SmaLegBars600: int
       SmaHighs300: int             // SMA-breakout depth, leg reset by the SMA 5m low
       SmaHighs600: int             // ... by the SMA 10m low
       SmaHighs1200: int            // ... by the SMA 20m low
@@ -2832,6 +2847,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       RawLegRate = counters.RateSinceFirst(bar.vwap, bar.etSec)
                       RawLegRate300 = counters300.RateSinceFirst(bar.vwap, bar.etSec)
                       RawLegRate600 = counters600.RateSinceFirst(bar.vwap, bar.etSec)
+                      RawLegSecs300 = counters300.SecsSinceFirst bar.etSec
+                      RawLegSecs600 = counters600.SecsSinceFirst bar.etSec
+                      SmaLegSecs300 = smaCounters300.SecsSinceFirst bar.etSec
+                      SmaLegSecs600 = smaCounters600.SecsSinceFirst bar.etSec
+                      SmaLegSecs1200 = smaCounters1200.SecsSinceFirst bar.etSec
+                      SmaLegBars300 = smaCounters300.BarsSinceFirst
+                      SmaLegBars600 = smaCounters600.BarsSinceFirst
                       SmaHighs300 = smaCounters300.EventsSinceFirst
                       SmaHighs600 = smaCounters600.EventsSinceFirst
                       SmaHighs1200 = smaCounters1200.EventsSinceFirst

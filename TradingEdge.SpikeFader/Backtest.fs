@@ -316,6 +316,11 @@ CREATE TABLE trips (
     sma_leg_rate_300 DOUBLE, sma_leg_rate_600 DOUBLE, sma_leg_rate_1200 DOUBLE,
     raw_leg_mag DOUBLE, raw_leg_mag_300 DOUBLE, raw_leg_mag_600 DOUBLE,
     raw_leg_rate DOUBLE, raw_leg_rate_300 DOUBLE, raw_leg_rate_600 DOUBLE,
+    -- elapsed time recorded RAW next to the derived rate, so the division can
+    -- be redone (or not done) post-hoc. -1 = disarmed.
+    raw_leg_secs_300 INTEGER, raw_leg_secs_600 INTEGER,
+    sma_leg_secs_300 INTEGER, sma_leg_secs_600 INTEGER, sma_leg_secs_1200 INTEGER,
+    sma_leg_bars_300 INTEGER, sma_leg_bars_600 INTEGER,
     sma_highs_300 INTEGER, sma_highs_600 INTEGER, sma_highs_1200 INTEGER,
     sma_bars_1200 INTEGER,
     raw_brlo_180_bars INTEGER, raw_brlo_300_bars INTEGER,
@@ -570,6 +575,9 @@ type TripSink(outDir: string) =
             f p.SmaLegRate300; f p.SmaLegRate600; f p.SmaLegRate1200
             f p.RawLegMag; f p.RawLegMag300; f p.RawLegMag600
             f p.RawLegRate; f p.RawLegRate300; f p.RawLegRate600
+            i p.RawLegSecs300; i p.RawLegSecs600
+            i p.SmaLegSecs300; i p.SmaLegSecs600; i p.SmaLegSecs1200
+            i p.SmaLegBars300; i p.SmaLegBars600
             i p.SmaHighs300; i p.SmaHighs600; i p.SmaHighs1200
             i p.SmaBars1200
             i p.RawBrLo180Bars; i p.RawBrLo300Bars
