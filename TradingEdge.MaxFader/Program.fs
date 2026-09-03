@@ -65,8 +65,8 @@ type Args =
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd)."
             | Out_Dir _ -> "Output DIRECTORY for the trip parquet part files (trips_pNNN.parquet). Post-hoc: read_parquet('<dir>/*.parquet')."
-            | Entry_Channel_Bars _ -> "⭐ ENTRY 🔄: SHORT when the bar vwap prints STRICTLY OVER the prior N-present-bar MAX of vwaps (the spike channel; also the leg-reset channel — a new N-bar LOW ends the up-leg). One of {60,120,300,600,1200}. Default 1200 (~20m on an active name)."
-            | Exit_Channel_Bars _ -> "⭐ EXIT 🔄: COVER when the vwap prints STRICTLY UNDER the prior N-present-bar MIN (the reversion target). One of {30,60,120,300,600,1200}. Default 300 (~5m — re-sweep pending). NO stop; MOC backstop."
+            | Entry_Channel_Bars _ -> "⭐ ENTRY 🔄: SHORT when the bar vwap prints STRICTLY OVER the prior channel MAX. ⭐ MaxFader default 0 = THE SESSION CHANNEL (a new session HIGH — MaxFlyerV2's signal; leg reset on a new session LOW). Or one of {60,120,300,600,1200} for an N-present-bar channel (1200 = SpikeFader's ~20m)."
+            | Exit_Channel_Bars _ -> "⭐ EXIT 🔄: ⭐ MaxFader default 0 = NO TARGET, HOLD TO CLOSE (MaxFlyerV2's exit; the per-minute lo marks are still recorded, so any channel cover is a post-hoc column). Or one of {30,60,...,1200}: COVER when the vwap prints STRICTLY UNDER the prior N-bar MIN (540 = SpikeFader's ~9m)."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars at the signal. Default 100000."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
@@ -181,14 +181,14 @@ let main argv =
     // invalidArg mid-run, after the candidate query already ran. The entry channel
     // additionally drives the leg machine and the chan_hi/chan_lo snapshots; 30 is
     // excluded (a 30s "flush channel" is below the feature horizon).
-    let entryChanSet = [ 60; 120; 300; 600; 1200 ]
+    let entryChanSet = [ 0; 60; 120; 300; 600; 1200 ]   // 0 = the SESSION channel (MaxFader)
     if not (List.contains cfg.Intraday.EntryChannelBars entryChanSet) then
         eprintfn "FATAL: --entry-channel-bars %d — must be one of %A." cfg.Intraday.EntryChannelBars entryChanSet
         exit 1
     // S37f: the engine records exit-channel marks at EVERY minute 1m..20m, so the
     // selectable set is the full grid (plus the legacy 30s). Was
     // [30;60;120;300;600;1200] — 420/480/540 were unreachable despite being recorded.
-    let exitChanSet = [ 30; 60; 120; 180; 240; 300; 360; 420; 480; 540; 600
+    let exitChanSet = [ 0; 30; 60; 120; 180; 240; 300; 360; 420; 480; 540; 600   // 0 = hold to close (MaxFader)
                         660; 720; 780; 840; 900; 960; 1020; 1080; 1140; 1200 ]
     if not (List.contains cfg.Intraday.ExitChannelBars exitChanSet) then
         eprintfn "FATAL: --exit-channel-bars %d — must be one of %A." cfg.Intraday.ExitChannelBars exitChanSet
@@ -208,17 +208,27 @@ let main argv =
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
          else "   [rvol_0945_honest RECORDED, not gated]")
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
-    printfn "  ENTRY       = vwap > prior %d-bar MAX (strict; new ~20m HIGH — SHORT)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
-        ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
-    printfn "  EXIT        = vwap < prior %d-bar MIN (strict; ~%.0fm LOW cover)  |  else MOC (🔄 NO overnight shorts)   (fill: NEXT bar vwap)"
-        ic.ExitChannelBars (float ic.ExitChannelBars / 60.0)
+    (if ic.EntryChannelBars = 0 then
+        printfn "  ENTRY       = vwap > prior SESSION HIGH (strict; ⭐ MaxFlyerV2's breakout — SHORT)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
+            (ic.DvFloor60 / 1e3) ic.TcFloor60
+     else
+        printfn "  ENTRY       = vwap > prior %d-bar MAX (strict; new ~%.0fm HIGH — SHORT)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
+            ic.EntryChannelBars (float ic.EntryChannelBars / 60.0) (ic.DvFloor60 / 1e3) ic.TcFloor60)
+    (if ic.ExitChannelBars = 0 then
+        printfn "  EXIT        = ⭐ NONE — HOLD TO CLOSE (MaxFlyerV2's exit); MOC at the close bar   (lo marks at every minute RECORDED for post-hoc covers)"
+     else
+        printfn "  EXIT        = vwap < prior %d-bar MIN (strict; ~%.0fm LOW cover)  |  else MOC (🔄 NO overnight shorts)   (fill: NEXT bar vwap)"
+            ic.ExitChannelBars (float ic.ExitChannelBars / 60.0))
     printfn "  accept stops= new %d-bar HIGH on vr>=%s | tcr>=%s | 1m pace > %s   ⭐ price-acceptance (NO level stop — V6: destructive)"
         ic.EntryChannelBars
         (if Double.IsPositiveInfinity ic.VolStopRatio then "off" else sprintf "%.0fx" ic.VolStopRatio)
         (if Double.IsPositiveInfinity ic.TcStopRatio then "off" else sprintf "%.0fx" ic.TcStopRatio)
         (if ic.SpeedStopPct >= 0.0 then "off" else sprintf "%.1f%%" (ic.SpeedStopPct * 100.0))
-    printfn "  leg         = arm on first new HIGH, reset on new %d-bar LOW (+ 5m/10m-reset twins RECORDED — S38e; books built post-hoc by mc-replay)"
-        ic.EntryChannelBars
+    (if ic.EntryChannelBars = 0 then
+        printfn "  leg         = arm on first new SESSION HIGH, reset on a new SESSION LOW (rare — the 5m/10m/20m-reset twins carry the intraday structure; RECORDED)"
+     else
+        printfn "  leg         = arm on first new HIGH, reset on new %d-bar LOW (+ 5m/10m-reset twins RECORDED — S38e; books built post-hoc by mc-replay)"
+            ic.EntryChannelBars)
     printfn "  halt detect = run >= %ds AND pre-hole 5m rng >= %.1f%% AND pre-hole adj 1m gap < %d   (record-only)"
         ic.HaltMinRunSec (ic.HaltMinRng300 * 100.0) ic.HaltMaxPreGap60
     printfn "  volat band  = volat_20m ∈ [%s, %s) bp/30s"

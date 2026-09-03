@@ -63,15 +63,20 @@ type Config =
 /// else is recorded and sliced post-hoc over the parquet.
 let defaultConfig =
     { Intraday =
-        { EntryChannelBars = 1200       // ⭐ the ~20m flush channel: entry on its new LOW, leg reset
-                                        // on its new HIGH. {60,120,300,600,1200}.
+        { EntryChannelBars = 0          // ⭐ MaxFader: 0 = THE SESSION CHANNEL (MaxFlyerV2's
+                                        // signal: a new session HIGH). {0,60,120,300,600,1200}.
           // ⭐⭐ SPEC 2026-08-31 (S37f-s, user): the POST-HOC stack's k600 floor moved
           // 60 -> 90 (k300 stays 40). It is not an engine knob — the k-floors live in
           // the documented STACK applied over the trip parquet — but it is recorded
           // here so the engine file and the spec do not drift: any study/book built
           // off this engine must gate `highs_since_first_high_600 >= 90`.
           // PF-1 0.727 -> 1.098 (+51%) for -25.5% net; 7 of 7 years up.
-          ExitChannelBars  = 540        // ⭐ S37f (user, 2026-08-31): the ~9m reversion target.
+          ExitChannelBars  = 0          // ⭐ MaxFader: 0 = NO TARGET, HOLD TO CLOSE (MaxFlyerV2's
+                                        // exit). The SpikeFader lineage note below is kept: its
+                                        // 540-bar (~9m) cover is what the recorded lo marks
+                                        // measure post-hoc, so "SpikeFader's exit on MaxFader's
+                                        // entry" is one SQL column away, not a rerun.
+                                        // (was 540 — S37f, user 2026-08-31: the ~9m reversion target.)
                                         // WAS 300 (~5m). The 1m..20m mark grid says 5m is
                                         // simply too short: full book 1.704 -> 1.802 AND net
                                         // 7,817% -> 10,332% (+32%) — PF and net together, not
@@ -170,7 +175,16 @@ type Candidate =
       DivP5: float
       OpenP1: float              // next session's OPEN, in D's raw scale (S43bq)
       Dv0945: float
-      Rvol0945Honest: float }
+      Rvol0945Honest: float
+      // ⭐ MaxFader (2026-09-03): the CAUSAL denominator for MaxFlyerV2's master
+      // gate. MaxFlyerV2 gated on brv20d = bar_vol / (avgvol20 * adj_ratio / 390)
+      // — avgvol20 INCLUDES day D (lookahead) and adj_ratio folds in future
+      // splits (lookahead). This is the `20 PRECEDING AND 1 PRECEDING` average,
+      // already in day D's raw share scale. Recorded on the trip; the tape
+      // version of the gate is `vol_60 / (avgvol20_prior / 390)` in SQL, and
+      // the opening-15m version is `vol_60 / (vol_0945_tape / 15)` — both from
+      // columns already on the row.
+      AvgVol20Prior: float }
 
 /// The candidate table: `mr_candidate_1s_v2` (S43br — the CAUSAL rebuild; 1s-tape-native,
 /// dv_0945_tape >= $2M x n_bars_1s >= 200, 2016+) unless overridden via FF_CANDIDATE_TABLE.
@@ -228,7 +242,7 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
         // about. This is the visible payoff of the causal scheme.
         $"SELECT ticker, date, close_d, n, close_m1, div_m1, close_m3, div_m3,
                  close_p1, div_p1, close_p3, div_p3, close_p5, div_p5, open_p1,
-                 dv_0945, rvol_0945_honest
+                 dv_0945, rvol_0945_honest, avgvol20_prior
           FROM {table}
           WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
             AND rvol_0945_honest >= $minrvol
@@ -263,7 +277,8 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
               DivP5 = dbl 13
               OpenP1 = dbl 14
               Dv0945 = dbl 15
-              Rvol0945Honest = dbl 16 })
+              Rvol0945Honest = dbl 16
+              AvgVol20Prior = dbl 17 })
     out.ToArray()
 
 // ===========================================================================
@@ -362,7 +377,7 @@ CREATE TABLE trips (
     close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_d DOUBLE,
     close_p1 DOUBLE, div_p1 DOUBLE, close_p3 DOUBLE, div_p3 DOUBLE,
     close_p5 DOUBLE, div_p5 DOUBLE, open_p1 DOUBLE,
-    dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
+    dv_0945 DOUBLE, rvol_0945_honest DOUBLE, avgvol20_prior DOUBLE, dv_0945_tape DOUBLE,
     vwap_30_prev DOUBLE, lo_30 DOUBLE, vwap_30 DOUBLE, vwap_120 DOUBLE, vwap_180 DOUBLE,
     ols_slope_60 DOUBLE, ols_r_60 DOUBLE, ols_slope_120 DOUBLE, ols_r_120 DOUBLE,
     ols_slope_180 DOUBLE, ols_r_180 DOUBLE,
@@ -625,7 +640,7 @@ type TripSink(outDir: string) =
             f c.CloseM1; f c.DivM1; f c.CloseM3; f c.DivM3; f c.CloseD
             f c.CloseP1; f c.DivP1; f c.CloseP3; f c.DivP3
             f c.CloseP5; f c.DivP5; f c.OpenP1
-            f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
+            f c.Dv0945; f c.Rvol0945Honest; f c.AvgVol20Prior; f p.Dv0945Tape
             f p.Vwap30Prev; f p.Lo30; f p.Vwap30; f p.Vwap120; f p.Vwap180
             f p.OlsSlope60; f p.OlsR60; f p.OlsSlope120; f p.OlsR120; f p.OlsSlope180; f p.OlsR180
             f p.OlsSlope300; f p.OlsR300

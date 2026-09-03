@@ -787,10 +787,19 @@ type FlushPosition =
 /// MaxFader config. Hard gates only — every other lever is a recorded column.
 type IntradayConfig =
     { EntryChannelBars: int      // ⭐ ENTRY: vwap < the prior N-present-bar MIN of vwaps (strict).
+                                 // ⭐ MaxFader (2026-09-03): 0 = THE SESSION CHANNEL — the trigger
+                                 // is a new SESSION high (strictly-prior running max from
+                                 // SessionStartSec), the leg-reset side a new SESSION low. This
+                                 // is MaxFlyerV2's signal ported to the tape. A session high is
+                                 // necessarily a 20m high, so the 20m-channel corpus is a
+                                 // superset — the whitelist argument in the S1 commit.
                                  // Default 1200 (~20m on a fully-active name). The channel must be
                                  // WARM (N bars folded) — a partial-window "low" is not a flush.
                                  // Also the leg-reset channel: a new N-bar HIGH ends the down-leg.
       ExitChannelBars: int       // ⭐ EXIT: vwap > the prior N-bar MAX (strict) -> target. Default
+                                 // ⭐ MaxFader: 0 = NO TARGET — HOLD TO CLOSE (MaxFlyerV2's exit).
+                                 // The reversion marks at every minute are still RECORDED, so
+                                 // "where a target would have covered" is a post-hoc column.
                                  // 300 (~5m) — V6 F16's direction. NO other exit before MOC.
       // ⭐ S43bw (user 2026-08-14): a SECOND, TIGHTER exit channel that engages only
       // after AfterHoursSec. The motive is that every channel here counts PRESENT
@@ -951,15 +960,23 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // 🔄 SPIKEFADER MIRROR: the trigger side is the MAX channel (fade the POP —
     // a new 20m HIGH), the leg-reset side the MIN channel, the reversion target
     // the 300-bar MIN. The role names below say which side is which.
-    let entryMax = chanMax cfg.EntryChannelBars     // ⭐ the SPIKE trigger side
-    let entryMin = chanMin cfg.EntryChannelBars     // ⭐ the leg-reset side (+ chan_lo)
+    // ⭐ MaxFader: at EntryChannelBars = 0 (the SESSION channel) these aliases
+    // fall back to the 1200-bar rollers. They are NOT on the signal path then —
+    // priorEntryMax/priorEntryMin read the session snapshots — but entryMinMeta
+    // and the chan_hi_prev lag still want a roller to ride, and the 20m one is
+    // the natural "what would the 20m channel have said" twin.
+    let entryChanAlias = if cfg.EntryChannelBars = 0 then 1200 else cfg.EntryChannelBars
+    let entryMax = chanMax entryChanAlias           // ⭐ the SPIKE trigger side (20m twin at session)
+    let entryMin = chanMin entryChanAlias           // ⭐ the leg-reset side (+ chan_lo)
     // ⭐ S43ai: a metadata-carrying TWIN of the trigger channel, same window, fed
     // the same vwap once per present bar. Runs PARALLEL rather than replacing it
     // so the signal path is provably untouched (parity by construction); the
     // extra deque is amortized O(1). Payload = (eff_20m, eff_10m) at that bar.
     // 🔄 mirror: rides the MIN side — the ARMING LOW's eff snapshot.
-    let entryMinMeta = MinMaMeta<struct (float * float * int * int)> cfg.EntryChannelBars
-    let exitMin = chanMin cfg.ExitChannelBars       // ⭐ the reversion target (5m LOW cover)
+    let entryMinMeta = MinMaMeta<struct (float * float * int * int)> entryChanAlias
+    // ⭐ MaxFader: ExitChannelBars = 0 = hold to close. The alias must still name
+    // a roller; sExitMin is forced ValueNone below so targetHit can never fire.
+    let exitMin = chanMin (if cfg.ExitChannelBars = 0 then 1200 else cfg.ExitChannelBars)
     // ----- breach counters, both sides per window -----
     let brSess = BreachCounter()
     let br30 = BreachCounter()
@@ -1714,7 +1731,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMinX1020 <- min1020.State
         sMinX1080 <- min1080.State
         sMinX1140 <- min1140.State
-        sExitMin <- exitMin.State
+        // ⭐ MaxFader: no target at ExitChannelBars = 0 — the snapshot stays
+        // ValueNone all session, so targetHit is false on every bar and every
+        // position runs to MOC (or Flatten). exit_chan_lo records nan.
+        sExitMin <- (if cfg.ExitChannelBars = 0 then ValueNone else exitMin.State)
         sSessHigh <- sessHigh.State
         sSessLow <- sessLow.State
         // S44: strictly-prior SMA channels -- captured here, with every other
@@ -1740,12 +1760,19 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let vwma40 = sumRatio dvSum2400 volSum2400
         let vwma50 = sumRatio dvSum3000 volSum3000
         let vwma60 = sumRatio dvSum3600 volSum3600
+        // ⭐ MaxFader: 0 = the SESSION channel — the strictly-prior running
+        // extremes (sSessHigh/sSessLow are captured with every other snapshot
+        // above, BEFORE this bar folds in). A new session high = MaxFlyerV2's
+        // breakout; a new session low = the leg reset (rare after a high —
+        // the leg counters then read "session highs since the first one").
         let priorEntryMin =
             match cfg.EntryChannelBars with
+            | 0 -> sSessLow
             | 30 -> sMin30 | 60 -> sMin60 | 120 -> sMin120 | 300 -> sMin300 | 600 -> sMin600 | 1200 -> sMin1200
             | _ -> ValueNone
         let priorEntryMax =
             match cfg.EntryChannelBars with
+            | 0 -> sSessHigh
             | 30 -> sMax30 | 60 -> sMax60 | 120 -> sMax120 | 300 -> sMax300 | 600 -> sMax600 | 1200 -> sMax1200
             | _ -> ValueNone
 
@@ -2631,7 +2658,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
         // ===== 6. entry signal (fills next bar) =====
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= entryEndSec
-        let channelWarm = entryMin.Count = entryMin.WindowSize
+        // ⭐ MaxFader: the session channel is "warm" once ONE prior bar exists
+        // (a running max needs no window). The entry window (>= 09:45) is the
+        // real floor; features fold from 09:30 so 15 minutes precede any entry.
+        let channelWarm =
+            if cfg.EntryChannelBars = 0 then sSessHigh.IsSome
+            else entryMin.Count = entryMin.WindowSize
         let floorsOk =
             // clock fix: the honest liquidity floor is $/60 TRADEABLE seconds
             (match tDvSum60.State with ValueSome dv -> dv >= cfg.DvFloor60 | ValueNone -> false)
@@ -3262,7 +3294,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             tradeIdx <- tradeIdx + 1
 
         // ===== 7. 🔄 the leg reset fires LAST: a new entry-channel LOW ends
-        // the UP-leg. AFTER the entry block — an entry on this bar reads the
+        // the UP-leg. (MaxFader, session channel: a new SESSION low — so after
+        // the day's first high the leg effectively never resets, and
+        // highs_since_first_high counts the day's session highs. The 5m/10m/
+        // 20m-reset twins carry the intraday leg structure instead.) AFTER the entry block — an entry on this bar reads the
         // pre-reset counters (V6's ordering). isNewHigh and isNewLow are
         // mutually exclusive (prior max >= prior min), so the reset can never
         // clobber the very leg an entry just joined. =====
