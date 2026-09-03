@@ -2023,10 +2023,19 @@ type LegCounters() =
     // era. This lets the same leg age be expressed in SECONDS, which is
     // era-invariant. -1 = disarmed.
     let mutable firstEventSec = -1
+    // ⭐ 2026-09-03 (user): the leg's FIRST-event PRICE. The magnitude of a leg
+    // must be measured from where the leg STARTED, not from its latest event:
+    // a breach counter restamps on every new extreme, so "travel since the
+    // stamp" collapses to ~0 by construction on the breakout side (the bar
+    // that sets a new high has by definition barely cleared it). Anchoring on
+    // the first event instead makes the magnitude the leg's WHOLE run.
+    let mutable firstEventPx = nan
     /// Bars since the FIRST event of this leg. -1 = disarmed (no leg open).
     member _.BarsSinceFirst = bars
     /// ET second of this leg's FIRST event. -1 = disarmed.
     member _.FirstEventSec = firstEventSec
+    /// Price at this leg's FIRST event. nan = disarmed, or armed without a price.
+    member _.FirstEventPx = firstEventPx
     /// Seconds elapsed since the leg's first event, given the current bar's ET
     /// second. -1 = disarmed (mirrors BarsSinceFirst's convention).
     member _.SecsSinceFirst (etSec: int) = if firstEventSec < 0 then -1 else etSec - firstEventSec
@@ -2044,6 +2053,26 @@ type LegCounters() =
             firstEventSec <- etSec
         else
             events <- events + 1
+    /// A channel event fired, stamped with the event bar's PRICE as well as its
+    /// second. Only the FIRST event of a leg sets the stamp — later events in
+    /// the same leg advance the count and leave the anchor where it is, which
+    /// is the whole point (see firstEventPx).
+    member t.OnEventAt (etSec: int, px: float) =
+        let wasDisarmed = bars < 0
+        t.OnEvent etSec
+        if wasDisarmed then firstEventPx <- px
+    /// log(px / FirstEventPx) — the leg's travel since its first event.
+    /// nan while disarmed or unstamped.
+    member _.MagSinceFirst (px: float) =
+        if Double.IsNaN firstEventPx || firstEventPx <= 0.0 || px <= 0.0 then nan
+        else log (px / firstEventPx)
+    /// The same magnitude PER MINUTE since the leg's first event. nan when
+    /// disarmed, unstamped, or zero elapsed time (a rate over no time is not
+    /// a number).
+    member t.RateSinceFirst (px: float, etSec: int) =
+        let m = t.MagSinceFirst px
+        let dt = t.SecsSinceFirst etSec
+        if Double.IsNaN m || dt <= 0 then nan else m / (float dt / 60.0)
     /// Advance one bar. No-op while disarmed.
     member _.Step () = if bars >= 0 then bars <- bars + 1
     /// The opposite channel extreme was breached: the leg is over — disarm.
@@ -2051,3 +2080,4 @@ type LegCounters() =
         bars <- -1
         events <- -1
         firstEventSec <- -1
+        firstEventPx <- nan

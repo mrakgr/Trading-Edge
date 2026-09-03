@@ -216,9 +216,25 @@ type FlushPosition =
       SmaBrLo600Rate: float
       SmaBrLo1200Rate: float
       // the 20m breakout side on the SMA + its leg ladder
-      SmaBrHi1200Bars: int         // bars since the SMA broke its 20m high
-      SmaBrHi1200Mag: float
-      SmaBrHi1200Rate: float
+      SmaBrHi1200Bars: int         // bars since the SMA broke its 20m high (LATEST breakout)
+      // ⭐ the breakout-side magnitude is anchored on the leg's FIRST breakout
+      // after the reset, NOT the latest one: a counter that restamps on every
+      // new high measures ~0 travel by construction (the bar setting a new high
+      // has barely cleared it). These measure the leg's WHOLE run.
+      SmaLegMag300: float          // log(sma / sma at the leg's first breakout), 5m-reset leg
+      SmaLegMag600: float
+      SmaLegMag1200: float
+      SmaLegRate300: float         // the same per minute since the first breakout
+      SmaLegRate600: float
+      SmaLegRate1200: float
+      // the RAW ladder's leg magnitudes — the head-to-head partner. Same
+      // first-breakout anchor, measured on raw vwap.
+      RawLegMag: float             // log(vwap / vwap at the leg's first high), 20m-reset leg
+      RawLegMag300: float          // ... 5m-reset leg
+      RawLegMag600: float          // ... 10m-reset leg
+      RawLegRate: float
+      RawLegRate300: float
+      RawLegRate600: float
       SmaHighs300: int             // SMA-breakout depth, leg reset by the SMA 5m low
       SmaHighs600: int             // ... by the SMA 10m low
       SmaHighs1200: int            // ... by the SMA 20m low
@@ -2302,9 +2318,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // counters -- the convention the raw ladder already uses.
         smaCounters300.Step(); smaCounters600.Step(); smaCounters1200.Step()
         if smaBrHi1200.BarsSinceBreach = 0 then
-            smaCounters300.OnEvent bar.etSec
-            smaCounters600.OnEvent bar.etSec
-            smaCounters1200.OnEvent bar.etSec
+            // ⭐ stamped with the SMA at the breakout bar: the leg's magnitude
+            // is measured from its FIRST breakout, not its latest one.
+            smaCounters300.OnEventAt(bar.etSec, smaCur)
+            smaCounters600.OnEventAt(bar.etSec, smaCur)
+            smaCounters1200.OnEventAt(bar.etSec, smaCur)
         // ⭐ the leg machine. Step FIRST so BarsSinceFirstHigh counts bars
         // ELAPSED since the leg's first low. STRICT inequalities on both
         // events (V6 F21: `<=` re-fired on round-number pinning ties — two
@@ -2371,9 +2389,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 runPreHighVwap <- prevVwap
                 runFirstHighVwap <- bar.vwap
             highsSinceDn <- highsSinceDn + 1
-            counters.OnEvent bar.etSec
-            counters300.OnEvent bar.etSec
-            counters600.OnEvent bar.etSec
+            // S44: the three legs whose magnitude we record are stamped with
+            // the FIRST high's vwap (the others keep the count-only path).
+            counters.OnEventAt(bar.etSec, bar.vwap)
+            counters300.OnEventAt(bar.etSec, bar.vwap)
+            counters600.OnEventAt(bar.etSec, bar.vwap)
             counters30.OnEvent bar.etSec
             counters60.OnEvent bar.etSec
             counters120.OnEvent bar.etSec
@@ -2800,8 +2820,18 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       SmaBrLo600Rate = resetRate smaBrLo600 smaCur bar.etSec
                       SmaBrLo1200Rate = resetRate smaBrLo1200 smaCur bar.etSec
                       SmaBrHi1200Bars = smaBrHi1200.BarsSinceBreach
-                      SmaBrHi1200Mag = resetMag smaBrHi1200 smaCur
-                      SmaBrHi1200Rate = resetRate smaBrHi1200 smaCur bar.etSec
+                      SmaLegMag300 = smaCounters300.MagSinceFirst smaCur
+                      SmaLegMag600 = smaCounters600.MagSinceFirst smaCur
+                      SmaLegMag1200 = smaCounters1200.MagSinceFirst smaCur
+                      SmaLegRate300 = smaCounters300.RateSinceFirst(smaCur, bar.etSec)
+                      SmaLegRate600 = smaCounters600.RateSinceFirst(smaCur, bar.etSec)
+                      SmaLegRate1200 = smaCounters1200.RateSinceFirst(smaCur, bar.etSec)
+                      RawLegMag = counters.MagSinceFirst bar.vwap
+                      RawLegMag300 = counters300.MagSinceFirst bar.vwap
+                      RawLegMag600 = counters600.MagSinceFirst bar.vwap
+                      RawLegRate = counters.RateSinceFirst(bar.vwap, bar.etSec)
+                      RawLegRate300 = counters300.RateSinceFirst(bar.vwap, bar.etSec)
+                      RawLegRate600 = counters600.RateSinceFirst(bar.vwap, bar.etSec)
                       SmaHighs300 = smaCounters300.EventsSinceFirst
                       SmaHighs600 = smaCounters600.EventsSinceFirst
                       SmaHighs1200 = smaCounters1200.EventsSinceFirst

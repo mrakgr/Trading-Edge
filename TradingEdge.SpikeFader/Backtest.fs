@@ -308,7 +308,14 @@ CREATE TABLE trips (
     sma_brlo_600_mag DOUBLE, sma_brlo_1200_mag DOUBLE,
     sma_brlo_180_rate DOUBLE, sma_brlo_300_rate DOUBLE,
     sma_brlo_600_rate DOUBLE, sma_brlo_1200_rate DOUBLE,
-    sma_brhi_1200_bars INTEGER, sma_brhi_1200_mag DOUBLE, sma_brhi_1200_rate DOUBLE,
+    sma_brhi_1200_bars INTEGER,
+    -- leg-anchored breakout magnitude: measured from the leg's FIRST breakout
+    -- after the reset, not its latest (a per-event restamp reads ~0 by
+    -- construction on the breakout side).
+    sma_leg_mag_300 DOUBLE, sma_leg_mag_600 DOUBLE, sma_leg_mag_1200 DOUBLE,
+    sma_leg_rate_300 DOUBLE, sma_leg_rate_600 DOUBLE, sma_leg_rate_1200 DOUBLE,
+    raw_leg_mag DOUBLE, raw_leg_mag_300 DOUBLE, raw_leg_mag_600 DOUBLE,
+    raw_leg_rate DOUBLE, raw_leg_rate_300 DOUBLE, raw_leg_rate_600 DOUBLE,
     sma_highs_300 INTEGER, sma_highs_600 INTEGER, sma_highs_1200 INTEGER,
     sma_bars_1200 INTEGER,
     raw_brlo_180_bars INTEGER, raw_brlo_300_bars INTEGER,
@@ -558,7 +565,11 @@ type TripSink(outDir: string) =
             f p.SmaBrLo600Mag; f p.SmaBrLo1200Mag
             f p.SmaBrLo180Rate; f p.SmaBrLo300Rate
             f p.SmaBrLo600Rate; f p.SmaBrLo1200Rate
-            i p.SmaBrHi1200Bars; f p.SmaBrHi1200Mag; f p.SmaBrHi1200Rate
+            i p.SmaBrHi1200Bars
+            f p.SmaLegMag300; f p.SmaLegMag600; f p.SmaLegMag1200
+            f p.SmaLegRate300; f p.SmaLegRate600; f p.SmaLegRate1200
+            f p.RawLegMag; f p.RawLegMag300; f p.RawLegMag600
+            f p.RawLegRate; f p.RawLegRate300; f p.RawLegRate600
             i p.SmaHighs300; i p.SmaHighs600; i p.SmaHighs1200
             i p.SmaBars1200
             i p.RawBrLo180Bars; i p.RawBrLo300Bars
