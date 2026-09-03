@@ -51,13 +51,29 @@ S44_COLS = [
     'first_high_vwap','d_lo_flow','vol_60','vol_0945_tape','signal_vwap',
 ]
 BASE = ['symbol','trade_date','signal_sec','entry_px','exit_px','exit_sec',
-        'ret_exit','volat_20m','halts_today','secs_since_halt','dlv',
+        'ret_exit','volat_20m','halts_today','secs_since_halt',
         f'aux_lo_{EXIT_CH}_px', f'aux_lo_{EXIT_CH}_sec']
+
+DLV = ", signal_vwap / NULLIF(sess_low,0) - 1 AS dlv, sess_low"
 
 def load(spec=True, dirpath=DIR):
     cols = BASE + [c for c in S44_COLS if c not in BASE]
-    where = 'WHERE ' + (SPEC if spec is True else spec) if spec else ''
-    q = f"SELECT {', '.join(cols)} {DERIVED} FROM read_parquet('{dirpath}/*.parquet') {where}"
+    sp = SPEC if spec is True else spec
+    # SPEC gates on `dlv`, a DERIVED name -- inline it for the WHERE clause
+    # (a WHERE cannot see a SELECT alias).
+    if sp: sp = sp.replace('dlv >', 'signal_vwap / NULLIF(sess_low,0) - 1 >')
+    # ⭐ UNITS FIX (2026-09-03, resolves the S43d caveat). The doc's gate is
+    # "slope_20m >= 30bp/min"; ols_slope_1200 is log-price PER BAR, and there
+    # are 60 one-second bars in a minute, so 30bp/min = 0.5bp/bar = 5.0e-05.
+    # The 0.0030 literal was the per-MINUTE figure written into a per-BAR
+    # column -- off by exactly 60x, which is why no RESCALING of the column
+    # (2e4/1e4/6e4) ever reproduced the book: the THRESHOLD was wrong, not the
+    # data. ols_slope_1200 maxes at 1.438e-03 corpus-wide, so 0.0030 selects
+    # the empty set. At 5.0e-05 the clause keeps 95% of the book -- a mild
+    # sanity floor, matching S43d's finding that it is near-inert as a voice.
+    if sp: sp = sp.replace('ols_slope_1200 >= 0.0030', 'ols_slope_1200 >= 5.0e-05')
+    where = 'WHERE ' + sp if spec else ''
+    q = f"SELECT {', '.join(cols)} {DERIVED} {DLV} FROM read_parquet('{dirpath}/*.parquet') {where}"
     df = duckdb.query(q).df()
     px  = df[f'aux_lo_{EXIT_CH}_px'].where(lambda s: ~s.isna(), df['exit_px'])
     sec = df[f'aux_lo_{EXIT_CH}_sec'].where(lambda s: ~s.isna(), df['exit_sec'])

@@ -3800,3 +3800,166 @@ could not be reconstructed from any scaling (`×2e4`, `×1e4`, `×6e4`, raw all
 disagree with the recorded book size). Since that clause gates the very feature
 under test in S43d, an active gate would narrow the surviving distribution further
 — which strengthens, not weakens, the negative result.
+
+
+---
+
+## §S44 — the SMA breakout block: CLOSED on the same-n control (2026-09-03)
+
+**User ask:** add a 30-bar SMA to the engine with the equivalent Min {3,5,10,20}m
+reset channels and 20m breakout counters on it; measure the MAGNITUDE since the
+last reset for each channel (SMA and raw); then put the features head-to-head.
+Motivation: the S43b synthetic bake-off had EMA-smoothed breakout counting a
+shade above raw (d' 4.366 vs 4.135).
+
+### S44a — built, and the smoothing claim measured properly
+
+Built (record-only, no gate reads any of it): `AvgMa 30`, the four Min channels
++ the 20m Max on the SMA, stamped breach counters on the SMA AND raw channels,
+the SMA leg ladder, and magnitude/rate/elapsed-time per leg. Two RollingMa
+primitives gained optional stamps (`BreachCounter.OnBreachAt`,
+`LegCounters.OnEventAt`); both keep their no-arg paths so the ~40 production
+call sites are untouched. New oracles: `BreachStamp_Test.fsx` (24 checks),
+`LegStamp_Test.fsx` (21).
+
+**⭐ Smoothing moves the OPERATING POINT, not the accuracy.** A fresh bake-off
+(N=4000, T=600, 60-bar breakout window) puts every smoother in a dead heat and
+shows what actually changes:
+
+| smoother | d' @ drift/sd 0.10 | AUC | null breakout frac | trend frac |
+|---|---|---|---|---|
+| raw | 2.245 | 0.943 | 0.078 | 0.159 |
+| sma30 | 2.267 | 0.942 | 0.259 | 0.521 |
+| sma60 | 2.256 | 0.939 | 0.323 | 0.646 |
+| ema hl=30 | **2.365** | 0.945 | 0.316 | 0.682 |
+| ema hl=15 | 2.339 | **0.946** | 0.269 | 0.568 |
+
+A ~5% d' spread on 4000 samples is not a finding. What IS real is the null
+fraction moving 0.078 -> 0.32: smoothing lifts the counter off the floor, so a
+THRESHOLD on it has dynamic range instead of separating 0 from 1. The real book
+reproduces the shift at the predicted size — `sma_highs_1200` mean 225 vs raw
+`k600` mean 41, 5.5x hotter.
+
+### S44b — ⚠ the per-event stamp bug (user caught it)
+
+The breakout-side magnitude was first measured off a `BreachCounter` stamp,
+which restamps on EVERY new extreme — so "travel since the stamp" collapsed to
+~0 by construction (`sma_brhi_1200_mag` median **+0.0004**): the bar that sets a
+new high has by definition barely cleared it. **The anchor must be the leg's
+FIRST breakout after the reset**, which `LegCounters` already identifies. After
+the fix, `raw_leg_mag` median **+0.0609** — 150x the signal. Generalizable
+lesson: *a counter that restamps on every event cannot measure travel since the
+event; anchor on the leg, not the latest extreme.*
+
+Elapsed time is recorded RAW next to the derived rate (user), because the
+division is not reversible post-hoc. Justified by measurement: `corr(bars, secs)
+= +0.702`, seconds-per-bar p10 1.00 -> p90 3.50 — the same leg length in bars
+spans up to 3.5x the wall-clock time by tape density (the S43be argument).
+Identity verified: `rate == mag/(secs/60)` to max|diff| **0.000e+00**.
+
+### S44c — ⭐⭐ the units mystery RESOLVED (retires the S43d caveat)
+
+`ols_slope_1200` maxes at **1.438e-03** corpus-wide, so the harness literal
+`>= 0.0030` selects the EMPTY SET. The doc's gate is "slope_20m >= 30bp/min";
+the column is log-price **per BAR**, and there are 60 one-second bars per
+minute, so 30bp/min = 0.5bp/bar = **5.0e-05** — which sits right at the p50
+(5.569e-05). **The 0.0030 literal is the per-MINUTE figure written into a
+per-BAR column, off by exactly 60x.** That is why no RESCALING of the column
+(x2e4, x1e4, x6e4) ever reproduced the book: the THRESHOLD was in the wrong time
+unit, not the data. At 5.0e-05 the clause keeps 95% of the book — a mild sanity
+floor, consistent with S43d finding it near-inert as a voice.
+
+Book reproduces: **3,573 @ PF-1 1.213**, net 7,162%, win 74.5% vs the stated
+reference 3,717 @ 1.181 / 7,399% / 74.4% (residual = the whitelist corpus ends
+2026-07-17 vs base_v4's 2026-08-21).
+
+### S44d — the head-to-head: ALL CANDIDATES CLOSED
+
+Corpus: `data/spikefader_s44`, the WHITELIST rerun (user: no base run) — the
+208,708 tkd that produced trips in base_v4, injected via `FF_CANDIDATE_TABLE`
+(14.7% of the universe, 48 min vs ~6h). 935,595 trips, 2020-01-02..2026-07-17.
+Substitution test EXACT: `raw_brlo_{300,600,1200}_bars` reproduce
+`breach_lo_*` on 935,595/935,595 trips.
+
+**(i) Nothing discriminates inside the book** (AUC, winners vs losers, n=3,573):
+
+| feature | AUC | | incumbent | AUC |
+|---|---|---|---|---|
+| raw_leg_rate_600 | 0.532 | | dlv | 0.529 |
+| raw_leg_mag | 0.530 | | k300 | 0.507 |
+| sma_leg_mag_1200 | 0.528 | | k180 | 0.504 |
+| sma_highs_1200 | 0.500 | | k600 | **0.493** (inverted) |
+
+Everything is 0.49-0.53. The NEW features are not losing to strong incumbents —
+**inside the surviving book no trend feature separates winners from losers, old
+or new.** This is S43c's monotone-floor law again: the spec's gates (k300>=40,
+k600>=90, k180>=15, dlv>3%) have already eaten the trend variance.
+
+**(ii) ⭐ THE SAME-N CONTROL KILLS ALL SIX.** As a gate each candidate lifts
+PF-1 1.213 -> ~1.5. But that is what ANY halving along a trend-correlated axis
+does — and tightening the incumbent `k300` to the identical book size does as
+well or better every time:
+
+| candidate @ median | its PF-1 | tighten k300 to same n | tighten k600 | RANDOM 50% (mean / max) |
+|---|---|---|---|---|
+| sma_highs_600 | 1.599 | **1.601** | 1.402 | 1.219 / 1.252 |
+| sma_highs_300 | 1.567 | **1.614** | 1.338 | 1.212 / 1.277 |
+| sma_highs_1200 | 1.514 | **1.596** | 1.410 | 1.218 / 1.249 |
+| raw_leg_rate_600 | 1.569 | **1.591** | 1.421 | 1.215 / 1.280 |
+| raw_leg_mag | 1.466 | **1.553** | 1.428 | 1.218 / 1.267 |
+| sma_leg_mag_1200 | 1.465 | **1.581** | 1.441 | 1.217 / 1.248 |
+
+The random control shows the halving alone is NOT sufficient (1.22, max 1.28),
+so the lift is real — but `k300` already captures all of it. **No candidate
+earns a seat; none proceeds to the year table or the permutation null** (a
+feature that loses same-n does not get further controls).
+
+### Verdicts
+
+- **SMA breakout counters: CLOSED.** Predicted by the synthetic (dead heat),
+  confirmed by same-n. The smoothing buys operating range, not information.
+- **Reset/leg MAGNITUDE: CLOSED.** rho 0.70-0.86 with `dlv`/`k600` on the full
+  corpus — a re-derivation of distance features already gated.
+- **Reset/leg RATE: CLOSED as a voice**, though it was the one genuinely
+  orthogonal axis (rho +0.06 to dlv, -0.215 to k600, **-0.146 to its OWN
+  magnitude** — *big legs are slow legs*, a statement nothing else in the engine
+  records). Orthogonality was necessary but not sufficient.
+- **KEPT as infrastructure:** the two stamp primitives + oracles, the raw
+  elapsed-time columns, and the whitelist-rerun pattern (`FF_CANDIDATE_TABLE`,
+  7x cheaper than a base run) — all reusable.
+- **Method note:** the S43d lesson repeated and held. Every one of these six
+  showed a clean PF ramp and would have been called a find without same-n.
+
+### Live remainder
+
+The FlushFader question is still open and is the better host: it gates on a
+BOUNDED K band [26,50] rather than monotone floors, so the variance these
+features need may still be there (per the side-flip law, the ruling may invert).
+
+### ⏭ Next: volume in CUMULATIVE space (user idea, 2026-09-03)
+
+Synthetic screen (bursty lognormal baseline, spike of `mult`x over `dur` bars
+inside a 120-bar window, N=4000) — **the engine's current volume vocabulary is
+nearly blind to spikes**:
+
+| feature | space | d' (5x/10bar) | AUC | AUC (2x/40bar) |
+|---|---|---|---|---|
+| **cum_maxdev** (max dev of the normalized cumulative curve from the diagonal) | cumulative | **1.774** | **0.919** | **0.836** |
+| gini (window volume concentration) | cumulative | 1.555 | 0.870 | 0.667 |
+| max_over_mean | raw | 0.792 | 0.747 | 0.563 |
+| **rr_sum_ratio** (the `rr` SHAPE: 2nd-half sum / 1st-half sum) | raw | **0.286** | **0.504** | 0.489 |
+| cum_convexity (MEAN dev from the diagonal) | cumulative | 0.010 | 0.500 | 0.515 |
+| log_cum_slope_ratio | log-cumulative | 0.047 | 0.459 | 0.408 |
+
+Three findings: (a) the window-sum-ratio shape is a **coin flip** (AUC 0.504) at
+every spike size — a spike near the window's middle cancels; (b) `cum_maxdev` is
+the winner AND the most shape-robust (holds 0.836 on the diffuse 2x/40 case
+where `max_over_mean` collapses to 0.563); (c) **cumulative space is not
+automatically better** — convexity and log-slope both FAIL, because averaging
+the deviation cancels a mid-window spike. *The MAX, not the mean* — the same
+run-length-vs-run-count lesson as S43b.
+
+⚠ Design gate before wiring: this synthetic assumes a STATIONARY baseline, but
+real intraday volume has a strong U-shaped diurnal profile that would itself
+bend the cumulative curve and inflate `cum_maxdev`. The real feature must
+measure deviation against the EXPECTED arrival curve, not the diagonal.
