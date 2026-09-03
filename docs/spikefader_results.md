@@ -3625,3 +3625,178 @@ cover at the close (never overnight).
 
 **BOOK:** 3,717 @ PF 2.181 (PF−1 1.181), net 7,399%, win 74.4%.
 **GRADED + SIZED:** net/exposure 10,378 (1.40× equal), worst trade −47.7%, maxDD 48%.
+
+---
+
+# S43 (2026-09-02/03) — ⭐⭐ THE TREND-MEASUREMENT PROGRAM: three lines, all CLOSED
+
+The question (user): *"the whole task is to separate out drift from noise"* — can a
+better trend-strength feature improve the book? Three independent attacks, all
+negative, all for the SAME reason. Documented at length because the **synthetic
+bake-off is reusable** and the closure argument generalises.
+
+## S43a — the z-quantile family: BUILT, then REVERTED (115 columns of tech debt)
+
+Proposal: count bars whose |z| clears a ladder {1,1.5,2,2.5,3}, z on ln(vwap)
+against a trailing window, tallied over a separate longer horizon. Built as
+`ZLadder`/`AnchoredZCount` in RollingMa (oracle-tested), 115 record-only columns
+wired into the engine (commit `f32a38f`), reverted whole (`5940793`).
+
+### ⭐ THE √3 WALL — the arithmetic that should have shaped the ladder
+
+For a PURE LINEAR RAMP the z of the newest bar converges to a CONSTANT:
+
+    z_last = (n−1)·√(3 / (n(n+1)))  ──→  √3 ≈ 1.7321        [sample sd, n−1]
+
+**Independent of drift slope AND intercept** — z is scale-free, so doubling the
+drift doubles numerator and σ alike and they cancel. (A ramp over [0,1] has mean ½
+and σ = 1/√12, hence (1−½)·√12 = √3.) Verified n = 10/60/300/1200 → 1.486 / 1.689 /
+1.723 / 1.730.
+
+⚠ **TWO DIFFERENT "FRACTIONS" — easy to conflate, and I did:**
+
+| | fraction of bars above t |
+|---|---|
+| WITHIN ONE STATIC window (across positions i = 0..n−1) | `max(0, 1 − t/√3)` → 42.3% / 13.4% / 1.9% at t = 1.0/1.5/1.7, **exactly 0 for t ≥ √3** |
+| ACROSS ROLLING evaluation bars (what a counter tallies) | a ramp gives EVERY warm bar the SAME z (the newest is always its own window's extreme) → **1 below z_last, 0 above** |
+
+The first is the shape law that explains the wall; the second is what the feature
+sees. Smoke run confirmed it on real tape: entries fire on a new 20m HIGH, so
+**92.3% of signal bars sit ABOVE the wall** (median z₃₀₀ = 2.386, p99 4.85).
+
+### 💀 The fatal flaw: |z| threw away over half the signal
+
+d′ / AUC separating a drifting walk from a driftless one (N = 2000, W = 60, 2000 reps):
+
+| form | d′ @ drift/sd 0.10 | AUC |
+|---|---|---|
+| `\|z\| > 1.0` | **0.071** | 0.52 ← a coin flip |
+| `\|z\| > 1.5` | 1.825 | 0.901 |
+| **signed `z > 1.5`** | **4.051** | 0.997 |
+| breakout raw | 4.135 | 0.998 |
+
+Absolute value counts DOWNSIDE excursions as upside ones; on a symmetric walk they
+cancel the trend's contribution. The null columns say it plainly: `|z|>1.0` reads
+55.9% on a driftless walk vs 56.1% on a trending one — a 0.2pp gap. **The family was
+115 columns exploring variations of a construction with a sign bug at its core.**
+
+## S43b — ⭐⭐ THE SYNTHETIC BAKE-OFF (keep this; it is reusable)
+
+Trend detectors scored on PAIRED synthetic paths, ranked by d′.
+
+### The theoretical ceiling is a known quantity
+
+For a Gaussian RW with drift the **sufficient statistic for μ is net displacement**.
+Everything else approximates it — which is why the top of the table is a four-way
+tie between measures that are secretly the same estimator:
+
+| measure @ drift/sd 0.10 | d′ | what it really computes |
+|---|---|---|
+| efficiency ratio | 4.471 | displacement ÷ path length |
+| net displacement | 4.467 | the MLE / matched filter |
+| t-stat of returns | 4.462 | displacement ÷ realized vol |
+| OLS slope | 4.423 | time-weighted displacement |
+| **breakout ema30** | **4.366** | ← 98% of ceiling |
+| signed z > 1.5 | 4.149 | |
+| **breakout raw** | **4.135** | ← 93% of ceiling |
+| frac up bars | 3.556 | sign test (throws away magnitude) |
+| variance ratio / R-S / ac1 / low-freq power | **≈ 0.00** | see below |
+
+**No feature can beat that bound** (Neyman–Pearson). ⭐ So the engine's existing
+breakout counters were NEVER the weak link — they sit at 93–98% of optimal, and the
+MA-smoothed twin buys ~5%.
+
+### ⭐⭐ AND THE RANKINGS FULLY INVERT ACROSS TREND MECHANISMS
+
+The side-flip lesson in a new guise — **"trend" is not one thing:**
+
+| generator | winner | d′ | breakout raw | ac1 | R/S |
+|---|---|---|---|---|---|
+| constant drift | efficiency ratio | 4.47 | **4.14** | 0.01 | 0.03 |
+| **momentum (AR1 returns, zero drift)** | **ac1** | **6.78** | **0.37** | — | 0.64 |
+| **regime (drift flips every 200 bars)** | **rescaled range** | **1.60** | 0.69 | 0.48 | — |
+
+Hurst / variance-ratio / spectral measure DEPENDENCE BETWEEN INCREMENTS. Constant
+drift is not dependence — the drift lives in the increments' MEAN — so they
+correctly read zero on it. Conversely displacement-based measures are blind to
+momentum (OLS slope>0 frac: d′ 0.036, AUC 0.510 on AR1). **Pick the detector to
+match the mechanism, or measure nothing.**
+
+⚠ `rescaled range / Hurst` is the one family ABSENT from the engine, and it wins
+under the regime model — the closest of the three to a real pop-and-fade leg.
+Not added: see S43c for why it would not have helped.
+
+## S43c — ⭐⭐ THE REAL BOOK SAYS THE WHOLE QUESTION IS ALREADY ANSWERED
+
+Mechanism diagnostic: do any trend features separate WINNERS from LOSERS?
+(Partial current corpus, 2020-01..2021-12, mc=1 **1,627 @ PF−1 1.194**.)
+
+| family | median AUC | best member |
+|---|---|---|
+| AUTOCORR (momentum) | 0.523 | ac3_ewma 0.529 |
+| BREAKOUT (drift) | 0.519 | k180 0.527 |
+| DISPLACEMENT (drift) | 0.514 | **ols_r_1200 0.542** ← the best in the whole vocabulary |
+| VAR-RATIO (momentum) | 0.507 | vr2_ewma 0.512 |
+
+**AUC 0.50 = a coin flip.** Every family is noise. Compare the synthetic benchmark,
+where a matched detector scores AUC 0.998.
+
+⭐ **THE EXPLANATION — the monotone-floor law consuming its own features.** Every
+trade in this book already cleared `k300 ≥ 40 ∧ k600 ≥ 90 ∧ k180 ≥ 15 ∧ eff_10m ≥
+0.3 ∧ slope_300 ≥ 0`. The spec has ALREADY selected hard on trend, so no residual
+trend variance is left to price. `k600` is even **INVERTED** among survivors
+(good 106.9 vs bad 108.1, AUC 0.503) — more breakouts is marginally WORSE once you
+are past 90.
+
+## S43d — distance ÷ time ("speed") and the OLS slope: BOTH CLOSED
+
+User: *"we're always using some distance from a moving average as the core feature
+… we never really tried the direct rates of change."* Five speed variants, all
+signal-time, bar-clock.
+
+**Speed does not beat its own parts** (iso-trip control):
+
+| feature | top-decile PF−1 | monotone? |
+|---|---|---|
+| pop height ÷ bars since arming high | 0.940 (**falls** at the top) | no |
+| pop height ÷ bars since 5m low breach | 0.864 (falls) | no |
+| pop height ÷ bars since 20m low breach | 1.780 | top half only |
+| `d_lo_flow` alone (distance, no time) | 2.024 | no |
+| **`ols_slope_1200` alone (the existing feature)** | **2.916** | **yes** |
+
+Dividing by a VARIABLE leg age injects noise: `bars_since_first_high` spans
+267–11,015 and its own band table is non-monotone (0.590 → 2.057, no order).
+
+### And `ols_slope_1200` itself fails all three controls
+
+Its 2.916 top decile looked like the find of the day. It is not:
+
+| control | result | verdict |
+|---|---|---|
+| as a roster VOICE (q 0.50→0.80) | delta **−0.385 to −0.675** | harmful |
+| as a voice at q 0.90 | +0.230, but on **27 unique trades** | anecdote |
+| YEAR table (top quintile) | 2020 **2.458** → 2021 **1.393** | decays |
+| ticker-day permutation | **p = 0.104** | not significant |
+| **SAME-n tightened control** | s1200 **1.843** vs `rr` **2.057** at n = 326 | **an unrelated feature does BETTER** |
+
+The same-n control is decisive: the lift is the generic "trim to a better-behaved
+20%" effect, and s1200 is a BELOW-AVERAGE way to get it. ⚠ Method note — a single
+monotone-looking decile ramp is exactly what the controls exist to deflate; run
+same-n BEFORE calling one interesting.
+
+## VERDICT
+
+**All three lines closed. The rate-of-change / trend-strength axis is exhausted for
+SpikeFader**, and the reason is structural rather than a failure of imagination:
+the spec's monotone floors have already extracted the trend information.
+
+⏭ **The live remainder:** the same question for **FlushFader**, which gates on a
+BOUNDED K band `[26,50]` rather than monotone floors and so has NOT pre-selected
+trend the same way. Per the side-flip law the ruling may INVERT there.
+
+⚠ Caveats on every number above: partial corpus (2020-01..2021-12, 1,627 mc=1
+trades), and the spec's `slope_20m ≥ 30` clause is OMITTED — its documented units
+could not be reconstructed from any scaling (`×2e4`, `×1e4`, `×6e4`, raw all
+disagree with the recorded book size). Since that clause gates the very feature
+under test in S43d, an active gate would narrow the surviving distribution further
+— which strengthens, not weakens, the negative result.
