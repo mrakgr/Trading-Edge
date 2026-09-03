@@ -23,5 +23,6 @@
   <Project Path="TradingEdge.BreakoutTimerBackside/TradingEdge.BreakoutTimerBackside.fsproj" />
   <Project Path="TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
   <Project Path="TradingEdge.FlushFader/TradingEdge.FlushFader.fsproj" />
+  <Project Path="TradingEdge.MaxFader/TradingEdge.MaxFader.fsproj" />
   <Project Path="TradingEdge.LongHiker/TradingEdge.LongHiker.fsproj" />
 </Solution>
