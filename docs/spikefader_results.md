@@ -4010,3 +4010,41 @@ loud end IS clean when it fires — but at 1.1% of the book it is not distinguis
 the seated `volat` voice and fails the permutation null. `rr ≥ 12` goes on the watch list:
 re-test when another year of book accrues (a 2× seat at ≥12 would move the book
 1.213 → 1.252, +0.04).
+
+## §S46 — `rr ≥ 12` as a roster voice: EARNS A SEAT (2026-09-04)
+
+The roster question is overlap, not standalone strength (`flushfader_voice_test.py`'s
+rule: *a voice's whole value is its SOLO trips*). Book 3,573 @ PF−1 1.213
+(`data/spikefader_rr12_roster.log`).
+
+**Where the 112 `rr ≥ 12` trips sit today:** 69 in grade **E** (no voice, sized 0.17),
+40 in D (`volat`), 2 in C, 1 in B. **The 69 solo trips score PF−1 2.884, win 77%, worst
+−11.3% — against grade E's 0.753.** That is a mis-graded cell: nearly four times the
+edge of the grade it is sized as, with the tightest tail in the book after grade A.
+
+**Inserted at its PF−1 rank (after B):**
+
+| grade | voice | n | PF−1 | win% | worst% |
+|---|---|---:|---:|---:|---:|
+| A | `rr < 0.5` | 113 | 3.759 | 86.7 | −15.6 |
+| B | `dslo ≤ −5%` | 154 | 3.706 | 85.1 | −52.5 |
+| **X** | **`rr ≥ 12`** | 111 | **2.789** | 74.8 | **−18.8** |
+| C | `ht ≥ 2 ∧ fresh` | 29 | 2.832 | 79.3 | −24.4 |
+| D | `volat ≥ 100bp` | 675 | 1.803 | 77.3 | −72.4 |
+| E | none | 2,491 | 0.715 | 72.5 | −83.4 |
+
+Weight for X = 2.789 / 3.759 = **0.74**. Sizing (in-sample): net/exposure 9,815 → **9,994**
+(+1.8%), t 15.27 → 15.56, worst unchanged at −51.7%. **Leave-one-year-out (weights fitted
+on six years, applied to the seventh): the 5-voice roster beats the 4-voice in 6 of 7
+folds** — 2023 the exception (572 vs 596, −4%; 5 `rr ≥ 12` trips that year, §S45).
+
+**Why this passes where `rr ≥ 20` (§S45) failed:** 112 trips instead of 39; 69 of them solo;
+the same-n table in §S45 already had it beating every incumbent but the seated quiet-`rr`
+voice; and the LOYO is the test that says a seat is earned rather than harmless. The
+quiet end and the loud end of one column now both hold seats — the U from MaxFader's
+band table, seated on SpikeFader's book.
+
+**Recommendation: ADOPT as grade X (weight 0.74), roster = FIVE voices.** Residual
+caveat: the loud end is climax volume, and the size-up sits on trades whose tail is
+tighter than the book's — consistent with grade A. Re-read after the 2020–22 MaxFader
+merge adds nothing here (different corpus); re-read when 2027 accrues.
