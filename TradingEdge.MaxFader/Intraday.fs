@@ -751,6 +751,19 @@ type FlushPosition =
       AuxLo1200: float
       AuxSec1200: int
       AuxMoc1200: bool
+      // ⭐ LONG EXITS: the first new {30m,1h,2h,3h}-bar LOW after entry, next-bar fill, MOC-resolved
+      AuxLoL1800: float
+      AuxSecL1800: int
+      AuxMocL1800: bool
+      AuxLoL3600: float
+      AuxSecL3600: int
+      AuxMocL3600: bool
+      AuxLoL7200: float
+      AuxSecL7200: int
+      AuxMocL7200: bool
+      AuxLoL10800: float
+      AuxSecL10800: int
+      AuxMocL10800: bool
       // 🔄 v-fork exit re-sweep (user 2026-08-26): {3,4,6,7,8,9}m rungs beside
       // the inherited {1,2,5,10,20}m — the 7m cover was tuned on 1m bars.
       AuxLo180: float
@@ -1019,6 +1032,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let min300 = MinMa 300
     let min600 = MinMa 600
     let min1200 = MinMa 1200
+    // ⭐ LONG EXITS (user 2026-09-04): {30m,1h,2h,3h}-low cover marks, record-only
+    let minL1800 = MinMa 1800
+    let minL3600 = MinMa 3600
+    let minL7200 = MinMa 7200
+    let minL10800 = MinMa 10800
     // 🔄 exit re-sweep channels {3,4,6,7,8,9}m (min180 already exists)
     // S37f: + {11..19}m so chanMin (below) can select ANY recorded minute.
     // ⚠ These must be declared BEFORE chanMin — F# needs declaration before use.
@@ -1090,6 +1108,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let brLo300 = BreachCounter()
     let brLo600 = BreachCounter()
     let brLo1200 = BreachCounter()
+    let brLoL1800 = BreachCounter()
+    let brLoL3600 = BreachCounter()
+    let brLoL7200 = BreachCounter()
+    let brLoL10800 = BreachCounter()
     // ⭐ the leg machine + the per-leg trade counter (index of each SIGNAL
     // within the down-leg; reset together with the counters on the new
     // entry-channel high — NOT on new lows, unlike the momentum engines).
@@ -1770,6 +1792,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sMin300 : float voption = ValueNone
     let mutable sMin600 : float voption = ValueNone
     let mutable sMin1200 : float voption = ValueNone
+    let mutable sMinL1800 : float voption = ValueNone
+    let mutable sMinL3600 : float voption = ValueNone
+    let mutable sMinL7200 : float voption = ValueNone
+    let mutable sMinL10800 : float voption = ValueNone
     let mutable sExitMin : float voption = ValueNone
     let mutable sSessHigh : float voption = ValueNone
     let mutable sSessLow : float voption = ValueNone
@@ -1814,6 +1840,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMin300 <- min300.State
         sMin600 <- min600.State
         sMin1200 <- min1200.State
+        sMinL1800 <- minL1800.State
+        sMinL3600 <- minL3600.State
+        sMinL7200 <- minL7200.State
+        sMinL10800 <- minL10800.State
         sMinX180 <- min180.State
         sMinX240 <- min240.State
         sMinX360 <- min360.State
@@ -2194,6 +2224,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         min300.Push bar.vwap
         min600.Push bar.vwap
         min1200.Push bar.vwap
+        minL1800.Push bar.vwap
+        minL3600.Push bar.vwap
+        minL7200.Push bar.vwap
+        minL10800.Push bar.vwap
         // S44: the 30-bar SMA advances FIRST, then its own channels see the new
         // smoothed value -- so an SMA channel is a channel OF the SMA, never a
         // mix of one bar's SMA against another's.
@@ -2349,6 +2383,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let prevBr300 = brLo300.BarsSinceBreach
         let prevBr600 = brLo600.BarsSinceBreach
         let prevBr1200 = brLo1200.BarsSinceBreach
+        let prevBrL1800 = brLoL1800.BarsSinceBreach
+        let prevBrL3600 = brLoL3600.BarsSinceBreach
+        let prevBrL7200 = brLoL7200.BarsSinceBreach
+        let prevBrL10800 = brLoL10800.BarsSinceBreach
         let prevBr180 = brLo180.BarsSinceBreach
         let prevBr240 = brLo240.BarsSinceBreach
         let prevBr360 = brLo360.BarsSinceBreach
@@ -2412,6 +2450,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if breachedLo sMinX1080 then brLo1080.OnBreach()
         brLo1140.Step()
         if breachedLo sMinX1140 then brLo1140.OnBreach()
+        brLoL1800.Step()
+        if breachedLo sMinL1800 then brLoL1800.OnBreach()
+        brLoL3600.Step()
+        if breachedLo sMinL3600 then brLoL3600.OnBreach()
+        brLoL7200.Step()
+        if breachedLo sMinL7200 then brLoL7200.OnBreach()
+        brLoL10800.Step()
+        if breachedLo sMinL10800 then brLoL10800.OnBreach()
         // ===== S44: the SMA + stamped-raw reset channels =====
         // Same Step-then-mark discipline as above. The STAMP records the price
         // of the extreme that was broken and this bar's ET second, so the
@@ -2589,12 +2635,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let p = active.[i]
             // forward marks fill for EVERY trip (exited included — the sampler
             // wants the counterfactual path), first present bar past each horizon
-            let p =
-                { p with
-                    FwdVwap60 = if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60
-                    FwdVwap300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
-                    FwdVwap600 = if Double.IsNaN p.FwdVwap600 && bar.etSec >= p.EntrySec + 600 then bar.vwap else p.FwdVwap600
-                    FwdVwap1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200 }
+            let fwd60 = if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60
+            let fwd300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
+            let fwd600 = if Double.IsNaN p.FwdVwap600 && bar.etSec >= p.EntrySec + 600 then bar.vwap else p.FwdVwap600
+            let fwd1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200
             // ⭐⭐ the AVWAP rule marks. The check stamps the SESSION sums (post-fold,
             // so inclusive of the check bar) at the first present bar >= entry + h;
             // the post-check 5m-low mark uses the aux discipline: the PREVIOUS bar
@@ -2614,26 +2658,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (plo2h, pls2h, plm2h) = postStep p.PostChkLo300Px2h p.PostChkLo300Sec2h p.PostChkLo300Moc2h chk2h
             let struct (cdv3h, cvol3h, chk3h) = avwapStep p.AvwapCumDv3h p.AvwapCumVol3h p.AvwapChkSec3h 10800
             let struct (plo3h, pls3h, plm3h) = postStep p.PostChkLo300Px3h p.PostChkLo300Sec3h p.PostChkLo300Moc3h chk3h
-            let p =
-                { p with
-                    AvwapCumDv1h = cdv1h; AvwapCumVol1h = cvol1h; AvwapChkSec1h = chk1h
-                    Avwap1h = (if chk1h >= 0 && cvol1h - p.CumVol > 0.0 then (cdv1h - p.CumDv) / (cvol1h - p.CumVol) else nan)
-                    PostChkLo300Px1h = plo1h; PostChkLo300Sec1h = pls1h; PostChkLo300Moc1h = plm1h
-                    AvwapCumDv2h = cdv2h; AvwapCumVol2h = cvol2h; AvwapChkSec2h = chk2h
-                    Avwap2h = (if chk2h >= 0 && cvol2h - p.CumVol > 0.0 then (cdv2h - p.CumDv) / (cvol2h - p.CumVol) else nan)
-                    PostChkLo300Px2h = plo2h; PostChkLo300Sec2h = pls2h; PostChkLo300Moc2h = plm2h
-                    AvwapCumDv3h = cdv3h; AvwapCumVol3h = cvol3h; AvwapChkSec3h = chk3h
-                    Avwap3h = (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
-                    PostChkLo300Px3h = plo3h; PostChkLo300Sec3h = pls3h; PostChkLo300Moc3h = plm3h
-                }
             // ⭐⭐ the armed stops: one machine per arming channel, on the PREVIOUS bar's
             // breach snapshot (the same discipline as the aux marks) and the strictly-
             // prior session high.
-            let p =
-                { p with
-                    As300 = armedStep p.As300 prevBr300 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
-                    As600 = armedStep p.As600 prevBr600 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
-                    As1200 = armedStep p.As1200 prevBr1200 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct }
+            let as300 = armedStep p.As300 prevBr300 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
+            let as600 = armedStep p.As600 prevBr600 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
+            let as1200 = armedStep p.As1200 prevBr1200 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
             // aux-high marks: the PREVIOUS bar's breach-counter snapshot reads
             // 0 -> the previous bar printed the new N-bar high -> the mark
             // fills at THIS bar's vwap. Only highs printed STRICTLY AFTER the
@@ -2666,6 +2696,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (hi300, sc300, mc300) = auxStep p.AuxLo300 p.AuxSec300 p.AuxMoc300 prevBr300
             let struct (hi600, sc600, mc600) = auxStep p.AuxLo600 p.AuxSec600 p.AuxMoc600 prevBr600
             let struct (hi1200, sc1200, mc1200) = auxStep p.AuxLo1200 p.AuxSec1200 p.AuxMoc1200 prevBr1200
+            let struct (hiL1800, scL1800, mcL1800) = auxStep p.AuxLoL1800 p.AuxSecL1800 p.AuxMocL1800 prevBrL1800
+            let struct (hiL3600, scL3600, mcL3600) = auxStep p.AuxLoL3600 p.AuxSecL3600 p.AuxMocL3600 prevBrL3600
+            let struct (hiL7200, scL7200, mcL7200) = auxStep p.AuxLoL7200 p.AuxSecL7200 p.AuxMocL7200 prevBrL7200
+            let struct (hiL10800, scL10800, mcL10800) = auxStep p.AuxLoL10800 p.AuxSecL10800 p.AuxMocL10800 prevBrL10800
             let struct (hi180, sc180, mc180) = auxStep p.AuxLo180 p.AuxSec180 p.AuxMoc180 prevBr180
             let struct (hi240, sc240, mc240) = auxStep p.AuxLo240 p.AuxSec240 p.AuxMoc240 prevBr240
             let struct (hi360, sc360, mc360) = auxStep p.AuxLo360 p.AuxSec360 p.AuxMoc360 prevBr360
@@ -2681,28 +2715,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (hi1020, sc1020, mc1020) = auxStep p.AuxLo1020 p.AuxSec1020 p.AuxMoc1020 prevBr1020
             let struct (hi1080, sc1080, mc1080) = auxStep p.AuxLo1080 p.AuxSec1080 p.AuxMoc1080 prevBr1080
             let struct (hi1140, sc1140, mc1140) = auxStep p.AuxLo1140 p.AuxSec1140 p.AuxMoc1140 prevBr1140
-            let p =
-                { p with
-                    AuxLo60 = hi60; AuxSec60 = sc60; AuxMoc60 = mc60
-                    AuxLo120 = hi120; AuxSec120 = sc120; AuxMoc120 = mc120
-                    AuxLo300 = hi300; AuxSec300 = sc300; AuxMoc300 = mc300
-                    AuxLo600 = hi600; AuxSec600 = sc600; AuxMoc600 = mc600
-                    AuxLo1200 = hi1200; AuxSec1200 = sc1200; AuxMoc1200 = mc1200
-                    AuxLo180 = hi180; AuxSec180 = sc180; AuxMoc180 = mc180
-                    AuxLo240 = hi240; AuxSec240 = sc240; AuxMoc240 = mc240
-                    AuxLo360 = hi360; AuxSec360 = sc360; AuxMoc360 = mc360
-                    AuxLo420 = hi420; AuxSec420 = sc420; AuxMoc420 = mc420
-                    AuxLo480 = hi480; AuxSec480 = sc480; AuxMoc480 = mc480
-                    AuxLo540 = hi540; AuxSec540 = sc540; AuxMoc540 = mc540
-                    AuxLo660 = hi660; AuxSec660 = sc660; AuxMoc660 = mc660
-                    AuxLo720 = hi720; AuxSec720 = sc720; AuxMoc720 = mc720
-                    AuxLo780 = hi780; AuxSec780 = sc780; AuxMoc780 = mc780
-                    AuxLo840 = hi840; AuxSec840 = sc840; AuxMoc840 = mc840
-                    AuxLo900 = hi900; AuxSec900 = sc900; AuxMoc900 = mc900
-                    AuxLo960 = hi960; AuxSec960 = sc960; AuxMoc960 = mc960
-                    AuxLo1020 = hi1020; AuxSec1020 = sc1020; AuxMoc1020 = mc1020
-                    AuxLo1080 = hi1080; AuxSec1080 = sc1080; AuxMoc1080 = mc1080
-                    AuxLo1140 = hi1140; AuxSec1140 = sc1140; AuxMoc1140 = mc1140 }
             // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
             // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
             // mark still unresolved at/past MocSec resolves at this bar (the moc
@@ -2723,8 +2735,69 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (v40p, v40s) = maStep p.Vwma40Px p.Vwma40Sec prevXVw40
             let struct (v50p, v50s) = maStep p.Vwma50Px p.Vwma50Sec prevXVw50
             let struct (v60p, v60s) = maStep p.Vwma60Px p.Vwma60Sec prevXVw60
+            let barsHeld = match p.State with Holding | PendingExit _ -> p.BarsHeld + 1 | ExitedAt _ -> p.BarsHeld
+            let state =
+                match p.State with
+                | Holding ->
+                    if bar.etSec >= mocSec then
+                        // the 16:00 bar IS the auction-proximate print — fill here, not next bar
+                        ExitedAt (bar.etSec, bar.vwap, "moc")
+                    elif volStopHit then PendingExit "vol_stop"
+                    elif tcStopHit then PendingExit "tc_stop"
+                    elif speedStopHit then PendingExit "speed_stop"
+                    elif targetHit then PendingExit "target"
+                    else p.State
+                | s -> s
+            // ⭐ ONE record copy per bar per position (2026-09-04, user: "why do 2,455 tkd
+            // take an hour?"). This loop used to rebuild the ~700-field record SEVEN
+            // times per bar (fwd, avwap, armed, aux, MA, BarsHeld, State); with ~66
+            // positions open per bar on a loud day that was ~70GB of memcpy per
+            // ticker-day — 19x the mc=1 fold — and the whole run time. The blocks
+            // never read each other's outputs within a bar (only the retire check
+            // below reads the final record), so one copy is semantically identical
+            // (zero-diff on the 10-day rr8 test, trip keys + mark columns).
             let p =
                 { p with
+                    FwdVwap60 = fwd60
+                    FwdVwap300 = fwd300
+                    FwdVwap600 = fwd600
+                    FwdVwap1200 = fwd1200
+                    AvwapCumDv1h = cdv1h; AvwapCumVol1h = cvol1h; AvwapChkSec1h = chk1h
+                    Avwap1h = (if chk1h >= 0 && cvol1h - p.CumVol > 0.0 then (cdv1h - p.CumDv) / (cvol1h - p.CumVol) else nan)
+                    PostChkLo300Px1h = plo1h; PostChkLo300Sec1h = pls1h; PostChkLo300Moc1h = plm1h
+                    AvwapCumDv2h = cdv2h; AvwapCumVol2h = cvol2h; AvwapChkSec2h = chk2h
+                    Avwap2h = (if chk2h >= 0 && cvol2h - p.CumVol > 0.0 then (cdv2h - p.CumDv) / (cvol2h - p.CumVol) else nan)
+                    PostChkLo300Px2h = plo2h; PostChkLo300Sec2h = pls2h; PostChkLo300Moc2h = plm2h
+                    AvwapCumDv3h = cdv3h; AvwapCumVol3h = cvol3h; AvwapChkSec3h = chk3h
+                    Avwap3h = (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
+                    PostChkLo300Px3h = plo3h; PostChkLo300Sec3h = pls3h; PostChkLo300Moc3h = plm3h
+                    As300 = as300
+                    As600 = as600
+                    As1200 = as1200
+                    AuxLo60 = hi60; AuxSec60 = sc60; AuxMoc60 = mc60
+                    AuxLo120 = hi120; AuxSec120 = sc120; AuxMoc120 = mc120
+                    AuxLo300 = hi300; AuxSec300 = sc300; AuxMoc300 = mc300
+                    AuxLo600 = hi600; AuxSec600 = sc600; AuxMoc600 = mc600
+                    AuxLo1200 = hi1200; AuxSec1200 = sc1200; AuxMoc1200 = mc1200
+                    AuxLoL1800 = hiL1800; AuxSecL1800 = scL1800; AuxMocL1800 = mcL1800
+                    AuxLoL3600 = hiL3600; AuxSecL3600 = scL3600; AuxMocL3600 = mcL3600
+                    AuxLoL7200 = hiL7200; AuxSecL7200 = scL7200; AuxMocL7200 = mcL7200
+                    AuxLoL10800 = hiL10800; AuxSecL10800 = scL10800; AuxMocL10800 = mcL10800
+                    AuxLo180 = hi180; AuxSec180 = sc180; AuxMoc180 = mc180
+                    AuxLo240 = hi240; AuxSec240 = sc240; AuxMoc240 = mc240
+                    AuxLo360 = hi360; AuxSec360 = sc360; AuxMoc360 = mc360
+                    AuxLo420 = hi420; AuxSec420 = sc420; AuxMoc420 = mc420
+                    AuxLo480 = hi480; AuxSec480 = sc480; AuxMoc480 = mc480
+                    AuxLo540 = hi540; AuxSec540 = sc540; AuxMoc540 = mc540
+                    AuxLo660 = hi660; AuxSec660 = sc660; AuxMoc660 = mc660
+                    AuxLo720 = hi720; AuxSec720 = sc720; AuxMoc720 = mc720
+                    AuxLo780 = hi780; AuxSec780 = sc780; AuxMoc780 = mc780
+                    AuxLo840 = hi840; AuxSec840 = sc840; AuxMoc840 = mc840
+                    AuxLo900 = hi900; AuxSec900 = sc900; AuxMoc900 = mc900
+                    AuxLo960 = hi960; AuxSec960 = sc960; AuxMoc960 = mc960
+                    AuxLo1020 = hi1020; AuxSec1020 = sc1020; AuxMoc1020 = mc1020
+                    AuxLo1080 = hi1080; AuxSec1080 = sc1080; AuxMoc1080 = mc1080
+                    AuxLo1140 = hi1140; AuxSec1140 = sc1140; AuxMoc1140 = mc1140
                     Ma10Px = m10p; Ma10Sec = m10s
                     Ma20Px = m20p; Ma20Sec = m20s
                     Ma30Px = m30p; Ma30Sec = m30s
@@ -2736,23 +2809,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     Vwma30Px = v30p; Vwma30Sec = v30s
                     Vwma40Px = v40p; Vwma40Sec = v40s
                     Vwma50Px = v50p; Vwma50Sec = v50s
-                    Vwma60Px = v60p; Vwma60Sec = v60s }
-            let p =
-                match p.State with
-                | Holding | PendingExit _ -> { p with BarsHeld = p.BarsHeld + 1 }
-                | ExitedAt _ -> p
-            let p =
-                match p.State with
-                | Holding ->
-                    if bar.etSec >= mocSec then
-                        // the 16:00 bar IS the auction-proximate print — fill here, not next bar
-                        { p with State = ExitedAt (bar.etSec, bar.vwap, "moc") }
-                    elif volStopHit then { p with State = PendingExit "vol_stop" }
-                    elif tcStopHit then { p with State = PendingExit "tc_stop" }
-                    elif speedStopHit then { p with State = PendingExit "speed_stop" }
-                    elif targetHit then { p with State = PendingExit "target" }
-                    else p
-                | _ -> p
+                    Vwma60Px = v60p; Vwma60Sec = v60s
+                    BarsHeld = barsHeld
+                    State = state }
             // retire when exited AND the last (+1200s) mark has filled — a bar
             // that fills the 1200s mark also fills the 60/300/600 ones — AND no
             // aux mark is about to fill off THIS bar's high (an unset mark whose
@@ -2764,6 +2823,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                               && not (Double.IsNaN p.AuxLo300 && brLo300.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo600 && brLo600.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo1200 && brLo1200.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLoL1800 && brLoL1800.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLoL3600 && brLoL3600.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLoL7200 && brLoL7200.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxLoL10800 && brLoL10800.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo180 && brLo180.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo240 && brLo240.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxLo360 && brLo360.BarsSinceBreach = 0)
@@ -3361,6 +3424,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       AuxLo1200 = nan
                       AuxSec1200 = -1
                       AuxMoc1200 = false
+                      AuxLoL1800 = nan; AuxSecL1800 = -1; AuxMocL1800 = false
+                      AuxLoL3600 = nan; AuxSecL3600 = -1; AuxMocL3600 = false
+                      AuxLoL7200 = nan; AuxSecL7200 = -1; AuxMocL7200 = false
+                      AuxLoL10800 = nan; AuxSecL10800 = -1; AuxMocL10800 = false
                       AuxLo180 = nan
                       AuxSec180 = -1
                       AuxMoc180 = false

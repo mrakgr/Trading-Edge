@@ -388,6 +388,11 @@ CREATE TABLE trips (
     aux_lo_300_px DOUBLE, aux_lo_300_sec INTEGER, aux_lo_300_moc BOOLEAN,
     aux_lo_600_px DOUBLE, aux_lo_600_sec INTEGER, aux_lo_600_moc BOOLEAN,
     aux_lo_1200_px DOUBLE, aux_lo_1200_sec INTEGER, aux_lo_1200_moc BOOLEAN,
+    -- ⭐ LONG EXITS (user 2026-09-04): {30m,1h,2h,3h}-low cover marks
+    aux_lo_1800_px DOUBLE, aux_lo_1800_sec INTEGER, aux_lo_1800_moc BOOLEAN,
+    aux_lo_3600_px DOUBLE, aux_lo_3600_sec INTEGER, aux_lo_3600_moc BOOLEAN,
+    aux_lo_7200_px DOUBLE, aux_lo_7200_sec INTEGER, aux_lo_7200_moc BOOLEAN,
+    aux_lo_10800_px DOUBLE, aux_lo_10800_sec INTEGER, aux_lo_10800_moc BOOLEAN,
     ma_10m_px DOUBLE, ma_10m_sec INTEGER,
     ma_20m_px DOUBLE, ma_20m_sec INTEGER,
     ma_30m_px DOUBLE, ma_30m_sec INTEGER,
@@ -675,6 +680,10 @@ type TripSink(outDir: string) =
             f p.AuxLo300; auxSec p.AuxSec300; b p.AuxMoc300
             f p.AuxLo600; auxSec p.AuxSec600; b p.AuxMoc600
             f p.AuxLo1200; auxSec p.AuxSec1200; b p.AuxMoc1200
+            f p.AuxLoL1800; auxSec p.AuxSecL1800; b p.AuxMocL1800
+            f p.AuxLoL3600; auxSec p.AuxSecL3600; b p.AuxMocL3600
+            f p.AuxLoL7200; auxSec p.AuxSecL7200; b p.AuxMocL7200
+            f p.AuxLoL10800; auxSec p.AuxSecL10800; b p.AuxMocL10800
             f p.Ma10Px; auxSec p.Ma10Sec
             f p.Ma20Px; auxSec p.Ma20Sec
             f p.Ma30Px; auxSec p.Ma30Sec
