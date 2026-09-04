@@ -100,6 +100,67 @@ type IntraPosState =
     | ExitedAt of exitSec: int * exitPx: float * reason: string
       // "target" | "vol_stop" | "tc_stop" | "speed_stop" | "moc"
 
+/// ⭐⭐ THE ARMED STOP (user, 2026-09-04 — MaxRiderV2's rubber-band risk control on 1s
+/// bars): a position enters with NO stop. The bar AFTER a new N-bar LOW prints, a stop
+/// is ARMED at the strictly-prior SESSION HIGH x (1 + StopPct). If the vwap trades at or
+/// above it, that is a HIT: an EXIT MARK fills at the NEXT bar (the fill discipline), the
+/// stop is removed, the pull-up count increments — and the position STAYS OPEN. The next
+/// N-bar low strictly after the hit bar re-arms at the (now higher) session high x
+/// (1 + StopPct): the stop is PULLED UP as the trade moves against us. Record-only: up to
+/// five marks per channel, so "exit at the 1st / 2nd / 3rd hit" is post-hoc SQL against
+/// MOC, the 2h AVWAP rule and the 9m cover. Three machines per position ({5m,10m,20m}
+/// arming channels), independent.
+type ArmedStop =
+    { Armed: bool; Level: float; HitPending: bool; Hits: int; LastHitSec: int; FirstArmSec: int
+      M1Px: float; M1Sec: int; M2Px: float; M2Sec: int; M3Px: float; M3Sec: int
+      M4Px: float; M4Sec: int; M5Px: float; M5Sec: int }
+    static member Empty =
+        { Armed = false; Level = nan; HitPending = false; Hits = 0; LastHitSec = -1; FirstArmSec = -1
+          M1Px = nan; M1Sec = -1; M2Px = nan; M2Sec = -1; M3Px = nan; M3Sec = -1
+          M4Px = nan; M4Sec = -1; M5Px = nan; M5Sec = -1 }
+
+/// One bar of the armed-stop machine. `prevBr` = the channel's BarsSinceBreach as of the
+/// PREVIOUS bar (0 = the previous bar printed the new low); `sessHiPrior` = the strictly-
+/// prior session high. Order: (1) a pending hit FILLS at this bar; (2) arm on the bar
+/// after a qualifying low; (3) test this bar against the level.
+let armedStep (s: ArmedStop) (prevBr: int) (prevEtSec: int) (entrySec: int) (bar: SecBar)
+              (sessHiPrior: float voption) (stopPct: float) : ArmedStop =
+    let s =
+        if s.HitPending then
+            let k = s.Hits + 1
+            let s = { s with HitPending = false; Armed = false; Level = nan; Hits = k; LastHitSec = bar.etSec }
+            match k with
+            | 1 -> { s with M1Px = bar.vwap; M1Sec = bar.etSec }
+            | 2 -> { s with M2Px = bar.vwap; M2Sec = bar.etSec }
+            | 3 -> { s with M3Px = bar.vwap; M3Sec = bar.etSec }
+            | 4 -> { s with M4Px = bar.vwap; M4Sec = bar.etSec }
+            | 5 -> { s with M5Px = bar.vwap; M5Sec = bar.etSec }
+            | _ -> s
+        else s
+    let s =
+        if not s.Armed && not s.HitPending && prevBr = 0 && prevEtSec > entrySec && prevEtSec > s.LastHitSec then
+            match sessHiPrior with
+            | ValueSome h when h > 0.0 ->
+                { s with Armed = true; Level = h * (1.0 + stopPct)
+                         FirstArmSec = (if s.FirstArmSec < 0 then bar.etSec else s.FirstArmSec) }
+            | _ -> s
+        else s
+    if s.Armed && bar.vwap >= s.Level then { s with HitPending = true } else s
+
+/// Day's end: a hit still pending fills at the last bar (the MOC print).
+let armedFlatten (s: ArmedStop) (lastBar: SecBar) : ArmedStop =
+    if s.HitPending then
+        let k = s.Hits + 1
+        let s = { s with HitPending = false; Armed = false; Level = nan; Hits = k; LastHitSec = lastBar.etSec }
+        match k with
+        | 1 -> { s with M1Px = lastBar.vwap; M1Sec = lastBar.etSec }
+        | 2 -> { s with M2Px = lastBar.vwap; M2Sec = lastBar.etSec }
+        | 3 -> { s with M3Px = lastBar.vwap; M3Sec = lastBar.etSec }
+        | 4 -> { s with M4Px = lastBar.vwap; M4Sec = lastBar.etSec }
+        | 5 -> { s with M5Px = lastBar.vwap; M5Sec = lastBar.etSec }
+        | _ -> s
+    else s
+
 /// One sampler trip. Features are the state at the SIGNAL bar's close
 /// (inclusive of the signal bar — it has closed; not lookahead). The fill is
 /// the NEXT present bar's vwap. ⭐ NOTHING here gates (beyond the hard entry
@@ -655,6 +716,10 @@ type FlushPosition =
       PostChkLo300Px3h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
       PostChkLo300Sec3h: int
       PostChkLo300Moc3h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      // ----- ⭐⭐ the ARMED STOPS (see ArmedStop): {5m,10m,20m} arming channels -----
+      As300: ArmedStop
+      As600: ArmedStop
+      As1200: ArmedStop
       // ----- ⭐ AUX-HIGH marks, retargeted for MR: the post-hoc EXIT-WINDOW SWEEP.
       // The first NEW {120,300,600,1200}-present-bar HIGH made STRICTLY AFTER the entry
       // fill bar, MARKED AT THE FOLLOWING BAR's vwap (the fill discipline). Detection is
@@ -923,7 +988,10 @@ type IntradayConfig =
       // cannot participate in.
       // ⚠ Drifting: 2016-19 saw 0-6% of ticker-days reach 300 bars, 2024-25 sees
       // 15-18%. Still far too thin to trade, but re-measure rather than assume.
-      MocSecShort: int }
+      MocSecShort: int
+      // ⭐⭐ ARMED STOP offset (user 2026-09-04): the stop sits at the strictly-prior session
+      // high x (1 + StopPct) when armed by a new {5m,10m,20m} low. 0.20 = 20% above the high.
+      StopPct: float }
 
 /// The MaxFader engine. One instance per (ticker, day).
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
@@ -2558,6 +2626,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     Avwap3h = (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
                     PostChkLo300Px3h = plo3h; PostChkLo300Sec3h = pls3h; PostChkLo300Moc3h = plm3h
                 }
+            // ⭐⭐ the armed stops: one machine per arming channel, on the PREVIOUS bar's
+            // breach snapshot (the same discipline as the aux marks) and the strictly-
+            // prior session high.
+            let p =
+                { p with
+                    As300 = armedStep p.As300 prevBr300 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
+                    As600 = armedStep p.As600 prevBr600 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct
+                    As1200 = armedStep p.As1200 prevBr1200 prevEtSec p.EntrySec bar sSessHigh cfg.StopPct }
             // aux-high marks: the PREVIOUS bar's breach-counter snapshot reads
             // 0 -> the previous bar printed the new N-bar high -> the mark
             // fills at THIS bar's vwap. Only highs printed STRICTLY AFTER the
@@ -3269,6 +3345,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       PostChkLo300Px2h = nan; PostChkLo300Sec2h = -1; PostChkLo300Moc2h = false
                       AvwapCumDv3h = nan; AvwapCumVol3h = nan; Avwap3h = nan; AvwapChkSec3h = -1
                       PostChkLo300Px3h = nan; PostChkLo300Sec3h = -1; PostChkLo300Moc3h = false
+                      As300 = ArmedStop.Empty; As600 = ArmedStop.Empty; As1200 = ArmedStop.Empty
                       AuxLo60 = nan
                       AuxSec60 = -1
                       AuxMoc60 = false
@@ -3461,4 +3538,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     Vwma30Sec = finSec p.Vwma30Px p.Vwma30Sec; Vwma30Px = fin p.Vwma30Px
                     Vwma40Sec = finSec p.Vwma40Px p.Vwma40Sec; Vwma40Px = fin p.Vwma40Px
                     Vwma50Sec = finSec p.Vwma50Px p.Vwma50Sec; Vwma50Px = fin p.Vwma50Px
-                    Vwma60Sec = finSec p.Vwma60Px p.Vwma60Sec; Vwma60Px = fin p.Vwma60Px }
+                    Vwma60Sec = finSec p.Vwma60Px p.Vwma60Sec; Vwma60Px = fin p.Vwma60Px
+                    As300 = armedFlatten p.As300 lastBar
+                    As600 = armedFlatten p.As600 lastBar
+                    As1200 = armedFlatten p.As1200 lastBar }

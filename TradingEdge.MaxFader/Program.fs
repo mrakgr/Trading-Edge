@@ -56,6 +56,7 @@ type Args =
     | Moc_Sec_Short of int
     | Exit_Channel_Bars_After_Hours of int
     | After_Hours_Sec of int
+    | Stop_Pct of float
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -93,6 +94,7 @@ type Args =
             | Moc_Sec_Short _ -> "S43bx: the same bound on NYSE early-close days. Default 46800 = 13:00. The post-13:00 window there carries a median of 40 traded seconds of 10,800 (0.4%, vs 30.8% on a regular afternoon) and cannot form a 5m high on 88% of ticker-days, so it is treated as closed."
             | Exit_Channel_Bars_After_Hours _ -> "S43bw: a TIGHTER exit channel that engages only after --after-hours-sec, because the channels count PRESENT BARS and post-market tape is sparse (a 300-bar '5m high' spans hours after 16:00). One of {30,60,120,300,600,1200}; 0 = off (default). ⚠ Inert unless --moc-sec is raised past --after-hours-sec."
             | After_Hours_Sec _ -> "S43bw: ET second at which --exit-channel-bars-after-hours takes over. Default 57600 = 16:00."
+            | Stop_Pct _ -> "⭐⭐ ARMED STOP (record-only): after a new {5m,10m,20m} low, a stop is armed at the prior session high x (1+this); a hit records an exit mark (fill next bar) and re-arms on the next low. Default 0.20."
             | Moc_Sec _ -> "Latest ET second a position may be held; holders force-exit at the first bar >= this. Default 57600 = 16:00. ⭐ ALSO CAPS THE BAR QUERY (Backtest.fs SecReader), so raising it is what lets the post-market tape in at all — e.g. 86399 runs to the tape's end. Entries are unaffected (--entry-end-sec)."
 
 [<EntryPoint>]
@@ -146,7 +148,8 @@ let main argv =
                     MocSecShort      = parsed.GetResult(Moc_Sec_Short,       defaultValue = d.Intraday.MocSecShort)
                     ExitChannelBarsAfterHours =
                         parsed.GetResult(Exit_Channel_Bars_After_Hours, defaultValue = d.Intraday.ExitChannelBarsAfterHours)
-                    AfterHoursSec    = parsed.GetResult(After_Hours_Sec,     defaultValue = d.Intraday.AfterHoursSec) }
+                    AfterHoursSec    = parsed.GetResult(After_Hours_Sec,     defaultValue = d.Intraday.AfterHoursSec)
+                    StopPct          = parsed.GetResult(Stop_Pct,            defaultValue = d.Intraday.StopPct) }
             MinDv0945 = parsed.GetResult(Min_Dv_0945, defaultValue = d.MinDv0945)
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
@@ -214,6 +217,7 @@ let main argv =
      else
         printfn "  ENTRY       = vwap > prior %d-bar MAX (strict; new ~%.0fm HIGH — SHORT)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
             ic.EntryChannelBars (float ic.EntryChannelBars / 60.0) (ic.DvFloor60 / 1e3) ic.TcFloor60)
+    printfn "  armed stops = {5m,10m,20m}-low arms a stop at prior session high x %.2f; hits RECORD marks (1..5) and re-arm — record-only" (1.0 + ic.StopPct)
     (if ic.ExitChannelBars = 0 then
         printfn "  EXIT        = ⭐ NONE — HOLD TO CLOSE (MaxFlyerV2's exit); MOC at the close bar   (lo marks at every minute RECORDED for post-hoc covers)"
      else

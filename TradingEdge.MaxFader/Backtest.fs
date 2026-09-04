@@ -136,7 +136,8 @@ let defaultConfig =
                                         // hour-before-close rule mirrored onto the 13:00 close
                                         // (in-sample cost: 3 of 1,231 book trades, all winners)
           MocSec           = 57600      // 16:00
-          MocSecShort      = 46800 }    // ⭐ S43bx: 13:00 on NYSE early-close days
+          MocSecShort      = 46800      // ⭐ S43bx: 13:00 on NYSE early-close days
+          StopPct          = 0.20 }     // ⭐⭐ armed-stop offset above the session high (user 2026-09-04)
       Notional = 10_000.0
       MinDv0945 = 0.0               // 💀 DEPRECATED (S35): the candidate column = real
                                     // dollars × adj_ratio (future-split-dependent).
@@ -363,6 +364,25 @@ CREATE TABLE trips (
     post_chk_lo300_px_2h DOUBLE, post_chk_lo300_sec_2h INTEGER, post_chk_lo300_moc_2h BOOLEAN,
     avwap_cum_dv_3h DOUBLE, avwap_cum_vol_3h DOUBLE, avwap_3h DOUBLE, avwap_chk_sec_3h INTEGER,
     post_chk_lo300_px_3h DOUBLE, post_chk_lo300_sec_3h INTEGER, post_chk_lo300_moc_3h BOOLEAN,
+    -- ⭐⭐ the ARMED STOPS (user 2026-09-04): pull-up count, first arm second, exit marks 1..5
+    as_300_hits INTEGER, as_300_first_arm_sec INTEGER,
+    as_300_m1_px DOUBLE, as_300_m1_sec INTEGER,
+    as_300_m2_px DOUBLE, as_300_m2_sec INTEGER,
+    as_300_m3_px DOUBLE, as_300_m3_sec INTEGER,
+    as_300_m4_px DOUBLE, as_300_m4_sec INTEGER,
+    as_300_m5_px DOUBLE, as_300_m5_sec INTEGER,
+    as_600_hits INTEGER, as_600_first_arm_sec INTEGER,
+    as_600_m1_px DOUBLE, as_600_m1_sec INTEGER,
+    as_600_m2_px DOUBLE, as_600_m2_sec INTEGER,
+    as_600_m3_px DOUBLE, as_600_m3_sec INTEGER,
+    as_600_m4_px DOUBLE, as_600_m4_sec INTEGER,
+    as_600_m5_px DOUBLE, as_600_m5_sec INTEGER,
+    as_1200_hits INTEGER, as_1200_first_arm_sec INTEGER,
+    as_1200_m1_px DOUBLE, as_1200_m1_sec INTEGER,
+    as_1200_m2_px DOUBLE, as_1200_m2_sec INTEGER,
+    as_1200_m3_px DOUBLE, as_1200_m3_sec INTEGER,
+    as_1200_m4_px DOUBLE, as_1200_m4_sec INTEGER,
+    as_1200_m5_px DOUBLE, as_1200_m5_sec INTEGER,
     aux_lo_60_px DOUBLE, aux_lo_60_sec INTEGER, aux_lo_60_moc BOOLEAN,
     aux_lo_120_px DOUBLE, aux_lo_120_sec INTEGER, aux_lo_120_moc BOOLEAN,
     aux_lo_300_px DOUBLE, aux_lo_300_sec INTEGER, aux_lo_300_moc BOOLEAN,
@@ -632,6 +652,24 @@ type TripSink(outDir: string) =
             f p.PostChkLo300Px2h; auxSec p.PostChkLo300Sec2h; b p.PostChkLo300Moc2h
             f p.AvwapCumDv3h; f p.AvwapCumVol3h; f p.Avwap3h; auxSec p.AvwapChkSec3h
             f p.PostChkLo300Px3h; auxSec p.PostChkLo300Sec3h; b p.PostChkLo300Moc3h
+            i p.As300.Hits; auxSec p.As300.FirstArmSec
+            f p.As300.M1Px; auxSec p.As300.M1Sec
+            f p.As300.M2Px; auxSec p.As300.M2Sec
+            f p.As300.M3Px; auxSec p.As300.M3Sec
+            f p.As300.M4Px; auxSec p.As300.M4Sec
+            f p.As300.M5Px; auxSec p.As300.M5Sec
+            i p.As600.Hits; auxSec p.As600.FirstArmSec
+            f p.As600.M1Px; auxSec p.As600.M1Sec
+            f p.As600.M2Px; auxSec p.As600.M2Sec
+            f p.As600.M3Px; auxSec p.As600.M3Sec
+            f p.As600.M4Px; auxSec p.As600.M4Sec
+            f p.As600.M5Px; auxSec p.As600.M5Sec
+            i p.As1200.Hits; auxSec p.As1200.FirstArmSec
+            f p.As1200.M1Px; auxSec p.As1200.M1Sec
+            f p.As1200.M2Px; auxSec p.As1200.M2Sec
+            f p.As1200.M3Px; auxSec p.As1200.M3Sec
+            f p.As1200.M4Px; auxSec p.As1200.M4Sec
+            f p.As1200.M5Px; auxSec p.As1200.M5Sec
             f p.AuxLo60; auxSec p.AuxSec60; b p.AuxMoc60
             f p.AuxLo120; auxSec p.AuxSec120; b p.AuxMoc120
             f p.AuxLo300; auxSec p.AuxSec300; b p.AuxMoc300
