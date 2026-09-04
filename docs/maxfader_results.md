@@ -284,3 +284,60 @@ too rare to be a system (~60/yr). Satellite tier; re-check on 2020–22.
 **Working spec candidate (2023+):** session-high SHORT, `k600 ≥ 63..96`, entries 09:45–10:30,
 hold with the AVWAP rule at 2h (or simply the 5m-low-after-2h exit), no halt gate; sizing
 on k600 and brv15≥40 as the S-tier. All of it re-read on the merged seven years next.
+
+### S1f — SpikeFader's gates on MaxFader's entries (user's question, 2023+)
+
+(`scripts/analysis/maxfader_study3.py`, `data/maxfader_study3_2023p.log`.) The spec =
+volat≥40bp ∧ be6030>2% ∧ eff10≥0.3 ∧ k300≥40 ∧ k600≥90 ∧ k180≥15 ∧ gap_adj_60<10 ∧
+dlv>3% ∧ slope_5m≥0 ∧ slope_20m≥30bp/min ∧ ac1≥−0.1, applied post-hoc (every column is
+recorded; `--base-run` only stopped gating). `dslo` is identically 0 on a session-high
+entry and cannot participate. `rr` ≡ `brv15_tape` (same column).
+
+**⭐⭐ The spec lifts the hold-to-close book tenfold — and on the same entries SpikeFader's
+own exit still beats holding:**
+
+| SPEC, mc=0 (n = 25,697) | PF−1 | net% | win% | worst% | p5% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|
+| SpikeFader's 9m cover (`aux_lo_540`) | **3.205** | 105,942 | 79.3 | **−45.7** | −8.2 | **1.33** |
+| MOC (hold to close) | 1.300 | **160,668** | 68.6 | −239.3 | −25.4 | 6.86 |
+| RULE 2h (34% switched) | 1.388 | 154,065 | 65.7 | −162.7 | −23.5 | 5.90 |
+| always switch at 2h | 1.569 | 147,832 | 71.1 | −162.7 | −20.2 | 5.09 |
+
+mc=1 (n = 1,153): 9m cover **1.662** / net 2,865 / tail 1.39%; MOC 0.863 / 4,848 / 6.07%;
+RULE 2h 1.034 / **4,907** / 5.46%. By year (mc=1) the 9m cover has the higher PF−1 in all
+four years (0.90 / 2.14 / 1.77 / 1.63 vs MOC 0.51 / 1.01 / 1.16 / 0.54) and the rule beats
+MOC in all four. **Holding to the close buys ~50% more net for a 4–5× fatter tail.** That
+is the MaxFader-vs-SpikeFader question answered on shared entries: the 9m cover is the
+better *risk* trade, MOC the bigger *net* trade, and the 2h rule sits between them.
+
+**Same-n:** the spec (1.300 / tail 6.9%) beats a tightened `k600` (1.072 / 4.0%) and `dlv`
+(0.826 / 16%) at n = 25,697 — the spec adds real information over the count alone, but
+its extra PF comes with extra tail.
+
+**Remove-one — what is load-bearing on the hold-to-close:**
+
+| drop | n | PF−1 | <−20% |
+|---|---:|---:|---:|
+| (full spec) | 25,697 | 1.300 | 6.86 |
+| **k600 ≥ 90** | 58,147 | **0.654** | 9.54 |
+| **slope_20m ≥ 30bp/min** | 34,874 | **1.026** | 6.58 |
+| be6030 > 2% | 32,123 | 1.145 | 5.75 |
+| eff10 ≥ 0.3 | 26,319 | 1.196 | 7.06 |
+| k300 / k180 / gap60 / ac1 / slope5m / dlv / volat | ≈ | 1.24–1.30 | ≈ |
+
+Three gates carry it — `k600 ≥ 90`, `slope_20m`, `be6030` — the rest are inert here.
+Gate-by-gate on top of `k600 ≥ 63`: the trend/speed gates ADD mean and ADD tail
+(`be6030`: 0.406 → 0.566, tail 4.2 → 6.4%; `slope_20m`: → 0.626, 6.1%), the count gates
+add a little mean with the tail flat (`k300`, `k180`: → 0.47, 4.0–4.2%).
+
+**The voices INVERT, as the side-flip law predicts:** `rr < 0.5` (SpikeFader's quiet-volume
+voice) → PF−1 **0.111** inside `k600 ≥ 63` (0.41% tail — safe and empty); `rr ≥ 4` → 0.662
+at 9.5% tail; `rr ≥ 40` → **inf** (97 trips, 100% win, +13.6% avg). `volat ≥ 100bp` → 0.954 at
+11.7% tail; halted-and-resumed ≤ 300 s → 1.309 at 11.5% tail. Every "strong" voice here is
+a tail voice.
+
+**Verdict:** the transferable SpikeFader core is **`k600 ≥ 90` + `slope_20m ≥ 30bp/min` +
+`be6030 > 2%`**, and with it the honest comparison is exit-vs-exit on the same entries.
+The rule at 2h keeps ~95% of MOC's net at a 15% smaller tail; the 9m cover keeps 65% of
+the net at a 5× smaller tail. Where on that line to sit is a sizing question, not a gate
+question — and it is the seven-year merged run's to settle.
