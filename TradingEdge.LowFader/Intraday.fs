@@ -1933,12 +1933,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let p = active.[i]
             // forward marks fill for EVERY trip (exited included — the sampler
             // wants the counterfactual path), first present bar past each horizon
-            let p =
-                { p with
-                    FwdVwap60 = if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60
-                    FwdVwap300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
-                    FwdVwap600 = if Double.IsNaN p.FwdVwap600 && bar.etSec >= p.EntrySec + 600 then bar.vwap else p.FwdVwap600
-                    FwdVwap1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200 }
+            let fwd60 = if Double.IsNaN p.FwdVwap60 && bar.etSec >= p.EntrySec + 60 then bar.vwap else p.FwdVwap60
+            let fwd300 = if Double.IsNaN p.FwdVwap300 && bar.etSec >= p.EntrySec + 300 then bar.vwap else p.FwdVwap300
+            let fwd600 = if Double.IsNaN p.FwdVwap600 && bar.etSec >= p.EntrySec + 600 then bar.vwap else p.FwdVwap600
+            let fwd1200 = if Double.IsNaN p.FwdVwap1200 && bar.etSec >= p.EntrySec + 1200 then bar.vwap else p.FwdVwap1200
             // aux-high marks: the PREVIOUS bar's breach-counter snapshot reads
             // 0 -> the previous bar printed the new N-bar high -> the mark
             // fills at THIS bar's vwap. Only highs printed STRICTLY AFTER the
@@ -1953,13 +1951,6 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (hi300, sc300) = auxStep p.AuxHi300 p.AuxSec300 prevBr300
             let struct (hi600, sc600) = auxStep p.AuxHi600 p.AuxSec600 prevBr600
             let struct (hi1200, sc1200) = auxStep p.AuxHi1200 p.AuxSec1200 prevBr1200
-            let p =
-                { p with
-                    AuxHi60 = hi60; AuxSec60 = sc60
-                    AuxHi120 = hi120; AuxSec120 = sc120
-                    AuxHi300 = hi300; AuxSec300 = sc300
-                    AuxHi600 = hi600; AuxSec600 = sc600
-                    AuxHi1200 = hi1200; AuxSec1200 = sc1200 }
             // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
             // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
             // mark still unresolved at/past MocSec resolves at this bar (the moc
@@ -1980,8 +1971,33 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (v40p, v40s) = maStep p.Vwma40Px p.Vwma40Sec prevXVw40
             let struct (v50p, v50s) = maStep p.Vwma50Px p.Vwma50Sec prevXVw50
             let struct (v60p, v60s) = maStep p.Vwma60Px p.Vwma60Sec prevXVw60
+            let barsHeld = match p.State with Holding | PendingExit _ -> p.BarsHeld + 1 | ExitedAt _ -> p.BarsHeld
+            let state =
+                match p.State with
+                | Holding ->
+                    if bar.etSec >= mocSec then
+                        // the 16:00 bar IS the auction-proximate print — fill here, not next bar
+                        ExitedAt (bar.etSec, bar.vwap, "moc")
+                    elif volStopHit then PendingExit "vol_stop"
+                    elif tcStopHit then PendingExit "tc_stop"
+                    elif speedStopHit then PendingExit "speed_stop"
+                    elif targetHit then PendingExit "target"
+                    else p.State
+                | s -> s
+            // ⭐ ONE record copy per bar per position (2026-09-04; the MaxFader finding a98a27c):
+            // the blocks never read each other's outputs within a bar; only the retire
+            // check reads the final record. Zero-diff on all columns vs the 5-copy loop.
             let p =
                 { p with
+                    FwdVwap60 = fwd60
+                    FwdVwap300 = fwd300
+                    FwdVwap600 = fwd600
+                    FwdVwap1200 = fwd1200
+                    AuxHi60 = hi60; AuxSec60 = sc60
+                    AuxHi120 = hi120; AuxSec120 = sc120
+                    AuxHi300 = hi300; AuxSec300 = sc300
+                    AuxHi600 = hi600; AuxSec600 = sc600
+                    AuxHi1200 = hi1200; AuxSec1200 = sc1200
                     Ma10Px = m10p; Ma10Sec = m10s
                     Ma20Px = m20p; Ma20Sec = m20s
                     Ma30Px = m30p; Ma30Sec = m30s
@@ -1993,23 +2009,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     Vwma30Px = v30p; Vwma30Sec = v30s
                     Vwma40Px = v40p; Vwma40Sec = v40s
                     Vwma50Px = v50p; Vwma50Sec = v50s
-                    Vwma60Px = v60p; Vwma60Sec = v60s }
-            let p =
-                match p.State with
-                | Holding | PendingExit _ -> { p with BarsHeld = p.BarsHeld + 1 }
-                | ExitedAt _ -> p
-            let p =
-                match p.State with
-                | Holding ->
-                    if bar.etSec >= mocSec then
-                        // the 16:00 bar IS the auction-proximate print — fill here, not next bar
-                        { p with State = ExitedAt (bar.etSec, bar.vwap, "moc") }
-                    elif volStopHit then { p with State = PendingExit "vol_stop" }
-                    elif tcStopHit then { p with State = PendingExit "tc_stop" }
-                    elif speedStopHit then { p with State = PendingExit "speed_stop" }
-                    elif targetHit then { p with State = PendingExit "target" }
-                    else p
-                | _ -> p
+                    Vwma60Px = v60p; Vwma60Sec = v60s
+                    BarsHeld = barsHeld
+                    State = state }
             // retire when exited AND the last (+1200s) mark has filled — a bar
             // that fills the 1200s mark also fills the 60/300/600 ones — AND no
             // aux mark is about to fill off THIS bar's high (an unset mark whose
