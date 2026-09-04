@@ -541,3 +541,79 @@ hit and exit on the second (5m arm), or use a single 20m-armed stop — both +12
 MOC with the worst case halved, 5 of 7 years. (3) The 20% offset was not swept; 10% and 30%
 are one flag (`--stop-pct`) and a 55-min run each. (4) A "pull up without a hit" variant
 (re-set the armed level on every later low) is the untested cousin.
+
+---
+
+## §S4 — the speed fix, the LONG EXITS (30m wins), and the stop-offset sweep (2026-09-04)
+
+### S4a — why 2,455 ticker-days took an hour (and now take twelve minutes)
+
+Not IO. The 1s files are sorted by ticker and DuckDB prunes on it: the engine's exact
+per-day query runs in **0.05 s**, a DuckDB copy of every bar the run needed took **16 s**
+(`scripts/equity/extract_tape.py`), and the engine on that mini-tape took the **same**
+time as on the full tape (42.2 vs 44.9 s, 10 days). The cost was the **mc=0 sampler
+fold**: an average of **66 positions open per bar** (max 318) on a loud day, and the
+advance loop rebuilt each open position's ~700-field record **seven times per bar** (fwd,
+AVWAP, armed, aux, MA, BarsHeld, State) — ~70 GB of memcpy per loud ticker-day. mc=1 on
+the same days: 2.4 s. The seven copies never read each other's outputs within a bar, so
+they collapse into one: **44.9 s → 10.3 s, byte-identical on all 531 columns** (`a98a27c`).
+Every mc=0 run inherits the 4.4×; the rr8 sweep runs are ~7 min each.
+
+### S4b — ⭐⭐ the LONG EXITS: the 30m-low cover is the best exit in the study
+
+User: "maybe we could try really long exits at 30m, 1h, 2h, 3h lows?" Marks added
+(`aux_lo_{1800,3600,7200,10800}`: first new N-bar low after entry, next-bar fill,
+MOC-resolved with a flag). `rr ≥ 8` mc=1 (2,455), stop offset 0.20:
+
+| exit | PF−1 | net% | win% | worst% | p5% | <−20% | moc-resolved |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| MOC | 0.313 | 3,866 | 62.3 | −866 | −23.3 | 6.15 | — |
+| RULE 2h | 0.369 | 3,872 | 58.6 | −214 | −21.3 | 5.58 | — |
+| 9m cover | 0.481 | 2,714 | 66.5 | **−106** | −12.2 | **2.48** | — |
+| **30m-low cover** | **0.485** | **3,848** | 65.6 | −190 | −17.1 | **3.75** | 11% |
+| 1h-low cover | 0.310 | 3,285 | 64.8 | −473 | −20.4 | 5.25 | 34% |
+| 2h-low cover | 0.270 | 3,219 | 63.0 | −866 | −22.9 | 5.99 | 62% |
+| 3h-low cover | 0.257 | 3,165 | 63.0 | −866 | −23.3 | 6.19 | 74% |
+
+**The 30m cover has the 9m cover's PF, MOC's net, and a tail 40% smaller than MOC** — the
+first exit that does not trade net for tail. 1h converges toward MOC and 2h/3h *are* MOC:
+62–74% of trips never print such a low before the close, so the channel cannot form.
+By year (mc=1): beats MOC on PF−1 in 4 of 7 years (loses 2020/2022/2026 narrowly), tail
+smaller in **7 of 7**, worst better in 6 of 7.
+
+**At `rr ≥ 12` (mc=1, 1,075) it dominates outright:** PF−1 **1.075 vs MOC 0.755** (+42%),
+net 3,191 vs 3,611 (−12%), tail 5.95 → **3.44%**, worst −266 → −88; beats MOC in **6 of 7
+years** (2022: 2.45 vs 1.27; 2026: 1.00 vs 0.33), tail smaller in 6. The 9m cover there is
+0.847 at 55% of the net. The long exit is the sweet spot between "cover fast" and "hold".
+
+### S4c — the stop-offset sweep: the offset moves depth vs frequency, never the sign
+
+`rr ≥ 8` mc=1, first / second stop on the 5m arm and first on the 20m arm:
+
+| offset | STOP 1 @ 5m (PF−1 / tail) | STOP 2 @ 5m (PF−1 / net) | STOP 1 @ 20m (PF−1 / net) |
+|---|---|---|---|
+| 10% | 0.244 / 5.4% | 0.363 / 4,274 | 0.351 / 4,124 |
+| 20% | 0.287 / 10.1% | **0.365 / 4,312** | **0.389 / 4,500** |
+| 30% | 0.311 / 8.1% | 0.332 / 4,032 | 0.375 / 4,396 |
+| MOC | 0.313 / 6.2% | 0.313 / 3,866 | 0.313 / 3,866 |
+
+A tighter first stop (10%) cuts the tail *frequency* (5.4%) but the PF falls further
+(0.244); a looser one (30%) is merely neutral. The first stop never beats MOC at any
+offset. The second stop and the 20m-armed first stop are flat across offsets — robust,
++10–16% net over MOC — and 20% is as good as any. **The sweep changes nothing in §S3's
+verdict; the armed-stop family is dominated by the 30m cover on every column but net.**
+
+### S4d — the exit ladder for a hold-to-close short, seven years, `rr ≥ 8` mc=1
+
+| tool | PF−1 | net | tail | what it buys |
+|---|---:|---:|---:|---|
+| MOC | 0.313 | 3,866 | 6.2% | the net |
+| second armed stop (5m, 20%) | 0.365 | 4,312 | 6.3% | +12% net, worst halved |
+| 2h AVWAP rule | 0.369 | 3,872 | 5.6% | depth at par |
+| **30m-low cover** | **0.485** | **3,848** | **3.8%** | **PF and tail at par net** |
+| 9m cover | 0.481 | 2,714 | 2.5% | frequency, for 30% of net |
+
+**Working exit for MaxFader: the 30m-low cover.** The 2h rule and the second stop remain
+as depth insurance that can stack on it only if a later study shows they fire first
+(untested); the 9m cover is the tail-budget option. Next: the 30m cover inside the
+`k600` book and with entry-time gating; and whether a 20m/40m cover sits between.
