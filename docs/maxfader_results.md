@@ -371,3 +371,97 @@ SpikeFader core the ≥40 book is 6 trips (all winners) — too few to gate furt
 **Spec candidate (2023+):** session-high SHORT, `rr ≥ 40` at the signal, entries 09:45–15:00
 (p50 entry 11:12), **hold to the close**, no rule, no other gate. ~7 trades/yr, +6%/trade,
 worst −9%. A satellite by capacity; sized up per the S-tier logic. 2020–22 adds the count.
+
+---
+
+## §S2 — SEVEN YEARS (2020-01-02..2026-08-21): what survives the merge (2026-09-04)
+
+Corpus `data/maxfader_wl_*` = 2023p (953,166) + 2020_22 (1,041,946; 215,539 tkd, 2.9 h):
+**1,995,112 trips / 75,302 ticker-days.** All four studies rerun on the merge
+(`data/maxfader_study{1,2,3,4}_merged.log`). What changed vs 2023+, and what did not.
+
+### S2a — base and years
+
+Bare session-high short: PF−1 **0.136** mc=0 / **0.045** mc=1, worst −887%, tail 3.95%.
+By year (mc=0): 2020 0.173 · 2021 0.165 · 2022 0.053 · 2023 0.365 · 2024 0.058 · 2025
+0.154 · 2026 0.050. mc=1: 2022 is a losing year (−0.029). The bare book is not a system on
+any horizon; everything below is about what is built on it.
+
+### S2b — ⭐⭐ the AVWAP rule: 6 of 7 years, 2h confirmed
+
+| all entries, mc=0 (n = 1,995,112) | PF−1 | net% | worst% | <−20% |
+|---|---:|---:|---:|---:|
+| MOC | 0.136 | 1,042,681 | −887 | 3.95 |
+| RULE 1h | 0.172 | 1,045,965 | −448 | 2.74 |
+| **RULE 2h** | **0.177** | **1,165,976** | −456 | 3.18 |
+| RULE 3h | 0.146 | 1,028,393 | −558 | 3.50 |
+
+mc=1 (75,302): 0.045 → **0.065** at 2h (+44%), net 9,590 → 11,890 (+24%), worst −887 → −331.
+**By year, rule 2h vs MOC: 2020 0.223 > 0.173 · 2021 0.211 > 0.165 · 2022 0.062 > 0.053 · 2023
+0.305 < 0.365 · 2024 0.076 > 0.058 · 2025 0.232 > 0.154 · 2026 0.139 > 0.050 — 6 of 7**, the
+tail smaller in all seven. Inside `k600 ≥ 63` mc=1 (17,528): 0.165 → 0.200, net 10,115 →
+10,577, tail 3.27 → 2.55%, worst −887 → −306; by year the rule wins 2020 (0.154 → 0.266),
+ties 2021/2022, loses 2023. Inside the gated book always-switching at 2h still matches the
+conditioned rule (0.218 vs 0.200) — the value is the 5m-low-after-2h exit; the AVWAP
+condition earns its keep on the bare book (0.177 vs 0.182 always, but +10% net).
+**2h stands as the horizon on seven years.**
+
+### S2c — k600: the book, with a ceiling
+
+Ladder (mc=0): 0.136 → 0.229 (≥35) → 0.344 (≥63) → 0.509 (≥96) → **0.680 (≥140)** → 0.494
+(≥200, tail 7.4%). The 2023+ top rung (1.83 at ≥200) does NOT hold: the ladder peaks at
+~140 and the ≥200 cell is thin and tail-heavy. `k600 ≥ 63` is positive every year at mc=0
+(0.199–0.513) but at mc=1 loses 2022 (−0.039) and is weak in 2024 (0.085). Same-n: the
+full SpikeFader spec (0.830) beats a tightened `k600` (0.681) at n = 55,921, as on 2023+.
+
+### S2d — the halt gate stays closed, harder
+
+Halted-day trips: 3.59% of the book, 18.8% of tail net — and **33.3% of corpus net**.
+Inside `k600 ≥ 63` mc=1, cutting them: 0.165 → 0.128, net −29%. A mean lever, wrong way.
+
+### S2e — the SpikeFader spec on these entries, seven years
+
+| SPEC, mc=1 (n = 2,420) | PF−1 | net% | worst% | <−20% |
+|---|---:|---:|---:|---:|
+| 9m cover | **1.412** | 5,083 | **−83** | **1.16** |
+| RULE 2h | 0.724 | 7,499 | −130 | 5.91 |
+| MOC | 0.643 | **7,604** | −239 | 6.74 |
+
+Weaker than 2023+ (mc=0 1.30 → 0.83: 2020–22 are 0.37–0.57 years at mc=1) but the
+ranking holds in **every** year: the 9m cover on PF and tail, MOC on net, the rule between.
+Remove-one: `k600 ≥ 90` is the load-bearing gate (drop → 0.480); `be6030` (→ 0.745) and
+`eff10` (→ 0.782) matter a little; `slope_20m` (→ 0.806) less than on 2023+.
+
+### S2f — ⭐ the `rr ≥ 40` climax system: real, ~10 a year, one bad year
+
+The 2023+ "0% tail" was an artifact of four clean years. Seven years, mc=1:
+
+| exit (n = 69) | PF−1 | net% | win% | avg% | worst% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|
+| MOC | 2.304 | **383** | 76.8 | **+5.55** | −51.0 | 2.90 |
+| RULE 2h (32% sw) | 2.416 | 362 | 75.4 | +5.25 | −32.9 | 1.45 |
+| always 2h | **2.701** | 363 | 79.7 | +5.26 | −32.9 | 1.45 |
+| 9m cover | 2.440 | 240 | 75.4 | +3.48 | −33.1 | 1.45 |
+
+By year (MOC): 2020 4.84 (6) · **2021 0.53 (28, the meme year: worst −51%, the only two tail
+trips)** · 2022 inf (8) · 2023 inf (4) · 2024 inf (5) · 2025 5.46 (10) · 2026 1.47 (8). Six of
+seven years strong; 2021 supplied 40% of the trips and nearly none of the edge — a >40×
+bar in a market where everything was a climax was not a climax. The rule is now a wash on
+PF and halves the tail (it clips 2021 and costs 2025–26's slow grinders); optional
+tail insurance at ~5% of net. `rr ≥ 20` is not clean at mc=1 in any era.
+
+### S2g — verdicts on seven years
+
+* **MaxFlyerV2's volume gates: CLOSED** (unchanged). `brv15 ≥ 40` survives as a satellite:
+  ~10 trades/yr, +5.6%/trade, held to the close, 2021 the warning.
+* **The AVWAP rule at 2h: CONFIRMED** — 6 of 7 years, tail smaller in 7 of 7, on the bare
+  book and inside the k600 book. Its condition matters on the bare book; inside a gated
+  book the 5m-low-after-2h exit alone does the work.
+* **`k600` is the book**, peaking near ≥140; it is not strong enough at mc=1 to carry 2022.
+* **Exit choice is a sizing point on the net-vs-tail line**, in every year: 9m cover
+  (PF, tail) → 2h rule → MOC (net). A hold-to-close MaxFader book is SpikeFader's entries
+  with a fatter tail and more net; the honest product is the pair, sized by tail budget.
+* ⏭ Open: a k600-gated MaxFader mc=1 book carries 2022 negative — either a regime gate
+  (2022 was the bear year; the long FlushFader's best) or accept it. Entry-time gate
+  (09:45–10:30) not yet applied to the seven-year book. Sizing pass (grade by k600, the
+  climax tier) not yet done.
