@@ -617,3 +617,15 @@ verdict; the armed-stop family is dominated by the 30m cover on every column but
 as depth insurance that can stack on it only if a later study shows they fire first
 (untested); the 9m cover is the tail-budget option. Next: the 30m cover inside the
 `k600` book and with entry-time gating; and whether a 20m/40m cover sits between.
+
+### S4e — the 30m cover by rr band (user: "does it hurt the rr ≥ 40 bucket?") — no
+
+mc=0 on the rr8 days (`data/maxfader_30m_by_rr.log`): the 30m cover improves PF−1 in
+every band from `rr ≥ 8` up — 8–12: 0.11 → 0.66, 12–20: 0.59 → 0.75, 20–40: 0.70 → 1.08,
+**> 40: 1.49 → 2.30 at identical net (3,754 vs 3,767)** — and cuts the tail in each. A
+climax bar rarely prints a fresh 30m low before its fade is done (10% resolve at MOC), so
+the cover mostly rides. Below `rr ≥ 8` every exit is negative (don't trade those bands).
+On the dedicated climax book (67 tkd, mc=1): MOC 2.29 / net 381, 30m cover 2.29 / 319,
+9m cover 2.42 / 238 — same PF, −16% net; it loses 2025 (5.46 → 2.67) and 2026 (1.30 →
+−0.26, six trades), the slow-grinder years of §S1g. **Run the climax book to the close;
+inside the general `rr ≥ 8` book the 30m cover is free on the ≥ 40 bucket.**
