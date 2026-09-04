@@ -229,3 +229,58 @@ Readings:
 * Caveats: 2023+ only; mc=0 attribution throughout unless marked; brv15≥40 is n = 238;
   the bare book is weak (mc=1 0.048) so the rule's value must be re-read inside a gated
   book; DRUG 2024-10-15 dominates the worst-30 list.
+
+### S1e — study 2 on 2023+: k600 as the book, the rule inside it, the halt gate closed
+
+(`scripts/analysis/maxfader_study2.py`, `data/maxfader_study2_2023p.log`.)
+
+**k600 ladder, mc=0 — monotone, tail FLAT, worst SHRINKS:**
+
+| floor | n | PF−1 | win% | worst% | p5% | <−20% |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 953,166 | 0.133 | 55.9 | −887 | −18.2 | 4.41 |
+| 35 | 487,581 | 0.260 | 56.9 | −887 | −17.5 | 4.19 |
+| 63 | 241,658 | 0.406 | 58.0 | −887 | −17.8 | 4.21 |
+| 96 | 97,619 | 0.621 | 60.0 | −724 | −17.3 | 4.01 |
+| 140 | 27,552 | 1.041 | 63.4 | −153 | −16.4 | 4.03 |
+| 200 | 5,193 | 1.830 | 67.8 | −67 | −16.8 | 3.47 |
+
+Every year positive at every floor (mc=0; 2024 the weak year). ⚠ mc=1 is much weaker —
+k600≥63: 0.180 (n 8,332), ≥96: 0.330 (n 3,134) — the sampler's averaging-up is doing
+real work, as in SpikeFader.
+
+**⭐ The AVWAP rule inside the k600 mc=1 book** (SLICE; REPLAY-INSIDE agrees within 0.01):
+
+| book | MOC PF−1 / net / tail / worst | RULE 2h | always 2h |
+|---|---|---|---|
+| k600≥35 (18,277) | 0.104 / 6,441 / 2.79% / −887 | **0.145 / 7,622 / 2.13% / −327** | 0.135 / 6,402 / 1.92% |
+| k600≥63 (8,332) | 0.180 / 5,720 / 3.64% / −887 | 0.204 / 5,633 / 2.94% / −306 | 0.232 / 5,595 / 2.59% |
+| k600≥96 (3,134) | 0.330 / 4,089 / 3.67% / −720 | **0.425 / 4,356 / 2.84% / −167** | 0.442 / 4,027 / 2.55% |
+
+The rule holds inside the gated book: PF−1 +13–40%, tail −20%, worst −887 → −167..−327,
+net flat-to-up. By year in k600≥63: rule beats MOC 2024 (0.085→0.145) and 2025
+(0.242→0.309), ties 2026, loses 2023 (0.308→0.211). **Inside the k600 book the AVWAP
+condition adds little over always-switching at 2h** (0.204 vs 0.232 at ≥63) — the value is
+in the *5m-low-after-2h exit itself*; the AVWAP check earns its keep on the bare book, not
+the gated one. 2h remains the horizon at every floor.
+
+**⭐ The halt gate — CLOSED, by the disproportion test it was meant to pass:** halted-day
+trips are 4.42% of the book and carry 15.5% of tail trips / 23.4% of tail net — a genuine
+3.5–5× disproportion — **but also 29.1% of the corpus NET** (PF−1 0.288 vs 0.109 unhalted,
+win 67% vs 55%). They are the highest-mean AND highest-tail trips. Cutting them from the
+k600≥63 mc=1 book: 0.180 → 0.143, net 5,720 → 3,958 (−31%), tail 3.64 → 3.29% (−10%). A
+halt gate is a MEAN lever pointing the wrong way. Halted days are a sizing/tail question,
+not a cut. (Curious cell: `secs_since_halt` 60–300 s → PF−1 1.19 at n 6,361, 11.6% tail —
+the first five minutes after a resumption.)
+
+**Entry time inside k600≥63 mc=1:** 09:45–10:30 IS the book (0.206 / 0.286); 10:30–11:00
+negative; after 12:00 dead. The rule lifts 10:00–11:00 (0.286→0.361, −0.07→0.15) and
+slightly hurts 09:45–10:00 (0.206→0.190).
+
+**`brv15 ≥ 40`, by year (mc=0):** 49 / 56 / 66 / 67 trips, PF−1 inf / 734 / 6.0 / 9.3, worst
+≥ −9.7%, **0% below −20% every year** — the out-of-scale climax bar is real and clean, and
+too rare to be a system (~60/yr). Satellite tier; re-check on 2020–22.
+
+**Working spec candidate (2023+):** session-high SHORT, `k600 ≥ 63..96`, entries 09:45–10:30,
+hold with the AVWAP rule at 2h (or simply the 5m-low-after-2h exit), no halt gate; sizing
+on k600 and brv15≥40 as the S-tier. All of it re-read on the merged seven years next.
