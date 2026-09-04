@@ -113,3 +113,69 @@ higher PF up to the −12% floor, with n in the tens.
   1m comparison is not fair. Then the exit grid (the aux HIGH marks are recorded: is a 9m
   high cover better than MOC on the long, as it was on the short?). The base run (571k
   tkd, multi-hour) only if the record-first breadth is wanted.
+
+## §L2 — the two missing levers transfer: FLOAT and BREADTH, and the 1s spec (2026-09-04)
+
+`scripts/analysis/lowfader_study2.py`, `data/lowfader_study2_spec.log`. Float = SEC
+`dei:EntityPublicFloat` ASOF `known_date ≤ trade_date`, re-anchored causally
+(`float_usd / (P_pe·n_pe) × entry_px·n_D` — the split factor cancels exactly as the old
+adj_close ratio did), resolved at ticker-day level (a per-trip ASOF against all of
+`daily_adjusted` ran away for an hour, twice; a 10-day bounded range join is instant).
+Coverage 68.5% (the uncovered are names without SEC float filings — foreign, ADRs, new
+listings — and they are the weak set: PF−1 0.24 / 0.60). Breadth = D−1 `pct_above_20`, 97.7%.
+
+### L2a — the 1s spec: the two inversions applied
+
+Drop the morning gate, drop `chg_7d`, band `chg_1d` at [−30%, −8%]:
+
+| book | view | n | PF−1 | net% | win% | worst% | <−20% |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 1m spec as-is | mc=1 | 202 | 1.082 | 500 | 64.4 | −65.8 | 1.49 |
+| **1s spec** | mc=1 | **279** | **1.161** | **645** | 61.3 | **−24.5** | 1.08 |
+| 1s spec | mc=1, 20m-high cover | 279 | **1.939** | 662 | 70.3 | −25.1 | 1.43 |
+
++38% trips, +29% net, the worst trade from −66% to −25% (the `chg_1d` band removes the
+knives), and 7-year PF−1 by year 2.82 / 2.17 / −0.52 / 0.13 / 1.11 / 0.62 / 1.00 (2022 the
+one loser, on 17 trades). The 20m-high cover on top: PF−1 1.94 at 103% of MOC's net.
+
+### L2b — ⭐ FLOAT < $300M is the lever on 1s exactly as on 1m
+
+| float at entry ($M), 1s spec mc=1 | n | PF−1 | net% | win% | worst% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|
+| 0–50 | 46 | 1.35 | 147 | 65.2 | −22.7 | 2.17 |
+| **50–150** | 28 | **5.49** | 184 | 75.0 | −16.7 | 0.00 |
+| 150–300 | 34 | 2.09 | 99 | 61.8 | −8.5 | 0.00 |
+| 300–1,000 | 56 | 0.47 | 54 | 58.9 | −23.2 | 1.79 |
+| > 1,000 | 13 | ~0.6 | 22 | | | |
+| no float data | 102 | 0.60 | 138 | 55.9 | −24.5 | 0.98 |
+
+**`float < $300M`: 108 trips, PF−1 2.27, net 430, win 67%, worst −22.7%, tail 0.9%** (vs ≥ $300M:
+0.57). On the 1m spec the same cut gives 80 trips at **3.02** — the 1m book's own number (PF
+3.38 = PF−1 2.38) with its own lever. The 1m doc's reading holds verbatim: "$150–300M best,
+micro-floats not best once 3d strength is required" — the 50–150M band is the apex here.
+By year (1s spec, float < 300M): 7.6 / 4.0 / −0.8 / −0.2 / 29.3 / 2.3 / −0.2 — 4 of 7 positive,
+n in the teens per year.
+
+### L2c — ⭐ BREADTH ×3 transfers (Run 23/24)
+
+| 1s spec mc=1 (279) | n | PF−1 | net% | worst% | <−20% |
+|---|---:|---:|---:|---:|---:|
+| breadth D−1 ≥ 0.65 | 115 | **2.27** | 380 | −16.7 | **0.00** |
+| breadth < 0.65 | 164 | 0.68 | 265 | −24.5 | 1.83 |
+
+Equal weight: net 645, PF−1 1.16. **×3 on breadth ≥ 0.65: net 1,405, net/exposure 770
+(+19%), PF−1 1.58.** With the 20m-high cover: PF−1 **2.57** sized. On the 1m spec the split is
+even sharper (3.19 vs 0.35). A size-up, not a gate — the weak-breadth days still net +265.
+
+### L2d — the full 1m production analog on 1s
+
+**1s spec ∧ float < $300M, ×3 on breadth ≥ 0.65** (mc=1, 108 trips, ~15/yr): equal-weight
+PF−1 2.27 / net 430; sized net/exposure 503, **PF−1 2.97**; with the 20m-high cover PF−1 **3.11**.
+The high-breadth half alone: **51 trips, PF−1 3.92, win 72.5%, worst −16.7%, 0% below −20%.**
+
+**Verdict.** LowFlyer reproduces on the 1s tape with its own structure intact: a thin,
+selection-driven long whose edge is float-tightness × breadth × the 1d/20m/3d gates, at
+PF−1 2.3–3.1 on ~15 trades a year, worst trade −23%. The two 1s inversions (no morning gate,
+`chg_1d` band) add 38% of trips and cut the worst trade by two thirds; the 20m-high cover
+is a near-free PF lift. ⏭ The base run (571k tkd, in flight) re-reads all of this on the
+record-first breadth; float coverage (68.5%) is the open data question the user deferred.

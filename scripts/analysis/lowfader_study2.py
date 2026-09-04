@@ -20,12 +20,23 @@ WITH t AS (
     entry_px/NULLIF(close_m7+coalesce(div_m7,0),0)-1 AS chg_7d, signal_vwap/NULLIF(vwap_60_prev,0)-1 AS flush_1m,
     signal_vwap/NULLIF(vwap_1200,0)-1 AS chg_20m, vol_60/NULLIF(vol_60_prior_max,0) AS vol_vs_high, avgvol20_prior*close_m1 AS adv
   FROM read_parquet('{DIRP}/*.parquet')),
+-- ⭐ resolve the float ONCE PER TICKER-DAY (21k rows), not per trip (696k): the per-trip ASOF
+-- against the whole daily_adjusted table ran for an hour without finishing.
+tkd AS (SELECT DISTINCT symbol, CAST(trade_date AS DATE) AS d FROM t),
 flt AS (SELECT tc.ticker, fs.known_date, fs.period_end, fs.value AS float_usd FROM f.float_sec fs JOIN f.ticker_cik tc ON tc.cik = fs.cik WHERE fs.value > 0),
-tf AS (SELECT t.*, fl.float_usd, fl.period_end AS flt_pe FROM t ASOF LEFT JOIN flt fl ON fl.ticker = t.symbol AND fl.known_date <= CAST(t.trade_date AS DATE)),
-tfp AS (SELECT tf.*, da.close AS p_pe, da.n AS n_pe FROM tf ASOF LEFT JOIN daily_adjusted da ON da.ticker = tf.symbol AND da.date <= tf.flt_pe),
+tf AS (SELECT tkd.symbol, tkd.d, fl.float_usd, fl.period_end AS flt_pe FROM tkd ASOF LEFT JOIN flt fl ON fl.ticker = tkd.symbol AND fl.known_date <= tkd.d),
+pe AS (SELECT DISTINCT symbol, flt_pe FROM tf WHERE flt_pe IS NOT NULL),
+da AS (SELECT ticker, date, close, n FROM daily_adjusted WHERE ticker IN (SELECT symbol FROM pe)),
+-- bounded range join, not ASOF: the ASOF against the 11M-row slice never returned (2 runaways).
+pep AS (SELECT pe.symbol, pe.flt_pe, arg_max(da.close, da.date) AS p_pe, arg_max(da.n, da.date) AS n_pe
+        FROM pe JOIN da ON da.ticker = pe.symbol AND da.date <= pe.flt_pe AND da.date >= pe.flt_pe - INTERVAL 10 DAY GROUP BY 1, 2),
+tkdf AS (SELECT tf.symbol, tf.d, tf.float_usd, tf.flt_pe, pep.p_pe, pep.n_pe FROM tf LEFT JOIN pep ON pep.symbol = tf.symbol AND pep.flt_pe = tf.flt_pe),
 br AS (SELECT date, LAG(pct_above_20) OVER (ORDER BY date) AS breadth_lag1 FROM read_parquet('data/equity/momentum_v0/breadth.parquet'))
-SELECT tfp.*, CASE WHEN float_usd > 0 AND p_pe > 0 AND n_pe > 0 THEN float_usd / (p_pe * n_pe) * entry_px * n_d END AS float_usd_at_entry, br.breadth_lag1
-FROM tfp LEFT JOIN br ON br.date = CAST(tfp.trade_date AS DATE)""").df()
+SELECT t.*, k.float_usd, k.flt_pe, k.p_pe, k.n_pe,
+       CASE WHEN k.float_usd > 0 AND k.p_pe > 0 AND k.n_pe > 0 THEN k.float_usd / (k.p_pe * k.n_pe) * t.entry_px * t.n_d END AS float_usd_at_entry,
+       br.breadth_lag1
+FROM t LEFT JOIN tkdf k ON k.symbol = t.symbol AND k.d = CAST(t.trade_date AS DATE)
+LEFT JOIN br ON br.date = CAST(t.trade_date AS DATE)""").df()
 df['ret']=df['ret_exit']; df['year']=pd.to_datetime(df['trade_date']).dt.year; df['entry_min']=df['entry_sec']//60
 px=df['aux_hi_1200_px'].where(~df['aux_hi_1200_px'].isna(), df['exit_px']); df['ret_20m']=px/df['entry_px']-1
 def pf(s):
