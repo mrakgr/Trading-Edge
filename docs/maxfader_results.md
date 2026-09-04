@@ -465,3 +465,79 @@ tail insurance at ~5% of net. `rr ≥ 20` is not clean at mc=1 in any era.
   (2022 was the bear year; the long FlushFader's best) or accept it. Entry-time gate
   (09:45–10:30) not yet applied to the seven-year book. Sizing pass (grade by k600, the
   climax tier) not yet done.
+
+---
+
+## §S3 — THE ARMED STOPS on the `rr ≥ 8` book: hold through the FIRST stop, exit on the SECOND (2026-09-04)
+
+**User's design (MaxRiderV2's rubber-band control on 1s bars):** enter with no stop; the bar
+after a new {5m,10m,20m} low ARMS a stop at the prior session high × 1.20; a hit records an
+exit mark (next-bar fill), removes the stop, counts a pull-up, and the position STAYS OPEN;
+the next low after the hit re-arms at the higher session high. Record-only (commit
+`a4094aa`); "exit at the k-th hit" is post-hoc against MOC, the 2h rule and the 9m cover.
+Corpus: `maxfader_rr8_whitelist` (ticker-days with any `rr ≥ 8` signal, 2,455 tkd, 2020–26)
+→ `data/maxfader_rr8` (182,291 trips, 55 min — IO-bound, one parquet per day);
+`scripts/analysis/maxfader_study5.py`, `data/maxfader_study5_rr8.log`.
+
+### S3a — `rr ≥ 8` signals, mc=1 (n = 2,455): the exit table
+
+| exit | PF−1 | net% | win% | worst% | p5% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|
+| MOC | 0.313 | 3,866 | 62.3 | −866 | −23.3 | 6.15 |
+| RULE 2h | 0.369 | 3,872 | 58.6 | −214 | −21.3 | 5.58 |
+| 9m cover | **0.481** | 2,714 | 66.5 | **−106** | −12.2 | **2.48** |
+| STOP 1 @ 5m arm | **0.287** | 3,482 | 60.7 | −177 | −27.3 | **10.14** |
+| **STOP 2 @ 5m arm** | 0.365 | **4,312** | 62.2 | −437 | −23.6 | 6.31 |
+| STOP 3 @ 5m arm | 0.314 | 3,862 | 62.3 | −785 | −23.3 | 6.19 |
+| STOP 1 @ 10m arm | 0.350 | 4,102 | 61.2 | −210 | −26.0 | 8.80 |
+| STOP 1 @ 20m arm | 0.389 | **4,500** | 61.8 | −292 | −25.3 | 7.33 |
+| RULE 2h + STOP 1 @ 5m | 0.252 | 2,857 | 57.6 | −177 | −24.4 | 8.47 |
+
+Pull-ups (5m machine): hit once 7.4% of trips, twice 1.3%, three times 0.3%, four 0.1%.
+
+**⭐ The FIRST stop is the worst exit in the table — and it is worst in every slice:** PF−1
+below MOC, net −10%, and the tail share **doubles** (6.2% → 10.1%). The mechanism is
+mechanical: a hit at +20% over the session high IS a ≥20% realised loss, so every hit
+lands in the tail by construction, and a stock that just ripped 20% through its high
+reverses often enough that holding recovers more than the stop saves. The user's prior
+("exits will have negative expectancy") holds exactly. By year, STOP 1 @ 5m beats MOC in
+**1 of 7** years (2024, the −866% year) and raises the tail share in all seven.
+
+**⭐ The SECOND stop is the best of the family:** net +12% over MOC (4,312 vs 3,866), PF−1
++17% (0.365 vs 0.313), worst −866 → −437, tail share unchanged — and it beats MOC in
+**5 of 7 years** (2021, 2022, 2023, 2024, 2025; loses 2020 and 2026). Holding through the
+first pull-up and exiting on the second is where the expectancy of staying turns — the 1s
+mirror of MaxRiderV2's "re-entering more than twice is neutral". The 20m-armed first stop
+(0.389 / 4,500 / −292) is the single-stop variant that works, because a 20m low arms
+later and rarer (95 hits vs 181), so it behaves like a second stop in timing. The third
+stop is MOC with extra steps (hit 0.3% of the time).
+
+**Rule + stop does not add:** whichever fires first, the combination sits below the rule
+alone (0.25–0.38 vs 0.369): the stop's early hits override the rule's better exits.
+
+### S3b — the same shape at `rr ≥ 12` and on the climax book
+
+`rr ≥ 12` mc=1 (1,075): MOC 0.755 / 3,611 / 5.95% → STOP 1 @ 5m **0.483** / 2,617 / **11.4%**;
+STOP 2 @ 5m 0.735 / 3,557; STOP 1 @ 20m 0.787 / 3,695; rule 0.797; 9m cover 0.847 / 2.6%.
+`rr ≥ 40` mc=1 (67): MOC 2.29 → STOP 1 @ 5m 1.46 (tail 3.0 → 6.0%); STOP 2 = MOC (never hit
+twice); rule 2.40; 9m cover 2.42. On the climax book the first stop is again the only
+thing that hurts.
+
+### S3c — what the stops do and do not do
+
+The stops cut the **worst case** (−866 → −177 at the first hit, −437 at the second) but
+not the **tail share** — the share of trips below −20% is 6–10% under every stop variant,
+against 2.5% under the 9m cover. The user's stated target was the tail ("the 300% losses
+with the 2h rule are still horrible"): on this book the only exit that moves the tail
+*frequency* is the 9m cover, at the cost of ~30% of net; the stops and the rule move the
+tail *depth* at roughly zero net cost (rule) or +12% net (second stop). Three tools,
+three different objects: **rule = depth at par, second stop = depth with net, 9m cover =
+frequency for net.** They compose as a sizing choice, not as a stack (the rule+stop
+combination is worse than either).
+
+**Verdicts.** (1) Never exit on the first armed stop: it is the worst rule in the study in
+every slice and every year but one. (2) If an armed stop is used, hold through the first
+hit and exit on the second (5m arm), or use a single 20m-armed stop — both +12–16% net over
+MOC with the worst case halved, 5 of 7 years. (3) The 20% offset was not swept; 10% and 30%
+are one flag (`--stop-pct`) and a 55-min run each. (4) A "pull up without a hit" variant
+(re-set the armed level on every later low) is the untested cousin.
