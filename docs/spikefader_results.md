@@ -3963,3 +3963,50 @@ run-length-vs-run-count lesson as S43b.
 real intraday volume has a strong U-shaped diurnal profile that would itself
 bend the cumulative curve and inflate `cum_maxdev`. The real feature must
 measure deviation against the EXPECTED arrival curve, not the diagonal.
+
+---
+
+## §S45 — `rr ≥ 20` as a roster voice: NO SEAT (2026-09-04)
+
+**Motivation (user):** MaxFader's brv15 bands (`brv15_tape` ≡ `rr`, same column) inside
+the SpikeFader core gates form a **U** — quiet (≤1) and climax (≥20) both strong, the 1–4
+middle weak — so the loud end deserved a voice test next to the seated `rr < 0.5`.
+Corpus `data/spikefader_s44`, spec (units-fixed), book 3,573 @ PF−1 1.213.
+(`data/spikefader_rr20_voice.log`.)
+
+**The mc=0 spec slice agrees with MaxFader — the U is real at the sampler level:**
+
+| rr band | n | PF−1 | win% | worst% | <−20% |
+|---|---:|---:|---:|---:|---:|
+| ≤ 0.5 | 1,333 | 4.01 | 83.3 | −15.6 | 0.00 |
+| 0.5–1 | 7,174 | 3.70 | 80.8 | −50.9 | 0.26 |
+| 1–2 | 21,729 | 1.31 | 77.4 | −83.1 | 2.44 |
+| 2–4 | 23,937 | 1.61 | 75.6 | −83.4 | 1.96 |
+| 4–8 | 15,136 | 2.19 | 78.7 | −72.4 | 2.60 |
+| 12–20 | 2,411 | 2.55 | 79.4 | −39.3 | 2.24 |
+| **20–40** | 1,203 | **6.98** | 82.7 | −15.0 | 0.00 |
+| **> 40** | 165 | **8.64** | 75.2 | −6.3 | 0.00 |
+
+**But on the mc=1 BOOK the loud end is 39 trips, and it does not survive the controls:**
+
+| voice | n (% of book) | PF−1 | book without | sized 2× | same-n seated `volat` | same-n `dlv` | tkd-permutation p | years ≤ 1.0 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| rr ≥ 20 | 39 (1.1%) | 2.875 | 1.200 (−0.013) | 1.226 | **3.866** | 2.951 | **0.227** | 2021 1.01, 2023 −0.83 (n 3), 2024 0.92 |
+| rr ≥ 12 | 112 (3.1%) | 2.818 | 1.172 (−0.041) | 1.252 | 2.266 | 2.066 | 0.078 | 2023 −0.57 (n 5) |
+| rr ≥ 40 | 6 | inf | — | — | — | — | — | — |
+
+`rr ≥ 20` loses same-n to the seated `volat` voice (3.87) and to `dlv` (2.95), and its
+permutation null is p = 0.227. `rr ≥ 12` is the marginal case — beats the incumbents and
+the seated `volat` at same n (2.27), zero tail, but loses to the seated quiet-`rr` voice
+(3.63) and p = 0.078 on 112 trips, with 2023 negative.
+
+**Why the sampler and the book disagree by 30×:** rr ≥ 20 fires 1,368 mc=0 signals but
+only 39 book trips — a climax day prints MANY session/20m highs and the sampler averages
+up into every one of them, so the loud end's attribution is clustering (the "three mc
+questions" lesson: mc=0 sample sizes are illusory where signals clump within ticker-days).
+
+**Verdict: no seat for `rr ≥ 20`.** The U stands as a *description* of the corpus — the
+loud end IS clean when it fires — but at 1.1% of the book it is not distinguishable from
+the seated `volat` voice and fails the permutation null. `rr ≥ 12` goes on the watch list:
+re-test when another year of book accrues (a 2× seat at ≥12 would move the book
+1.213 → 1.252, +0.04).
