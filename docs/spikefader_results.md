@@ -4048,3 +4048,8 @@ band table, seated on SpikeFader's book.
 caveat: the loud end is climax volume, and the size-up sits on trades whose tail is
 tighter than the book's — consistent with grade A. Re-read after the 2020–22 MaxFader
 merge adds nothing here (different corpus); re-read when 2027 accrues.
+
+**⭐ RATIFIED (user, 2026-09-04): ROSTER v3.4 = FIVE voices.** Grade order A `rr < 0.5` (1.00)
+· B `dslo ≤ −5%` (0.99) · **X `rr ≥ 12` (0.74)** · C `ht ≥ 2 ∧ fresh[60,300)` (0.75) · D
+`volat ≥ 100bp` (0.48) · E none (0.19); grade = the strongest voice firing; weight =
+(PF−1)/max(PF−1). Supersedes the 4-voice roster of STEP 1–3 above.
