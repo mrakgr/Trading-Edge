@@ -393,6 +393,7 @@ type FlushPosition =
       Vol15: float
       Vol30: float
       Vol60: float
+      Vol60PriorMax: float       // ⭐ LowFader: prior session max of the 60s volume sum (vol_vs_high = Vol60 / this)
       Vol300: float              // S40l: the 5m window joins the vol/tc/dv family
       Vol600: float              // 10m volume sum (mid-horizon participation ratios)
       Vol1200: float             // 20m sums — the absolute 1m-vs-10m-vs-20m comparisons
@@ -995,6 +996,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let tVolSum15 = TimeSumMa 15
     let tVolSum30 = TimeSumMa 30
     let tVolSum60 = TimeSumMa 60
+    // ⭐ LowFader: the S9 volume-high mirror (SpikeFader) — session max of the 60s volume sum
+    // over windows ending >= 60 tradeable secs ago; LowFlyer's `vol_vs_high` gate = vol_60 / this.
+    let tVol60PriorMax = TimeLagMaxMa 60
     let tVolSum120 = TimeSumMa 120               // vol_60_prev = t120 − t60
     let tVolSum300 = TimeSumMa 300
     let tVolSum600 = TimeSumMa 600
@@ -1563,6 +1567,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         tVolSum15.Push(bar.volume, volGap)
         tVolSum30.Push(bar.volume, volGap)
         tVolSum60.Push(bar.volume, volGap)
+        (match tVolSum60.State with ValueSome s -> tVol60PriorMax.Push(s, volGap) | ValueNone -> ())
         tVolSum120.Push(bar.volume, volGap)
         tVolSum300.Push(bar.volume, volGap)
         tVolSum600.Push(bar.volume, volGap)
@@ -2463,6 +2468,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       Vol15 = vv tVolSum15.State
                       Vol30 = vv tVolSum30.State
                       Vol60 = vv tVolSum60.State
+                      Vol60PriorMax = vv tVol60PriorMax.Max
                       Vol300 = vv tVolSum300.State
                       Vol600 = vv tVolSum600.State
                       Vol1200 = vv tVolSum1200.State

@@ -322,7 +322,7 @@ CREATE TABLE trips (
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
     sess_vwap DOUBLE, dist_sess_vwap DOUBLE, pct_chg_open DOUBLE,
     bar_vol DOUBLE, bar_tc INTEGER,
-    vol_5 DOUBLE, vol_10 DOUBLE, vol_15 DOUBLE, vol_30 DOUBLE, vol_60 DOUBLE, vol_600 DOUBLE, vol_1200 DOUBLE,
+    vol_5 DOUBLE, vol_10 DOUBLE, vol_15 DOUBLE, vol_30 DOUBLE, vol_60 DOUBLE, vol_600 DOUBLE, vol_1200 DOUBLE, vol_60_prior_max DOUBLE,
     tc_5 DOUBLE, tc_10 DOUBLE, tc_15 DOUBLE, tc_30 DOUBLE, tc_60 DOUBLE, tc_600 DOUBLE, tc_1200 DOUBLE,
     vol_60_prev DOUBLE, tc_60_prev DOUBLE, vwap_60 DOUBLE, vwap_60_prev DOUBLE,
     vwap_5_prev DOUBLE, vwap_10_prev DOUBLE,
@@ -514,7 +514,7 @@ type TripSink(outDir: string, nextOpenExit: bool) =
             i p.Gap60; i p.Gap30; i p.Gap15
             f p.SessVwap; f p.DistSessVwap; f p.PctChgOpen
             f p.BarVol; i p.BarTc
-            f p.Vol5; f p.Vol10; f p.Vol15; f p.Vol30; f p.Vol60; f p.Vol600; f p.Vol1200
+            f p.Vol5; f p.Vol10; f p.Vol15; f p.Vol30; f p.Vol60; f p.Vol600; f p.Vol1200; f p.Vol60PriorMax
             f p.Tc5; f p.Tc10; f p.Tc15; f p.Tc30; f p.Tc60; f p.Tc600; f p.Tc1200
             f p.Vol60Prev; f p.Tc60Prev; f p.Vwap60; f p.Vwap60Prev
             f p.Vwap5Prev; f p.Vwap10Prev
