@@ -179,3 +179,63 @@ PF−1 2.3–3.1 on ~15 trades a year, worst trade −23%. The two 1s inversions
 `chg_1d` band) add 38% of trips and cut the worst trade by two thirds; the 20m-high cover
 is a near-free PF lift. ⏭ The base run (571k tkd, in flight) re-reads all of this on the
 record-first breadth; float coverage (68.5%) is the open data question the user deferred.
+
+## §L3 — the BASE run: the whitelist was exactly complete; `rvol_0945` is a non-lever; the float book reads 3.42 (2026-09-04)
+
+`data/lowfader_wl_base` (`lowfader_whitelist`, 489,058 ticker-days in range, 1.4 GB):
+**1,754,105 trips / 80,458 tkd**, 2020–26. `data/lowfader_study{1,2}_base.log`.
+
+**Substitution test passed by construction:** the full 1m spec on the base corpus is
+**1,029 mc=0 / 202 mc=1 trips — identical to the spec-superset run.** The superset whitelist
+(3.1% of the universe, 15 min) lost nothing; the base run (33% of the universe, 4 h) was the
+control that proves it.
+
+**The bare session-low long on full breadth:** mc=0 PF−1 0.002, mc=1 −0.024 (80,458; win
+48.6%); 2020 +0.17, 2021 +0.07, every year since ≤ 0. The flush itself is worth nothing;
+selection is the whole system.
+
+**One gate changes verdict on full breadth — `rvol_0945 ≥ 0.1` is a non-lever:** alone it
+passes 78% and reads −0.046; dropping it from the full spec *raises* PF−1 0.994 → 1.056 and
+the book 1,029 → 1,316 (the whitelist had enforced it, hiding this). `adv ≥ 500k` passes 95%
+and is inert. Neither belongs in the 1s spec.
+
+**The books, with those two gates gone (study2, mc=1):**
+
+| book | n | PF−1 | net% | worst% | <−20% | tkd/yr |
+|---|---:|---:|---:|---:|---:|---|
+| 1m spec as-is | 267 | 1.247 | 669 | −65.8 | 1.12 | 47 / 98 / 17 / 21 / 32 / 35 / 17 |
+| 1s spec (no morning gate, no 7d, 1d band) | 378 | 1.228 | 854 | −24.5 | 0.79 | 68 / 120 / 25 / 26 / 40 / 65 / 34 |
+| **1m spec ∧ float < $300M** | 105 | **3.417** | 495 | −22.7 | 0.95 | (11.1 / 5.0 / −0.9 / 0.7 / 30.0 / 3.9 / 1.2) |
+| 1s spec ∧ float < $300M | 143 | 2.281 | 518 | −22.7 | 0.70 | (6.6 / 4.8 / −0.9 / −0.3 / 44.1 / 2.3 / 0.2) |
+| 1s spec ∧ float < $300M, ×3 breadth | 143 | 2.678 (net/exp 582) | 1,111 | −50.6 | | |
+| — its breadth ≥ 0.65 half | 65 | **3.158** | 296 | −16.9 | **0.00** | |
+
+**The 1m spec with the float gate reads PF−1 3.42 on the 1s tape — LowFlyer's own
+production number (PF 3.38) reproduced causally, on 2020–26, at ~15 trades a year.** The
+1s spec trades more (143 vs 105) at a lower PF (2.28) with a smaller worst trade; the two
+are the same net. Float bands agree with the 1m doc in every detail (50–150M the apex:
+23.0 on the 1m spec, 3.36 on the 1s; ≥ $300M ~0.6–1.0; no-float names 0.36–0.58).
+
+**⚠ The 20m-high cover does NOT help the float-gated book:** on the broad books it lifts
+PF−1 (1.25 → 1.89; 1.23 → 1.69) at ~95% of net, but on 1s spec ∧ float < $300M it *lowers*
+it (2.28 → 2.18, ×3 book 2.68 → 2.09). A tight-float flush's edge is the whole-day bounce;
+covering at the first 20m high leaves it on the table. **MOC stays the exit for the float
+book; the cover is a broad-book tool.**
+
+`chg_1d` on full breadth (intraday-gated mc=1, 6,405): positive only in [−30%, −8%] (0.14–0.55,
+peak −20..−15%), a knife below −30% (13–23% tails), ~0 above −5% — the band stands.
+
+### Verdict — LowFlyer on 1s, and what stays
+
+* **Working spec (1s):** session-low LONG, fill next bar, hold to **MOC**; `flush_1m ≥ −12%`,
+  `vol_vs_high ≥ 0.90`, `chg_1d ∈ [−30%, −8%]`, `chg_20m ≤ −3%`, `chg_3d ∈ [−3%, +30%]`,
+  **float < $300M**, all session (no morning gate); size ×3 on D−1 breadth ≥ 0.65 and on flush
+  depth toward −12%. Dropped from the 1m spec: the −0.7% flush gate (inert on 1s), `chg_7d`,
+  `adv`, `rvol_0945`, the morning gate. ~20 trades a year at PF−1 2.3–2.7; the 1m spec's
+  literal transplant with float reads 3.42 at ~15.
+* **Open data question (user: "at the end"):** float coverage 69% — the uncovered third is
+  the weak set, so the float gate is doing double duty as a "has SEC filings" gate; a second
+  float source (Polygon shares outstanding is in `float.db`) would say how much of the lever
+  is float-tightness and how much is filing status.
+* The engine is done: `TradingEdge.LowFader` = FlushFader + the session channel, MOC exit,
+  causal daily gates, the volume-high mirror, the one-copy loop. Base corpus 1.4 GB kept.
