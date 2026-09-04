@@ -4053,3 +4053,82 @@ merge adds nothing here (different corpus); re-read when 2027 accrues.
 · B `dslo ≤ −5%` (0.99) · **X `rr ≥ 12` (0.74)** · C `ht ≥ 2 ∧ fresh[60,300)` (0.75) · D
 `volat ≥ 100bp` (0.48) · E none (0.19); grade = the strongest voice firing; weight =
 (PF−1)/max(PF−1). Supersedes the 4-voice roster of STEP 1–3 above.
+
+---
+
+## §S47 — the 30m cover on SpikeFader's own book: REJECTED; the 9m exit stands (2026-09-04)
+
+**Why this was run:** on MaxFader (session-high entries, hold-to-close) the 30m-low cover
+was the best exit found — the 9m cover's PF at MOC's net (maxfader_results.md §S4). And the
+S37f exit grid (1m..20m) had a flaw: the retire guard let a trip retire once its +1200s
+forward mark filled with its wider lo marks still NaN (aux_lo_1200 filled on only 74% of
+trips; 10m–20m rungs had gaps), and the post-hoc fallback then read the trip's OWN 9m exit
+for the missing mark — so "PF saturates at 9m" might have been the fallback converging on
+itself. Engine (commit `5049621`): {30m,40m,1h} marks added; retire only when every aux
+mark has resolved (positions live to the close; trip set zero-diff); one record copy per
+bar (74.6 → 48.1 s smoke). Corpus `data/spikefader_s47` (whitelist rerun, 935,595 trips,
+36 min, every mark 100% filled). `scripts/analysis/spikefader_s47_exits.py`.
+
+**SLICE — the spec book (3,573, mc=1 on the 9m exit) re-exited at each channel:**
+
+| exit | PF−1 | net% | win% | worst% | p5% | <−20% | roster-sized net/exposure | sized worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| **9m** | **1.213** | 7,162 | 74.5 | **−83** | **−9.9** | **1.60** | 9,999 | **−52** |
+| 10m | 1.182 | 7,400 | 74.8 | −83 | −10.0 | 1.62 | 10,287 | −61 |
+| 12m | 1.173 | 7,927 | 74.7 | −139 | −10.3 | 1.96 | 11,352 | −61 |
+| 15m | 1.080 | 8,218 | 73.7 | −135 | −12.0 | 2.46 | 11,537 | −61 |
+| 20m | 0.920 | 8,354 | 72.4 | −120 | −15.2 | 3.27 | 12,012 | −81 |
+| 30m | 0.844 | **9,045** | 71.5 | −216 | −17.2 | 4.11 | **12,709** | −104 |
+| 40m | 0.702 | 8,824 | 69.9 | −183 | −19.8 | 4.90 | 12,347 | −99 |
+| 1h | 0.503 | 7,751 | 68.0 | −214 | −22.1 | 5.51 | 11,577 | −99 |
+
+REPLAY-INSIDE (the channel's exit frees the slot) agrees within 0.01 at every rung.
+
+**By year (slice, PF−1):**
+
+| year | n | 9m | 12m | 20m | 30m | 1h | net 9m | net 30m | tail 9m | tail 30m | worst 9m | worst 30m |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2020 | 688 | 1.482 | 1.480 | 1.153 | 1.202 | 0.749 | 1,408 | 1,976 | 1.16 | 3.63 | −39 | −58 |
+| 2021 | 810 | 1.281 | 1.209 | 1.067 | 0.925 | 0.329 | 1,520 | 1,957 | 1.11 | 3.83 | −77 | −97 |
+| 2022 | 405 | 0.344 | 0.435 | 0.158 | 0.275 | 0.269 | 290 | 398 | 1.23 | 4.20 | −83 | −109 |
+| 2023 | 298 | 0.864 | 1.123 | 0.740 | 0.744 | 0.253 | 488 | 651 | 2.01 | 4.03 | −54 | −60 |
+| 2024 | 471 | 1.377 | 1.100 | 0.798 | 0.468 | 0.394 | 1,230 | 940 | 2.76 | 5.52 | −51 | −216 |
+| 2025 | 641 | 1.432 | 1.632 | 1.460 | 1.250 | 0.682 | 1,421 | 2,103 | 1.56 | 3.74 | −34 | −77 |
+| 2026 | 260 | 1.700 | 1.065 | 0.936 | 1.092 | 1.039 | 805 | 1,019 | 2.31 | 4.62 | −52 | −113 |
+
+**30m beats 9m on PF−1 in 0 of 7 years; net is higher in 6 of 7; the tail is larger in
+7 of 7.**
+
+**By roster grade (slice):**
+
+| grade | n | PF−1 9m | PF−1 30m | net 9m | net 30m | worst 9m | worst 30m | tail 9m | tail 30m |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A `rr<0.5` | 113 | 3.76 | 2.67 | 299 | 425 | −16 | −23 | 0.0 | 0.9 |
+| B `dslo≤−5%` | 154 | 3.71 | 2.23 | 604 | 772 | −52 | −60 | 1.9 | 3.9 |
+| **X `rr≥12`** | 111 | **2.79** | **0.64** | 406 | 323 | −19 | **−109** | 0.0 | 5.4 |
+| C halts∧fresh | 29 | 2.83 | 2.49 | 190 | 237 | −24 | −22 | 3.4 | 6.9 |
+| D `volat≥100bp` | 675 | 1.80 | 1.39 | 2,929 | 3,997 | −72 | −216 | 3.3 | 6.5 |
+| E none | 2,491 | 0.71 | 0.49 | 2,735 | 3,291 | −83 | −113 | 1.2 | 3.5 |
+
+**Readings.**
+1. **S37f stands, and it was not an artifact.** With every mark resolved the grid still
+   ramps PF−1 down monotonically from 9m (1.213 → 1.182 → 1.173 → 1.080 → 0.920 → 0.844) while
+   net rises to a peak at 30m (+26%) — exactly S37f's "the gain saturates at 9m; net rises
+   monotonically" reading, now on clean marks out to 1h.
+2. **The 30m cover is REJECTED for SpikeFader.** +26% net buys 2.6× the tail share (1.6 →
+   4.1%), 2.6× the worst trade (−83 → −216), a PF−1 loss in 7 of 7 years, and a roster-sized
+   worst of −104% against −52%. Grade X — the `rr ≥ 12` seat ratified this morning — is
+   the grade it hurts most (2.79 → 0.64, worst −19 → −109): the loud-volume trades are the
+   ones that squeeze when held.
+3. **Why MaxFader said the opposite:** its baseline was MOC. Against hold-to-close, 30m
+   was a free improvement; against the 9m cover it is the same net-vs-tail dial every other
+   exit turned out to be, and the dial belongs at 9m. Both results are consistent: the
+   exit horizon trades net for tail monotonically, and the book that already covers at 9m
+   has nothing to gain from holding longer except net at a price.
+4. The 12m rung is the only long option with a case — +11% net, PF−1 1.173, tail 1.96%,
+   beats 9m in 3 of 7 years — and it is the "other local high" S37f already noted.
+
+**Verdict: the 9m exit stays. MaxFader as a system is retired** — its findings fold back
+here as (a) the exit horizon is a monotone net-vs-tail dial, (b) MaxFlyerV2's gates were
+artifacts, (c) the `rr ≥ 12` and `rr ≥ 40` cells belong to this book's roster, (d) the
+engine speedup and the retire-guard fix, both of which SpikeFader now carries.
