@@ -52,3 +52,64 @@ Commits `06545b6` → `9983f32`.
   spec book mc=0 / mc=1 by year, the flush-depth sizing lever, and the daily-gate bands inside
   the intraday-gated book (where the 1d/3d/7d floors sit on 1s — the side-flip law says the
   1m thresholds are hypotheses).
+
+## §L1 — LowFlyer's spec on the 1s tape, first read (spec-superset corpus, 2020–26)
+
+`data/lowfader_wl_spec` (37,934 whitelisted ticker-days in range, 15 min): **695,906 trips /
+21,700 tkd**. `data/lowfader_study1_spec.log`. ⚠ Not yet comparable to the 1m PF 3.38: no
+float < $300M (the 1m book's biggest lever: sub-$300M PF 2.8–3.3 vs 1.3–1.4 large-cap) and
+no breadth ×3; 2020+ only; fills at the next 1s bar's vwap, not the 1m breakout close.
+
+### L1a — the bare session-low long is a loser in every year
+
+mc=0 PF−1 **−0.26** (695,906), mc=1 **−0.46** (21,700; win 38.7%), negative in all seven years
+(−0.22 … −0.58). LowFlyer's edge is entirely selection; the flush itself is a knife.
+
+### L1b — the spec transfers, thinly; four gates carry it, three are inert, one inverts
+
+| gate | alone (mc=0) | pass | remove-one from the full spec |
+|---|---:|---:|---:|
+| NONE | −0.260 | — | FULL SPEC **0.994** (n 1,029) |
+| `flush_1m ≤ −0.7%` | −0.260 | 94% | drop → 0.995 (inert: a session-low bar IS a flush) |
+| `flush_1m ≥ −12%` | −0.260 | 99% | drop → 0.728 (tail 1.3 → 2.3%) |
+| **`vol_vs_high ≥ 0.9`** | −0.107 | **4%** | drop → **0.308** at n 30,316 (the gate that makes the book) |
+| **`chg_1d ≤ −8%`** | **+0.091** | 69% | drop → **0.400** |
+| **`chg_20m ≤ −3%`** | −0.263 | 46% | drop → **0.552** |
+| **`chg_3d ∈ [−3, +30]%`** | −0.445 | 25% | drop → **0.532** |
+| `chg_7d ≥ −5%` | −0.413 | 50% | drop → **1.022** (inert-to-harmful) |
+| `adv`, `rvol_0945` | — | 100% | (enforced by the whitelist) |
+| **`entry ≤ 11:30`** | −0.268 | 85% | drop → **1.558** at n 1,244 — **the morning gate INVERTS** |
+
+**The spec book:** mc=0 1,029 trips, PF−1 0.994, win 61.7%, worst −65.8%, tail 1.26%. mc=1
+**202 trips (~29/yr), PF−1 1.083, net 501%, win 64.4%, worst −65.8%, tail 1.49%.** By year:
+2020 2.78 (38) · 2021 2.24 (70) · 2022 −0.24 (12) · 2023 −0.39 (16) · 2024 1.15 (28) · 2025 0.36
+(24) · 2026 2.41 (14) — five of seven positive, the two misses on 12 and 16 trips.
+
+### L1c — where the daily gates sit on 1s (intraday-gated book, mc=1, n = 3,760)
+
+`chg_1d`: positive only in **[−30%, −8%]** (0.14 → 0.55, best at −20..−15%); ≤ −30% is a knife
+(−0.31 / −0.65, tail 13–23%) and > −8% is dead. **On 1s the 1d gate wants a BAND, not a
+floor** — the 1m Run 19 ruling ("don't band 1d") inverts. `chg_20m`: best at −8..−3%; ≤ −15%
+catastrophic (−0.73, tail 44%) — floor AND ceiling. `chg_3d`: every band negative alone
+(the 1m [−3, +30] band reads −0.50 / −0.33 / −0.27 here) yet dropping it from the full spec
+halves PF−1 — its value is in the conjunction, not alone. `chg_7d`: negative in every band.
+`volat_20m`: monotone worse with volatility (tail 0.7% → 26%) — the 1m ATR ceiling
+transfers as a volat ceiling.
+
+### L1d — the flush-depth sizing lever transfers (Run 26)
+
+Inside the spec minus its flush gates (mc=1): −12..−7% → PF−1 **3.13** (n 19), −7..−4% → 1.22,
+−4..−2% → 1.13, −2..−1% → 2.42; deeper than −12% → −0.04 with a 17% tail. Deeper flush =
+higher PF up to the −12% floor, with n in the tens.
+
+### Verdicts and next
+
+* LowFlyer's spec **transfers to 1s as a positive, thin book** (PF−1 ~1.0 mc=0 / 1.08 mc=1,
+  ~29 trades/yr) with the same four load-bearing gates the 1m research found —
+  `vol_vs_high`, `chg_1d`, `chg_20m`, `chg_3d` — and `chg_7d` inert.
+* Two side-flip inversions, both actionable: **drop the morning gate** (afternoon entries
+  lift the book to 1.558) and **band `chg_1d` at [−30%, −8%]** (the deep end is a knife).
+* ⏭ The float < $300M join (the 1m book's biggest lever) and breadth ×3 — without them the
+  1m comparison is not fair. Then the exit grid (the aux HIGH marks are recorded: is a 9m
+  high cover better than MOC on the long, as it was on the short?). The base run (571k
+  tkd, multi-hour) only if the record-first breadth is wanted.
