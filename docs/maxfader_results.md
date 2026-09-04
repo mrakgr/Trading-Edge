@@ -620,12 +620,110 @@ as depth insurance that can stack on it only if a later study shows they fire fi
 
 ### S4e — the 30m cover by rr band (user: "does it hurt the rr ≥ 40 bucket?") — no
 
-mc=0 on the rr8 days (`data/maxfader_30m_by_rr.log`): the 30m cover improves PF−1 in
-every band from `rr ≥ 8` up — 8–12: 0.11 → 0.66, 12–20: 0.59 → 0.75, 20–40: 0.70 → 1.08,
-**> 40: 1.49 → 2.30 at identical net (3,754 vs 3,767)** — and cuts the tail in each. A
-climax bar rarely prints a fresh 30m low before its fade is done (10% resolve at MOC), so
-the cover mostly rides. Below `rr ≥ 8` every exit is negative (don't trade those bands).
-On the dedicated climax book (67 tkd, mc=1): MOC 2.29 / net 381, 30m cover 2.29 / 319,
-9m cover 2.42 / 238 — same PF, −16% net; it loses 2025 (5.46 → 2.67) and 2026 (1.30 →
-−0.26, six trades), the slow-grinder years of §S1g. **Run the climax book to the close;
-inside the general `rr ≥ 8` book the 30m cover is free on the ≥ 40 bucket.**
+`data/maxfader_30m_by_rr.log`, corpus `data/maxfader_rr8_sp20` (the rr8 whitelist days,
+2020–26). Every band, four exits, both mc views. Bands below `rr ≥ 8` are shown for
+completeness — every exit is negative there and they are not traded.
+
+**mc=0 — all signals on the rr8 days:**
+
+| band | exit | n | PF−1 | net% | win% | worst% | <−20% |
+|---|---|---:|---:|---:|---:|---:|---:|
+| (0.0, 1.0] | MOC | 9960 | -0.848 | -80965 | 31.2 | -232.5 | 14.05 |
+| (0.0, 1.0] | 30m cover | 9960 | -0.873 | -71088 | 32.9 | -194.5 | 10.82 |
+| (0.0, 1.0] | 1h cover | 9960 | -0.867 | -79209 | 31.9 | -232.5 | 12.32 |
+| (0.0, 1.0] | 9m cover | 9960 | -0.864 | -46454 | 36.3 | -102.7 | 5.78 |
+| (1.0, 2.0] | MOC | 23361 | -0.830 | -232186 | 32.4 | -244.4 | 18.08 |
+| (1.0, 2.0] | 30m cover | 23361 | -0.865 | -187341 | 32.7 | -215.9 | 13.76 |
+| (1.0, 2.0] | 1h cover | 23361 | -0.858 | -223184 | 33.7 | -239.8 | 16.87 |
+| (1.0, 2.0] | 9m cover | 23361 | -0.826 | -104317 | 37.4 | -154.0 | 5.89 |
+| (2.0, 4.0] | MOC | 43747 | -0.682 | -343059 | 41.7 | -802.7 | 17.36 |
+| (2.0, 4.0] | 30m cover | 43747 | -0.739 | -260370 | 41.8 | -282.8 | 12.22 |
+| (2.0, 4.0] | 1h cover | 43747 | -0.736 | -329784 | 42.6 | -439.9 | 15.28 |
+| (2.0, 4.0] | 9m cover | 43747 | -0.709 | -158114 | 43.1 | -148.4 | 5.67 |
+| (4.0, 8.0] | MOC | 59909 | -0.226 | -123753 | 55.4 | -887.1 | 13.22 |
+| (4.0, 8.0] | 30m cover | 59909 | -0.193 | -63035 | 58.8 | -246.6 | 8.38 |
+| (4.0, 8.0] | 1h cover | 59909 | -0.302 | -143195 | 58.2 | -485.6 | 10.84 |
+| (4.0, 8.0] | 9m cover | 59909 | -0.215 | -48123 | 58.9 | -125.3 | 4.81 |
+| (8.0, 12.0] | MOC | 26864 | 0.110 | 22800 | 62.7 | -865.7 | 11.11 |
+| (8.0, 12.0] | 30m cover | 26864 | 0.657 | 64855 | 68.9 | -189.8 | 5.49 |
+| (8.0, 12.0] | 1h cover | 26864 | 0.137 | 23543 | 66.4 | -472.9 | 8.74 |
+| (8.0, 12.0] | 9m cover | 26864 | 0.501 | 36446 | 68.5 | -109.9 | 3.52 |
+| (12.0, 20.0] | MOC | 12880 | 0.586 | 50482 | 66.8 | -266.0 | 9.62 |
+| (12.0, 20.0] | 30m cover | 12880 | 0.749 | 37960 | 70.8 | -117.1 | 5.98 |
+| (12.0, 20.0] | 1h cover | 12880 | 0.508 | 36429 | 69.0 | -183.8 | 7.78 |
+| (12.0, 20.0] | 9m cover | 12880 | 1.186 | 32271 | 70.6 | -81.2 | 2.07 |
+| (20.0, 40.0] | MOC | 4791 | 0.701 | 21232 | 68.8 | -191.9 | 8.16 |
+| (20.0, 40.0] | 30m cover | 4791 | 1.082 | 18028 | 72.4 | -95.4 | 4.55 |
+| (20.0, 40.0] | 1h cover | 4791 | 1.235 | 22807 | 72.7 | -170.7 | 5.28 |
+| (20.0, 40.0] | 9m cover | 4791 | 1.688 | 15276 | 73.2 | -57.6 | 2.05 |
+| (40.0, inf] | MOC | 779 | 1.486 | 3767 | 69.7 | -51.0 | 3.21 |
+| (40.0, inf] | 30m cover | 779 | 2.295 | 3754 | 80.5 | -44.8 | 2.95 |
+| (40.0, inf] | 1h cover | 779 | 2.050 | 3958 | 76.8 | -51.0 | 2.95 |
+| (40.0, inf] | 9m cover | 779 | 2.113 | 2305 | 77.7 | -33.1 | 2.95 |
+
+**mc=1 — first signal per ticker-day, banded by that signal's rr:**
+
+| band | exit | n | PF−1 | net% | win% | worst% | <−20% |
+|---|---|---:|---:|---:|---:|---:|---:|
+| (0.0, 1.0] | MOC | 456 | -0.912 | -5186 | 21.3 | -175.9 | 18.42 |
+| (0.0, 1.0] | 30m cover | 456 | -0.940 | -4434 | 21.3 | -194.5 | 14.25 |
+| (0.0, 1.0] | 1h cover | 456 | -0.925 | -5121 | 23.5 | -175.9 | 16.23 |
+| (0.0, 1.0] | 9m cover | 456 | -0.922 | -2809 | 25.0 | -102.4 | 7.68 |
+| (1.0, 2.0] | MOC | 689 | -0.852 | -8498 | 29.8 | -239.8 | 19.88 |
+| (1.0, 2.0] | 30m cover | 689 | -0.907 | -7303 | 26.1 | -214.4 | 18.00 |
+| (1.0, 2.0] | 1h cover | 689 | -0.890 | -8385 | 28.7 | -239.8 | 18.58 |
+| (1.0, 2.0] | 9m cover | 689 | -0.880 | -4362 | 26.3 | -154.0 | 10.01 |
+| (2.0, 4.0] | MOC | 562 | -0.765 | -5511 | 36.1 | -400.1 | 19.40 |
+| (2.0, 4.0] | 30m cover | 562 | -0.853 | -5159 | 32.0 | -282.8 | 16.01 |
+| (2.0, 4.0] | 1h cover | 562 | -0.827 | -5676 | 35.1 | -439.9 | 18.15 |
+| (2.0, 4.0] | 9m cover | 562 | -0.827 | -3484 | 33.1 | -113.0 | 10.32 |
+| (4.0, 8.0] | MOC | 374 | -0.316 | -1174 | 53.5 | -887.1 | 10.43 |
+| (4.0, 8.0] | 30m cover | 374 | -0.390 | -980 | 55.3 | -196.3 | 9.63 |
+| (4.0, 8.0] | 1h cover | 374 | -0.419 | -1362 | 54.8 | -485.6 | 10.16 |
+| (4.0, 8.0] | 9m cover | 374 | -0.348 | -582 | 48.9 | -110.6 | 5.35 |
+| (8.0, 12.0] | MOC | 211 | 0.499 | 303 | 56.9 | -120.4 | 2.84 |
+| (8.0, 12.0] | 30m cover | 211 | 0.485 | 219 | 61.1 | -59.6 | 1.42 |
+| (8.0, 12.0] | 1h cover | 211 | 0.384 | 213 | 58.8 | -101.1 | 3.32 |
+| (8.0, 12.0] | 9m cover | 211 | 0.166 | 71 | 62.6 | -82.5 | 1.90 |
+| (12.0, 20.0] | MOC | 101 | -0.309 | -162 | 54.5 | -266.0 | 3.96 |
+| (12.0, 20.0] | 30m cover | 101 | -0.100 | -30 | 59.4 | -66.6 | 2.97 |
+| (12.0, 20.0] | 1h cover | 101 | 0.088 | 25 | 56.4 | -41.6 | 3.96 |
+| (12.0, 20.0] | 9m cover | 101 | 0.014 | 3 | 65.3 | -79.6 | 0.99 |
+| (20.0, 40.0] | MOC | 46 | 0.275 | 51 | 67.4 | -78.8 | 2.17 |
+| (20.0, 40.0] | 30m cover | 46 | 0.201 | 31 | 76.1 | -71.4 | 2.17 |
+| (20.0, 40.0] | 1h cover | 46 | 0.072 | 13 | 69.6 | -78.8 | 2.17 |
+| (20.0, 40.0] | 9m cover | 46 | 0.405 | 41 | 69.6 | -57.6 | 2.17 |
+| (40.0, inf] | MOC | 16 | 3.138 | 55 | 75.0 | -10.5 | 0.00 |
+| (40.0, inf] | 30m cover | 16 | 4.950 | 57 | 81.2 | -5.8 | 0.00 |
+| (40.0, inf] | 1h cover | 16 | 4.713 | 65 | 75.0 | -5.9 | 0.00 |
+| (40.0, inf] | 9m cover | 16 | 2.214 | 43 | 68.8 | -7.8 | 0.00 |
+
+**The dedicated climax book (any `rr ≥ 40` signal that day → the day's first such signal;
+67 ticker-days, mc=1), by year:**
+
+| year | n | MOC | 30m cover | 9m cover | net MOC | net 30m | worst MOC | worst 30m |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2020 | 6 | 4.84 | 46.53 | 37.30 | 51 | 47 | -11 | -1 |
+| 2021 | 28 | 0.53 | 0.64 | 1.22 | 69 | 64 | -51 | -45 |
+| 2022 | 8 | inf | inf | 6.12 | 97 | 88 | 1 | 2 |
+| 2023 | 4 | inf | inf | inf | 21 | 31 | 3 | 3 |
+| 2024 | 5 | inf | 21.66 | 18.22 | 64 | 47 | 0 | -2 |
+| 2025 | 10 | 5.46 | 2.67 | 1.62 | 61 | 47 | -9 | -9 |
+| 2026 | 6 | 1.30 | -0.26 | -0.25 | 19 | -5 | -9 | -10 |
+
+All seven years: MOC 2.29/net 381  30m 2.29/net 319  9m 2.42/net 238   30m moc-resolved 10%
+
+**Reading.** At mc=0 the 30m cover raises PF−1 in every band from `rr ≥ 8` up — 8–12: 0.110
+→ 0.657, 12–20: 0.586 → 0.749, 20–40: 0.701 → 1.082, **> 40: 1.486 → 2.295 at identical net
+(3,754 vs 3,767)** — and cuts the tail share in each. A climax bar rarely prints a fresh
+30m low before its fade is done (10% resolve at MOC), so the cover mostly rides. On the
+dedicated climax book the 30m cover keeps the PF (2.29 = 2.29) and gives up 16% of net,
+losing 2025 (5.46 → 2.67) and 2026 (1.30 → −0.26, six trades) — the slow-grinder years of
+§S1g. **Run the climax book to the close; inside the general `rr ≥ 8` book the 30m cover
+is free on the ≥ 40 bucket.**
+
+**⭐ Conclusion (user, 2026-09-04): the complex exit-and-re-entry machinery is not needed.**
+On the `rr ≥ 8` book the 30m-low cover beats the 2h AVWAP rule, every armed-stop variant
+(first, second, third hit; 5m/10m/20m arm; 10/20/30% offset) and the rule+stop
+combinations on PF−1 and tail at MOC's net (§S4b, §S4c). One channel exit, no stops, no
+re-arms, no pull-ups.
