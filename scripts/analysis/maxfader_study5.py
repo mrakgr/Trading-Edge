@@ -11,8 +11,12 @@ pd.set_option('display.width', 260)
 DIRP = sys.argv[1] if len(sys.argv) > 1 else 'data/maxfader_rr8'
 C = (300, 600, 1200)
 extra = [f'as_{c}_{x}' for c in C for x in ['hits','first_arm_sec'] + [f'm{k}_{y}' for k in range(1,6) for y in ('px','sec')]]
+LONG = (1800, 3600, 7200, 10800)
+extra += [f'aux_lo_{n}_{y}' for n in LONG for y in ('px','sec','moc')]
 df = M.load(cols=extra, dirpath=DIRP)
 px = df['aux_lo_540_px'].where(~df['aux_lo_540_px'].isna(), df['exit_px']); df['ret_540'] = -(px/df['entry_px']-1)
+for n in LONG:   # ⭐ the LONG exits (user): cover at the first new {30m,1h,2h,3h}-bar low after entry, MOC if none
+    pxn = df[f'aux_lo_{n}_px'].where(~df[f'aux_lo_{n}_px'].isna(), df['exit_px']); df[f'ret_L{n}'] = -(pxn/df['entry_px']-1)
 for c in C:
     for k in range(1,6):
         mp = df[f'as_{c}_m{k}_px']
@@ -29,6 +33,9 @@ print(f"corpus {len(df):,} trips  {df.groupby(['symbol','trade_date']).ngroups:,
 
 def table(g, label):
     rows=[dict(exit='MOC', **M.stats(g['ret'])), dict(exit='RULE 2h', **M.stats(g['rule_2h'])), dict(exit='9m cover', **M.stats(g['ret_540']))]
+    for n in LONG:
+        moc_share = g[f'aux_lo_{n}_moc'].fillna(False).astype(bool).mean()*100 if f'aux_lo_{n}_moc' in g else float('nan')
+        rows.append(dict(exit=f'{n//60}m-low cover ({moc_share:.0f}% moc-resolved)', **M.stats(g[f'ret_L{n}'])))
     for c in C:
         for k in range(1,4):
             rows.append(dict(exit=f'STOP {k} @ {c//60}m-low arm', **M.stats(g[f'stop{k}_{c}'])))
