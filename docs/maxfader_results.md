@@ -341,3 +341,33 @@ a tail voice.
 The rule at 2h keeps ~95% of MOC's net at a 15% smaller tail; the 9m cover keeps 65% of
 the net at a 5× smaller tail. Where on that line to sit is a sizing question, not a gate
 question — and it is the seven-year merged run's to settle.
+
+### S1g — the `rr ≥ 40` CLIMAX system (user's idea): ~7 trades a year, hold to the close, NO rule
+
+(`scripts/analysis/maxfader_study4.py`, `data/maxfader_study4_2023p.log`; `rr` ≡ `brv15_tape`.)
+
+**Bare `rr ≥ 40`, 2023+:** 238 sampler signals collapse to **27 ticker-days** — ~9 signals per
+climax day; the sampler averages up into the climax (mc=0 PF−1 13.9) but the tradeable object
+is the mc=1 book:
+
+| exit (mc=1, n = 27) | PF−1 | net% | win% | avg% | worst% | <−20% |
+|---|---:|---:|---:|---:|---:|---:|
+| **MOC (hold to close)** | **6.48** | **167** | 81.5 | **+6.18** | −9.3 | 0.00 |
+| RULE 2h (37% switched) | 2.34 | 108 | 74.1 | +3.99 | −11.9 | 0.00 |
+| always 2h | 2.73 | 119 | 77.8 | +4.42 | −11.9 | 0.00 |
+| 9m cover | 2.85 | 97 | 74.1 | +3.59 | −17.9 | 0.00 |
+
+By year (MOC): 2023 inf (4), 2024 inf (5), 2025 5.46 (10), 2026 1.47 (8) — every year
+positive, worst trade −9.3% across all four. **The 2h rule HURTS the climax book** (2026:
++1.47 → −0.40): a >40× bar's fade grinds slowly under a heavy VWAP, so "AVWAP above entry at
+2h" is not failure here, and the 5m-low switch hands the win back. So do the always-switch
+and the 9m cover. This is the one book in the study where MOC beats every exit rule —
+the climax wants to be held.
+
+Rungs: `rr ≥ 60` 12 tkd (MOC 4.31, worst −8.8%); `rr ≥ 100` 4 tkd. `rr ≥ 20` is NOT clean at
+mc=1 (119 tkd, 0.445, 2026 −0.18, 8.8% tail) — its mc=0 strength was clustering. Under the
+SpikeFader core the ≥40 book is 6 trips (all winners) — too few to gate further.
+
+**Spec candidate (2023+):** session-high SHORT, `rr ≥ 40` at the signal, entries 09:45–15:00
+(p50 entry 11:12), **hold to the close**, no rule, no other gate. ~7 trades/yr, +6%/trade,
+worst −9%. A satellite by capacity; sized up per the S-tier logic. 2020–22 adds the count.
