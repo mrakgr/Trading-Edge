@@ -66,6 +66,7 @@ type Args =
     | Cascade_Window_Sec of int
     | Reopen_Block_Sec of int
     | Base_Run
+    | Next_Open
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -126,6 +127,7 @@ type Args =
             | Cascade_Halt_Count _ -> "⭐ SPEC v2.4 (S42n): cascade-knife gate — reject a signal iff halts_today >= this AND secs since resume < --cascade-window-sec. Default 3. 0 = off."
             | Reopen_Block_Sec _ -> "⭐ SPEC v2.5 (S42t): reject any signal within this many seconds of ANY resume — the first 1-2 halts INCLUDED. Default 120. 0 = off."
             | Cascade_Window_Sec _ -> "the cascade gate's post-resume window in seconds (default 1200 = 20m)."
+            | Next_Open -> "LowFader: re-enable FlushFader's S43bw next-open exit for unresolved positions (default OFF — LowFlyer holds to MOC, never overnight)."
             | Base_Run -> "⭐ THE BASE PASS: turn EVERY spec gate OFF in one flag (speed/d1m/ssf/dlv/rflow/z20/K/eff20/eff10/vol10rate/lows300/rngfront/accel/slope20/slope5/dv0945tape). Keeps the SIGNAL definition (volat >= 40bp, 20m low, channel warm, barnum >= 22, entry window). Explicit gate flags still override. Replaces the 17-flag canonical base CLI (S42h; a wrong sentinel here once cost 540k trips silently)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: unlimited concurrent positions — every new low opens another trip, so it AVERAGES DOWN. Removes path dependency (every trip = an independent row) but PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "S39h: parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row order is not."
@@ -228,7 +230,8 @@ let main argv =
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
             MinBarnum = parsed.GetResult(Min_Barnum, defaultValue = d.MinBarnum)
-            Workers = parsed.GetResult(Workers, defaultValue = d.Workers) }
+            Workers = parsed.GetResult(Workers, defaultValue = d.Workers)
+            NextOpenExit = parsed.Contains Next_Open }
 
     // ⚠ KNOWABILITY GUARD (docs/lookahead_protocol.md R4). The universe is GATED on
     // dv_0945 and every trip RECORDS dv_0945 / rvol_0945_honest — all three are only
@@ -258,18 +261,18 @@ let main argv =
     // invalidArg mid-run, after the candidate query already ran. The entry channel
     // additionally drives the leg machine and the chan_hi/chan_lo snapshots; 30 is
     // excluded (a 30s "flush channel" is below the feature horizon).
-    let entryChanSet = [ 60; 120; 300; 600; 1200 ]
+    let entryChanSet = [ 0; 60; 120; 300; 600; 1200 ]   // 0 = the SESSION channel (LowFader)
     if not (List.contains cfg.Intraday.EntryChannelBars entryChanSet) then
         eprintfn "FATAL: --entry-channel-bars %d — must be one of %A." cfg.Intraday.EntryChannelBars entryChanSet
         exit 1
-    let exitChanSet = [ 30; 60; 120; 300; 600; 1200 ]
+    let exitChanSet = [ 0; 30; 60; 120; 300; 600; 1200 ]   // 0 = hold to MOC (LowFader)
     if not (List.contains cfg.Intraday.ExitChannelBars exitChanSet) then
         eprintfn "FATAL: --exit-channel-bars %d — must be one of %A." cfg.Intraday.ExitChannelBars exitChanSet
         exit 1
 
     let ic = cfg.Intraday
     let hhmmss s = sprintf "%02d:%02d:%02d" (s / 3600) (s % 3600 / 60) (s % 60)
-    printfn "FlushFader — 1s LONG mean reversion (DipRiderV6 semantics on the SurgeRider engine)"
+    printfn "LowFader — 1s LONG session-low flush fade, HOLD TO MOC (LowFlyer ported to the tape; FlushFader engine)"
     printfn "  db          = %s" dbPath
     printfn "  candidates  = %s%s" Backtest.candidateTable
         (match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
@@ -281,9 +284,17 @@ let main argv =
         (if cfg.MinRvol0945 > 0.0 then sprintf "   AND rvol_0945_honest >= %.1f  [IN-PLAY PRE-FILTER]" cfg.MinRvol0945
          else "   [rvol_0945_honest RECORDED, not gated]")
         (if cfg.MinPrevClose > 0.0 then sprintf "   AND prev raw close >= $%.2f" cfg.MinPrevClose else "")
-    printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f over 60 TRADEABLE SECS (S43cr clock fix)   (fill: NEXT bar vwap)"
-        ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
-    printfn "  EXIT        = vwap > prior %d-bar MAX (strict; ~5m high)  |  else NEXT OPEN   (fill: NEXT bar vwap)" ic.ExitChannelBars
+    (if ic.EntryChannelBars = 0 then
+        printfn "  ENTRY       = vwap < prior SESSION LOW (strict; ⭐ LowFlyer's flush breakout — LONG)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)" (ic.DvFloor60 / 1e3) ic.TcFloor60
+     else
+        printfn "  ENTRY       = vwap < prior %d-bar MIN (strict; new ~20m low)   AND dv60 >= $%.0fk AND tc60 >= %.0f over 60 TRADEABLE SECS (S43cr clock fix)   (fill: NEXT bar vwap)"
+            ic.EntryChannelBars (ic.DvFloor60 / 1e3) ic.TcFloor60
+    )
+    (if ic.ExitChannelBars = 0 then
+        printfn "  EXIT        = ⭐ NONE — HOLD TO MOC (LowFlyer); next-open exit %s   (aux HIGH marks at every minute RECORDED)" (if cfg.NextOpenExit then "ON" else "OFF")
+     else
+        printfn "  EXIT        = vwap > prior %d-bar MAX (strict; ~5m high)  |  else NEXT OPEN   (fill: NEXT bar vwap)" ic.ExitChannelBars
+    )
     printfn "  accept stops= new %d-bar low on vr>=%s | tcr>=%s | 1m pace < %s   ⭐ price-acceptance (NO level stop — V6: destructive)"
         ic.EntryChannelBars
         (if Double.IsPositiveInfinity ic.VolStopRatio then "off" else sprintf "%.0fx" ic.VolStopRatio)

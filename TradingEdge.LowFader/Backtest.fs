@@ -57,15 +57,19 @@ type Config =
       /// ⭐ S39h: day-worker parallelism. Days are the natural isolation unit
       /// (fresh IntradaySystems, no cross-day state); the trip SET is identical
       /// at any worker count, only parquet row ORDER varies.
-      Workers: int }
+      Workers: int
+      // ⭐ LowFader: FlushFader's S43bw next-open exit is OFF here — LowFlyer never holds overnight;
+      // an unresolved position exits at the MOC print. --next-open re-enables the FlushFader rule.
+      NextOpenExit: bool }
 
 /// The sampler defaults (mc = 0). Every gate here is a HARD gate; everything
 /// else is recorded and sliced post-hoc over the parquet.
 let defaultConfig =
     { Intraday =
-        { EntryChannelBars = 1200       // ⭐ the ~20m flush channel: entry on its new LOW, leg reset
+        { EntryChannelBars = 0          // ⭐ LowFader: 0 = THE SESSION CHANNEL (LowFlyer's new session LOW). {0,60,..,1200}.
+                                        // (FlushFader: 1200 = the ~20m flush channel: entry on its new LOW, leg reset
                                         // on its new HIGH. {60,120,300,600,1200}.
-          ExitChannelBars  = 300        // ⭐ the ~5m reversion target (V6 F16's direction).
+          ExitChannelBars  = 0          // ⭐ LowFader: 0 = NO TARGET, hold to MOC (LowFlyer). (FlushFader: 300 = the ~5m target.)
                                         // {30,60,120,300,600,1200}.
           ExitChannelBarsAfterHours = 0 // OFF — one target all session (see Intraday.fs).
           AfterHoursSec    = 57600      // 16:00, where the tighter target would take over.
@@ -156,7 +160,8 @@ let defaultConfig =
                                     // would drop names flushing DOWN through $1 — the $1
                                     // book stays a POST-HOC entry_px cut (S7c fee wall)
       MinBarnum = 22                // ⭐ S40e: cut the early-episode slice (long book only)
-      Workers = max 1 (Environment.ProcessorCount - 2) }
+      Workers = max 1 (Environment.ProcessorCount - 2)
+      NextOpenExit = false }
 
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
 /// that rides along on every trip for post-hoc slicing. Forward closes are
@@ -184,7 +189,12 @@ type Candidate =
       DivP5: float
       OpenP1: float              // next session's OPEN, in D's raw scale (S43bq)
       Dv0945: float
-      Rvol0945Honest: float }
+      Rvol0945Honest: float
+      // ⭐ LowFader: the 7d gate (chg_7d = entry/(close_m7+div_m7) - 1) and the ADV floor
+      // (avgvol20_prior x price, causal) — LowFlyer's selection, post-hoc.
+      CloseM7: float
+      DivM7: float
+      AvgVol20Prior: float }
 
 /// The candidate table: `mr_candidate_1s_v2` (S43br — the CAUSAL rebuild; 1s-tape-native,
 /// dv_0945_tape >= $2M x n_bars_1s >= 200, 2016+) unless overridden via FF_CANDIDATE_TABLE.
@@ -242,7 +252,7 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
         // about. This is the visible payoff of the causal scheme.
         $"SELECT ticker, date, close_d, n, close_m1, div_m1, close_m3, div_m3,
                  close_p1, div_p1, close_p3, div_p3, close_p5, div_p5, open_p1,
-                 dv_0945, rvol_0945_honest
+                 dv_0945, rvol_0945_honest, close_m7, div_m7, avgvol20_prior
           FROM {table}
           WHERE date >= $start AND date <= $end AND dv_0945 >= $mindv
             AND rvol_0945_honest >= $minrvol
@@ -277,7 +287,10 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
               DivP5 = dbl 13
               OpenP1 = dbl 14
               Dv0945 = dbl 15
-              Rvol0945Honest = dbl 16 })
+              Rvol0945Honest = dbl 16
+              CloseM7 = dbl 17
+              DivM7 = dbl 18
+              AvgVol20Prior = dbl 19 })
     out.ToArray()
 
 // ===========================================================================
@@ -334,7 +347,7 @@ CREATE TABLE trips (
     vwma_60m_px DOUBLE, vwma_60m_sec INTEGER,
     exit_sec INTEGER, exit_px DOUBLE, exit_reason VARCHAR,
     ret_exit DOUBLE, bars_held INTEGER,
-    close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_d DOUBLE,
+    close_m1 DOUBLE, div_m1 DOUBLE, close_m3 DOUBLE, div_m3 DOUBLE, close_m7 DOUBLE, div_m7 DOUBLE, avgvol20_prior DOUBLE, close_d DOUBLE,
     close_p1 DOUBLE, div_p1 DOUBLE, close_p3 DOUBLE, div_p3 DOUBLE,
     close_p5 DOUBLE, div_p5 DOUBLE, open_p1 DOUBLE,
     dv_0945 DOUBLE, rvol_0945_honest DOUBLE, dv_0945_tape DOUBLE,
@@ -397,7 +410,7 @@ CREATE TABLE trips (
 // (right-side-of-V cont_trips sink DELETED — S39g: study closed at S26,
 // tracking cost removed from the sampler.)
 
-type TripSink(outDir: string) =
+type TripSink(outDir: string, nextOpenExit: bool) =
     let conn = new DuckDBConnection("Data Source=:memory:")
     do
         conn.Open()
@@ -470,7 +483,7 @@ type TripSink(outDir: string) =
             // Fallback: no next session (last day of the sample, delisting) leaves
             // open_p1 NULL -> NaN. Those keep the old last-bar 'moc' behaviour, since
             // there is no open to exit into. 67 of 36,025 trips carry a NULL open_p1.
-            let toNextOpen = rawReason = "moc" && not (Double.IsNaN c.OpenP1) && c.OpenP1 > 0.0
+            let toNextOpen = nextOpenExit && rawReason = "moc" && not (Double.IsNaN c.OpenP1) && c.OpenP1 > 0.0
             let exitPx =
                 if toNextOpen then c.OpenP1 + (if Double.IsNaN c.DivP1 then 0.0 else c.DivP1)
                 else lastBarPx
@@ -529,7 +542,7 @@ type TripSink(outDir: string) =
             i exitSec; f exitPx; s reason
             f (if p.EntryPx > 0.0 then exitPx / p.EntryPx - 1.0 else nan)
             i p.BarsHeld
-            f c.CloseM1; f c.DivM1; f c.CloseM3; f c.DivM3; f c.CloseD
+            f c.CloseM1; f c.DivM1; f c.CloseM3; f c.DivM3; f c.CloseM7; f c.DivM7; f c.AvgVol20Prior; f c.CloseD
             f c.CloseP1; f c.DivP1; f c.CloseP3; f c.DivP3
             f c.CloseP5; f c.DivP5; f c.OpenP1
             f c.Dv0945; f c.Rvol0945Honest; f p.Dv0945Tape
@@ -842,7 +855,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.ExecuteNonQuery() |> ignore
 
     let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.Intraday.MinVolat20m cfg.MinBarnum
-    use sink = new TripSink(outDir)
+    use sink = new TripSink(outDir, cfg.NextOpenExit)
     let daysRun = collectTrips cfg secDir candidates sink progress
     // the `use` binding disposes the sink on return, flushing the final part
     // before the caller ever sees the stats

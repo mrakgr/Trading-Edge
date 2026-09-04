@@ -821,14 +821,21 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         match n with
         | 30 -> min30 | 60 -> min60 | 120 -> min120 | 300 -> min300 | 600 -> min600 | 1200 -> min1200
         | _ -> invalidArg "n" $"no {n}-bar channel"
-    let entryMin = chanMin cfg.EntryChannelBars     // ⭐ the flush trigger side
-    let entryMax = chanMax cfg.EntryChannelBars     // ⭐ the leg-reset side (+ chan_hi)
+    // ⭐ LowFader (2026-09-04): EntryChannelBars = 0 = THE SESSION CHANNEL (LowFlyer's
+    // signal: a new SESSION LOW; leg reset on a new SESSION HIGH). The aliases fall back
+    // to the 1200 rollers — record-only twins, not on the signal path (priorEntryMin/Max
+    // read the session snapshots below).
+    let entryChanAlias = if cfg.EntryChannelBars = 0 then 1200 else cfg.EntryChannelBars
+    let entryMin = chanMin entryChanAlias           // ⭐ the flush trigger side (20m twin at session)
+    let entryMax = chanMax entryChanAlias           // ⭐ the leg-reset side (+ chan_hi)
     // ⭐ S43ai: a metadata-carrying TWIN of entryMax, same window, fed the same
     // vwap once per present bar. Runs PARALLEL to entryMax rather than replacing
     // it so the signal path is provably untouched (parity by construction); the
     // extra deque is amortized O(1). Payload = (eff_20m, eff_10m) at that bar.
-    let entryMaxMeta = MaxMaMeta<struct (float * float * int * int)> cfg.EntryChannelBars
-    let exitMax = chanMax cfg.ExitChannelBars       // ⭐ the reversion target
+    let entryMaxMeta = MaxMaMeta<struct (float * float * int * int)> entryChanAlias
+    // ⭐ LowFader: ExitChannelBars = 0 = NO TARGET, hold to MOC (LowFlyer's exit); sExitMax
+    // is forced ValueNone below so targetHit never fires. Aux HIGH marks stay recorded.
+    let exitMax = chanMax (if cfg.ExitChannelBars = 0 then 1200 else cfg.ExitChannelBars)
     // ----- breach counters, both sides per window -----
     let brSess = BreachCounter()
     let br30 = BreachCounter()
@@ -1395,7 +1402,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMin300 <- min300.State
         sMin600 <- min600.State
         sMin1200 <- min1200.State
-        sExitMax <- exitMax.State
+        sExitMax <- (if cfg.ExitChannelBars = 0 then ValueNone else exitMax.State)
         sSessHigh <- sessHigh.State
         sSessLow <- sessLow.State
         // strictly-prior {10..60}m means for the MA-exit marks (partial-tolerant:
@@ -1414,12 +1421,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let vwma40 = sumRatio dvSum2400 volSum2400
         let vwma50 = sumRatio dvSum3000 volSum3000
         let vwma60 = sumRatio dvSum3600 volSum3600
+        // ⭐ LowFader: 0 = the SESSION channel — strictly-prior running extremes (captured with
+        // every other snapshot BEFORE this bar folds). A new session LOW = LowFlyer's flush
+        // breakout; a new session HIGH = the leg reset.
         let priorEntryMin =
             match cfg.EntryChannelBars with
+            | 0 -> sSessLow
             | 30 -> sMin30 | 60 -> sMin60 | 120 -> sMin120 | 300 -> sMin300 | 600 -> sMin600 | 1200 -> sMin1200
             | _ -> ValueNone
         let priorEntryMax =
             match cfg.EntryChannelBars with
+            | 0 -> sSessHigh
             | 30 -> sMax30 | 60 -> sMax60 | 120 -> sMax120 | 300 -> sMax300 | 600 -> sMax600 | 1200 -> sMax1200
             | _ -> ValueNone
 
@@ -2025,7 +2037,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
 
         // ===== 6. entry signal (fills next bar) =====
         let inWindow = bar.etSec >= cfg.EntryStartSec && bar.etSec <= entryEndSec
-        let channelWarm = entryMin.Count = entryMin.WindowSize
+        // ⭐ LowFader: the session channel is warm once ONE prior bar exists; the entry window
+        // (>= 09:45) is the real floor.
+        let channelWarm =
+            if cfg.EntryChannelBars = 0 then sSessLow.IsSome
+            else entryMin.Count = entryMin.WindowSize
         // ⭐ SPEC v3.1 (S43cr): the liquidity floors read the TRADEABLE-TIME sums —
         // $/trades over the last 60 halt-adjusted calendar seconds, not 60 present
         // bars (which reach minutes back on sparse tape). Same numeric thresholds;
