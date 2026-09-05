@@ -333,6 +333,10 @@ CREATE TABLE trips (
     aux_hi_300_px DOUBLE, aux_hi_300_sec INTEGER,
     aux_hi_600_px DOUBLE, aux_hi_600_sec INTEGER,
     aux_hi_1200_px DOUBLE, aux_hi_1200_sec INTEGER,
+    aux_hi_2400_px DOUBLE, aux_hi_2400_sec INTEGER,
+    aux_hi_3600_px DOUBLE, aux_hi_3600_sec INTEGER,
+    aux_hi_7200_px DOUBLE, aux_hi_7200_sec INTEGER,
+    aux_hi_10800_px DOUBLE, aux_hi_10800_sec INTEGER,
     ma_10m_px DOUBLE, ma_10m_sec INTEGER,
     ma_20m_px DOUBLE, ma_20m_sec INTEGER,
     ma_30m_px DOUBLE, ma_30m_sec INTEGER,
@@ -528,6 +532,10 @@ type TripSink(outDir: string, nextOpenExit: bool) =
             f p.AuxHi300; auxSec p.AuxSec300
             f p.AuxHi600; auxSec p.AuxSec600
             f p.AuxHi1200; auxSec p.AuxSec1200
+            f p.AuxHi2400; auxSec p.AuxSec2400
+            f p.AuxHi3600; auxSec p.AuxSec3600
+            f p.AuxHi7200; auxSec p.AuxSec7200
+            f p.AuxHi10800; auxSec p.AuxSec10800
             f p.Ma10Px; auxSec p.Ma10Sec
             f p.Ma20Px; auxSec p.Ma20Sec
             f p.Ma30Px; auxSec p.Ma30Sec

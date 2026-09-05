@@ -558,6 +558,15 @@ type FlushPosition =
       AuxSec600: int
       AuxHi1200: float
       AuxSec1200: int
+      // ⭐ 2026-09-05 (user, LowFader rebuild): the LONG-horizon channel-high covers {40m,1h,2h,3h} — present-bar windows like every price channel here.
+      AuxHi2400: float
+      AuxSec2400: int
+      AuxHi3600: float
+      AuxSec3600: int
+      AuxHi7200: float
+      AuxSec7200: int
+      AuxHi10800: float
+      AuxSec10800: int
       // ⭐ MA-EXIT MARKS (user, 2026-07-29): first STRICT cross of vwap above the
       // strictly-prior {10,20,30,40,50,60}m mean after the fill bar, filled at the
       // NEXT present bar (aux discipline) — the counterfactual "exit at reversion
@@ -812,6 +821,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let max300 = MaxMa 300
     let max600 = MaxMa 600
     let max1200 = MaxMa 1200
+    let max2400 = MaxMa 2400
+    let max3600 = MaxMa 3600
+    let max7200 = MaxMa 7200
+    let max10800 = MaxMa 10800
     let min30 = MinMa 30
     let min60 = MinMa 60
     let min120 = MinMa 120
@@ -852,6 +865,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let br300 = BreachCounter()
     let br600 = BreachCounter()
     let br1200 = BreachCounter()
+    let br2400 = BreachCounter()
+    let br3600 = BreachCounter()
+    let br7200 = BreachCounter()
+    let br10800 = BreachCounter()
     let brLoSess = BreachCounter()
     let brLo30 = BreachCounter()
     let brLo60 = BreachCounter()
@@ -1355,6 +1372,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable sMax300 : float voption = ValueNone
     let mutable sMax600 : float voption = ValueNone
     let mutable sMax1200 : float voption = ValueNone
+    let mutable sMax2400 : float voption = ValueNone
+    let mutable sMax3600 : float voption = ValueNone
+    let mutable sMax7200 : float voption = ValueNone
+    let mutable sMax10800 : float voption = ValueNone
     // S43ai: prior-bar metadata of the entry-channel high (eff_20m, eff_10m)
     let mutable sMaxMeta : struct (float * float * int * int) voption = ValueNone
     let mutable sMin30 : float voption = ValueNone
@@ -1406,6 +1427,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         sMax300 <- max300.State
         sMax600 <- max600.State
         sMax1200 <- max1200.State
+        sMax2400 <- max2400.State
+        sMax3600 <- max3600.State
+        sMax7200 <- max7200.State
+        sMax10800 <- max10800.State
         // S43ai: the STRICTLY-PRIOR metadata, snapshotted at the same instant as
         // sMax1200 so it describes the same high that priorEntryMax reports.
         sMaxMeta <- entryMaxMeta.StateMeta
@@ -1674,6 +1699,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         max300.Push bar.vwap
         max600.Push bar.vwap
         max1200.Push bar.vwap
+        max2400.Push bar.vwap
+        max3600.Push bar.vwap
+        max7200.Push bar.vwap
+        max10800.Push bar.vwap
         min30.Push bar.vwap
         min60.Push bar.vwap
         min120.Push bar.vwap
@@ -1814,8 +1843,13 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         let prevBr300 = br300.BarsSinceBreach
         let prevBr600 = br600.BarsSinceBreach
         let prevBr1200 = br1200.BarsSinceBreach
+        let prevBr2400 = br2400.BarsSinceBreach
+        let prevBr3600 = br3600.BarsSinceBreach
+        let prevBr7200 = br7200.BarsSinceBreach
+        let prevBr10800 = br10800.BarsSinceBreach
         let breached (prior: float voption) = match prior with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         brSess.Step(); br30.Step(); br60.Step(); br120.Step(); br180.Step(); br300.Step(); br600.Step(); br1200.Step()
+        br2400.Step(); br3600.Step(); br7200.Step(); br10800.Step()
         if breached sSessHigh then brSess.OnBreach()
         if breached sMax30 then br30.OnBreach()
         if breached sMax60 then br60.OnBreach()
@@ -1824,6 +1858,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if breached sMax300 then br300.OnBreach()
         if breached sMax600 then br600.OnBreach()
         if breached sMax1200 then br1200.OnBreach()
+        if breached sMax2400 then br2400.OnBreach()
+        if breached sMax3600 then br3600.OnBreach()
+        if breached sMax7200 then br7200.OnBreach()
+        if breached sMax10800 then br10800.OnBreach()
         let breachedLo (prior: float voption) = match prior with ValueSome lo -> bar.vwap < lo | ValueNone -> false
         brLoSess.Step(); brLo30.Step(); brLo60.Step(); brLo120.Step(); brLo300.Step(); brLo600.Step(); brLo1200.Step()
         if breachedLo sSessLow then brLoSess.OnBreach()
@@ -1968,6 +2006,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             let struct (hi300, sc300) = auxStep p.AuxHi300 p.AuxSec300 prevBr300
             let struct (hi600, sc600) = auxStep p.AuxHi600 p.AuxSec600 prevBr600
             let struct (hi1200, sc1200) = auxStep p.AuxHi1200 p.AuxSec1200 prevBr1200
+            let struct (hi2400, sc2400) = auxStep p.AuxHi2400 p.AuxSec2400 prevBr2400
+            let struct (hi3600, sc3600) = auxStep p.AuxHi3600 p.AuxSec3600 prevBr3600
+            let struct (hi7200, sc7200) = auxStep p.AuxHi7200 p.AuxSec7200 prevBr7200
+            let struct (hi10800, sc10800) = auxStep p.AuxHi10800 p.AuxSec10800 prevBr10800
             // MA-exit marks: the PREVIOUS bar crossed strictly above its prior
             // mean (strictly after the fill bar) -> fill at THIS bar's vwap; any
             // mark still unresolved at/past MocSec resolves at this bar (the moc
@@ -2015,6 +2057,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                     AuxHi300 = hi300; AuxSec300 = sc300
                     AuxHi600 = hi600; AuxSec600 = sc600
                     AuxHi1200 = hi1200; AuxSec1200 = sc1200
+                    AuxHi2400 = hi2400; AuxSec2400 = sc2400
+                    AuxHi3600 = hi3600; AuxSec3600 = sc3600
+                    AuxHi7200 = hi7200; AuxSec7200 = sc7200
+                    AuxHi10800 = hi10800; AuxSec10800 = sc10800
                     Ma10Px = m10p; Ma10Sec = m10s
                     Ma20Px = m20p; Ma20Sec = m20s
                     Ma30Px = m30p; Ma30Sec = m30s
@@ -2040,6 +2086,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                               && not (Double.IsNaN p.AuxHi300 && br300.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi600 && br600.BarsSinceBreach = 0)
                               && not (Double.IsNaN p.AuxHi1200 && br1200.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxHi2400 && br2400.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxHi3600 && br3600.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxHi7200 && br7200.BarsSinceBreach = 0)
+                              && not (Double.IsNaN p.AuxHi10800 && br10800.BarsSinceBreach = 0)
                               // MA-exit marks: retire only fully resolved (they
                               // resolve by the MOC bar at the latest)
                               && not (Double.IsNaN p.Ma10Px) && not (Double.IsNaN p.Ma20Px)
@@ -2646,6 +2696,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       AuxSec600 = -1
                       AuxHi1200 = nan
                       AuxSec1200 = -1
+                      AuxHi2400 = nan
+                      AuxSec2400 = -1
+                      AuxHi3600 = nan
+                      AuxSec3600 = -1
+                      AuxHi7200 = nan
+                      AuxSec7200 = -1
+                      AuxHi10800 = nan
+                      AuxSec10800 = -1
                       Ma10Px = nan
                       Ma10Sec = -1
                       Ma20Px = nan

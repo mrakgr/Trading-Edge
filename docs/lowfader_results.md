@@ -323,3 +323,103 @@ NEGATIVE = broke below): on the base every horizon peaks at **−10..−7% below
 and reads 0.83–0.93 when the session low still HOLDS above it — a fresh multi-day breakdown bounces, a
 pullback above last week's low does not; inside the eff window pair the −20..−3% band below the 7d low read
 PF22 1.24–1.49 at 54–60% win. ρ(dlow_3, chg_3d) = 0.81 — the 3d change was a proxy for this.
+
+## §L5 — rr, chg_1d, the gap ceiling, the sweeps, the exits, and the ORDINAL structure (2026-09-05 PM)
+
+**L5a — `rr` INVERTS inside the spec (the volume-confirm mechanism on the tape's own clock).** On the base
+the quiet end was mildly better; inside eff ∧ lows≥40 ∧ rate≥0.15 loud is monotone: rr 0.25–2 PF22 1.05–1.19,
+**2–4 1.68** (793 tkd, 62% win), 4–8 1.95, ≥8 huge/thin. Floor sweep: ≥1 1.40 (1,852 tkd; the first cut to
+repair 2026), ≥1.5 1.86 (1,251), **≥2 2.22 (874, positive every modern year 1.42–3.51)**, ≥3 2.78 (439). rr
+≥2 repairs the weak 40–50bp volat column (0.86 → 1.14–1.27). `vol_vs_high` is NOT monotone here; rr is the
+cleaner measure of the same idea. User: rr ≥1.5 first ("we'll use higher values as sizing tiers"), then ≥2.
+
+**L5b — `chg_1d` is the one daily gate that is ADDITIVE; chg_3d ≥ −3% is not.** Inside the rr≥1.5 spec: the
+barely-down day chg_1d ∈ (−4, 0] loses in every modern year (PF22 0.88, 49% win, 314 tkd) and gets WORSE as rr
+tightens (0.67 at rr≥2, 0.46 at rr≥3) — orthogonal, not a proxy. Same-n rr control (user: "a lot of these
+would lose on iso-trip control with rr"): chg_1d ≤−4 1.98 vs rr-matched 2.00 (tie); ≤−8 2.11 vs 2.22; dlow_7
+<−2 2.15 vs 2.23; **chg_3d ≥ −3% 1.71 vs 4.14** (below random); every daily gate ≤ the rr control alone — but
+on TOP of rr≥2, chg_1d ≤−4% adds +0.27 (2.22 → 2.49, 717 tkd) where tightening rr to the same size adds 0.
+dlow_7 splits the book (breakdown 2.15 vs holding-above 1.47, both positive) → a sizing tier, not a gate.
+LowFlyer's 3d band was a property of ITS event (a 1m volume-high bar); once eff/rate/rr define a capitulation
+the median trip is already −11% on 3d and the "pullback in an uptrend" cell reads 0.79. **ADOPTED: rr ≥ 2 ∧
+chg_1d ≤ −4%.** User: "it's actually quite nice that we don't have to rely on multi-day features anymore."
+
+**L5c — the chg_1d > −4% cell as a SHORT (user).** Inside the long gates it is 901 tkd, 97% before 10:00, PF22
+(returns flipped) 0.73 / 1.04 at rr≥1.5 / 1.38 at rr≥2; the (−4,−2] band 1.78 at rr≥2 (184 tkd, positive every
+modern year), the ≥−2% bands too thin to read. Best spots each 35–50 modern tkd: rr 3–4 2.81, a 7d low just
+broken 3.04, gap-UP +2..+5% then sold to the low 1.97 (a gap-up >+5% BOUNCES, 0.08), dense-ish tape 1.87. 2020
+NEGATIVE nearly everywhere (regime). On the broad base (48k tkd) the mechanism = a FAILED GAP-UP sold from the
+open on high rr: rr≥3 ∧ gap-up (0,5%] = 2,670 tkd PF22 1.43 / 53% win, all modern years >1, whole-period ~1.1.
+A candidate ("failed gap-up short"), needs its own sampler/entry logic; not pursued now.
+
+**L5d — VOLATILITY re-check with the gates on: ≥100bp is NOT fixed, and the low end inverted.** Inside the full
+spec (no ceiling): 80–100bp is the BEST cell (PF22 2.01, 62% win, all 5 modern years) and 40–50bp the weakest
+(0.92); 100–125bp 0.60 (46% win, 10% tail, worst −73), 125–200 1.5 (49% win, 9% tail), 200–500 5.7–7.3 on ~60
+tkd with a 10–16% tail (a lottery), ≥500 1.06. Ceiling sweep peaks at ≤100 (2.49; ≤125 1.74). Band options:
+(50,100] 1.55 on 1,665 tkd; user: "raising the floor to 50 would be overfitting; ideally all volat bands work"
+→ ceiling stays at 100, no floor. Re-checked after the gap gate (L5e): 100–200bp 1.08–1.13 at every gap level
+(even the densest tapes read 0.56 at 100–150bp) — the ceiling STAYS; 200bp+ = a satellite tier later.
+
+**L5e — GAPS invert inside the spec, and the ceiling clears the same-n test.** Inside rr≥2 ∧ chg_1d≤−4 (717 tkd,
+PF22 2.49) `gap_adj_60` is monotone DECREASING: 0–10 missing s 3.4–7.3 (80% win), 10–25 2.7–5.0, 25–30 2.21,
+30–35 1.46, 35–45 **0.76–1.01** (48–50% win) — the base's "sparse air pocket bounces" was the low-rr/low-eff
+population; once a loud dense leg is required, a tape missing 35+ s/min is a flush that isn't being traded.
+Loses even at rr 3–8 (0.57–0.64). Same at 300/600/1200 s. Ceiling sweep vs the same-n rr control: ≤35 2.89 vs
+2.54 · ≤30 3.25 vs 2.60 · ≤25 3.50 vs 2.94 — **the first feature since rr to beat the rr control at every
+size**, positive every modern year. PF−1 grid (2022+), rr floor × gap ceiling, tkd22 / net22:
+
+| | none | ≤40 | ≤35 | ≤30 | ≤25 |
+|---|---|---|---|---|---|
+| rr≥1.5 | 0.98 (597/6,864) | 1.05 | 1.22 (464/6,545) | 1.41 (352/5,957) | 1.75 (230/5,401) |
+| rr≥1.75 | 1.23 | 1.32 | 1.53 | 1.75 (310/5,821) | 2.16 |
+| rr≥2 | 1.49 (424/6,155) | 1.58 | 1.89 (341/6,037) | **2.25 (266/5,737)** | 2.50 (187/5,128) |
+
+≤35 → ≤30 at rr≥2: +19% PF−1 for −5% net (the 30–35 slice PF−1 0.46; 35–40 is DEAD, 0.01). Relaxing rr to
+trade for a tighter gap is dominated on every column (rr is ~3× more net-efficient). **ADOPTED: gap_adj_60 ≤ 30.**
+
+**L5f — the rr and gap SWEEPS are monotone; higher values = SIZING tiers (user).** rr floor on the gap≤30 spec
+(PF−1 22+ / tkd22 / net22 / net per tkd): ≥1.5 1.41/352/5,957/17 · **≥2 2.25/266/5,737/22** · ≥2.5 2.37/199/
+4,564/23 · ≥3 3.59/155/4,188/27 · ≥4 5.12/89/3,372/38 · ≥6 7.10/45/2,774/62 · ≥8 20.6/25/2,418/97. The 1.5–2
+slice is dead (PF−1 0.13, avg +0.29%) — hence "free"; above 2 every step removes GOOD slices (2–2.5 = 1.87 at
+74% win) but the average trade doubles by rr 4 and quadruples by 8, tail → 0 above 4 ⇒ floor at 2, size UP by
+tier (3–6 ~1.5–2×, ≥6 ~3×); ⚠ 2023 negative from rr≥3 up (thin). Gap ceiling on the rr≥2 spec: ≤30 2.25 → ≤25
+2.50 → ≤20 2.67 → ≤15 2.82 (peak) → ≤10 2.61 → ≤5 2.39; below 30 each step costs 11–13% of net for ~+0.2 —
+the good slices 15–30 read 1.2–2.1 — stop at 30. Both levers monotone "apart from the last bucket" (user).
+
+**⭐ WORKING SPEC v2 (2026-09-05 PM):** `volat_20m ∈ (40,100] ∧ eff_ewma_10m < −0.7 ∧ lows_since_first_low_600
+≥ 40 ∧ rate_600 ≥ 0.15 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30`, MOC → mc=0 3,559 trips / **466 tkd** (266 in
+2022+), PF 3.33, **PF22 3.25 (PF−1 2.25)**, win22 69.5%, avg22 +2.8%, tail 1.35%, worst −42.8. Whitelist table
+`lowfader_spec2_whitelist` (466 tkd; a rerun takes seconds). Corpus `data/lowfader_wl_spec2` carries the
+long-horizon covers `aux_hi_{2400,3600,7200,10800}` added 2026-09-05 (present-bar windows, like every price
+channel; byte-identical trip set).
+
+**L5g — EXITS (user): the 10m/20m channel-HIGH cover beats MOC in the modern era.** Per-trip (mc=0; an unfilled
+mark holds to MOC), PF−1 all / 2022+, net22, worst, p5, tail, median hold:
+
+| exit | fill | PF−1 | PF−1 22+ | win22 | avg22 | net22 | worst | p5 | tail% | hold |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MOC | – | 2.33 | 2.25 | 69.5 | 2.79 | 5,737 | −42.8 | −8.3 | 1.35 | 368m |
+| 2m | 100% | 2.43 | 6.92 | 69.4 | 2.41 | 4,954 | −28.4 | −3.3 | 0.65 | 4m |
+| 5m | 100% | 2.97 | 4.84 | 70.9 | 2.90 | 5,964 | −29.2 | −4.0 | 0.51 | 12m |
+| **10m** | 99.9% | 2.94 | **4.57** | 69.0 | **3.47** | **7,138** | −29.1 | −5.8 | 0.51 | 27m |
+| 20m | 94.6% | 2.35 | 3.46 | 70.1 | 3.50 | 7,195 | −40.6 | −7.7 | 0.14 | 65m |
+| 40m/1h/2h/3h | 79/63/29/22% | 2.1–2.5 | 2.6–2.7 | 66–70 | 3.3–3.4 | 6,750–6,938 | −42.8 | −8 | 1.35 | 3–6h |
+
+The 10m cover: +24% net22, PF−1 ×2, tail ÷2.6, worst −43 → −29, and the position is out in ~27 minutes instead
+of six hours; by year 3.48/6.70/10.38/3.86/−0.02 vs MOC 2.29/0.83/3.89/3.28/1.50 — **2026 is the exception**
+(the cover loses there). MOC only wins in 2020 (8.38 vs 2.07 — the meme-year bounces to the close), which is
+why all-years PF−1 is nearly a tie (2.33 vs 2.94) while 2022+ is not. The long-horizon covers converge to MOC
+as their fill rates fall. Section C: on the trips it fires on, the 10m cover is better than MOC on 45% of them
+and wins by cutting the losers. NOT yet re-run at the book level with the cover freeing the slot (see L5h).
+
+**⚠⚠ L5h — the ORDINAL structure: mc=1 (first qualifying trip per day) reads PF−1 0.33 on 2022+ vs 2.25 for
+the same spec at mc=0.** Trips per tkd: median 4, mean 7.6, p90 19. By ordinal (MOC PF−1 22+ | 10m cover):
+1st 0.33 | 1.06 · 2nd 0.45 | 1.38 · 3rd 0.68 | 1.94 · 4–5th 1.09 | 3.05 · 6–10th 2.99 | 3.84 · 11–20th 3.74 |
+7.20 · 21–50th 36 | 27 (45 tkd). By minutes since the day's first spec trip: 0 → 0.33 · 0–2m 1.32 (2,192 trips,
+359 tkd) · 2–5m 10.4 · 5–10m 5.7. The first trip is a slightly quieter, shorter leg (rr 2.66 vs 3.13, lows 69
+vs 85); everything else is the same — **the edge is in re-entering as the flush keeps printing lows, not in the
+first qualifying bar.** mc=1 replay skipping the first k−1 trips (MOC | 10m): start at 2nd 0.45 | 1.38 · 3rd
+0.68 | 1.94 · 5th 1.19 | 3.45 · 10th 3.39 | 4.93 (118 tkd). ⇒ the sampler PF is an AVERAGING-DOWN book (the
+S38 greedy replay at mc=1 is the wrong portfolio view for this system); the production question is the
+scaling-in rule (mc>1 / pyramid on each new qualifying low), and the 10m cover looks better at every ordinal.
+OPEN — the user's call on how to size the ladder.
