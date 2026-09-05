@@ -481,3 +481,50 @@ managed cap) → restarted as TWO date halves (`lowfader_run_alltape_halves.sh`,
 write (seconds). Study script: `scripts/analysis/lowfader_alltape.py` (universe split, time-clock
 `dollar_vol_60` ladder, rr × liquidity for the user's TODO — "the outperformance of the low-rr cell might be
 manifesting in very illiquid stocks" — the 20–40bp band, spec v2 + 10m cover on the new names, mc=0 and mc=1).
+
+## §L7 — the EXPANDED-UNIVERSE corpus (2026-09-05 night): 11.78M trips / 916,633 tkd, the whole tape ≥ $100k/min
+
+**What ran.** `lowfader_alltape_whitelist` (8.1M tkd, 20bp volat mirror only), floors `--min-dv-0945-tape 0
+--min-barnum 0 --min-volat-20m 0.002`, eight globs after two OOM kills (14 workers), one pre-emptive stop (5 workers
+climbing) and two boundary reruns (h1c/h2e) — every whitelist day present, zero duplicate tkd. ⚠ **The engine's HARD
+ENTRY FLOORS `dv60 ≥ $100k ∧ tc60 ≥ 60` were ACTIVE** (`--base-run` keeps the signal definition; `min(dollar_vol_60)`
+in the corpus = $100,000.10). So this is "the whole tape *above $100k a minute and 60 trades a minute at the signal*";
+the illiquid tail of the user's TODO (rr < 0.5 as an illiquidity premium) is NOT sampled — a floors-off rerun
+(`--dv-floor-60 0 --tc-floor-60 0`, ~3 h at 3 workers) is the user's call. Study: `data/lowfader_alltape_study.log`.
+
+**L7a — the added names, bare:** 658,553 tkd / 4.76M trips beyond the old candidate table read PF22 0.96 (old
+universe 0.94) — the same zero. The old-candidate names admitted only by the 20bp floor (4,938 tkd, 27 trips/tkd)
+are the WORST cell on the tape bare: PF22 0.52, 44% win, −2.6%/trade, 4.1% tail. Raw price < $1: 0.70–0.78, 5–12%
+tail (fee-dead, as LowFlyer found). By `dollar_vol_60` the bare book is flat 0.91–0.97 at every tier; the one
+bare cell above 1.1 is the most liquid new names (≥ $2.5M/min, 11k tkd, 1.34).
+
+**L7b — rr × liquidity (the TODO, as far as sampled):** 2022+ every cell 0.76–1.07 except the ≥ $2.5M/min column at
+rr ≥ 4 (1.25–1.32, 6.5k tkd). In the least-liquid tier sampled ($100–250k/min) the quiet end reads 1.00–1.01 and
+the loud end 0.86–0.91 — the U's quiet side, no premium. Whether a premium exists BELOW $100k/min is open.
+
+**L7c — VOLATILITY on the whole tape:** the bare book's best cells moved DOWN: 20–30bp PF22 1.03 (481k tkd, 0.06%
+tail), 30–40bp 1.05, 40–50 1.03, 50–60 1.01, 60–80 0.95, 80–100 0.89, ≥ 100bp 0.63–0.76 (tail 7–24%). Same shape
+on the old universe alone (1.04 / 1.06 at 20–40bp). The 40bp floor was never a feature; the 100bp CEILING is.
+
+**L7d — SPEC v2 on the expanded universe (mc=0):**
+
+| slice | n | tkd | tkd22 | PF | PF22 | win22 | worst | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| old universe (now incl. barnum < 22 days) | 3,861 | 509 | 292 | 3.02 | 2.93 | 68.3 | −42.8 | 3.40 | 1.58 | 4.69 | 3.67 | 1.76 |
+| **NEW names** | 4,141 | 538 | 303 | 1.38 | **0.66** | 51.9 | −70.9 | 0.49 | 0.69 | 0.31 | 2.18 | 0.90 |
+| **spec v2 gates in the 20–40bp band** | 4,316 | 560 | 387 | 2.04 | **1.61** | 60.3 | −24.8 | 1.38 | 1.05 | 2.83 | 3.17 | 2.71 |
+
+**The spec does NOT transfer to the added names** (0.66 mc=0; mc=1 −0.17 MOC / −0.07 10m) — and the reason is a
+LIQUIDITY gate the old universe had hidden: spec v2 by `dollar_vol_60` reads $100–250k 0.51 · $250k–1M 0.99–1.00 ·
+**$1–2.5M 1.53 · ≥ $2.5M 2.26**. The new names' trips sit at $100k–$1M (median $234k/min vs $560k old). ⇒ spec v2
+needs **`dollar_vol_60 ≥ $1M` at the signal** (time-clock) as an explicit gate — the old $2M-first-15m candidate
+floor was standing in for it. **The 20–40bp band under the spec gates WORKS**: 560 tkd at PF22 1.61, 60% win, worst
+−24.8, 0.4% tail, positive in all five modern years — the volat floor can drop to 20bp *inside the spec* (bare it
+is the worst cell). Old universe 509 vs the earlier 466 tkd: the 43 extra are `barnum < 22` early-episode days,
+and they read worse (2.93 vs 3.25) — S40e's cut holds. mc=1 on the expanded spec book: old universe 10m 0.85, all
+else ≤ 0.25 — the ordinal/ladder question is unchanged.
+
+**Verdict:** the expansion adds NOTHING under $1M/min; above it the added names are few. Next: (1) `dollar_vol_60 ≥
+$1M` into the spec and re-read the whole ladder on the union corpus; (2) the 20–40bp band joins the spec's volat
+band → (20, 100]; (3) the floors-off rerun only if the illiquid TODO is still worth 3 h — the ≥ $100k evidence says
+the quiet-rr cell carries no liquidity premium down to $100k/min.
