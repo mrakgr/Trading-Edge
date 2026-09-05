@@ -450,3 +450,34 @@ SpikeFader 1,409 smoke trips / 470 cols vs `spikefader_s47`; MaxFader the whole 
 (76 s); FlushFader 62 trips / 312 cols vs `v49_spec20` (⚠ that run predates the `--min-lows-180 3` default — reproduce
 it with `--min-lows-180 0`; the equity scripts apply the floor post-hoc). Port script:
 `scratchpad/port_mutable.py` pattern (collect the fields from every `{ p with … }`, mark, replace).
+
+## §L5i — the SPEC ORDINAL in the engine (2026-09-05 evening) + the EXPANDED-UNIVERSE run
+
+**Engine feature (user):** `spec_ord` = this signal's ordinal among SPEC-qualifying signals of the current 20m leg
+(1-based; 0 = the signal did not pass), `leg_id_1200` = 20m-high breaches so far today. RECORD-ONLY: eight
+`Ord*` config fields with SPEC v2 defaults (`--ord-volat-lo/hi`, `--ord-max-eff-ewma-10m`, `--ord-min-lows-600`,
+`--ord-min-rate-600`, `--ord-min-rr`, `--ord-max-chg-1d`, `--ord-max-gap-adj-60`); `IntradaySystem` now takes the
+prior close (`close_m1 + div_m1`) so `chg_1d` is computable at the SIGNAL bar (signal vwap, not the fill px — a
+boundary-only difference vs the post-hoc column). Counter increments on bars passing every gate; a new 20m HIGH
+(the `br1200` breach) resets it. Validation on the 466-tkd spec whitelist: all 327 shared columns byte-identical;
+the passing set matches the post-hoc signal-bar spec exactly (3,563 = 3,563). ⚠ **The post-hoc "leg ordinal" of
+§L5h/step-28 was WRONG on 62 of 465 days**: it detected a reset whenever `breach_1200` did not increase between
+consecutive spec trips, and `breach_1200 = −1` (no 20m high printed yet today) is non-increasing by construction —
+so every pre-first-breach trip read as ordinal 1. The engine counter is the reference (its ordinals are ≥ the
+post-hoc ones on those 424 trips; the DAY-ordinal analysis was unaffected). Re-do the ordinal tables on `spec_ord`.
+
+**The expanded-universe run:** `lowfader_alltape_cand` = the WHOLE tape 2020-01..2026-08 with no dv_0945 / n_bars
+/ barnum floors (9,075,669 tkd, 9,564 tickers, built in 120 s via the builder's new `--pattern`); prepass =
+the 20bp VOLATILITY mirror ONLY (no liquidity screen — user: a `dv_day` screen is lookahead unless its implied
+engine gate is always applied, and the illiquid tail is the point; no session-low mirror either) → 8,095,300
+tkd (89.2%; 1,103,634 of them in the old candidate table). ⚠ The 20bp bound passes 62–85% of names per day
+and the EXACT per-day max of the EMA only ~10 points fewer (the bias-corrected EMA equals the first slot return
+on its first push, and sparse tapes print large early slot returns — on illiquid tape `volat_20m` is largely
+bid-ask bounce). Engine flags `--min-dv-0945-tape 0 --min-barnum 0 --min-volat-20m 0.002`. The single-process
+run sat at 11–13 GB resident with 1–3 GB free (the 8M-row candidate array + DuckDB native memory over the 8.5 GB
+managed cap) → restarted as TWO date halves (`lowfader_run_alltape_halves.sh`, GC cap 45%, dirs
+`data/lowfader_alltape_h1` 2020–22 and `_h2` 2023–26; read both globs; h1 at 7 GB resident with 5.9 GB free).
+⚠ The prepass's DuckDB `executemany` of 8.1M rows ran >15 min at 11 GB and was replaced by a pandas parquet
+write (seconds). Study script: `scripts/analysis/lowfader_alltape.py` (universe split, time-clock
+`dollar_vol_60` ladder, rr × liquidity for the user's TODO — "the outperformance of the low-rr cell might be
+manifesting in very illiquid stocks" — the 20–40bp band, spec v2 + 10m cover on the new names, mc=0 and mc=1).

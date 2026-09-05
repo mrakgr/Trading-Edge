@@ -27,6 +27,14 @@ type Args =
     | Tc_Floor_60 of float
     // ----- record-first regime gates (default off) -----
     | Min_Volat_20m of float
+    | Ord_Volat_Lo of float
+    | Ord_Volat_Hi of float
+    | Ord_Max_Eff_Ewma_10m of float
+    | Ord_Min_Lows_600 of int
+    | Ord_Min_Rate_600 of float
+    | Ord_Min_Rr of float
+    | Ord_Max_Chg_1d of float
+    | Ord_Max_Gap_Adj_60 of int
     | Max_Volat_20m of float
     // ----- SPEC v1.2 gates (defaults = the S18 production stack) -----
     | Max_Speed_1m of float
@@ -91,6 +99,14 @@ type Args =
             | Exit_Channel_Bars _ -> "⭐ EXIT: sell when the vwap STRICTLY EXCEEDS the prior N-present-bar MAX (the reversion target). One of {30,60,120,300,600,1200}. Default 300 (~5m — V6 F16's direction). NO stop; MOC backstop."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars at the signal. Default 100000."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print."
+            | Ord_Volat_Lo _ -> "SPEC-ORDINAL gate (record-only, 2026-09-05): volat_20m > this. Default 0.0039."
+            | Ord_Volat_Hi _ -> "SPEC-ORDINAL gate: volat_20m <= this. Default 0.010."
+            | Ord_Max_Eff_Ewma_10m _ -> "SPEC-ORDINAL gate: eff_ewma_10m < this. Default -0.7."
+            | Ord_Min_Lows_600 _ -> "SPEC-ORDINAL gate: lows_since_first_low_600 >= this. Default 40."
+            | Ord_Min_Rate_600 _ -> "SPEC-ORDINAL gate: lows/bars over the 600 leg >= this. Default 0.15."
+            | Ord_Min_Rr _ -> "SPEC-ORDINAL gate: vol_60 / (vol_0945_tape/15) >= this. Default 2.0."
+            | Ord_Max_Chg_1d _ -> "SPEC-ORDINAL gate: signal vwap / prior close - 1 <= this. Default -0.04."
+            | Ord_Max_Gap_Adj_60 _ -> "SPEC-ORDINAL gate: gap_adj_60 <= this. Default 30."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
             | Max_Speed_1m _ -> "⭐ SPEC v1.2: flush speed gate — vwap/vwap_60_prev - 1 < this at the signal. Default -0.02. 0 = off."
@@ -186,6 +202,14 @@ let main argv =
                     DvFloor60        = parsed.GetResult(Dv_Floor_60,        defaultValue = d.Intraday.DvFloor60)
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)
                     MinVolat20m      = parsed.GetResult(Min_Volat_20m,      defaultValue = d.Intraday.MinVolat20m)
+                    OrdVolatLo       = parsed.GetResult(Ord_Volat_Lo,        defaultValue = d.Intraday.OrdVolatLo)
+                    OrdVolatHi       = parsed.GetResult(Ord_Volat_Hi,        defaultValue = d.Intraday.OrdVolatHi)
+                    OrdMaxEffEwma10m = parsed.GetResult(Ord_Max_Eff_Ewma_10m, defaultValue = d.Intraday.OrdMaxEffEwma10m)
+                    OrdMinLows600    = parsed.GetResult(Ord_Min_Lows_600,    defaultValue = d.Intraday.OrdMinLows600)
+                    OrdMinRate600    = parsed.GetResult(Ord_Min_Rate_600,    defaultValue = d.Intraday.OrdMinRate600)
+                    OrdMinRr         = parsed.GetResult(Ord_Min_Rr,          defaultValue = d.Intraday.OrdMinRr)
+                    OrdMaxChg1d      = parsed.GetResult(Ord_Max_Chg_1d,      defaultValue = d.Intraday.OrdMaxChg1d)
+                    OrdMaxGapAdj60   = parsed.GetResult(Ord_Max_Gap_Adj_60,  defaultValue = d.Intraday.OrdMaxGapAdj60)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = dI.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = dI.MaxDist1mHi)

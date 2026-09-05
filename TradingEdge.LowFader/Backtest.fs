@@ -79,6 +79,9 @@ let defaultConfig =
           // (MinAbsEff20m deleted — S40i: AbsEff20Lo is the abs floor)
           MinVolat20m      = 0.004      // ⭐ SPEC v1.2 (S18): the 40bp volatility floor
           MaxVolat20m      = Double.PositiveInfinity
+          // ⭐ 2026-09-05: the spec-ordinal gates = SPEC v2 (docs/lowfader_results.md §L5), record-only
+          OrdVolatLo = 0.0039; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40
+          OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 30
           // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
           // stack; disable individually for sweeps (see IntradayConfig for the
           // off-conventions). Formulas identical to the recorded columns.
@@ -317,6 +320,7 @@ CREATE TABLE trips (
     bars_since_first_low INTEGER, lows_since_first_low INTEGER,
     bars_since_first_low_300 INTEGER, lows_since_first_low_300 INTEGER,
     bars_since_first_low_600 INTEGER, lows_since_first_low_600 INTEGER,
+    spec_ord INTEGER, leg_id_1200 INTEGER,
     trade_idx INTEGER, open_at_signal INTEGER,
     vwap_1200 DOUBLE, chan_hi DOUBLE, chan_lo DOUBLE, exit_chan_hi DOUBLE,
     gap_60 INTEGER, gap_30 INTEGER, gap_15 INTEGER,
@@ -514,6 +518,7 @@ type TripSink(outDir: string, nextOpenExit: bool) =
             i p.BarsSinceFirstLow; i p.LowsSinceFirstLow
             i p.BarsSinceFirstLow300; i p.LowsSinceFirstLow300
             i p.BarsSinceFirstLow600; i p.LowsSinceFirstLow600
+            i p.SpecOrd; i p.LegId1200
             i p.TradeIdx; i p.OpenAtSignal
             f p.Vwap1200; f p.ChanHi; f p.ChanLo; f p.ExitChanHi
             i p.Gap60; i p.Gap30; i p.Gap15
@@ -805,7 +810,7 @@ let collectTrips (cfg: Config) (secDir: string)
                     do! requests.Writer.WriteAsync { Date = date; Cands = cands; Reply = reply.Writer }
                     for struct (c, bars) in reply.Reader.ReadAllAsync() do
                         if bars.Length > 0 then
-                            let sys = IntradaySystem(cfg.Intraday, c.Ticker, date)
+                            let sys = IntradaySystem(cfg.Intraday, c.Ticker, date, c.CloseM1 + (if Double.IsNaN c.DivM1 then 0.0 else c.DivM1))
                             for b in bars do sys.Process b
                             sys.Flatten bars.[bars.Length - 1]
                             dayOut.Add(struct (c, Seq.toArray sys.Positions, true))

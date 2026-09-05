@@ -271,6 +271,8 @@ type FlushPosition =
       /// bar (the twin of ChgSinceLastUptick, which anchors on the uptick before
       /// it). 0 when the signal bar is that first downtick.
       ChgSinceRunFirstDn: float
+      SpecOrd: int               // ⭐ 2026-09-05: this signal's ordinal among SPEC-qualifying signals of the current 20m leg (1-based; 0 = did not pass)
+      LegId1200: int             // ⭐ 2026-09-05: 20m-high resets before this signal today (leg id)
       TradeIdx: int              // ⭐ index of this SIGNAL within the down-leg (0 = the leg's
                                  // first trade); reset by the new-high leg reset. Diverges from
                                  // LowsSinceFirstLow wherever a low fired no trade (outside the
@@ -645,6 +647,20 @@ type IntradayConfig =
       // the volat feature still cold FAILS a positive floor, like V6's atrOk.
       MinVolat20m: float
       MaxVolat20m: float
+      // ⭐ 2026-09-05 (user): the SPEC ORDINAL gates — the rebuilt spec (docs/lowfader_results.md §L5) as a
+      // RECORD-ONLY counter: a signal bar that passes ALL of these increments `specOrd`; a new 20m HIGH resets it
+      // (and bumps `legId1200`). The trip records its own ordinal (0 = this signal did not pass). None of these
+      // gate the ENTRY — the sampler stays a base run; the ordinal is the live-knowable "n-th qualifying low of
+      // the leg" (§L5h/§L5i). Cold features FAIL the check. chg_1d here is SIGNAL-bar vwap vs the prior close
+      // (the post-hoc column uses the fill px — a boundary-only difference).
+      OrdVolatLo: float          // volat_20m > this (default 0.0039)
+      OrdVolatHi: float          // volat_20m <= this (default 0.010)
+      OrdMaxEffEwma10m: float    // eff_ewma_10m < this (default -0.7)
+      OrdMinLows600: int         // lows_since_first_low_600 >= this (default 40)
+      OrdMinRate600: float       // lows/bars over the 600 leg >= this (default 0.15)
+      OrdMinRr: float            // vol_60 (time-clock) / (vol_0945_tape/15) >= this (default 2.0)
+      OrdMaxChg1d: float         // signal vwap / (close_m1 + div_m1) - 1 <= this (default -0.04)
+      OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 30)
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
@@ -802,7 +818,8 @@ type IntradayConfig =
       MocSecShort: int }
 
 /// The FlushFader engine. One instance per (ticker, day).
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevCloseTotal: float) =
+    // prevCloseTotal = close_m1 + div_m1 in D's raw scale (nan when unknown -> the chg_1d ordinal gate fails closed)
     // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
     let isEarlyClose = TradingEdge.Orb.Timezone.early_closes.Contains day
     let entryEndSec = if isEarlyClose then cfg.EntryEndSecShort else cfg.EntryEndSec
@@ -938,6 +955,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let mutable neffRet40Count = 0
     let mutable neffRet20Count = 0
     let mutable tradeIdx = 0
+    let mutable specOrd = 0                      // 2026-09-05: spec-qualifying signals in the current 20m leg
+    let mutable legId1200 = 0                    // 2026-09-05: 20m-high resets so far today
     // ----- activity sums + lags -----
     let volSum300 = SumMa 300                    // S40l: the 5m window joins the family
     let tcSum300 = SumMa 300
@@ -1857,7 +1876,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         if breached sMax180 then br180.OnBreach()
         if breached sMax300 then br300.OnBreach()
         if breached sMax600 then br600.OnBreach()
-        if breached sMax1200 then br1200.OnBreach()
+        if breached sMax1200 then
+            br1200.OnBreach()
+            specOrd <- 0; legId1200 <- legId1200 + 1   // 2026-09-05: the spec-ordinal leg reset
         if breached sMax2400 then br2400.OnBreach()
         if breached sMax3600 then br3600.OnBreach()
         if breached sMax7200 then br7200.OnBreach()
@@ -2286,6 +2307,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 | ValueSome m when ols300.Count = ols300.WindowSize -> m * 6e5 >= cfg.MinSlope5Bpm
                 | _ -> false)
         let specOk = speedOk && d1mOk && ssfOk && dlvOk && rsfOk && z20Ok && cascadeOk && kBandOk && eff20BandOk && eff10Ok && eff9Ok && vol10Ok && dv0945TapeOk && lows300Ok && lows180Ok && frontOk && accelOk && slope20Ok && slope5Ok
+        // 2026-09-05: the spec-ordinal check (record-only; see IntradayConfig.Ord*)
+        let ordPass =
+            inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk
+            && (match ew40.State with ValueSome v -> v > cfg.OrdVolatLo && v <= cfg.OrdVolatHi | ValueNone -> false)
+            && (let e = effEwma10m.Value in not (Double.IsNaN e) && e < cfg.OrdMaxEffEwma10m)
+            && counters600.EventsSinceFirst >= cfg.OrdMinLows600
+            && counters600.BarsSinceFirst > 0 && float counters600.EventsSinceFirst / float counters600.BarsSinceFirst >= cfg.OrdMinRate600
+            && (match tVolSum60.State with ValueSome v60 when vol0945Tape > 0.0 -> v60 / (vol0945Tape / 15.0) >= cfg.OrdMinRr | _ -> false)
+            && (not (Double.IsNaN prevCloseTotal) && prevCloseTotal > 0.0 && bar.vwap / prevCloseTotal - 1.0 <= cfg.OrdMaxChg1d)
+            && adjGap60 <= cfg.OrdMaxGapAdj60
+        if ordPass then specOrd <- specOrd + 1
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
             let struct (vs10m, vr10m) = volatOlsRead volatOls10m
@@ -2434,6 +2466,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       VolatEr5m = evr5m
                       VolatEslope3m = evs3m
                       VolatEr3m = evr3m
+                      SpecOrd = (if ordPass then specOrd else 0)
+                      LegId1200 = legId1200
                       TradeIdx = tradeIdx
                       OpenAtSignal = this.OpenCount
                       Vwap1200 =
