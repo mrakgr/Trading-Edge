@@ -168,8 +168,8 @@ let armedFlatten (s: ArmedStop) (lastBar: SecBar) : ArmedStop =
 type FlushPosition =
     { SignalSec: int             // the gate bar (features captured here)
       SignalVwap: float          // its vwap — entry slippage = EntryPx/SignalVwap
-      EntrySec: int              // the fill bar
-      EntryPx: float             // the fill: next present bar's vwap
+      mutable EntrySec: int              // the fill bar
+      mutable EntryPx: float             // the fill: next present bar's vwap
       // ----- the regime block (replaces V6's log_atr_20 / adx_14) -----
       Volat20m: float            // EmaHlMa hl=40 slots of |slot return| — THE volatility driver
       Volat10m: float            // hl=20 twin (trajectory: Volat10m << Volat20m = vol collapsing)
@@ -682,10 +682,10 @@ type FlushPosition =
       NEffRet20m: float
       NEffRet10m: float
       // ----- forward marks (vwap at the first present bar >= entry + horizon; nan if the day ends first) -----
-      FwdVwap60: float
-      FwdVwap300: float
-      FwdVwap600: float
-      FwdVwap1200: float
+      mutable FwdVwap60: float
+      mutable FwdVwap300: float
+      mutable FwdVwap600: float
+      mutable FwdVwap1200: float
       // ----- ⭐⭐ THE AVWAP RISK RULE (user, 2026-09-03): an anchored VWAP on the
       // entry; at {1h,2h,3h} after entry, if the AVWAP is ABOVE the entry the MOC
       // order is REPLACED with a 5m-low exit. Recorded so the rule — and the
@@ -695,31 +695,31 @@ type FlushPosition =
       // BEFORE the fill bar, so the AVWAP includes the fill bar. The post-check mark
       // is recorded UNCONDITIONALLY (the avwap>entry predicate lives in SQL), so
       // "always switch to a 5m low at h" is a free control. -----
-      AvwapCumDv1h: float        // session Σ vwap·vol at the first present bar >= entry + 3600s
-      AvwapCumVol1h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
-      Avwap1h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
-      AvwapChkSec1h: int         // the check bar's ET second (-1 = the day ended first)
-      PostChkLo300Px1h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
-      PostChkLo300Sec1h: int
-      PostChkLo300Moc1h: bool    // resolved at the MOC bar (no 5m low printed after the check)
-      AvwapCumDv2h: float        // session Σ vwap·vol at the first present bar >= entry + 7200s
-      AvwapCumVol2h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
-      Avwap2h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
-      AvwapChkSec2h: int         // the check bar's ET second (-1 = the day ended first)
-      PostChkLo300Px2h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
-      PostChkLo300Sec2h: int
-      PostChkLo300Moc2h: bool    // resolved at the MOC bar (no 5m low printed after the check)
-      AvwapCumDv3h: float        // session Σ vwap·vol at the first present bar >= entry + 10800s
-      AvwapCumVol3h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
-      Avwap3h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
-      AvwapChkSec3h: int         // the check bar's ET second (-1 = the day ended first)
-      PostChkLo300Px3h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
-      PostChkLo300Sec3h: int
-      PostChkLo300Moc3h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      mutable AvwapCumDv1h: float        // session Σ vwap·vol at the first present bar >= entry + 3600s
+      mutable AvwapCumVol1h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      mutable Avwap1h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      mutable AvwapChkSec1h: int         // the check bar's ET second (-1 = the day ended first)
+      mutable PostChkLo300Px1h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      mutable PostChkLo300Sec1h: int
+      mutable PostChkLo300Moc1h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      mutable AvwapCumDv2h: float        // session Σ vwap·vol at the first present bar >= entry + 7200s
+      mutable AvwapCumVol2h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      mutable Avwap2h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      mutable AvwapChkSec2h: int         // the check bar's ET second (-1 = the day ended first)
+      mutable PostChkLo300Px2h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      mutable PostChkLo300Sec2h: int
+      mutable PostChkLo300Moc2h: bool    // resolved at the MOC bar (no 5m low printed after the check)
+      mutable AvwapCumDv3h: float        // session Σ vwap·vol at the first present bar >= entry + 10800s
+      mutable AvwapCumVol3h: float       // session Σ vol at that bar  (AVWAP = window difference vs cum_dv/cum_vol)
+      mutable Avwap3h: float             // (AvwapCumDv − CumDv)/(AvwapCumVol − CumVol): the ANCHORED VWAP at the check
+      mutable AvwapChkSec3h: int         // the check bar's ET second (-1 = the day ended first)
+      mutable PostChkLo300Px3h: float    // the RULE's exit: first new 300-bar LOW strictly after the check, at the next bar
+      mutable PostChkLo300Sec3h: int
+      mutable PostChkLo300Moc3h: bool    // resolved at the MOC bar (no 5m low printed after the check)
       // ----- ⭐⭐ the ARMED STOPS (see ArmedStop): {5m,10m,20m} arming channels -----
-      As300: ArmedStop
-      As600: ArmedStop
-      As1200: ArmedStop
+      mutable As300: ArmedStop
+      mutable As600: ArmedStop
+      mutable As1200: ArmedStop
       // ----- ⭐ AUX-HIGH marks, retargeted for MR: the post-hoc EXIT-WINDOW SWEEP.
       // The first NEW {120,300,600,1200}-present-bar HIGH made STRICTLY AFTER the entry
       // fill bar, MARKED AT THE FOLLOWING BAR's vwap (the fill discipline). Detection is
@@ -736,81 +736,81 @@ type FlushPosition =
       // exit target is answerable post-hoc instead of by re-running. The sweep
       // previously bottomed out at 120 (~2m), which is the wrong side of the
       // production 300 (~5m) to test "take the reversion sooner".
-      AuxLo60: float
-      AuxSec60: int
-      AuxMoc60: bool
-      AuxLo120: float
-      AuxSec120: int
-      AuxMoc120: bool
-      AuxLo300: float
-      AuxSec300: int
-      AuxMoc300: bool
-      AuxLo600: float
-      AuxSec600: int
-      AuxMoc600: bool
-      AuxLo1200: float
-      AuxSec1200: int
-      AuxMoc1200: bool
+      mutable AuxLo60: float
+      mutable AuxSec60: int
+      mutable AuxMoc60: bool
+      mutable AuxLo120: float
+      mutable AuxSec120: int
+      mutable AuxMoc120: bool
+      mutable AuxLo300: float
+      mutable AuxSec300: int
+      mutable AuxMoc300: bool
+      mutable AuxLo600: float
+      mutable AuxSec600: int
+      mutable AuxMoc600: bool
+      mutable AuxLo1200: float
+      mutable AuxSec1200: int
+      mutable AuxMoc1200: bool
       // ⭐ LONG EXITS: the first new {30m,1h,2h,3h}-bar LOW after entry, next-bar fill, MOC-resolved
-      AuxLoL1800: float
-      AuxSecL1800: int
-      AuxMocL1800: bool
-      AuxLoL3600: float
-      AuxSecL3600: int
-      AuxMocL3600: bool
-      AuxLoL7200: float
-      AuxSecL7200: int
-      AuxMocL7200: bool
-      AuxLoL10800: float
-      AuxSecL10800: int
-      AuxMocL10800: bool
+      mutable AuxLoL1800: float
+      mutable AuxSecL1800: int
+      mutable AuxMocL1800: bool
+      mutable AuxLoL3600: float
+      mutable AuxSecL3600: int
+      mutable AuxMocL3600: bool
+      mutable AuxLoL7200: float
+      mutable AuxSecL7200: int
+      mutable AuxMocL7200: bool
+      mutable AuxLoL10800: float
+      mutable AuxSecL10800: int
+      mutable AuxMocL10800: bool
       // 🔄 v-fork exit re-sweep (user 2026-08-26): {3,4,6,7,8,9}m rungs beside
       // the inherited {1,2,5,10,20}m — the 7m cover was tuned on 1m bars.
-      AuxLo180: float
-      AuxSec180: int
-      AuxMoc180: bool
-      AuxLo240: float
-      AuxSec240: int
-      AuxMoc240: bool
-      AuxLo360: float
-      AuxSec360: int
-      AuxMoc360: bool
-      AuxLo420: float
-      AuxSec420: int
-      AuxMoc420: bool
-      AuxLo480: float
-      AuxSec480: int
-      AuxMoc480: bool
-      AuxLo540: float
-      AuxSec540: int
-      AuxMoc540: bool
-      AuxLo660: float
-      AuxSec660: int
-      AuxMoc660: bool
-      AuxLo720: float
-      AuxSec720: int
-      AuxMoc720: bool
-      AuxLo780: float
-      AuxSec780: int
-      AuxMoc780: bool
-      AuxLo840: float
-      AuxSec840: int
-      AuxMoc840: bool
-      AuxLo900: float
-      AuxSec900: int
-      AuxMoc900: bool
-      AuxLo960: float
-      AuxSec960: int
-      AuxMoc960: bool
-      AuxLo1020: float
-      AuxSec1020: int
-      AuxMoc1020: bool
-      AuxLo1080: float
-      AuxSec1080: int
-      AuxMoc1080: bool
-      AuxLo1140: float
-      AuxSec1140: int
-      AuxMoc1140: bool
+      mutable AuxLo180: float
+      mutable AuxSec180: int
+      mutable AuxMoc180: bool
+      mutable AuxLo240: float
+      mutable AuxSec240: int
+      mutable AuxMoc240: bool
+      mutable AuxLo360: float
+      mutable AuxSec360: int
+      mutable AuxMoc360: bool
+      mutable AuxLo420: float
+      mutable AuxSec420: int
+      mutable AuxMoc420: bool
+      mutable AuxLo480: float
+      mutable AuxSec480: int
+      mutable AuxMoc480: bool
+      mutable AuxLo540: float
+      mutable AuxSec540: int
+      mutable AuxMoc540: bool
+      mutable AuxLo660: float
+      mutable AuxSec660: int
+      mutable AuxMoc660: bool
+      mutable AuxLo720: float
+      mutable AuxSec720: int
+      mutable AuxMoc720: bool
+      mutable AuxLo780: float
+      mutable AuxSec780: int
+      mutable AuxMoc780: bool
+      mutable AuxLo840: float
+      mutable AuxSec840: int
+      mutable AuxMoc840: bool
+      mutable AuxLo900: float
+      mutable AuxSec900: int
+      mutable AuxMoc900: bool
+      mutable AuxLo960: float
+      mutable AuxSec960: int
+      mutable AuxMoc960: bool
+      mutable AuxLo1020: float
+      mutable AuxSec1020: int
+      mutable AuxMoc1020: bool
+      mutable AuxLo1080: float
+      mutable AuxSec1080: int
+      mutable AuxMoc1080: bool
+      mutable AuxLo1140: float
+      mutable AuxSec1140: int
+      mutable AuxMoc1140: bool
       // ⭐ LongHiker grafts (2026-08-26): EWMA tightness (EwmaVarMa of ln slot
       // vwap over the SAME slot stream as volat — tight = std/volat is
       // dimensionless; ~6 = random walk, coil = left tail), lagged twins at
@@ -851,33 +851,33 @@ type FlushPosition =
       // Σvol. Both PARTIAL-TOLERANT (early-session window = session-so-far mean).
       // Unresolved marks fill at the MOC bar / day-end (sec >= MocSec = the moc
       // fallback, distinguishable post-hoc).
-      Ma10Px: float
-      Ma10Sec: int
-      Ma20Px: float
-      Ma20Sec: int
-      Ma30Px: float
-      Ma30Sec: int
-      Ma40Px: float
-      Ma40Sec: int
-      Ma50Px: float
-      Ma50Sec: int
-      Ma60Px: float
-      Ma60Sec: int
-      Vwma10Px: float
-      Vwma10Sec: int
-      Vwma20Px: float
-      Vwma20Sec: int
-      Vwma30Px: float
-      Vwma30Sec: int
-      Vwma40Px: float
-      Vwma40Sec: int
-      Vwma50Px: float
-      Vwma50Sec: int
-      Vwma60Px: float
-      Vwma60Sec: int
+      mutable Ma10Px: float
+      mutable Ma10Sec: int
+      mutable Ma20Px: float
+      mutable Ma20Sec: int
+      mutable Ma30Px: float
+      mutable Ma30Sec: int
+      mutable Ma40Px: float
+      mutable Ma40Sec: int
+      mutable Ma50Px: float
+      mutable Ma50Sec: int
+      mutable Ma60Px: float
+      mutable Ma60Sec: int
+      mutable Vwma10Px: float
+      mutable Vwma10Sec: int
+      mutable Vwma20Px: float
+      mutable Vwma20Sec: int
+      mutable Vwma30Px: float
+      mutable Vwma30Sec: int
+      mutable Vwma40Px: float
+      mutable Vwma40Sec: int
+      mutable Vwma50Px: float
+      mutable Vwma50Sec: int
+      mutable Vwma60Px: float
+      mutable Vwma60Sec: int
       // ----- exit -----
-      BarsHeld: int              // present bars from the fill bar to the exit-fill bar
-      State: IntraPosState }
+      mutable BarsHeld: int              // present bars from the fill bar to the exit-fill bar
+      mutable State: IntraPosState }
 
 /// ⭐ RIGHT-SIDE-OF-V CONTINUATION (user, 2026-07-29 — Lance Breitstein's concept).
 /// Parent = a SPEC v1.2 reversal trip. After the parent's ENTRY FILL, the first
@@ -2361,14 +2361,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         // ===== 3. fill pendings at THIS bar's vwap (signals from the prior bar) =====
         match pendingEntry with
         | ValueSome p ->
-            let filled = { p with EntrySec = bar.etSec; EntryPx = bar.vwap }
-            active.Add filled
+            p.EntrySec <- bar.etSec; p.EntryPx <- bar.vwap   // in-place (mutable trip record, 2026-09-05)
+            active.Add p
             pendingEntry <- ValueNone
         | ValueNone -> ()
         for i in 0 .. active.Count - 1 do
             match active.[i].State with
             | PendingExit reason ->
-                active.[i] <- { active.[i] with State = ExitedAt (bar.etSec, bar.vwap, reason) }
+                active.[i].State <- ExitedAt (bar.etSec, bar.vwap, reason)
                 // S40l (S38i): the day-scoped virgin clock — count target exits
                 // at their FILL (the bounce is real once the exit prints).
                 if reason = "target" then targetsToday <- targetsToday + 1
@@ -2756,62 +2756,133 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             // never read each other's outputs within a bar (only the retire check
             // below reads the final record), so one copy is semantically identical
             // (zero-diff on the 10-day rr8 test, trip keys + mark columns).
-            let p =
-                { p with
-                    FwdVwap60 = fwd60
-                    FwdVwap300 = fwd300
-                    FwdVwap600 = fwd600
-                    FwdVwap1200 = fwd1200
-                    AvwapCumDv1h = cdv1h; AvwapCumVol1h = cvol1h; AvwapChkSec1h = chk1h
-                    Avwap1h = (if chk1h >= 0 && cvol1h - p.CumVol > 0.0 then (cdv1h - p.CumDv) / (cvol1h - p.CumVol) else nan)
-                    PostChkLo300Px1h = plo1h; PostChkLo300Sec1h = pls1h; PostChkLo300Moc1h = plm1h
-                    AvwapCumDv2h = cdv2h; AvwapCumVol2h = cvol2h; AvwapChkSec2h = chk2h
-                    Avwap2h = (if chk2h >= 0 && cvol2h - p.CumVol > 0.0 then (cdv2h - p.CumDv) / (cvol2h - p.CumVol) else nan)
-                    PostChkLo300Px2h = plo2h; PostChkLo300Sec2h = pls2h; PostChkLo300Moc2h = plm2h
-                    AvwapCumDv3h = cdv3h; AvwapCumVol3h = cvol3h; AvwapChkSec3h = chk3h
-                    Avwap3h = (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
-                    PostChkLo300Px3h = plo3h; PostChkLo300Sec3h = pls3h; PostChkLo300Moc3h = plm3h
-                    As300 = as300
-                    As600 = as600
-                    As1200 = as1200
-                    AuxLo60 = hi60; AuxSec60 = sc60; AuxMoc60 = mc60
-                    AuxLo120 = hi120; AuxSec120 = sc120; AuxMoc120 = mc120
-                    AuxLo300 = hi300; AuxSec300 = sc300; AuxMoc300 = mc300
-                    AuxLo600 = hi600; AuxSec600 = sc600; AuxMoc600 = mc600
-                    AuxLo1200 = hi1200; AuxSec1200 = sc1200; AuxMoc1200 = mc1200
-                    AuxLoL1800 = hiL1800; AuxSecL1800 = scL1800; AuxMocL1800 = mcL1800
-                    AuxLoL3600 = hiL3600; AuxSecL3600 = scL3600; AuxMocL3600 = mcL3600
-                    AuxLoL7200 = hiL7200; AuxSecL7200 = scL7200; AuxMocL7200 = mcL7200
-                    AuxLoL10800 = hiL10800; AuxSecL10800 = scL10800; AuxMocL10800 = mcL10800
-                    AuxLo180 = hi180; AuxSec180 = sc180; AuxMoc180 = mc180
-                    AuxLo240 = hi240; AuxSec240 = sc240; AuxMoc240 = mc240
-                    AuxLo360 = hi360; AuxSec360 = sc360; AuxMoc360 = mc360
-                    AuxLo420 = hi420; AuxSec420 = sc420; AuxMoc420 = mc420
-                    AuxLo480 = hi480; AuxSec480 = sc480; AuxMoc480 = mc480
-                    AuxLo540 = hi540; AuxSec540 = sc540; AuxMoc540 = mc540
-                    AuxLo660 = hi660; AuxSec660 = sc660; AuxMoc660 = mc660
-                    AuxLo720 = hi720; AuxSec720 = sc720; AuxMoc720 = mc720
-                    AuxLo780 = hi780; AuxSec780 = sc780; AuxMoc780 = mc780
-                    AuxLo840 = hi840; AuxSec840 = sc840; AuxMoc840 = mc840
-                    AuxLo900 = hi900; AuxSec900 = sc900; AuxMoc900 = mc900
-                    AuxLo960 = hi960; AuxSec960 = sc960; AuxMoc960 = mc960
-                    AuxLo1020 = hi1020; AuxSec1020 = sc1020; AuxMoc1020 = mc1020
-                    AuxLo1080 = hi1080; AuxSec1080 = sc1080; AuxMoc1080 = mc1080
-                    AuxLo1140 = hi1140; AuxSec1140 = sc1140; AuxMoc1140 = mc1140
-                    Ma10Px = m10p; Ma10Sec = m10s
-                    Ma20Px = m20p; Ma20Sec = m20s
-                    Ma30Px = m30p; Ma30Sec = m30s
-                    Ma40Px = m40p; Ma40Sec = m40s
-                    Ma50Px = m50p; Ma50Sec = m50s
-                    Ma60Px = m60p; Ma60Sec = m60s
-                    Vwma10Px = v10p; Vwma10Sec = v10s
-                    Vwma20Px = v20p; Vwma20Sec = v20s
-                    Vwma30Px = v30p; Vwma30Sec = v30s
-                    Vwma40Px = v40p; Vwma40Sec = v40s
-                    Vwma50Px = v50p; Vwma50Sec = v50s
-                    Vwma60Px = v60p; Vwma60Sec = v60s
-                    BarsHeld = barsHeld
-                    State = state }
+            // in-place per-bar update (mutable trip record, 2026-09-05; zero-diff vs the copy loop)
+            p.FwdVwap60 <- fwd60
+            p.FwdVwap300 <- fwd300
+            p.FwdVwap600 <- fwd600
+            p.FwdVwap1200 <- fwd1200
+            p.AvwapCumDv1h <- cdv1h
+            p.AvwapCumVol1h <- cvol1h
+            p.AvwapChkSec1h <- chk1h
+            p.Avwap1h <- (if chk1h >= 0 && cvol1h - p.CumVol > 0.0 then (cdv1h - p.CumDv) / (cvol1h - p.CumVol) else nan)
+            p.PostChkLo300Px1h <- plo1h
+            p.PostChkLo300Sec1h <- pls1h
+            p.PostChkLo300Moc1h <- plm1h
+            p.AvwapCumDv2h <- cdv2h
+            p.AvwapCumVol2h <- cvol2h
+            p.AvwapChkSec2h <- chk2h
+            p.Avwap2h <- (if chk2h >= 0 && cvol2h - p.CumVol > 0.0 then (cdv2h - p.CumDv) / (cvol2h - p.CumVol) else nan)
+            p.PostChkLo300Px2h <- plo2h
+            p.PostChkLo300Sec2h <- pls2h
+            p.PostChkLo300Moc2h <- plm2h
+            p.AvwapCumDv3h <- cdv3h
+            p.AvwapCumVol3h <- cvol3h
+            p.AvwapChkSec3h <- chk3h
+            p.Avwap3h <- (if chk3h >= 0 && cvol3h - p.CumVol > 0.0 then (cdv3h - p.CumDv) / (cvol3h - p.CumVol) else nan)
+            p.PostChkLo300Px3h <- plo3h
+            p.PostChkLo300Sec3h <- pls3h
+            p.PostChkLo300Moc3h <- plm3h
+            p.As300 <- as300
+            p.As600 <- as600
+            p.As1200 <- as1200
+            p.AuxLo60 <- hi60
+            p.AuxSec60 <- sc60
+            p.AuxMoc60 <- mc60
+            p.AuxLo120 <- hi120
+            p.AuxSec120 <- sc120
+            p.AuxMoc120 <- mc120
+            p.AuxLo300 <- hi300
+            p.AuxSec300 <- sc300
+            p.AuxMoc300 <- mc300
+            p.AuxLo600 <- hi600
+            p.AuxSec600 <- sc600
+            p.AuxMoc600 <- mc600
+            p.AuxLo1200 <- hi1200
+            p.AuxSec1200 <- sc1200
+            p.AuxMoc1200 <- mc1200
+            p.AuxLoL1800 <- hiL1800
+            p.AuxSecL1800 <- scL1800
+            p.AuxMocL1800 <- mcL1800
+            p.AuxLoL3600 <- hiL3600
+            p.AuxSecL3600 <- scL3600
+            p.AuxMocL3600 <- mcL3600
+            p.AuxLoL7200 <- hiL7200
+            p.AuxSecL7200 <- scL7200
+            p.AuxMocL7200 <- mcL7200
+            p.AuxLoL10800 <- hiL10800
+            p.AuxSecL10800 <- scL10800
+            p.AuxMocL10800 <- mcL10800
+            p.AuxLo180 <- hi180
+            p.AuxSec180 <- sc180
+            p.AuxMoc180 <- mc180
+            p.AuxLo240 <- hi240
+            p.AuxSec240 <- sc240
+            p.AuxMoc240 <- mc240
+            p.AuxLo360 <- hi360
+            p.AuxSec360 <- sc360
+            p.AuxMoc360 <- mc360
+            p.AuxLo420 <- hi420
+            p.AuxSec420 <- sc420
+            p.AuxMoc420 <- mc420
+            p.AuxLo480 <- hi480
+            p.AuxSec480 <- sc480
+            p.AuxMoc480 <- mc480
+            p.AuxLo540 <- hi540
+            p.AuxSec540 <- sc540
+            p.AuxMoc540 <- mc540
+            p.AuxLo660 <- hi660
+            p.AuxSec660 <- sc660
+            p.AuxMoc660 <- mc660
+            p.AuxLo720 <- hi720
+            p.AuxSec720 <- sc720
+            p.AuxMoc720 <- mc720
+            p.AuxLo780 <- hi780
+            p.AuxSec780 <- sc780
+            p.AuxMoc780 <- mc780
+            p.AuxLo840 <- hi840
+            p.AuxSec840 <- sc840
+            p.AuxMoc840 <- mc840
+            p.AuxLo900 <- hi900
+            p.AuxSec900 <- sc900
+            p.AuxMoc900 <- mc900
+            p.AuxLo960 <- hi960
+            p.AuxSec960 <- sc960
+            p.AuxMoc960 <- mc960
+            p.AuxLo1020 <- hi1020
+            p.AuxSec1020 <- sc1020
+            p.AuxMoc1020 <- mc1020
+            p.AuxLo1080 <- hi1080
+            p.AuxSec1080 <- sc1080
+            p.AuxMoc1080 <- mc1080
+            p.AuxLo1140 <- hi1140
+            p.AuxSec1140 <- sc1140
+            p.AuxMoc1140 <- mc1140
+            p.Ma10Px <- m10p
+            p.Ma10Sec <- m10s
+            p.Ma20Px <- m20p
+            p.Ma20Sec <- m20s
+            p.Ma30Px <- m30p
+            p.Ma30Sec <- m30s
+            p.Ma40Px <- m40p
+            p.Ma40Sec <- m40s
+            p.Ma50Px <- m50p
+            p.Ma50Sec <- m50s
+            p.Ma60Px <- m60p
+            p.Ma60Sec <- m60s
+            p.Vwma10Px <- v10p
+            p.Vwma10Sec <- v10s
+            p.Vwma20Px <- v20p
+            p.Vwma20Sec <- v20s
+            p.Vwma30Px <- v30p
+            p.Vwma30Sec <- v30s
+            p.Vwma40Px <- v40p
+            p.Vwma40Sec <- v40s
+            p.Vwma50Px <- v50p
+            p.Vwma50Sec <- v50s
+            p.Vwma60Px <- v60p
+            p.Vwma60Sec <- v60s
+            p.BarsHeld <- barsHeld
+            p.State <- state
             // retire when exited AND the last (+1200s) mark has filled — a bar
             // that fills the 1200s mark also fills the 60/300/600 ones — AND no
             // aux mark is about to fill off THIS bar's high (an unset mark whose
@@ -3584,28 +3655,38 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         pendingEntry <- ValueNone
         for i in 0 .. active.Count - 1 do
             let p = active.[i]
-            let p =
-                match p.State with
-                | Holding | PendingExit _ -> { p with State = ExitedAt (lastBar.etSec, lastBar.vwap, "moc") }
-                | ExitedAt _ -> p
+            (match p.State with
+                | Holding | PendingExit _ -> p.State <- ExitedAt (lastBar.etSec, lastBar.vwap, "moc")
+                | ExitedAt _ -> ()
             // MA-exit marks: resolve stragglers at the day's last bar (early
             // closes / thin tapes whose final print lands before MocSec)
+            )
             let inline fin px = if Double.IsNaN px then lastBar.vwap else px
             let inline finSec px sec = if Double.IsNaN px then lastBar.etSec else sec
-            active.[i] <-
-                { p with
-                    Ma10Sec = finSec p.Ma10Px p.Ma10Sec; Ma10Px = fin p.Ma10Px
-                    Ma20Sec = finSec p.Ma20Px p.Ma20Sec; Ma20Px = fin p.Ma20Px
-                    Ma30Sec = finSec p.Ma30Px p.Ma30Sec; Ma30Px = fin p.Ma30Px
-                    Ma40Sec = finSec p.Ma40Px p.Ma40Sec; Ma40Px = fin p.Ma40Px
-                    Ma50Sec = finSec p.Ma50Px p.Ma50Sec; Ma50Px = fin p.Ma50Px
-                    Ma60Sec = finSec p.Ma60Px p.Ma60Sec; Ma60Px = fin p.Ma60Px
-                    Vwma10Sec = finSec p.Vwma10Px p.Vwma10Sec; Vwma10Px = fin p.Vwma10Px
-                    Vwma20Sec = finSec p.Vwma20Px p.Vwma20Sec; Vwma20Px = fin p.Vwma20Px
-                    Vwma30Sec = finSec p.Vwma30Px p.Vwma30Sec; Vwma30Px = fin p.Vwma30Px
-                    Vwma40Sec = finSec p.Vwma40Px p.Vwma40Sec; Vwma40Px = fin p.Vwma40Px
-                    Vwma50Sec = finSec p.Vwma50Px p.Vwma50Sec; Vwma50Px = fin p.Vwma50Px
-                    Vwma60Sec = finSec p.Vwma60Px p.Vwma60Sec; Vwma60Px = fin p.Vwma60Px
-                    As300 = armedFlatten p.As300 lastBar
-                    As600 = armedFlatten p.As600 lastBar
-                    As1200 = armedFlatten p.As1200 lastBar }
+            p.Ma10Sec <- finSec p.Ma10Px p.Ma10Sec
+            p.Ma10Px <- fin p.Ma10Px
+            p.Ma20Sec <- finSec p.Ma20Px p.Ma20Sec
+            p.Ma20Px <- fin p.Ma20Px
+            p.Ma30Sec <- finSec p.Ma30Px p.Ma30Sec
+            p.Ma30Px <- fin p.Ma30Px
+            p.Ma40Sec <- finSec p.Ma40Px p.Ma40Sec
+            p.Ma40Px <- fin p.Ma40Px
+            p.Ma50Sec <- finSec p.Ma50Px p.Ma50Sec
+            p.Ma50Px <- fin p.Ma50Px
+            p.Ma60Sec <- finSec p.Ma60Px p.Ma60Sec
+            p.Ma60Px <- fin p.Ma60Px
+            p.Vwma10Sec <- finSec p.Vwma10Px p.Vwma10Sec
+            p.Vwma10Px <- fin p.Vwma10Px
+            p.Vwma20Sec <- finSec p.Vwma20Px p.Vwma20Sec
+            p.Vwma20Px <- fin p.Vwma20Px
+            p.Vwma30Sec <- finSec p.Vwma30Px p.Vwma30Sec
+            p.Vwma30Px <- fin p.Vwma30Px
+            p.Vwma40Sec <- finSec p.Vwma40Px p.Vwma40Sec
+            p.Vwma40Px <- fin p.Vwma40Px
+            p.Vwma50Sec <- finSec p.Vwma50Px p.Vwma50Sec
+            p.Vwma50Px <- fin p.Vwma50Px
+            p.Vwma60Sec <- finSec p.Vwma60Px p.Vwma60Sec
+            p.Vwma60Px <- fin p.Vwma60Px
+            p.As300 <- armedFlatten p.As300 lastBar
+            p.As600 <- armedFlatten p.As600 lastBar
+            p.As1200 <- armedFlatten p.As1200 lastBar

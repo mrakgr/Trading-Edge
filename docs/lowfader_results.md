@@ -444,3 +444,9 @@ byte-identical on all 319 columns. **Benchmark: the 80,458 trip-tkd rerun 1,872 
 identical corpus; trip days now cost ~6 ms = the trip-free rate. Expanded-universe estimates drop to
 ~2.5 h (full period, mirrors) / ~5 h (no prepass). Next: port to FlushFader/SpikeFader/MaxFader
 (same loop), then a per-ticker channel pipeline (the day loop uses ~4 cores).
+**§L6 addendum — the port.** The same change on SpikeFader (101 mutable fields), MaxFader (128) and FlushFader (41 + the
+five-copy loop's `State`/`BarsHeld` match arms rewritten as statements), all byte-identical to their reference corpora:
+SpikeFader 1,409 smoke trips / 470 cols vs `spikefader_s47`; MaxFader the whole `rr8` corpus 182,291 trips / 531 cols
+(76 s); FlushFader 62 trips / 312 cols vs `v49_spec20` (⚠ that run predates the `--min-lows-180 3` default — reproduce
+it with `--min-lows-180 0`; the equity scripts apply the floor post-hoc). Port script:
+`scratchpad/port_mutable.py` pattern (collect the fields from every `{ p with … }`, mark, replace).
