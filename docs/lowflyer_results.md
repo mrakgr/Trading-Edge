@@ -1232,3 +1232,77 @@ its crutches removed.
 ⏭ **Owed:** re-tune at mc=1. Every production threshold was fitted against the mc=0 book.
 
 ---
+
+---
+
+## 2026-09-05 — by-year robustness + the §S39d UNIVERSE CONTROL (LowFlyer on `mr_candidate_1s`)
+
+**Book regenerated** (`scripts/equity/lowflyer_run_prod.sh` → `data/lowflyer_long_prod.csv`,
+production gates, 2003-09..2026-06; selection `scripts/equity/lowflyer_by_year.sql`):
+**1,107 trips, raw PF 3.38, clip 3.37, sized 4.05, win 68.0%, avg +3.18%, worst −23.3%,
+0.27% < −20%** (doc reference 1,109 @ 3.38 — reproduced).
+
+| year | n | PF | sized | win% | avg% | worst% |
+|---|---:|---:|---:|---:|---:|---:|
+| 2011 | 8 | 0.74 | 2.23 | 50.0 | −0.43 | −6.1 |
+| 2012 | 8 | 1.80 | 1.29 | 37.5 | 1.05 | −3.8 |
+| 2013 | 10 | 18.96 | 35.9 | 90.0 | 2.66 | −1.5 |
+| 2014 | 16 | 2.08 | 1.54 | 68.8 | 1.37 | −8.1 |
+| 2015 | 23 | 2.09 | 2.22 | 65.2 | 1.18 | −8.0 |
+| 2016 | 25 | 1.72 | 1.73 | 64.0 | 1.23 | −12.4 |
+| 2017 | 37 | 1.87 | 2.56 | 56.8 | 1.52 | −18.9 |
+| 2018 | 33 | 3.87 | 2.48 | 78.8 | 3.91 | −13.1 |
+| 2019 | 56 | 3.32 | 3.06 | 69.6 | 3.07 | −11.5 |
+| 2020 | 192 | 4.24 | 5.13 | 70.3 | 3.76 | −22.9 |
+| 2021 | 228 | 5.76 | 7.51 | 71.5 | 4.22 | −15.7 |
+| 2022 | 91 | 2.55 | 4.06 | 62.6 | 2.96 | −23.3 |
+| 2023 | 97 | 2.80 | 3.08 | 66.0 | 2.81 | −15.6 |
+| 2024 | 118 | 2.84 | 2.91 | 64.4 | 3.21 | −13.3 |
+| 2025 | 133 | 3.12 | 3.61 | 70.7 | 2.86 | −11.5 |
+| 2026 | 32 | 2.51 | 2.76 | 62.5 | 2.07 | −8.5 |
+
+Eras: 2011–16 90 @ 1.98 · 2017–19 126 @ 2.94 · 2020–21 420 @ 4.96 · 2022–26 471 @ 2.81. Positive
+every year from 2012; no modern year under 2.5.
+
+### The universe control (user: "make sure LowFlyer is using the same candidates LowFader uses")
+
+`mr_candidate` carries the §S39d lookaheads (ADJUSTED `day_close ≥ $1` = a future-reverse-split
+selector; future-episode warmup) and the 1m book's ADV gate is `avgvol20 × day_close` — two day-D
+quantities. The engine got `--candidate-table` (bars are rescaled by the chosen table's own
+`adj_ratio`, so every in-engine ratio stays self-consistent; the four 1m-only RECORD columns are
+left-joined from `mr_candidate`). Run on **`mr_candidate_1s`** (clean: no price floor, no warmup, its
+own CAUSAL floors `dv_0945_tape ≥ $2M` ∧ `n_bars_1s ≥ 200`), 2016-08-08..2026-06-25, same engine gates
+(`lowflyer_run_clean.sh` → `data/lowflyer_long_clean.csv`; `lowflyer_universe_control.sql`).
+
+**Gated books, same window:** legacy 40,929 trips @ 1.471, **29.4% of entries under $1 RAW**; clean
+35,558 @ 1.182, 2.7% sub-$1. Only 15,577 trips are common.
+
+**Production spec × universe × ADV convention (2016-08..2026-06):**
+
+| ADV convention | legacy n | PF | clean n | PF | legacy sub-$1 | clean sub-$1 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1m book (`avgvol20×day_close` ≥ $500k ∧ rvol ≥ 0.1) | 1,022 | 3.50 | 313 | 3.50 | 37.1% | 13.4% |
+| causal (`avgvol20_prior × prev_close` ≥ $500k) | 478 | 3.27 | 305 | 3.22 | 10.0% | 10.8% |
+| no ADV / rvol | 1,072 | 3.43 | 372 | 3.41 | 39.2% | 12.6% |
+
+**⭐ PF is indifferent to the universe (3.27 vs 3.22; 3.50 vs 3.50) — the control passes on PF.
+The trip COUNT does not: the 1m book's ~1,100 is a 3× overstatement.** Two artifacts, both size:
+1. **The day-D ADV gate barely gates** (1,072 → 1,022) while the causal one halves the legacy book
+   (→ 478): `avgvol20` includes day D, so an illiquid name passes on its own big day. Not a PF lever
+   (the 1s port already found ADV inert) — a COUNT inflator.
+2. **The adjusted-$1 floor admits sub-$1 raw names that will reverse-split.** Legacy-only gated trips
+   (25,352): 98.1% have raw morning dollar volume < $2M (median $519k — that is why the clean table
+   lacks them), and the sub-$1 ones (11,448) are **99.5% `adj_ratio ≠ 1`, median adj_ratio 60** —
+   names admitted because their FUTURE-adjusted close cleared $1. The §S43v class, on the long side.
+
+**Clean book by year (causal ADV):** 2017 7 @ 6.49 · 2018 6 @ 5.64 · 2019 10 @ 1.07 · 2020 46 @ 1.89 ·
+2021 103 @ 8.07 · 2022 24 @ 2.75 · 2023 13 @ 1.41 · 2024 13 @ 2.21 · 2025 60 @ 1.88 · 2026 21 @ 5.36.
+Positive every year, ~30/yr, worst −22.9%. Churn: the 253 legacy trips absent from the clean table
+read PF 3.20 (median raw px $1.82) — same PF as the 225 common ones (3.33); the 81 clean-only trips
+(no price floor) 3.01. Clean book by raw price: <$1 33 @ 11.0 · $1–2 67 @ 6.69 · $2–5 89 @ 1.97 ·
+$5–10 71 @ 3.07 · ≥$10 45 @ 1.64 — the cheap names carry the PF here too (⚠ sub-$1 is fee-dead).
+
+**Verdict:** LowFlyer's EDGE survives the clean universe; its SIZE was the lookahead. The reference
+book from here is the clean one (`--candidate-table mr_candidate_1s`, causal ADV): **~305 trips /
+10 yr @ PF 3.2**, consistent with the 1s port (§L3: 105 trips 2020–26 @ PF−1 3.42). ADV/rvol are
+count gates, not PF gates.

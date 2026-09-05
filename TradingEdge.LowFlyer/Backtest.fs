@@ -181,14 +181,32 @@ let private toTrip (c: Candidate) (notional: float) (short: bool) (pos: Intraday
 // ===========================================================================
 // Pipeline 1 — read qualifying (ticker, day) rows from mr_candidate.
 // ===========================================================================
-let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
+let private readCandidates (conn: DuckDBConnection) (candTable: string) (startDate: DateOnly) (endDate: DateOnly) : Candidate[] =
     use cmd = conn.CreateCommand()
-    cmd.CommandText <-
-        "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
-                close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
-         FROM mr_candidate
-         WHERE date >= $start AND date <= $end
-         ORDER BY ticker, date"
+    // 2026-09-05 LOOKAHEAD CONTROL: the universe table is swappable (`--candidate-table`). `mr_candidate`
+    // carries the §S39d lookaheads (adjusted $1 floor + future-episode warmup); `mr_candidate_1s` is the
+    // clean 1s-tape-native table (no price floor, no warmup) — the universe LowFader runs on. The daily
+    // price columns + adj_ratio come from the chosen table (bars are rescaled by ITS adj_ratio, so every
+    // in-engine ratio stays self-consistent). The four 1m-only RECORD columns (day_open,
+    // med_bar_vol_0945, nbar_0945, vol_0945 → pct_chg_since_open / bar_rvol_15m; NOT gates) are
+    // left-joined from mr_candidate and read as NaN/0 when absent. Identifier-only, never user text.
+    if not (Text.RegularExpressions.Regex.IsMatch(candTable, "^[A-Za-z_][A-Za-z0-9_]*$")) then
+        failwithf "bad candidate table name %A" candTable
+    let sql =
+        if candTable = "mr_candidate" then
+            "SELECT ticker, date, prev_adj_close, close_3d, close_7d, day_close, adj_ratio, avgvol20,
+                    close_fwd_1d, close_fwd_3d, close_fwd_5d, day_open, med_bar_vol_0945, nbar_0945, vol_0945
+             FROM mr_candidate
+             WHERE date >= $start AND date <= $end
+             ORDER BY ticker, date"
+        else
+            sprintf "SELECT c.ticker, c.date, c.prev_adj_close, c.close_3d, c.close_7d, c.day_close, c.adj_ratio, c.avgvol20,
+                    c.close_fwd_1d, c.close_fwd_3d, c.close_fwd_5d, m.day_open, m.med_bar_vol_0945, m.nbar_0945, m.vol_0945
+             FROM %s c LEFT JOIN mr_candidate m ON m.ticker = c.ticker AND m.date = c.date
+             WHERE c.date >= $start AND c.date <= $end
+               AND c.prev_adj_close IS NOT NULL AND c.adj_ratio IS NOT NULL
+             ORDER BY c.ticker, c.date" candTable
+    cmd.CommandText <- sql
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore
     let out = ResizeArray<Candidate>()
@@ -210,9 +228,9 @@ let private readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDa
               CloseFwd3d = dbl 9
               CloseFwd5d = dbl 10
               DayOpen = dbl 11
-              MedBarVol0945 = reader.GetInt64 12
-              NBar0945 = reader.GetInt32 13
-              Vol0945 = reader.GetInt64 14 })
+              MedBarVol0945 = (if reader.IsDBNull 12 then 0L else reader.GetInt64 12)
+              NBar0945 = (if reader.IsDBNull 13 then 0 else reader.GetInt32 13)
+              Vol0945 = (if reader.IsDBNull 14 then 0L else reader.GetInt64 14) })
     out.ToArray()
 
 // ===========================================================================
@@ -303,7 +321,7 @@ let collectTrips (conn: DuckDBConnection) (cfg: Config) (minuteDir: string)
 /// Run the whole LowFlyer backtest: read mr_candidate (pipeline 1), then the
 /// intraday breakout engine per candidate day (pipeline 2, grouped by date so
 /// each minute_aggs parquet opens at most once). Returns (trips, candidateCount).
-let run (dbPath: string) (minuteDir: string) (cfg: Config)
+let run (dbPath: string) (minuteDir: string) (candTable: string) (cfg: Config)
         (startDate: DateOnly) (endDate: DateOnly) : Trip[] * int =
     let connStr = $"Data Source={dbPath};ACCESS_MODE=READ_ONLY"
     use conn = new DuckDBConnection(connStr)
@@ -313,7 +331,7 @@ let run (dbPath: string) (minuteDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = readCandidates conn startDate endDate
+    let candidates = readCandidates conn candTable startDate endDate
     let trips = collectTrips conn cfg minuteDir candidates
     trips, candidates.Length
 

@@ -12,6 +12,7 @@ let private defaultCsv = "/tmp/lowflyer_trips.csv"
 
 type Args =
     | [<AltCommandLine("-d")>] Db_Path of string
+    | Candidate_Table of string
     | [<AltCommandLine("-m")>] Minute_Dir of string
     | Start_Date of string
     | End_Date of string
@@ -36,6 +37,7 @@ type Args =
         member s.Usage =
             match s with
             | Db_Path _ -> "Path to trading.db (DuckDB). Default: the shared data/trading.db."
+            | Candidate_Table _ -> "Universe table (identifier). Default mr_candidate (⚠ carries the §S39d lookaheads). mr_candidate_1s = the clean 1s-native table LowFader uses (2016-08+; no price floor). The 1m-only record columns are left-joined from mr_candidate."
             | Minute_Dir _ -> "Directory of minute_aggs parquet files. Default: data/minute_aggs."
             | Start_Date _ -> "Backtest start date (yyyy-MM-dd). Default 2003-09-10 (data min)."
             | End_Date _ -> "Backtest end date (yyyy-MM-dd). Default 2026-06-25 (minute-data max)."
@@ -60,6 +62,7 @@ let main argv =
     let parsed = parser.Parse argv
 
     let dbPath    = parsed.GetResult(Db_Path, defaultValue = defaultDb)
+    let candTable = parsed.GetResult(Candidate_Table, defaultValue = "mr_candidate")
     let minuteDir = parsed.GetResult(Minute_Dir, defaultValue = defaultMinuteDir)
     let startDate = parseDate (parsed.GetResult(Start_Date, defaultValue = "2003-09-10"))
     let endDate   = parseDate (parsed.GetResult(End_Date,   defaultValue = "2026-06-25"))
@@ -91,6 +94,7 @@ let main argv =
          | true,  true  -> "SHORT the new-session-LOW breakdown (momentum continuation)"
          | false, false -> "LONG the new-session-high pop")
     printfn "  db          = %s" dbPath
+    printfn "  candidates  = %s" candTable
     printfn "  minute_aggs = %s" minuteDir
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  entry from  = %02d:%02d ET   vol window = %d   side = %s   %s"
@@ -112,7 +116,7 @@ let main argv =
         (if Double.IsInfinity cfg.Intraday.MaxAtrPct then "off" else sprintf "<%.3f" cfg.Intraday.MaxAtrPct)
 
     let sw = Stopwatch.StartNew()
-    let trips, nCand = run dbPath minuteDir cfg startDate endDate
+    let trips, nCand = run dbPath minuteDir candTable cfg startDate endDate
     sw.Stop()
 
     writeCsv outPath trips
