@@ -239,3 +239,87 @@ peak −20..−15%), a knife below −30% (13–23% tails), ~0 above −5% — t
   is float-tightness and how much is filing status.
 * The engine is done: `TradingEdge.LowFader` = FlushFader + the session channel, MOC exit,
   causal daily gates, the volume-high mirror, the one-copy loop. Base corpus 1.4 GB kept.
+
+## §L4 — the REBUILD from scratch (2026-09-05): mc=0 marginals, volatility ceiling, EWMA efficiency, leg density
+
+**Frame (user):** rebuild the spec from nothing on the base corpus, mc=0 (sampler attribution) first, one
+feature at a time, MOC exit fixed. Every table carries **PF22 = PF on 2022–26 only**, because 2020–21 make
+every feature look monotone (user: "the only problem is that 2020 and 2021 are so good for this system").
+Scripts `scripts/analysis/lowfader_rebuild{,2..13}.py`; logs `data/lowfader_rebuild_*.log`.
+
+**L4a — the bare book and the VOLATILITY CEILING.** Every session low held to MOC: 1.75M trips / 80,458 tkd,
+PF 1.002 (mc=1 0.976); by year 1.44 / 1.26 / 0.93 / 0.87 / 0.85 / 0.81 / 0.85 — a zero after 2021.
+⚠ the corpus already floors `volat_20m` at 40bp (engine default `MinVolat20m = 0.004` + the prepass), so
+"every session low" = every session low at ≥ 40bp. By volat tier the bare book is a **monotone in the
+WRONG direction for a floor**: 40–60bp PF 1.27 (mc=1 1.08), 60–80 1.12, 80–100 0.95, 100–150 **0.72**,
+150+ 0.66 (37% win, 24% of trips < −20%), negative in EVERY year from 80bp up — *"the first time I've
+ever seen a consistent negative edge for buying low"* (a short there would pay; not this system).
+**Volatility is a CEILING here, the inverse of FlushFader's floor.** User set it at **100bp**
+(after a first pass at 60bp).
+
+**L4b — the intraday continuous features are 2020–21 features.** Inside 40–60bp: the FlushFader speed pair
+(`speed_1m`, `d1m`), `chg_20m`, `vol_vs_high` and `rr` each sort trips only in 2020–21 and fail the mc=1
+control after (speed <−3%: mc=0 1.41 → 2022+ ≤1.0; `rr` U-shaped, quiet end mildly positive; `vol_vs_high
+≥ 0.9` mc=1 −0.02, negative every modern year — LowFlyer's volume-confirm INVERTS as a marginal).
+⚠ `chg_20m` (and `eff_20m`) are **NaN on ~55% of trips** — the 20m VWAP needs 1,200 tradeable seconds on a
+sparse tape (median gap_1200 ≈ 600 s), so 91% of 09:45–10:00 signals have none; any hard gate on a
+20m-warm feature is a "not before ~10:15" rule — and the early signals are the BETTER ones (the bare
+40–60bp book is afternoon-best, 13:00–15:00 PF 1.6–1.7 vs 1.13 before 10:00 — the morning gate inverts).
+
+**L4c — marginal ≠ conditional (the reconciliation).** As marginals the daily changes read *decliner*
+(chg_3d −30..−20 best, LowFlyer's [−3,+30] band dead); but INSIDE the intraday-gated book (flush ∧
+vol_vs_high ∧ chg_20m, 2,410 mc=1 trips) the 3d band is LowFlyer's inverted-U with the peak at [−3,+15]
+(2.03 / 1.93 vs 1.09–1.44 elsewhere). The full 1m spec on the 40–100bp base, NO float, mc=1: **333 trips
+PF 2.52** (user: "2 to 2.5 without float" — float is the multiplier, not the source). Build-up: vol_vs_high
+1.18 → +chg_20m 1.41 → +chg_1d 1.49 → **+chg_3d 2.31** → +chg_7d 2.52. Remove-one: vol_vs_high → 1.41,
+chg_20m 1.74, chg_3d 1.82, chg_1d 1.90, chg_7d 2.31, flush floor 2.20 (worst −24 → −41). Drop flush+chg_1d+
+vol_vs_high → 1.14 (= base); the flush band collapses to the **−12% floor alone** (a 14-trip knife cut,
+PF 0.48; the ≤−0.7% side removes 3 trips). mc=0 marginals cannot recover this spec; the daily features only
+order winners once the event is defined. `chg_1d` 2022+ ladder: plateau 1.0–1.17 on [−30,−8], 0.8–0.9 on
+up-days, knife < −50% — user: "wouldn't make a winning system, but it makes sense to exclude the upper half".
+
+**L4d — EFFICIENCY.** Window `eff_10m` / `eff_20m` (signed; negative = a directional slide into the low):
+positive eff = a whipsaw against the trend = 0.80–0.87 and a knife above +0.15 (robust both eras); the
+directional side ~1.0 in 2022+. `eff_20m ≤ −0.9` (PF 4.47, 81% win) = **11 ticker-days**, 7 of them
+2020-03-10/18 (TRGP/PAA 97 trips at +23/+27%) — a per-trip n of 202 was a per-event n of 11. `eff_10m
+< −0.7 ∧ eff_20m < −0.3` fails NaN and deletes the best modern cell (eff_10m<−0.7 ∧ eff_20m NaN: 3,701 tkd
+PF22 1.13); `eff_20m` adds nothing inside `eff_10m` (non-monotone in 2022+). ⭐ **The EWMA efficiency**
+(SpikeFader's `EwmaEffMa`, Σ decayed r / Σ decayed |r|, half-lives 40/20/10 slot returns = 20m/10m/5m —
+PORTED into LowFader 2026-09-05 as `eff_ewma_20m/10m/5m`, record-only, byte-identical trip set, 100%
+filled, no warmth cliff; corpus `data/lowfader_wl_ewma` = the base rerun on the 80,458 trip-tkd whitelist
+`lowfader_trip_whitelist`, 45 min) **replaces the window pair outright**:
+
+| gate (40–100bp, mc=0) | n | tkd | PF | PF22 | win22 | tail% |
+|---|---:|---:|---:|---:|---:|---:|
+| eff_10m<−0.7 ∧ (eff_20m<−0.3 \| NaN) | 96k | 7,904 | 1.57 | 1.020 | 51.5 | 2.39 |
+| **eff_ewma_10m < −0.7** | 98k | 8,642 | 1.56 | **1.137** | 53.5 | **0.64** |
+| eff_ewma_20m < −0.7 | 95k | 8,324 | 1.44 | 1.129 | 53.4 | 0.61 |
+| eff_ewma_5m < −0.7 | 126k | 11,035 | 1.61 | 1.086 | 53.3 | 1.30 |
+
+Window vs EWMA `<−0.7` sets overlap at Jaccard 0.10 (ρ 0.62): EWMA-only 80k trips PF22 1.14 / tail 0.4%;
+window-only 92k PF22 1.00 / tail 2.5%. The three EWMA horizons are one feature (10m~20m ρ 0.97; any
+conjunction = the 10m gate). Knee at −0.7 (−0.5 0.99, −0.6 1.06, −0.7 1.14, −0.9 1.15). **ADOPTED:
+`eff_ewma_10m < −0.7`.**
+
+**L4e — LEG COUNTERS and the RATE.** Marginals flat in 2022+ (0.92–1.01 up to 60 lows). INSIDE the eff
+gate they order: `lows_since_first_low_600` 18–26 0.96 → 40–60 1.13 → **60–100 1.38** (2,533 tkd, 56% win)
+→ 100–200 1.14 → >200 0.24 (56 tkd, knife). Leg age 20–60 min best (1.26–1.60), >60 min 0.32. ⭐ **The
+RATE (user: "a really good idea"): `rate_600 = lows_since_first_low_600 / bars_since_first_low_600`** =
+new session lows per present bar over the WHOLE current leg (the leg = since the last 10m-HIGH reset; NOT
+a 10m lookback). Conditioned on `lows_600 ≥ 40` (601k / 30,229 tkd, PF22 0.977 — the count alone is
+inert): rate ≤0.03 **0.73** (a 40-low leg spread over 1,300+ bars = a grind, 45% win, every year <1) →
+0.03–0.15 ~1.0 → 0.15–0.175 1.11 → **0.175–0.2 1.44** → 0.2–0.5 1.0–1.8 (thin). Inside eff ∧ lows≥40
+(5,820 tkd PF22 1.18): rate ≥0.10 1.23 (5,085 tkd) · **≥0.15 1.30 (2,569 tkd, 57% win)** · ≥0.20 1.68 (848).
+Rate × age: a moderate rate SUSTAINED 30–60 min is the best cell; >2h collapses. ⚠ 2026 weakens as the
+rate tightens (1.19 → 0.81 → 0.57) — the reverse of 2025.
+
+**⭐ WORKING SPEC (user, 2026-09-05 PM):** `volat_20m ∈ (40, 100] bp ∧ eff_ewma_10m < −0.7 ∧
+lows_since_first_low_600 ≥ 40 ∧ rate_600 ≥ 0.15` → mc=0 30.6k trips / 2,569 tkd, PF 2.24, **PF22 1.30**,
+win22 57%, tail 0.56%. Not yet in: the −12% flush floor, `chg_1d ≤ −8%` (user leaning to it), the 7d-low
+band, `gap_adj_60` (dense tape 0.82 / sparse 1.08 — the strongest 2022+ marginal; "air pocket vs real
+selloff"), float. **Candidate tables now carry `low_m1/m3/m7/m20`** (causal prior-session lows in D's raw
+scale, total-return convention; `data/equity/daily_lows_causal.parquet`; `dlow_k = entry_px/low_mk − 1`,
+NEGATIVE = broke below): on the base every horizon peaks at **−10..−7% below the prior low** (PF22 1.25–1.35)
+and reads 0.83–0.93 when the session low still HOLDS above it — a fresh multi-day breakdown bounces, a
+pullback above last week's low does not; inside the eff window pair the −20..−3% band below the 7d low read
+PF22 1.24–1.49 at 54–60% win. ρ(dlow_3, chg_3d) = 0.81 — the 3d change was a proxy for this.

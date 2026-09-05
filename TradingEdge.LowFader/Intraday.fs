@@ -145,6 +145,12 @@ type FlushPosition =
       // live in [-1,1] and share the warmth convention (40 / 20 returns). -----
       Eff9Ema20m: float
       Eff9Ema10m: float
+      // ⭐ 2026-09-05 (user, LowFader rebuild): the EWMA efficiency twins ported from
+      // SpikeFader (EwmaEffMa, half-lives 40 / 20 slot returns): Σ decayed r / Σ decayed |r|
+      // — no window edge, no warmth cliff (nan below 3 pushes). Record-only.
+      EffEwma20m: float
+      EffEwma10m: float
+      EffEwma5m: float           // half-life 10 slot returns (a slot is 30 s)
       // ----- channel widths, ln(high/low) per present-bar window -----
       RngSess: float
       Rng600: float
@@ -1077,6 +1083,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotEma9 = EmaMa 9                       // 9-slot EMA of the slot vwaps
     let slotSgnSum = SumMa 40                    // Σ s·r over the eff_20m window
     let slotSgnSum20 = SumMa 20                  // ... and over the eff_10m window
+    let effEwma20m = EwmaEffMa 40.0                // 2026-09-05: the EWMA efficiency twins (SpikeFader port)
+    let effEwma10m = EwmaEffMa 20.0
+    let effEwma5m = EwmaEffMa 10.0
     // S40: slot-vwap extremes over the SAME 41/21-vwap spans the eff returns
     // cover — the range-eff numerators. Warmth aligns with the eff pair: the
     // 41st slot emission fills slotMax41 AND completes slotAbsSum's 40 returns.
@@ -1728,6 +1737,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                      | _ -> -1.0
                  slotSgnSum.Push (s * r)
                  slotSgnSum20.Push (s * r)
+                 effEwma20m.Push r                // 2026-09-05: SIGNED r into the EWMA efficiencies
+                 effEwma10m.Push r
+                 effEwma5m.Push r
                  // S39i: the same |r| into the smoothness windows
                  neffRet40.Push (NEffShannon.Zero.Add ar)
                  if neffRet40Count = 40 then neffRet40.Pop() else neffRet40Count <- neffRet40Count + 1
@@ -2293,6 +2305,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                          | ValueSome n, ValueSome d
                              when slotAbsSum20.Count = slotAbsSum20.WindowSize && d > 0.0 -> n / d
                          | _ -> nan)
+                      EffEwma20m = effEwma20m.Value
+                      EffEwma10m = effEwma10m.Value
+                      EffEwma5m = effEwma5m.Value
                       RngSess =
                         (match sessHigh.State, sessLow.State with
                          | ValueSome h, ValueSome l when l > 0.0 -> log (h / l)
