@@ -102,6 +102,7 @@ type CliArgs =
     | Min_Neff of float
     | Min_Bars of int
     | [<AltCommandLine("-t")>] Table of string
+    | Pattern of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -111,6 +112,7 @@ type CliArgs =
             | Min_Dv _ -> "dv_0945_tape floor in raw dollars (default: 2e6)."
             | Min_Neff _ -> "n_eff_shannon floor — ⚠ RETIRED as the gate (S43u), 0 = off (default: 0)."
             | Min_Bars _ -> "n_bars_1s floor over [09:30,09:45) = 900 - gap count. THE (A') gate (default: 200)."
+            | Pattern _ -> "File pattern inside slim-dir (default *.parquet). e.g. '2025-0[1-6]-*.parquet' for a pilot window (2026-09-05)."
             | Table _ -> "Destination table (default: mr_candidate_1s_v2). ⚠ v2 is the CAUSAL rebuild (S43br) with RENAMED columns; the engine still reads the legacy `mr_candidate_1s` until it is migrated."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_mr_candidate_1s.fsx")
@@ -138,7 +140,8 @@ let minBars = parsed.TryGetResult Min_Bars |> Option.defaultValue 200
 // which is exactly the failure mode CLAUDE.md rule 4 exists for. Swap the engine over
 // with FF_CANDIDATE_TABLE once the control run passes.
 let tbl = parsed.TryGetResult Table |> Option.defaultValue "mr_candidate_1s_v2"
-let glob = IO.Path.Combine(slimDir, "*.parquet").Replace("'", "''")
+let pattern = parsed.TryGetResult Pattern |> Option.defaultValue "*.parquet"
+let glob = IO.Path.Combine(slimDir, pattern).Replace("'", "''")
 
 // Seconds-since-ET-midnight anchors: premarket 04:00 = 14400, RTH open 09:30 = 34200,
 // scan boundary 09:45 = 35100. The liquidity window is [34200, 35100) — fully known by

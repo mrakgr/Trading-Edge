@@ -423,3 +423,24 @@ first qualifying bar.** mc=1 replay skipping the first k−1 trips (MOC | 10m): 
 S38 greedy replay at mc=1 is the wrong portfolio view for this system); the production question is the
 scaling-in rule (mc>1 / pyramid on each new qualifying low), and the 10m cover looks better at every ordinal.
 OPEN — the user's call on how to size the ladder.
+
+## §L6 — ENGINE: the mutable trip record (2026-09-05 evening) — 3.9× on trip days, zero-diff
+
+**Where the time went.** Raw tape reads are not the cost: a full day of 1s tape (11k tickers, 16–21M rows,
+~110 MB) materializes in 0.2–0.7 s (0.03 ms per ticker-day). The engine spent a median **7.1 ms per
+ticker-day** on the old universe (base run 489,058 tkd in 3,736 s — ⚠ NOT the "4 h" quoted earlier today,
+which was the whole chain), and **23 ms on trip-producing days** (the `ewma` rerun: 80,458 trip-tkd in
+1,872 s) — the trip record is ~700 fields (~5–6 KB) and the "one-copy" advance loop (2026-09-04) still
+allocated and copied the whole record per open trip per bar to change ~50 fields. User: *"we designed
+the engine so that we're doing immutable updates on the trips… that might have been a mistake."*
+
+**The change (LowFader first):** the 50 per-bar fields (`EntrySec/Px`, the 4 forward vwaps, the 9
+`AuxHi/AuxSec` pairs, the 12 `Ma*/Vwma*` `Px/Sec` pairs, `BarsHeld`, `State`) are `mutable`; the five
+`{ p with … }` sites (entry fill, pending-exit fill, the per-bar update, Flatten's MOC stamp, Flatten's
+MA-mark straggler resolution — `Sec` assigned before `Px` there since `finSec` reads the price) became
+in-place assignments. The ~650 feature fields stay immutable (written once at signal time). Nothing
+aliases a live trip (`.Positions` is read once after `Flatten`). Smoke: 2,713 trips on 2024-03-04/05
+byte-identical on all 319 columns. **Benchmark: the 80,458 trip-tkd rerun 1,872 s → 485 s (3.9×)**,
+identical corpus; trip days now cost ~6 ms = the trip-free rate. Expanded-universe estimates drop to
+~2.5 h (full period, mirrors) / ~5 h (no prepass). Next: port to FlushFader/SpikeFader/MaxFader
+(same loop), then a per-ticker channel pipeline (the day loop uses ~4 cores).
