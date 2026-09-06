@@ -1144,3 +1144,59 @@ knows (41% X vs 56%).
 ceiling, eff) adds trades at PF ≤ 1.7 or re-opens the tail. The engine's `spec_ord` gates stay = FINAL v3.1 (WIDE is a post-hoc
 frame on the 30bp-floor corpus); if WIDE is adopted for trading, mirror it into the Ord gates (`OrdVolatLo 0.003`,
 `OrdMaxGapAdj60 60`, `OrdMaxCrf −0.001`) — three defaults, no code.
+
+## §L22 — the STRICT spec as a sizing tier of the WIDE book: the ENTRY-SHIFT cost, and where the strict spec's value actually sits (2026-09-06, user)
+
+User: loosen the spec, keep the original (FINAL v3.1) as the middle tier. Scripts `lowfader_wide_grades.py`, logs
+`data/lowfader_wide_{grades,entry_shift}.log`, `data/lowfader_wide2.log`. Corpus `data/lowfader_wl_wide`.
+
+**1. ⚠ A looser spec changes WHICH BAR the strict days enter on.** On the WIDE book only 45 of the 84 strict ticker-days enter on
+their strict bar; on the other 39 a looser bar fires first (median 6 s earlier, 0.44% higher), and that entry is worse on 34 of
+the 39 days: strict-bar PF 9.32 / avg 4.55% / net 177 vs WIDE-bar 3.39 / 2.87% / 112, worst −6.2 → −12.8. Cause: crf ∈ (−0.2,
+−0.1] on 21 of the 39 (crf is the which-bar gate — relaxing it fires one bar too early on the run), gap ∈ (30, 60] on 7, volat
+∈ (30, 50] on 5, two or more on 6. The cost per relaxation (the strict days' 2022+ net at the bar the variant actually enters):
+
+| spec variant | trades | tr/yr | PF | PF22 | win22 | avg22 | net22 | worst | tail22 | strict days shifted | strict net22 at that bar |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| FINAL (50bp, gap 30, crf −0.2) | 84 | 12.7 | 8.24 | 10.7 | 76 | 5.8 | 295 | −10.6 | 0.0 | 0 | 295 |
+| WIDE-V (30bp) | 165 | 24.9 | 6.77 | 5.59 | 72 | 3.6 | 372 | −12.8 | 1.9 | 8 | 271 |
+| **WIDE-VG (30bp, gap 60)** | **221** | **33.3** | **5.17** | **4.57** | **68** | **3.1** | **433** | **−12.8** | **1.4** | **19** | **262** |
+| WIDE-VC (30bp, crf −0.1) | 198 | 29.9 | 5.90 | 5.01 | 73 | 3.1 | 398 | −12.8 | 1.6 | 29 | 253 |
+| WIDE (30bp, gap 60, crf −0.1) | 275 | 41.5 | 4.34 | 4.04 | 70 | 2.6 | 462 | −12.8 | 1.1 | 39 | 245 |
+
+crf → −0.1% adds 54 trades for +29 net22 while shifting 20 more strict days and costing them 17 net22 — the worst trade-off of
+the three levers, and it violates the mechanism (crf is the "run has extended" gate). **Keep crf ≤ −0.2%; WIDE-VG is the spec.**
+
+**2. The strict spec is NOT a middle tier — its value sits entirely in STRICT ∧ X.** On WIDE-VG (S = the entry bar meets the
+strict spec; X = rr ≥ 5 ∨ lows_rr3_120 ≥ 20):
+
+| cell | n | % | tr/yr | PF | PF22 | win22 | avg22 | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A: STRICT ∧ X | 36 | 16 | 5.4 | 21.6 | 94.7 | 90 | 9.7 | 204 | −4.3 |
+| B: STRICT ∧ ¬X | 29 | 13 | 4.4 | 2.75 | 3.28 | 63 | 2.4 | 46 | −10.6 |
+| C: added ∧ X | 64 | 29 | 9.7 | 4.28 | 3.37 | 63 | 2.6 | 108 | −11.8 |
+| D: added ∧ ¬X | 92 | 42 | 13.9 | 4.21 | 2.41 | 64 | 1.3 | 75 | −12.8 |
+
+STRICT ∧ ¬X (2.75) is BELOW the added-and-nothing cell (4.21): the literal ladder X > STRICT > none fits S at 0.27 under E at
+0.50 (held-out 1.09×, 6/7). What the strict spec does is name the A+ cell the user was missing: **STRICT ∧ X = 5.4 trades/yr at
+PF 21.6 (2022+ 94.7), 90% win, worst −4.3** (on the full WIDE book the same cell is 24 trades, PF−1 31, 92% win, worst −4.3).
+
+| ladder on WIDE-VG (edge = min(PF−1,10)/max) | weights | held-out | sized net / exposure / net-per-unit / worst / maxDD |
+|---|---|---|---|
+| 4-cell A > B > C > D | 1.00 · 0.18 · 0.33 · 0.32 | 7/7, 1.26× | 437 / 0.41 / 1,053 / −4.3 / 5 |
+| **merged A > (S ∨ X) > rest** | **1.00 · 0.27 · 0.32** | **7/7, 1.28×** | 431 / 0.41 / 1,054 / −4.3 / 5 |
+| X-only X > rest | 1.00 · 0.41 | 6/7, 1.13× | 613 / 0.68 / 905 / −11.8 / 14 |
+| literal X > S > rest | 1.00 · 0.27 · 0.50 | 6/7, 1.09× | 622 / 0.70 / 893 / −11.8 / 14 |
+| equal weight | — | — | 787 / 1.00 / 787 / −12.8 / 17 |
+
+The merged ladder's M and D weights are equal within noise (0.27 vs 0.32; folds 0.22–0.37 vs 0.17–0.40), so it collapses to
+**two grades: A = STRICT ∧ X at 1.00, everything else at ~0.3** — the sized book keeps 55% of equal-weight net on 41% of the
+exposure, worst −4.3, maxDD 5.
+
+WIDE-VG by year: 2020 8.60 (49) · 2021 4.06 (33) · 2022 12.8 (37) · 2023 1.88 (30) · 2024 6.00 (27) · 2025 6.60 (33) · 2026
+1.71 (12) — two thin modern years dip under 2 (WIDE: 2.05 / 2.01).
+
+**⭐ Recommendation:** spec = WIDE-VG (`volat_20m > 30bp`, `gap_adj_60 ≤ 60`, everything else FINAL v3.1 incl. crf ≤ −0.2%);
+sizing = A (`STRICT ∧ X`) full, else 0.3. The strict spec survives as one half of the A+ definition, not as a tier of its own.
+Engine: two Ord defaults (`OrdVolatLo 0.003`, `OrdMaxGapAdj60 60`) once ratified; `spec_ord` would then count WIDE-VG bars, and
+"strict" is a post-hoc predicate on the entry bar (volat > 50bp ∧ gap ≤ 30).
