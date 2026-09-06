@@ -1230,3 +1230,49 @@ boundary), max ordinal 28. `lowfader_wide_whitelist` (360 tkd) is the spec-v4 su
 
 Watch items carried forward (§L20): breadth ≥ 0.65 is a downgrade (not adopted), `float < $300M` is an all-winner voice at n = 8
 (not adopted), `dv_0945` band kept at [$2M, $20M). Scanner port of SPEC v4 + the 2026-09-06 engine features when LowFader goes live.
+
+## §L24 — the `volat_20m > 100bp` cell: covers cost more than they save; trade it at ~0.2× or not at all (2026-09-06, user)
+
+User: the cell above the ceiling is profitable, so trade it in some form — test the 10m cover for risk control, or size it down to
+what an equivalent-PF cell would get, adjusted for the tail. `scripts/analysis/lowfader_hivol_cell.py`, log
+`data/lowfader_hivol_cell.log`. Frame = SPEC v4 without the ceiling on the whole-tape corpus (old universe), mc=1 first bar:
+261 trades = the v4 book (220, ≤ 100bp) + **41 above 100bp (6.2/yr)**.
+
+**1. Per exit** (channel-high cover at N bars, else MOC):
+
+| cell | exit | PF | PF22 | win | avg% | net22 | worst | p5 | tail<−10% | tail<−20% | sd |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| > 100bp | MOC | 3.77 | 3.26 | 63 | 12.6 | 363 | −54.7 | −17.1 | 12.2 | 4.9 | 46 |
+| > 100bp | 5m | 1.05 | 0.83 | 49 | 0.3 | −25 | −34.8 | −19.2 | 17.1 | 4.9 | 15 |
+| > 100bp | 10m | 2.27 | 1.91 | 51 | 4.2 | 97 | −23.1 | −15.0 | 12.2 | 2.4 | 21 |
+| > 100bp | 20m | 2.20 | 1.51 | 61 | 4.6 | 74 | −43.1 | −14.1 | 14.6 | 4.9 | 20 |
+| > 100bp | 40m | 2.73 | 1.92 | 68 | 6.6 | 127 | −41.2 | −17.1 | 12.2 | 4.9 | 23 |
+| > 100bp | 1h | 3.65 | 2.59 | 71 | 9.3 | 198 | −41.1 | −17.1 | 12.2 | 4.9 | 28 |
+| > 100bp | 2h | 3.45 | 2.69 | 63 | 11.0 | 266 | −54.7 | −17.1 | 12.2 | 4.9 | 35 |
+| ≤ 100bp (v4) | MOC | 5.34 | 4.57 | 70 | 3.6 | 433 | −12.8 | −5.0 | 1.4 | 0.0 | 7 |
+| ≤ 100bp (v4) | 10m | 3.81 | 3.77 | 70 | 2.2 | 303 | −14.1 | −4.2 | 0.9 | 0.0 | 7 |
+
+The cell is a lottery ticket: sd 46 vs the book's 7, avg +12.6% carried by a few +100% days, 12% of trades under −10%. **The 10m
+cover halves the worst trade (−54.7 → −23.1) but gives up 73% of the net (363 → 97) and drops the win rate to 51%**; the 1h cover
+keeps 55% of the net and still carries −41. No cover fixes the −40s: MCTR 2025-06-05 is −39 at MOC, −15 at 10m, −41 at 1h; ADTX
+2026-06-24 −55 / −20 / −29. The covers hurt the ≤ 100bp book too (MOC beats every cover there, as in §L5g at 2022+).
+
+**2. Where the profit is** (by volat band, MOC): (100, 125] 14 trades **net22 −37** (PF 1.36) · (125, 150] 5 · (150, 200] 9 **net22
+−50** (PF 1.17, worst −54.7) · (200, 300] 7 **+316** (PF 6.6, worst −39) · > 300 6 **+126** (PF 9.8, worst −8.9). The band just above
+the ceiling is a loser; the money is 13 trades above 200bp, 11 of them in 2022+. Year table (MOC): 2020 4.95 · 2021 34 · **2022
+0.80** · 2023 26 · 2024 15.8 · 2025 2.40 · 2026 one trade at −55.
+
+**3. Sizing** (weights relative to the v4 book at MOC; PF weight = min(PF−1,10)/max as in the ladder; tail-matched = the book's
+p5 loss / the cell's p5 loss):
+
+| exit | cell PF−1 | book PF−1 | w by PF | w by p5 | w by worst | w by sd | w = PF × p5 | sized net22 | sized worst | book worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MOC | 2.77 | 4.34 | 0.64 | 0.29 | 0.23 | 0.15 | **0.19** | **+67** | **−10.2** | −12.8 |
+| 10m | 1.27 | 4.34 | 0.29 | 0.33 | 0.55 | 0.33 | 0.10 | +9 | −2.2 | −12.8 |
+| 1h | 2.65 | 4.34 | 0.61 | 0.29 | 0.31 | 0.25 | 0.18 | +35 | −7.3 | −12.8 |
+
+**Verdict:** if the cell is traded, trade it at MOC at ~0.2× the book's unit (PF-weight × tail-match): it adds ~+15% to the book's
+2022+ net with a sized worst trade (−10.2) inside the book's own (−12.8). The covers are the wrong tool here — they trade net for
+tail at 3:1. But the honest caveat stands: the cell's edge is 13 trades above 200bp and one bad year (2022) is negative; the
+100–200bp bands between the ceiling and the money are losers. A `> 200bp` cell at 0.2× is 2 trades/yr — a lottery sleeve, not a
+tier. ⚠ [[feedback_no_vol_scaled_sizing_in_mr]] is about 1/vol INSIDE a book; this is a separate cell sized by its own edge/tail.
