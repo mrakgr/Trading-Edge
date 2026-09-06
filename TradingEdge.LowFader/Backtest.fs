@@ -77,11 +77,11 @@ let defaultConfig =
           TcFloor60        = 60.0       // >= 60 trades over the same window (1/sec — kills the
                                         // block-print-only tape)
           // (MinAbsEff20m deleted — S40i: AbsEff20Lo is the abs floor)
-          MinVolat20m      = 0.004      // ⭐ SPEC v1.2 (S18): the 40bp volatility floor
+          MinVolat20m      = 0.003      // ⭐ SPEC v1.2 (S18) was 40bp; 2026-09-06 (§L22 WIDE-VG, user): 30bp — the base run must RECORD the 30–40bp bars the spec now admits
           MaxVolat20m      = Double.PositiveInfinity
           // ⭐ 2026-09-05: the spec-ordinal gates = SPEC v2 (docs/lowfader_results.md §L5), record-only
-          OrdVolatLo = 0.005; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40   // OrdVolatLo 0.0039 -> 0.005 on 2026-09-06 (§L9 raised the spec floor to 50bp; the counter had lagged: 115 extra rows in 42-50bp)
-          OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 30
+          OrdVolatLo = 0.003; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40   // ⭐ 2026-09-06 §L22 WIDE-VG (user): volat floor 50bp -> 30bp (was 0.0039 -> 0.005 earlier the same day, §L9)
+          OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 60           // ⭐ §L22 WIDE-VG: gap ceiling 30 -> 60. STRICT (A+ half) = volat > 50bp ∧ gap <= 30, post-hoc on the entry bar
           OrdMinDv60 = 1e6              // ⭐ 2026-09-05 §L7 (user): SPEC v3 = v2 ∧ dollar_vol_60 >= $1M (time-clock)
           OrdMinLows120 = 30; OrdMaxCrf = -0.002   // ⭐ 2026-09-06 (user): SPEC v3 FINAL = v3 ∧ l120 >= 30 ∧ crf <= -0.2% (§L13/§L15)
           OrdMaxDv0945Tape = 2e7                    // ⭐ 2026-09-06 (user, §L20): ∧ dv_0945_tape < $20M

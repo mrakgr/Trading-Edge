@@ -667,14 +667,14 @@ type IntradayConfig =
       // gate the ENTRY — the sampler stays a base run; the ordinal is the live-knowable "n-th qualifying low of
       // the leg" (§L5h/§L5i). Cold features FAIL the check. chg_1d here is SIGNAL-bar vwap vs the prior close
       // (the post-hoc column uses the fill px — a boundary-only difference).
-      OrdVolatLo: float          // volat_20m > this (default 0.005 — SPEC v3's 50bp floor, §L9)
+      OrdVolatLo: float          // volat_20m > this (default 0.003 — WIDE-VG's 30bp floor, §L22; the STRICT A+ predicate is > 50bp, post-hoc)
       OrdVolatHi: float          // volat_20m <= this (default 0.010)
       OrdMaxEffEwma10m: float    // eff_ewma_10m < this (default -0.7)
       OrdMinLows600: int         // lows_since_first_low_600 >= this (default 40)
       OrdMinRate600: float       // lows/bars over the 600 leg >= this (default 0.15)
       OrdMinRr: float            // vol_60 (time-clock) / (vol_0945_tape/15) >= this (default 2.0)
       OrdMaxChg1d: float         // signal vwap / (close_m1 + div_m1) - 1 <= this (default -0.04)
-      OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 30)
+      OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 60 — WIDE-VG, §L22; STRICT = <= 30, post-hoc)
       OrdMinDv60: float          // dollar_vol_60 (TIME-clock, 60 tradeable s) >= this (default 1e6 — §L7: the spec is dead under $1M/min)
       OrdMinLows120: int         // ⭐ §L13 (user 2026-09-05): lows_since_first_low_120 >= this (default 30)
       OrdMaxCrf: float           // ⭐ §L14/§L15 (user 2026-09-06): chg_since_run_first_low <= this (default -0.002) — the

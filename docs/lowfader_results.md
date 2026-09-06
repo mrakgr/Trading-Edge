@@ -961,6 +961,8 @@ Held-out avg%/trade per unit exposure by year (mc=5, X/E vs equal): 2020 7.6 vs 
 
 ## §L20 — ⭐⭐ THE FINAL SYSTEM: SPEC v3.1 (+ $20M ceiling), NO averaging down, two-grade sizing; breadth and float re-checked (2026-09-06)
 
+> **⚠ SUPERSEDED the same day by §L23 (SPEC v4 = WIDE-VG): the v3.1 spec below survives as the STRICT predicate, one half of the A+ sizing cell.**
+
 **User decisions:** the `dv_0945_tape < $20M` ceiling goes IN (§L8/§L19's band: above $20M the 2022+ book nets zero); **NO
 averaging down** — crf fixed the which-bar problem, so a small account takes the FULL position on the first qualifying signal
 (mc=1 MOC). Engine: `OrdMaxDv0945Tape = 2e7` added to the Ord gates; `spec_ord > 0` ≡ the spec (317 trips / 84 tkd, none ≥ $20M).
@@ -1200,3 +1202,31 @@ WIDE-VG by year: 2020 8.60 (49) · 2021 4.06 (33) · 2022 12.8 (37) · 2023 1.88
 sizing = A (`STRICT ∧ X`) full, else 0.3. The strict spec survives as one half of the A+ definition, not as a tier of its own.
 Engine: two Ord defaults (`OrdVolatLo 0.003`, `OrdMaxGapAdj60 60`) once ratified; `spec_ord` would then count WIDE-VG bars, and
 "strict" is a post-hoc predicate on the entry bar (volat > 50bp ∧ gap ≤ 30).
+
+## §L23 — ⭐⭐ RATIFIED: SPEC v4 = WIDE-VG, sizing A = STRICT ∧ X (2026-09-06, user: "tripling the trades for a 40% net increase is worth it")
+
+**SPEC v4 (LowFader, 1s tape, LONG, MOC):** `volat_20m ∈ (30, 100] bp ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧
+lows_120 ≥ 30 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 60 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < $20M` · universe
+`mr_candidate_1s_v2` (barnum ≥ 22; `dv_0945_tape ≥ $2M`, `n_bars_1s ≥ 200`) · engine floors `dv_60 ≥ $100k`, `tc_60 ≥ 60` ·
+entry 09:45–15:00 · one position per ticker-day = the FIRST qualifying bar, exit MOC, no averaging down.
+**Sizing:** A = `STRICT ∧ X` → 1.00, where STRICT = the entry bar also has `volat_20m > 50bp ∧ gap_adj_60 ≤ 30` (the v3.1 spec)
+and X = `rr ≥ 5 ∨ lows_rr3_120 ≥ 20`; everything else → 0.3.
+
+| book (mc=1 MOC) | trades | tr/yr | PF | PF22 | win22 | avg22 | net22 | worst | tail22 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| SPEC v4 | 221 | 33.3 | 5.17 | 4.57 | 68 | 3.1 | 433 | −12.8 | 1.4 |
+| grade A (STRICT ∧ X) | 36 | 5.4 | 21.6 | 94.7 | 90 | 9.7 | 204 | −4.3 | 0.0 |
+| rest | 185 | 27.9 | 3.63 | 2.87 | 64 | 1.9 | 229 | −12.8 | 1.7 |
+| v3.1 for reference | 84 | 12.7 | 8.24 | 10.7 | 76 | 5.8 | 295 | −10.6 | 0.0 |
+
+Year table (v4, mc=1): 2020 49 / 8.60 / +247 · 2021 33 / 4.06 / +106 · 2022 37 / 12.8 / +133 · 2023 30 / 1.88 / +41 · 2024 27 /
+6.00 / +91 · 2025 33 / 6.60 / +156 · 2026 12 / 1.71 / +13 (n / PF / net%). Sized (A 1.00 / rest 0.3, held-out 7/7 at 1.28×):
+net 431 on 0.41 exposure, worst −4.3, maxDD 5.
+
+**Engine (this commit):** `OrdVolatLo 0.005 → 0.003`, `OrdMaxGapAdj60 30 → 60`, and the base-run floor `MinVolat20m 0.004 →
+0.003` (the sampler must record the 30–40bp bars the spec admits — the whitelist runner no longer needs the EXTRA flag).
+Verified on `data/lowfader_wl_wide`: `spec_ord > 0` ≡ SPEC v4, 221 = 221 tkd (753 vs 750 rows = the chg_1d signal-vwap/fill
+boundary), max ordinal 28. `lowfader_wide_whitelist` (360 tkd) is the spec-v4 superset whitelist; a rerun takes seconds.
+
+Watch items carried forward (§L20): breadth ≥ 0.65 is a downgrade (not adopted), `float < $300M` is an all-winner voice at n = 8
+(not adopted), `dv_0945` band kept at [$2M, $20M). Scanner port of SPEC v4 + the 2026-09-06 engine features when LowFader goes live.
