@@ -619,3 +619,30 @@ worst −19, zero tail** — the 30–45 gap trips are positive at mc=5 (they we
 SIZING tier, not a gate, in the averaging-down book. `chg_1d` is cheap to keep (−3% net, +12% PF−1); `lows ≥ 40` is
 implied by the rate gate (−1% net). `rr ≥ 2` is load-bearing (drop → PF−1 1.01, net −10%) and not the trade-count
 lever (162 vs 110/yr). ⚠ 2023 is thin in every variant (net 152–225 vs 350+ elsewhere).
+
+## §L11 — rr vs SPEED as the loudness gate, and the −12% depth floor (2026-09-05 late night, user)
+
+Frame = spec v3 minus rr (162 tkd22). rr vs each speed measure at the matched trade count (mc=5 MOC, 2022+):
+
+| gate | trades/yr | PF−1 | net22 | worst | tail% |
+|---|---:|---:|---:|---:|---:|
+| **rr ≥ 2 (spec v3)** | 110 | **2.47** | **1,252** | −17 | 0 |
+| speed_1m < −2% | 99 | 1.19 | 933 | −21 | 0.76 |
+| d1m < −2% | 91 | 1.89 | 1,038 | −21 | 0.17 |
+| speed_30s < −1% | 122 | 1.26 | 1,080 | −21 | 0.62 |
+| s5 < −0.5% | 90 | 1.92 | 1,106 | −21 | 0.67 |
+| s10 < −1% | 64 | 2.71 | 951 | −21 | 0.24 |
+| speed_1m < −4% | 43 | 6.51 | 977 | −17 | 0 |
+| d1m < −4% | 37 | 9.00 | 1,018 | −17 | 0 |
+| rr ≥ 2 ∧ speed_1m < −2% | 72 | 4.01 | 1,122 | −17 | 0 |
+| rr ≥ 2 ∧ s5 < −0.5% | 62 | 5.62 | 1,153 | −17 | 0 |
+
+**rr cannot be replaced by speed.** At rr's trade count every speed gate has half the PF, less net and a fatter tail;
+the speed gates reach rr's PF only at −4% (a third of the trades, 20% less net). ρ(rr, speed) ≈ −0.3: different
+information. Inside rr ≥ 2 the speed ladder is monotone at mc=5 (−1..−0.5% PF−1 0.06 / net 4 → −2..−1.5 3.4 → −4..−3
+4.8 → −12..−6 39) ⇒ **speed is a SIZING tier on top of rr** (rr ∧ speed<−2%: −10% net for +62% PF−1), and the
+−1..0% slice (~55 trades, net ≈ 0) is the one cuttable sliver.
+
+**LowFlyer's −12% depth floor: NO.** On spec v3 the trips deeper than −12% are the BEST cell (148 trips / 16 tkd,
+PF−1 35.8, worst −16.7); the floor costs 16% of net (1,252 → 1,047) and lowers PF (2.47 → 2.30); −6% is worse (710).
+The falling knife LowFlyer cut at −12% does not exist here — `dollar_vol_60 ≥ $1M ∧ eff ∧ rate` already removed it.
