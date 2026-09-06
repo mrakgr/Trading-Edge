@@ -661,6 +661,7 @@ type IntradayConfig =
       OrdMinRr: float            // vol_60 (time-clock) / (vol_0945_tape/15) >= this (default 2.0)
       OrdMaxChg1d: float         // signal vwap / (close_m1 + div_m1) - 1 <= this (default -0.04)
       OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 30)
+      OrdMinDv60: float          // dollar_vol_60 (TIME-clock, 60 tradeable s) >= this (default 1e6 — §L7: the spec is dead under $1M/min)
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
@@ -2317,6 +2318,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             && (match tVolSum60.State with ValueSome v60 when vol0945Tape > 0.0 -> v60 / (vol0945Tape / 15.0) >= cfg.OrdMinRr | _ -> false)
             && (not (Double.IsNaN prevCloseTotal) && prevCloseTotal > 0.0 && bar.vwap / prevCloseTotal - 1.0 <= cfg.OrdMaxChg1d)
             && adjGap60 <= cfg.OrdMaxGapAdj60
+            && (match tDvSum60.State with ValueSome dv -> dv >= cfg.OrdMinDv60 | ValueNone -> false)
         if ordPass then specOrd <- specOrd + 1
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m

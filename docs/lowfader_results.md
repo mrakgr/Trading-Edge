@@ -528,3 +528,27 @@ else ≤ 0.25 — the ordinal/ladder question is unchanged.
 $1M` into the spec and re-read the whole ladder on the union corpus; (2) the 20–40bp band joins the spec's volat
 band → (20, 100]; (3) the floors-off rerun only if the illiquid TODO is still worth 3 h — the ≥ $100k evidence says
 the quiet-rr cell carries no liquidity premium down to $100k/min.
+
+## §L8 — SPEC v3: `dollar_vol_60 ≥ $1M` (time-clock) + what the old candidate floor was really doing (2026-09-05 night)
+
+**Adopted (user):** `dollar_vol_60 ≥ $1M` — TIME-clock (`tDvSum60`, 60 tradeable seconds; the `_bar` twin is the
+substitution pair), the same accumulator as the engine's own $100k floor. In the engine as the ordinal gate
+`OrdMinDv60 = 1e6` (`--ord-min-dv-60`); `spec_ord` validated 2,520 = 2,520 vs post-hoc on the spec whitelist.
+**On the old universe it is additive: (40,100]bp spec v2 498 tkd PF−1 2.09 → +dv_60 ≥ $1M 331 tkd PF−1 3.01**
+(2022+ 4.81 / 0.88 / 4.71 / 4.22 / 2.10; net22 5,731 → 5,348, −7%). ⚠ "old universe" here = in `mr_candidate_1s_v2`
+∧ `barnum ≥ 22`; 498 vs the earlier 466 tkd = signals with volat in (39, 40) bp that the old 40bp mirror excluded.
+
+**But the ADDED names still lose above $1M/min** (228 tkd, PF−1 −0.57; mc=1 negative). Split by WHY they failed
+the old candidate floor (spec v2 ∧ dv_60 ≥ $1M, 2022+ PF−1): failed only `n_bars_1s ≥ 200` **−0.60 (216 tkd)**;
+had `dv_0945_tape ≥ $2M` but failed n_bars/barnum/type −0.39 (149); morning dv $500k–2M −0.74; < $500k −0.57;
+`barnum < 22` −0.71. ⇒ **the load-bearing morning condition is `n_bars_1s ≥ 200`** (≥ 200 traded seconds in the
+first 15 minutes — a name trading continuously from the open), not the dollars; a name that is loud at the signal
+but was not trading at the open does not bounce. Both are causal at 09:45. And `dv_0945_tape` is a BAND on the
+spec-v3 book: < $2M loses (−0.57..−0.77), **$2M–5M 0.80, $5M–20M 2.76 (271 tkd, 71.5% win)**, ≥ $20M −0.06
+(91 tkd, median px $41 — the mega-liquid names do not bounce). The 20–40bp band inside the spec is positive but
+DILUTIVE on the old universe ((20,100] 803 tkd 1.31 vs (40,100] 498 tkd 2.09) → a lower tier, not the core.
+
+**⭐ SPEC v3 (2026-09-05 night):** v2 ∧ `dollar_vol_60 ≥ $1M` ∧ `n_bars_1s ≥ 200` ∧ `dv_0945_tape ∈ [$2M, $20M)`
+(the last two = the old candidate floor made explicit, plus a mega-cap ceiling to test) — the expanded run's net
+contribution is to have NAMED the morning gate; the universe it adds is worthless for this system. mc=1 on spec v3
+(first bar/day) is still 0.23 MOC / 0.47 10m — the ordinal/ladder question is untouched by any of this.

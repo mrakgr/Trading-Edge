@@ -82,6 +82,7 @@ let defaultConfig =
           // ⭐ 2026-09-05: the spec-ordinal gates = SPEC v2 (docs/lowfader_results.md §L5), record-only
           OrdVolatLo = 0.0039; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40
           OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 30
+          OrdMinDv60 = 1e6              // ⭐ 2026-09-05 §L7 (user): SPEC v3 = v2 ∧ dollar_vol_60 >= $1M (time-clock)
           // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
           // stack; disable individually for sweeps (see IntradayConfig for the
           // off-conventions). Formulas identical to the recorded columns.

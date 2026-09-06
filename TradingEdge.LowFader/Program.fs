@@ -35,6 +35,7 @@ type Args =
     | Ord_Min_Rr of float
     | Ord_Max_Chg_1d of float
     | Ord_Max_Gap_Adj_60 of int
+    | Ord_Min_Dv_60 of float
     | Max_Volat_20m of float
     // ----- SPEC v1.2 gates (defaults = the S18 production stack) -----
     | Max_Speed_1m of float
@@ -107,6 +108,7 @@ type Args =
             | Ord_Min_Rr _ -> "SPEC-ORDINAL gate: vol_60 / (vol_0945_tape/15) >= this. Default 2.0."
             | Ord_Max_Chg_1d _ -> "SPEC-ORDINAL gate: signal vwap / prior close - 1 <= this. Default -0.04."
             | Ord_Max_Gap_Adj_60 _ -> "SPEC-ORDINAL gate: gap_adj_60 <= this. Default 30."
+            | Ord_Min_Dv_60 _ -> "SPEC-ORDINAL gate: dollar_vol_60 (time-clock) >= this. Default 1e6 (SPEC v3, §L7)."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
             | Max_Speed_1m _ -> "⭐ SPEC v1.2: flush speed gate — vwap/vwap_60_prev - 1 < this at the signal. Default -0.02. 0 = off."
@@ -210,6 +212,7 @@ let main argv =
                     OrdMinRr         = parsed.GetResult(Ord_Min_Rr,          defaultValue = d.Intraday.OrdMinRr)
                     OrdMaxChg1d      = parsed.GetResult(Ord_Max_Chg_1d,      defaultValue = d.Intraday.OrdMaxChg1d)
                     OrdMaxGapAdj60   = parsed.GetResult(Ord_Max_Gap_Adj_60,  defaultValue = d.Intraday.OrdMaxGapAdj60)
+                    OrdMinDv60       = parsed.GetResult(Ord_Min_Dv_60,       defaultValue = d.Intraday.OrdMinDv60)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = dI.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = dI.MaxDist1mHi)
