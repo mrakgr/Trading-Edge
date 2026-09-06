@@ -552,3 +552,41 @@ DILUTIVE on the old universe ((20,100] 803 tkd 1.31 vs (40,100] 498 tkd 2.09) �
 (the last two = the old candidate floor made explicit, plus a mega-cap ceiling to test) — the expanded run's net
 contribution is to have NAMED the morning gate; the universe it adds is worthless for this system. mc=1 on spec v3
 (first bar/day) is still 0.23 MOC / 0.47 10m — the ordinal/ladder question is untouched by any of this.
+
+## §L9 — the 50bp FLOOR and AVERAGING DOWN (mc = k) (2026-09-05 late night)
+
+**Ceiling re-test under spec v3:** stays at 100bp — 100–125bp is the WORST cell in the ladder (PF−1 −0.67 MOC / −0.53
+10m, 21% tail), above it a 2024 lottery; the liquidity gate removed the illiquid crashers, not the high-volat losses.
+**Floor (user: raise to 50bp):** at the single-position level the 40–50bp trips were worth ~0.2%/trade — mc=1 first-bar
+net22 247 → 218 (−12%) for PF−1 0.85 → 1.32 and worst −43 → −17; the ordinal-≥4 book −2% net; mc=0 −8% net at 2×
+PF−1 (3.01 → 6.77). At 60bp the first-bar MOC book nets MORE than at 40 (272 vs 247) at 18 trades/yr, PF−1 5.34, worst
+−12 — the volat floor does what the ordinal hack did (the mc=1/mc=0 gap shrinks from 3.5× to 4× of a much larger
+base). **ADOPTED: floor 50bp.** The `rr` dependence and the trade count are untouched: more trades need a second
+entry family, not a looser gate.
+
+**⭐ SPEC v3 (2026-09-05 night):** `volat_20m ∈ (50, 100] ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧
+rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M` on the old universe (`n_bars_1s ≥ 200`, `barnum ≥ 22`).
+mc=0: 1,532 trips / 200 tkd (114 in 2022+), PF−1 6.77, 75.5% win, worst −16.7, 0% tail.
+
+**mc = k (user: "maybe we should actually consider averaging down"):** greedy replay, up to k concurrent positions per
+tkd, each opened by a qualifying bar while < k are open, closed at its own exit. 2022+ net % at 1 unit/trade:
+
+| exit | mc | trades/yr | trips/tkd | PF−1 22+ | win22 | avg22 | net22 | net22 / k | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MOC | 1 | 30 | 1.00 | 1.32 | 62.3 | 1.91 | 218 | 218 | −16.7 |
+| MOC | 2 | 55 | 1.82 | 1.58 | 61.9 | 2.21 | 465 | 232 | −16.7 |
+| MOC | 3 | 75 | 2.50 | 1.78 | 62.5 | 2.39 | 695 | 232 | −16.7 |
+| MOC | **5** | 110 | 3.64 | **2.47** | 65.9 | 2.95 | **1,252** | **250** | −16.7 |
+| MOC | 10 | 161 | 5.32 | 3.48 | 68.5 | 3.66 | 2,290 | 229 | −16.7 |
+| MOC | 0 (all) | 231 | 7.66 | 6.77 | 75.5 | 5.32 | 4,895 | 70 | −16.7 |
+| 10m | 1 | 30 | 1.00 | 1.75 | 62.3 | 1.98 | 225 | 225 | −20.0 |
+| 10m | 5 | 110 | 3.64 | 2.59 | 61.4 | 2.87 | 1,219 | 244 | −24.5 |
+| 10m | 10 | 161 | 5.32 | 3.61 | 61.0 | 3.82 | 2,387 | 239 | −24.5 |
+
+**Every additional position is BETTER than the one before it** (MOC, PF−1 22+ by position: 1st 1.32 · 2nd 1.93 · 3rd
+2.35 · 4th 4.64 · 5th 5.03; avg/trade 1.9 → 4.4%; 10m: 1.75 → 4.05). Net scales ~linearly with k (each unit of
+capital earns the same ~230–250%/4.6 yr whether it is the 1st or 5th slot) while PF−1 rises — averaging down into
+the flush is the natural shape of this system (the sampler's mc=0 edge was never a sampler artifact; it was the
+later entries). mc=5 with MOC: **110 trades/yr, PF−1 2.47, net 1,252% over 2022+ (270%/yr at 5 units), worst
+−16.7, zero trades under −20%** — the "few trades" complaint answered without touching a gate. Sizing per slot
+(rr / gap / ordinal tiers) is the remaining lever; the engine's `spec_ord` is the live-knowable slot index.
