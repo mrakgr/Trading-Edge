@@ -678,3 +678,35 @@ ordinal ≥ 4's 19/yr, 282, worst −11). They do not select later bars (median 
 bars, ρ 0.2): the ordinal counts SPEC-qualifying bars (rr ≥ 2 ∧ chg_1d ∧ gap ∧ dv …), a different count from raw lows
 — a 70-low leg can have only its last few bars loud. **Not a substitute.** One small free tweak at mc=5: `l120 ≥ 20–30`
 (the fresh-2m-leg cut) lifts PF−1 2.47 → 2.9–3.0 at +4% net (1,306) and the same trade count.
+
+## §L14 — replacing the ORDINAL with a TABLE feature: the run-extension measures (2026-09-05 late night)
+
+`l120 ≥ 30` ADOPTED (spec v3 + l120: 195 tkd, mc=5 PF−1 2.96 / net 1,306). Frame = spec v3 + l120, 2022+.
+
+**Price slopes** (`ols_slope_N`, bp/min): as which-bar gates at mc=1 the steep half beats the flat half (slope_60 ≤ p50:
+PF−1 2.3, net 187 vs ≥ p50: 0.9, 90) but never reaches the ordinal on MOC; with the 10m cover the steepest quartile
+(slope_60 ≤ −400 bp/min, 7 trades/yr) posts PF−1 54 / net 270 ≈ the ordinal's 272 — a cover-specific tier (a crash
+that snaps through the 10m high), not a which-bar gate. `ols_slope_since_high` INVERTS (shallower-since-high better).
+`z_since_high`, `bars_since_high` weak; `mins_since_first_low ≥ 35` strong but thin (11 tkd22).
+
+**⭐ The run-extension measures DO replace the ordinal, and they are table features** (recorded at the signal, 0% NaN,
+no dependence on the other gates). `chg_since_run_first_low` (crf) = signal vwap vs the FIRST low of the current
+uptick-delimited run (0 by construction on the run's first low):
+
+| which-bar gate | trades/yr | MOC PF−1 / net22 / worst | 10m PF−1 / net22 / worst | mc=5 PF−1 / net |
+|---|---:|---|---|---|
+| none (1st bar) | 29 | 1.50 / 229 / −17 | 1.91 / 233 / −20 | 2.96 / 1,306 |
+| ordinal ≥ 4 | 18 | 5.53 / 286 / −11 | 4.03 / 272 / −15 | 6.93 / 1,236 |
+| **crf ≤ −0.1%** | 19 | 4.16 / 281 / −11 | 3.02 / 243 / −25 | **8.38 / 1,288** |
+| **crf ≤ −0.2%** | 16 | **7.30 / 294 / −11** | 4.31 / 261 / −25 | 10.4 / 1,117 |
+| crf ≤ −0.3% | 13 | 9.94 / 281 / −11 | 6.42 / 279 / −25 | 13.0 / 1,024 |
+| crf ≤ −0.5% | 9 | 12.4 / 243 / −11 | 9.18 / 281 / −25 | 19.7 / 828 |
+| clu (since last uptick) ≤ −0.4% | 21 | 3.64 / 279 / −11 | 2.81 / 248 / −20 | 6.23 / 1,222 |
+| crd (since run's first down) ≤ −0.6% | 12 | 8.47 / 260 / −11 | 7.84 / 278 / −25 | 14.4 / 1,001 |
+| crf ≤ −0.5% ∧ slope_60 ≤ −300 | 6 | 56 / 226 / −11 | 39 / 298 / −25 | 49 / 763 |
+
+crf ≤ −0.2% matches the ordinal on MOC net (294 vs 286) at a higher PF (7.3 vs 5.5) and the same worst (−11), and at
+mc=5 crf ≤ −0.1% lifts PF−1 2.96 → 8.38 at −1% net. It does NOT select later ordinals (median 6–7; 7% first bars) —
+it is a different mechanism keyed on the run's PRICE extension, not its count: the run's first low (crf = 0) is the
+bar that loses; a bar ≥ 0.1–0.2% below it is the averaging-down entry. The four siblings (crp / clu / crd) rank the
+same. **crf is the ordinal's table-feature replacement; the ordinal counter stays in the engine as a diagnostic.**
