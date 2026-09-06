@@ -1071,3 +1071,76 @@ flips). ⭐ Ruling: **breadth ≥ 0.65 is a DOWNGRADE for LowFader** (LowFlyer's
 NOT grow with the wider frames — it is the UNIVERSE (the $2M / $1M liquidity floors) that makes this a large-cap book, and §L20's
 floor test shows the sub-$2M names cannot be added. The low-float overreaction is a different system's territory (LowFlyer's, on
 the 1m tape with its $500k ADV floor). ⭐ Ruling: **`float < $300M` = a watch-item size-up voice; not adoptable at n = 8.**
+
+## §L21 — ⭐ RELAXING WITH crf IN PLACE: the WIDE variant (2026-09-06, user: "a PF 2 system with a lot more trades")
+
+User's opener: relax eff to −0.3 and play from there. Scripts `lowfader_relax.py` / `relax2.py` (whole-tape corpus, old universe,
+mc=1 MOC = first qualifying signal per tkd, full size; logs `data/lowfader_relax*.log`), then `lowfader_wide_book.py` on an engine
+rerun (`lowfader_wide_whitelist`, 360 tkd, `--min-volat-20m 0.003` — ⚠ the whitelist runner's default 40bp floor silently dropped
+the 30–40bp trips on the first pass; `lowfader_run_wl.sh` now takes an EXTRA-flags 5th arg).
+
+**1. eff is a KNIFE at −0.6/−0.7, not a dial.** Bands of `eff_ewma_10m` inside FINAL-minus-eff (first signal per tkd in band):
+
+| eff band | trades | PF | PF22 | win22 | avg22 | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| (−1, −0.9] | 19 | 9.14 | 16.8 | 69 | 3.7 | 48 | −10.6 |
+| (−0.9, −0.8] | 39 | 7.39 | 24.5 | 88 | 6.9 | 179 | −5.8 |
+| (−0.8, −0.7] | 36 | 14.3 | 9.72 | 74 | 9.1 | 172 | −6.2 |
+| (−0.7, −0.6] | 30 | 7.01 | 8.67 | 67 | 7.5 | 90 | −18.2 |
+| (−0.6, −0.5] | 24 | 0.53 | 0.20 | 23 | −3.7 | −48 | −25.4 |
+| (−0.5, −0.4] | 18 | 0.74 | 0.66 | 42 | −1.9 | −23 | −33.3 |
+| (−0.4, −0.3] | 8 | 0.55 | 0.55 | 62 | −2.2 | −18 | −34.2 |
+
+eff → −0.3 adds 62 trades at PF 1.25 (2022+ 0.61, net −55, worst −34): **the wrong lever.** Only the (−0.7, −0.6] rung is relaxable.
+
+**2. Which relaxations add PROFITABLE trades** (the added tkds judged on their own, FINAL v3.1 → variant):
+
+| relaxation | added trades | added PF | added PF22 | added net22 | added worst | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| volat floor 50 → 30bp | 81 | 7.01 | 3.71 | 101 | −11.8 | ✅ the big one |
+| volat floor 50 → 40bp | 36 | 5.08 | 1.90 | 27 | −11.8 | ✅ |
+| gap ≤ 30 → 60 | 28 | 3.50 | 3.43 | 51 | −6.7 | ✅ |
+| crf −0.2 → −0.1% | 11 | 4.88 | 2.43 | 13 | −4.7 | ✅ |
+| eff −0.7 → −0.6 (on WIDE) | 85 | — | — | −1 | −18.2 | ⚠ PF 2.9 → 2.9 on the added set; drags 2021/2026 |
+| l600 40 → 30, l120 30 → 20, chg_1d → 0 | 1–3 | — | — | — | — | inert |
+| rate 0.15 → 0.10 / off | 86 / 118 | 1.46 / 1.69 | 1.54 / 1.43 | 82 / 98 | −29.3 | ❌ the rate gate is real |
+| rr 2 → 1.5 / 1.0 | 11 / 23 | 1.56 / 1.46 | 0.39 / 0.77 | −13 / −7 | −13.7 | ❌ |
+| dollar_vol_60 $1M → $500k / $250k | 39 / 57 | 1.53 / 1.91 | 0.82 / 0.86 | −10 / −11 | −25.7 | ❌ |
+| volat ceiling off | 39 | 3.72 | 3.11 | 332 | −54.7 | ❌ lottery (18% tail) |
+| eff → −0.5 / −0.3 | 42 / 62 | 1.64 / 1.25 | 0.45 / 0.61 | −38 / −55 | −34.2 | ❌ |
+
+A tail-guarded greedy (max 2022+ trades s.t. PF22 ≥ 4, worst ≥ −20, tail(<−10%) ≤ 1.5%) lands on exactly the three ✅ levers.
+Unguarded greedy to PF22 ≥ 2 reaches 121 trades/yr at PF 2.4 only by removing the ceiling and dropping rr to 1 — worst −67,
+2026 PF 1.01: not a system.
+
+**⭐ 3. THE WIDE VARIANT = FINAL v3.1 with `volat_20m > 30bp`, `gap_adj_60 ≤ 60`, `crf ≤ −0.1%`** (everything else unchanged):
+
+| book | trades | tr/yr | PF | PF22 | win22 | avg22 | net22 | worst | tail22 | X share |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| FINAL v3.1 | 84 | 12.7 | 8.24 | 10.7 | 76 | 5.8 | 295 | −10.6 | 0.0 | 56% |
+| **WIDE** | **275** | **41.5** | **4.34** | **4.04** | **70** | **2.6** | **462** | **−12.8** | **1.1** | 41% |
+| WIDE grade X | 112 | 16.9 | 6.26 | 6.28 | 72 | 4.3 | 311 | −11.8 | 1.4 | |
+| WIDE grade E | 163 | 24.6 | 3.19 | 2.62 | 68 | 1.4 | 151 | −12.8 | 0.9 | |
+| WIDE + eff < −0.6 | 360 | 54.3 | 3.22 | 2.92 | 68 | 2.1 | 461 | −18.2 | 1.8 | 41% |
+| WIDE minus FINAL (the added 191) | 191 | 28.8 | 3.65 | 3.23 | 69 | 1.7 | 217 | −11.8 | 0.8 | 37% |
+
+| WIDE by year | n | PF | net | win | avg | worst | n X | net X | net E |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2020 | 56 | 6.32 | 243 | 70 | 4.3 | −5.8 | 21 | 93 | 151 |
+| 2021 | 41 | 3.35 | 104 | 63 | 2.5 | −10.6 | 19 | 75 | 29 |
+| 2022 | 53 | 6.91 | 157 | 75 | 3.0 | −8.2 | 13 | 72 | 85 |
+| 2023 | 39 | 2.05 | 51 | 69 | 1.3 | −12.8 | 18 | 28 | 23 |
+| 2024 | 28 | 5.29 | 86 | 71 | 3.1 | −4.8 | 11 | 74 | 13 |
+| 2025 | 39 | 5.10 | 147 | 64 | 3.8 | −7.4 | 20 | 114 | 33 |
+| 2026 | 19 | 2.01 | 21 | 63 | 1.1 | −5.6 | 10 | 24 | −3 |
+
+Every year PF ≥ 2.0; net22 +57% over FINAL on 3.3× the trades; the tail stays inside −13. Ladder on WIDE: E = 0.42 (folds
+0.32–0.50), held-out 7/7 years 1.15×, sized maxDD 14 vs 19. The 10m cover loses to MOC here too (PF22 3.01 / net 288 vs 4.04 /
+462). Inside WIDE the relaxed bands still grade: volat (30,40] PF 3.8 → (80,100] 9.9; gap ≤ 10 9.6 vs (30,45] 2.3; crf
+(−0.2,−0.1] 2.9 vs (−0.5,−0.2] 4.9 vs ≤ −1% 14.1 — the added trades are the book's lower tiers, and the sizing ladder already
+knows (41% X vs 56%).
+
+**Verdict:** the honest "more trades" system is WIDE — PF 4, not PF 2: past it every further lever (rate, rr, liquidity, the
+ceiling, eff) adds trades at PF ≤ 1.7 or re-opens the tail. The engine's `spec_ord` gates stay = FINAL v3.1 (WIDE is a post-hoc
+frame on the 30bp-floor corpus); if WIDE is adopted for trading, mirror it into the Ord gates (`OrdVolatLo 0.003`,
+`OrdMaxGapAdj60 60`, `OrdMaxCrf −0.001`) — three defaults, no code.
