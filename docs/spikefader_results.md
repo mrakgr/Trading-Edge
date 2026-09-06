@@ -4241,3 +4241,22 @@ half, and its 33 grade-E trades are 2.97 at the 87th percentile of chance (same-
 is wide). ≥ 80 is 25 trades, 16 of them X. The 5m/20m twins at ≥ 100 are NEGATIVE in their unique cells (−0.48, −0.14,
 percentiles 1 and 3). **Verdict: the far end is grade X's better half, a 25-trade sub-tier of a 111-trade voice; it fails the
 same-n control outside X and inverts in D. Not a voice; at most a note for X's sizing when X has 5× the trades.**
+
+### §S48 addendum 4 — `highs_rr3_120 ≥ 80` as a voice: +1% held-out on 25 trades, not a seat (2026-09-06, user)
+
+`data/spikefader_rr3_80_voice.log`. The cell: 25 trades in 6.5 years (3/6/2/2/7/2/3 by year), 16 of them grade X, 6 E, 2 D, 1 B;
+19 winners / 6 losers (worst −9.9, LCID 2023-01-27), avg +3.7%, PF−1 3.72; rr at the signal 5–77 (median 14).
+
+| roster | held-out %/trade per unit exposure | per year 2020..2026 | L weight | L cell n |
+|---|---:|---|---:|---:|
+| v3.4 | 2.640 | 2.56 · 2.32 · 1.36 · 1.92 · 3.52 · 2.80 · 4.30 | — | — |
+| L first (above A) | 2.665 | 2.57 · 2.34 · 1.35 · 1.81 · 3.53 · 2.80 · 4.33 | 0.99 | 25 |
+| L after B (before X) | 2.664 | 2.57 · 2.34 · 1.35 · 1.82 · 3.53 · 2.80 · 4.33 | 0.95 | 24 |
+| L after X | 2.806 ⚠ | 2.57 · 2.34 · 1.26 · 1.92 · 3.57 · 2.80 · 4.37 | 1.00 | 8 |
+| L last | 2.769 ⚠ | | 1.00 | 6 |
+
+The two ⚠ rows are the degenerate fit again (an 8- or 6-trade all-winner cell pins the max and A drops to 0.47) — not results.
+The honest rows: **+0.025 (+0.9%) held-out, better in 4 of 7 years by 0.01–0.03 and worse in 2023 by 0.11**; the voice's unique
+cell is 6 trades. §S46 seated `rr ≥ 12` on 112 trips with 69 solo and a fold-by-fold win; this is a quarter of that with no
+solo cell to speak of. **Verdict: not a seat.** Recorded as the one cell of the feature that reads clean on this book — revisit
+if it reaches ~60 trades (at 4/yr that is 2035; in practice, never on its own). The rr-count port to SpikeFader is closed.
