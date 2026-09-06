@@ -710,3 +710,54 @@ mc=5 crf ≤ −0.1% lifts PF−1 2.96 → 8.38 at −1% net. It does NOT select
 it is a different mechanism keyed on the run's PRICE extension, not its count: the run's first low (crf = 0) is the
 bar that loses; a bar ≥ 0.1–0.2% below it is the averaging-down entry. The four siblings (crp / clu / crd) rank the
 same. **crf is the ordinal's table-feature replacement; the ordinal counter stays in the engine as a diagnostic.**
+
+## §L15 — magnitude since the N-leg's first low (2m/3m/5m/10m) and the drop from the 20m high (2026-09-06)
+
+User: "do we have the magnitude change since the last 2m/3m/5m/10m leg reset?" — **not recorded**: the engine stamps a price
+only for the 20m leg (`first_low_vwap`, plus `chan_hi` = the prior 20m high the leg is measured against); the 120/180/300/600
+`LegCounters` carry counts only. `LegCounters.OnEventAt`/`MagSinceFirst` (2026-09-03, SpikeFader) exist and LowFader could stamp
+all five legs with a one-liner each, but that is a rerun. **Reconstructed post-hoc** instead
+(`scripts/analysis/lowfader_specv3_legmag.py`, log `data/lowfader_specv3_legmag.log`): every N-leg's first low is a new 20m low
+= a sampler signal row when the floors held, so `anchor_N = ffill(signal_vwap where lows_N == 0)` inside the tkd, invalidated
+when `lows_N` decreases without passing through 0 (an unseen reset). The first low of a day's leg usually fires BEFORE the 20m
+channel is warm (never a signal row), so that alone covered 20–35%; the fix: when `lows_N == lows_since_first_low` the N-leg
+counted the same events as the 20m leg ⇒ same first low ⇒ the exact `first_low_vwap` applies. Coverage 97.3–99.5% of spec rows.
+**Validation on the 20m leg** (same ffill construction vs the exact column): 97.0% byte-equal where reconstructed.
+`mag_N = signal_vwap / anchor_N − 1`; `drop_1200 = signal_vwap / chan_hi − 1`. Frame = spec v3 + l120, 1,456 trips / 195 tkd.
+
+**Finding 1 — on spec rows the sub-20m legs ARE the 20m leg.** Same first low as the 20m leg: 2m 78%, 3m 85%, 5m 89%, 10m 90%
+(a leg that has printed ≥ 40 lows in 10m and ≥ 30 in 2m has rarely made even a 2m high). Quantiles coincide (median −8.6 / −8.9
+/ −9.0 / −9.1 / −9.1% for 120/180/300/600/1200); ρ(mag_N, ordinal) ≈ −0.21 everywhere, ρ(mag_N, crf) ≈ 0.5.
+
+**Finding 2 — magnitude is a graded sizing tier, not the which-bar gate** (mc=1 MOC / 10m / mc=5, 2022+):
+
+| gate | tr/yr | MOC PF−1 / net / worst | 10m PF−1 / net | mc=5 PF−1 / net |
+|---|---:|---|---|---|
+| none (1st bar) | 29.4 | 1.50 / 229 / −16.7 | 1.91 / 233 | 2.96 / 1,306 |
+| ordinal ≥ 4 | 18.1 | 5.53 / 286 / −11.1 | 4.03 / 272 | 6.93 / 1,236 |
+| crf ≤ −0.1% | 19.0 | 4.16 / 281 / −11.1 | 3.02 / 243 | 8.38 / 1,288 |
+| mag_120 ≤ −6% | 22.2 | 2.37 / 230 / −16.7 | 2.73 / 242 | 3.69 / 1,209 |
+| mag_120 ≤ −10% | 9.0 | 4.69 / 181 / −16.7 | 5.78 / 227 | 10.06 / 908 |
+| mag_1200 ≤ −10% | 10.9 | 3.20 / 180 / −16.7 | 4.12 / 222 | 5.96 / 902 |
+| drop_1200 ≤ −10% | 14.3 | 2.68 / 202 / −16.7 | 3.00 / 222 | 4.76 / 1,067 |
+| drop_1200 ≤ −20% | 5.0 | 7.04 / 167 / −16.7 | 61.3 / 247 | 12.38 / 816 |
+| mag_120 ≤ −6% ∧ crf ≤ −0.1% | 15.2 | 4.74 / 258 / −11.1 | 3.56 / 248 | 10.72 / 1,190 |
+| drop_1200 ≤ −8% ∧ crf ≤ −0.1% | 14.3 | 6.18 / 259 / −11.1 | 4.34 / 254 | 10.99 / 1,147 |
+| drop_1200 ≤ −10% ∧ crf ≤ −0.1% | 10.6 | 8.19 / 242 / −11.1 | 5.81 / 252 | 12.24 / 1,023 |
+
+Bands are NOT monotone: mag_1200 (−20, −15] is a hole (n 116, PF−1 0.18, mc=5 1.17) between (−30, −20] at 14.7 and
+(−15, −10] at 2.85; drop_1200 (−30, −20] = 45.8 (mc=5 worst −2.6) next to (−20, −15] = 0.27. Every magnitude ceiling keeps the
+−16.7 worst trade (it is a first-bar loser at −6%), so magnitude does not do what crf/the ordinal do — it cannot tell the run's
+first low from its tenth. The deep tail (≤ −20% from the 20m high, 5/yr) is the A+ sizing cell of this family.
+
+**Finding 3 — the RESET itself is informative, and that is the part the engine lacks.** `NOT same_120` (the 2m leg re-armed
+after a 2m high = a bounce then new lows): 321 trips / 25 tkd22, 5.9/yr, MOC PF−1 2.58, 10m 7.37, mc=5 4.06 vs `same_120`
+(24.1/yr, 1.31 / 0.78 / 2.81). `NOT same_600` (re-armed after a 5m high): 1.8/yr at MOC PF−1 16.7, 10m inf, mc=5 93.9
+(n=143 / 6 tkd22 — a hint, not a result). The distance from the RESET HIGH (the N-bar high that reset the leg) is recorded only
+for the 20m window (`chan_hi`); for 120/180/300/600 the reset bar is never a signal row, so it is engine-only: stamp the
+reset-bar vwap in the `br{N}.BarsSinceBreach = 0` branch and the first-low price via `OnEventAt`, record
+`reset_hi_{N}` / `first_low_px_{N}` (8 columns), then the whitelist rerun. Queued with the `l120 ≥ 30` + crf Ord-gate change.
+
+**Verdict:** crf ≤ −0.1% stays the which-bar gate; `drop_1200` (≤ −8/−10/−20%) and `mag_120` are sizing tiers on top of it
+(crf ∧ drop_1200 ≤ −10%: 10.6/yr, PF−1 8.2, net 242, worst −11.1; mc=5 12.2 / 1,023). Sub-20m first-low magnitudes add
+nothing over the 20m one on this spec because the legs coincide.
