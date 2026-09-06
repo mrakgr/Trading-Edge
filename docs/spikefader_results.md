@@ -4182,3 +4182,22 @@ in all three engines (record-only, trip sets zero-diff). The LowFader lesson gen
 is a LowFader-specific voice because LowFader enters 40 lows deep with the run extended (crf) — it is the urgency of the flow
 being faded at that depth; the early-leg fader (FlushFader) and the pop-fader (SpikeFader) read the same number as "the move
 is still going".
+
+### §S48 addendum — `rate_600 < 0.2` as a SpikeFader GATE: not adoptable (2026-09-06, user)
+
+The (0.2, 0.3] band read PF−1 0.26, so the user asked for the ceiling. Re-replayed as a gate (mc=1, 9m exit; a gate changes
+which bar enters, so the book was rebuilt, not filtered — `data/spikefader_rate_ceiling.log`):
+
+| book | n | PF−1 | trimmed | win | net | worst | tail<−20% | roster-sized net | sized net/exposure | sized t |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| spec (no ceiling) | 3,573 | 1.213 | 4.54 | 74.5 | 7,162 | −83.4 | 1.60 | 3,265 | 9,999 | 15.55 |
+| spec ∧ rate < 0.2 | 3,499 | 1.250 | 4.68 | 74.7 | 7,119 | −83.4 | 1.57 | 3,222 | 9,873 | 15.64 |
+| removed (rate ≥ 0.2 entries) | 105 | 0.33 | 1.63 | 66.7 | +91 | −40.5 | 2.86 | 58 | 179 | |
+| added (the later sub-0.2 bar) | 31 | 0.74 | 2.95 | 67.7 | +48 | −23.0 | 3.23 | 15 | 51 | |
+
+The removed cell is a WEAK WINNER (+91 net), not a loser; 81 of the 105 are grade E (weight 0.19), so the roster already sizes
+it down — sized net per unit exposure FALLS (9,999 → 9,873) and the sized t moves +0.09. Year table: PF−1 better in 4/7, net in
+2/7, sized per-exposure in 3/7 (2024 is the whole gain: 1.38 → 1.58). Same-n control (drop 105 random trades, 2,000 draws): the
+ceiling lands at percentile 95.8 — on the line, on +0.037 PF−1. It also deletes 2 of A's 113 (both winners) and 9 of B's 154.
+**Verdict: no.** A gate has to beat the sizing it replaces; this one removes trades the ladder was already sizing at a fifth,
+costs net on the full book AND on the sized book, and holds in 3 of 7 years. rate_600 stays a recorded column.
