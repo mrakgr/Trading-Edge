@@ -1252,7 +1252,13 @@ what an equivalent-PF cell would get, adjusted for the tail. `scripts/analysis/l
 | ≤ 100bp (v4) | MOC | 5.34 | 4.57 | 70 | 3.6 | 433 | −12.8 | −5.0 | 1.4 | 0.0 | 7 |
 | ≤ 100bp (v4) | 10m | 3.81 | 3.77 | 70 | 2.2 | 303 | −14.1 | −4.2 | 0.9 | 0.0 | 7 |
 
-The cell is a lottery ticket: sd 46 vs the book's 7, avg +12.6% carried by a few +100% days, 12% of trades under −10%. **The 10m
+The cell is a lottery ticket: sd 46 vs the book's 7, 12% of trades under −10%, and the avg +12.6% is carried by ONE trade —
+**CTNT 2024-05-20, +265%** (entered 12:01 at $4.04 after a −63% flush from a $10.62 open to $2.71 by 12:30, closed $14.76; verified
+on the raw 1s tape and `daily_adjusted`; the stock fell to $1.18 the next day) — plus four at +53…+70% (CUBI on the SVB Monday
+2023-03-13 +70, YYAI +58, DOGZ +55, MNK +53). Distribution of the cell as its own system (first > 100bp bar per tkd, 49 trades —
+8 more than the 41 whose FIRST v4 bar is > 100bp): quantiles 0/5/25/50/75/95/100% = −54.7 / −16.4 / −2.4 / **+8.8** / +16.6 / +57 /
++265; 10 of 49 above +20%, 2 below −20%; the top 3 winners are 394 of the 716 net (55%). Median +8.8% is real edge; the mean is
+one microcap squeeze. **The 10m
 cover halves the worst trade (−54.7 → −23.1) but gives up 73% of the net (363 → 97) and drops the win rate to 51%**; the 1h cover
 keeps 55% of the net and still carries −41. No cover fixes the −40s: MCTR 2025-06-05 is −39 at MOC, −15 at 10m, −41 at 1h; ADTX
 2026-06-24 −55 / −20 / −29. The covers hurt the ≤ 100bp book too (MOC beats every cover there, as in §L5g at 2022+).
