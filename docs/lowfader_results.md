@@ -590,3 +590,32 @@ the flush is the natural shape of this system (the sampler's mc=0 edge was never
 later entries). mc=5 with MOC: **110 trades/yr, PF−1 2.47, net 1,252% over 2022+ (270%/yr at 5 units), worst
 −16.7, zero trades under −20%** — the "few trades" complaint answered without touching a gate. Sizing per slot
 (rr / gap / ordinal tiers) is the remaining lever; the engine's `spec_ord` is the live-knowable slot index.
+
+## §L10 — SPEC v3 REMOVE-ONE at mc = 0 / 1 / 5 (2026-09-05 late night; user: "try removing some of the old gates, starting with eff")
+
+Old universe, `dollar_vol_60 ≥ $1M` kept; mc=5 = MOC averaging down. 2022+ (`scripts/analysis/lowfader_specv3_removeone.py`):
+
+| spec | mc=0 tkd22 / PF−1 | mc=1 trades/yr / PF−1 / net / worst | mc=5 trades/yr / PF−1 / net / worst |
+|---|---|---|---|
+| SPEC v3 (full) | 114 / 6.77 | 30 / 1.32 / 218 / −17 | 110 / 2.47 / 1,252 / −17 |
+| drop eff_ewma_10m < −0.7 | 207 / 2.37 | 56 / 0.48 / 206 / −34 | 202 / 0.84 / 1,231 / −34 (2026 −42) |
+| drop volat > 50bp | 193 / 3.01 | 50 / 0.85 / 247 / −43 | 178 / 1.29 / 1,305 / −43 |
+| drop lows_600 ≥ 40 | 120 / 6.42 | 32 / 1.38 / 232 / −17 | 115 / 2.36 / 1,235 / −17 |
+| drop rate_600 ≥ 0.15 | 281 / 1.05 | 71 / 0.46 / 292 / −29 | 251 / 0.69 / 1,508 / −30 |
+| drop rr ≥ 2 | 162 / 1.12 | 44 / 0.67 / 202 / −21 | 162 / 1.01 / 1,129 / −21 |
+| drop chg_1d ≤ −4% | 117 / 5.24 | 32 / 1.13 / 203 / −17 | 119 / 2.20 / 1,212 / −17 |
+| **drop gap_adj_60 ≤ 30** | 163 / 5.42 | 40 / 1.18 / 281 / −19 | **144 / 1.98 / 1,441 / −19, 0% tail** |
+| drop eff + lows + rate (the leg block) | 1,803 / 0.32 | 467 / 0.08 / 389 / −76 | 1,681 / 0.07 / 1,233 / −76 |
+
+**eff stays.** Dropping it nearly doubles the trades (110 → 202/yr at mc=5) for LESS net (1,252 → 1,231), PF−1 2.47 →
+0.84, worst −17 → −34, and a negative 2026 — the trades it admits are net-zero and carry the tail. Inside the rest of
+the spec the eff ladder is a cliff, not a slope: (−0.9,−0.8] mc=0 10.9 / (−0.8,−0.7] 8.6 / (−0.7,−0.6] 4.9 (mc=5 2.27,
+worst −33) / (−0.6,−0.5] **−0.11** / (−0.5,−0.3] 0.18. Floor sweep: −0.7 is the knee (net 1,252); −0.6 adds 40
+trades/yr for the same net (1,245) and worst −33; −0.8 loses 30% of net at the same PF. **The leg block (eff ∧ lows ∧
+rate) IS the event**: without it the book is the base sampler (1,681 trades/yr, PF−1 0.07, same net).
+
+**The one benign relaxation is `gap_adj_60 ≤ 30`**: dropping it adds 31% trades and **+15% net (1,441) at PF−1 1.98,
+worst −19, zero tail** — the 30–45 gap trips are positive at mc=5 (they were the 0.46–1.0 slices at mc=0). ⇒ gap is a
+SIZING tier, not a gate, in the averaging-down book. `chg_1d` is cheap to keep (−3% net, +12% PF−1); `lows ≥ 40` is
+implied by the rate gate (−1% net). `rr ≥ 2` is load-bearing (drop → PF−1 1.01, net −10%) and not the trade-count
+lever (162 vs 110/yr). ⚠ 2023 is thin in every variant (net 152–225 vs 350+ elsewhere).
