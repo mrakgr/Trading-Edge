@@ -1041,3 +1041,33 @@ when the count passes ~20.**
 **The system is FINAL as of 2026-09-06.** Open follow-ups, none blocking: remote pushes; the breadth downgrade and the
 float voice as watch items; a second entry family for more days ("failed gap-up" short); Scanner port of SPEC v3.1 + the
 two new engine features (LegCounters price stamps, RrLegCounts) when LowFader goes live.
+
+### §L20 addendum — the $2M floor question and the wider-frame check on breadth/float (2026-09-06)
+
+**Drop the `dv_0945_tape ≥ $2M` floor, keep `n_bars_1s ≥ 200`? NO — it adds 4 ticker-days in 6.6 years.** Whole-tape corpus
+(`lowfader_alltape_*`, no candidate filters) with SPEC v3.1 ∧ `n_bars_1s ≥ 200` and no floor: 345 trips / 92 tkd vs the FINAL
+84. The added sub-$2M cell: 14 trips / 4 tkd / 4 mc=1 trades (0.6/yr): IPOB 2020 −3.4, IXHL 2025 +28.4, **NAK 2020 −36.8 (worse
+than the book's worst by 26 pts)**, PGY 2023 +2.4 — net −9, PF−1 −0.24. Only 44 sub-$2M days pass the rest of the spec at all,
+and 4 of those pass `dollar_vol_60 ≥ $1M` (a name that printed < $2M in 15 minutes must print $1M in the signal minute — rr
+9–40). **The floor is nearly redundant with the signal-minute liquidity gate; keep it.** (Also: `dv_0945 ≥ $2M ∧ barnum < 22`
+= 4 tkd at −0.32 — the barnum gate is right too.)
+
+**Breadth and float on the spec's own supersets** (the only way to widen the frame without changing the system;
+`data/lowfader_final_breadth_float_wide.log`), mc=1 MOC:
+
+| frame | trades | breadth ≥ 0.65: n / PF−1 / avg% | breadth < 0.65: PF−1 / avg% | float < $300M: n / win / avg% | float ≥ $300M: PF−1 / avg% |
+|---|---:|---|---|---|---|
+| FINAL v3.1 | 84 | 14 / 2.60 / 3.5 | 9.08 / 6.1 | 8 / 100% / 13.8 | 5.43 / 4.8 |
+| no crf (rr ≥ 2) | 150 | 28 / 1.51 / 2.3 | 4.60 / 4.2 | 11 / 100% / 10.3 | 3.14 / 3.5 |
+| no rr (crf ≤ −0.2%) | 107 | 21 / 1.58 / 2.4 | 4.87 / 5.1 | 8 / 100% / 13.8 | 3.26 / 3.8 |
+| neither | 107 | 21 / 1.32 / 2.1 | 3.73 / 4.5 | 8 / 100% / 13.1 | 2.77 / 3.5 |
+
+**Breadth: the inversion is robust** — strong-breadth days are the worse cell in all four frames, at roughly half the average
+return, and the by-year sign holds (2020 3.1–3.3 vs 4.8–6.4; 2024 −2.5..−3.3 vs 6.5–7.7; 2022 mixed; 2023 the one year it
+flips). ⭐ Ruling: **breadth ≥ 0.65 is a DOWNGRADE for LowFader** (LowFlyer's ×3 size-up inverts on this universe). Still
+14–28 trades, so it stays a watch item rather than a weight; if adopted it would be a grade-E-like haircut, never a skip.
+
+**Float: robust but uncountable.** Every sub-$300M trade in every frame is a winner (8–11 of them, avg 10–14%), and the count does
+NOT grow with the wider frames — it is the UNIVERSE (the $2M / $1M liquidity floors) that makes this a large-cap book, and §L20's
+floor test shows the sub-$2M names cannot be added. The low-float overreaction is a different system's territory (LowFlyer's, on
+the 1m tape with its $500k ADV floor). ⭐ Ruling: **`float < $300M` = a watch-item size-up voice; not adoptable at n = 8.**
