@@ -862,3 +862,37 @@ count with rr off 14.2 · 2.98 · 234 · −21.1 — the 3 extra trades/yr are t
 **Verdict:** `rr ≥ 2` at the signal stays; the leg counts are a conditional tier inside it, never a substitute. Year table of
 the best count-only gate (lows_rr3_120 ≥ 10, rr off): 2022 PF 2.49 / net 49 (FINAL 75.0 / 100), 2023 1.86 / 13, 2026 1.00 / 0
 with mc=5 worst −21.1 — every modern year worse than FINAL.
+
+## §L18 — sizing tier: signal-bar `rr ≥ 5` vs `lows_rr3_120 ≥ 10` (2026-09-06, user)
+
+`scripts/analysis/lowfader_specv3_tier_rr_vs_count.py`, log `data/lowfader_specv3_tier_rr_vs_count.log`. FINAL book, both
+halves of each split (slice-replay inside each cell; 2022+ PF−1 / net / avg%, worst all years, mc=1 MOC unless marked):
+
+| split | n (%) | tr/yr | PF−1 | net | avg% | worst | 10m PF−1 / net | mc=5 PF−1 / net |
+|---|---|---:|---:|---:|---:|---:|---|---|
+| FINAL | 433 | 16.0 | 7.30 | 294 | 4.8 | −11.1 | 4.31 / 261 | 10.4 / 1,117 |
+| rr ≥ 5 | 161 (37%) | 6.3 | 26.3 | 188 | 7.8 | −11.1 | 24.4 / 212 | 31.3 / 697 |
+| rr < 5 | 272 (63%) | 10.6 | 3.58 | 119 | 3.0 | −10.6 | 1.49 / 83 | 5.11 / 434 |
+| rr3_120 ≥ 10 | 278 (64%) | 11.3 | 12.2 | 281 | 6.0 | −11.1 | 8.88 / 291 | 19.4 / 1,015 |
+| rr3_120 < 10 | 155 (36%) | 6.2 | 3.94 | 68 | 3.6 | −10.6 | 1.48 / 41 | 4.17 / 228 |
+| rr3_120 ≥ 20 | 206 (48%) | 7.8 | 28.8 | 218 | 7.0 | −11.1 | 12.4 / 226 | 33.3 / 825 |
+| rr3_120 < 20 | 227 (52%) | 9.4 | 2.77 | 91 | 2.7 | −10.6 | 1.40 / 66 | 3.77 / 311 |
+
+Jaccard(rr ≥ 5, rr3_120 ≥ 10) = 0.53, ρ(rr, count) = 0.48 — related but not the same split. rr inside FINAL is a second knife
+at 5: (2,3] 4.19 / (3,4] 5.67 / (4,5] 3.80 → **(5,8] 94.4, avg 7.6%, win 92%** → (8,10] 7.9 → (10,20] inf → >20 inf (avg 12%).
+
+The 2×2 (rr ≥ 5 × rr3_120 ≥ 10) says the two are COMPLEMENTARY, so the count is the middle rung, not a rival:
+
+| cell | n | tkd22 | tr/yr | PF−1 | net | avg% | worst | mc=5 PF−1 / net |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| rr ≥ 5 ∧ count ≥ 10 | 152 | 23 | 5.6 | 25.2 | 181 | 7.9 | −11.1 | 29.3 / 652 |
+| rr ≥ 5 ∧ count < 10 | 9 | 2 | 0.9 | inf | 21 | 10.6 | −4.3 | inf / 45 |
+| rr < 5 ∧ count ≥ 10 | 126 | 27 | 6.3 | 7.09 | 113 | 4.2 | −5.7 | 12.5 / 377 |
+| rr < 5 ∧ count < 10 | 146 | 17 | 5.4 | 2.71 | 47 | 2.8 | −10.6 | 3.35 / 184 |
+
+**Verdict (user's question "replace rr3_120 with rr ≥ 5 for sizing?"): yes as the TOP tier** — rr ≥ 5 is a signal-bar
+feature (no leg history, no reset semantics), it is positive in EVERY year incl. 2026 (PF 19.2 on 3 trades; its complement
+rr < 5 is the only 2026 loser, 0.78), and its (5,8] band is the sharpest cell in the book. It is smaller (37% of trips vs
+64%), so on its own it leaves a fat 63% base at PF−1 3.6. **Three-rung ladder: A = rr ≥ 5 (6.3/yr, 26.3, avg 7.8%) · B = rr < 5 ∧
+rr3_120 ≥ 10 (6.3/yr, 7.1, avg 4.2%, worst −5.7) · C = the rest (5.4/yr, 2.7, avg 2.8%, worst −10.6).** If one lever only:
+rr ≥ 5.
