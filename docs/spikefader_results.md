@@ -4220,3 +4220,24 @@ chance. Roster LOYO: L40 seated after X 2.569 (v3.4 2.640), L40 last 2.639, the 
 roster. (L20 seated after X prints 2.742, an ARTIFACT: grade C collapses to 19 all-winner trades, the capped weight fit pins C at
 1.00 and A at 0.38 — a degenerate fit, not a better roster; noted so nobody re-discovers it.) **Verdict: no seat, either end;
 the count stays a column.** With this and the rate ceiling, the LowFader port to SpikeFader is closed.
+
+### §S48 addendum 3 — `highs_rr3_120 ≥ 60` and beyond (2026-09-06, user)
+
+`data/spikefader_rr3_far.log`. The count's own tail: q90 34, q95 43, q98 61, q99 73 (a 2m leg has q99 118 highs in total).
+
+| floor | n | PF−1 | win | avg% | worst | tail<−20% | grades | unique n (E) | unique PF−1 | unique worst | same-n p95 | percentile |
+|---|---:|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|
+| ≥ 40 | 265 | 2.00 | 74.7 | 3.3 | −72.4 | 1.9 | E134 D63 X59 | 134 | 1.09 | −24.0 | 2.09 | 71 |
+| ≥ 60 | 80 | 2.17 | 71.2 | 3.5 | −24.5 | 2.5 | E33 X25 D20 | 33 | 2.97 | −8.0 | 5.46 | 87 |
+| ≥ 80 | 25 | 3.72 | 76.0 | 3.7 | −9.9 | 0.0 | X16 E6 D2 | 6 | 3.98 | −4.2 | — | 60 |
+| ≥ 100 | 4 | 0.14 | 75.0 | 0.3 | −9.9 | 0.0 | X4 | | | | | |
+| rr3_600 ≥ 100 | 78 | 1.52 | 75.6 | 2.9 | −44.1 | 2.6 | E33 X24 D19 | 33 | −0.48 | −44.1 | 5.20 | 1 |
+| rr3_1200 ≥ 100 | 156 | 1.31 | 76.3 | 2.7 | −44.1 | 3.8 | E60 D47 X44 | 60 | −0.14 | −44.1 | 2.98 | 3 |
+
+Bands: (40, 60] 1.84 (n 191; 2022 −0.48, 2023 −0.32) · (60, 80] 2.12 (49; tail 4.1%) · (80, 100] 6.13 (21, 12 of them grade X).
+Inside the grades at ≥ 60: X 4.99 (25) vs X's 2.38, **D 0.84 (20, win 55%) vs D's 1.85**, E 2.97 (33, worst −8.0) vs E's 0.70.
+So ≥ 60 is 80 trades / 12 per year: 25 are grade X where it does mark X's better half, 20 are grade D where it marks the WORSE
+half, and its 33 grade-E trades are 2.97 at the 87th percentile of chance (same-n p95 = 5.46 — with n = 33 the control's tail
+is wide). ≥ 80 is 25 trades, 16 of them X. The 5m/20m twins at ≥ 100 are NEGATIVE in their unique cells (−0.48, −0.14,
+percentiles 1 and 3). **Verdict: the far end is grade X's better half, a 25-trade sub-tier of a 111-trade voice; it fails the
+same-n control outside X and inverts in D. Not a voice; at most a note for X's sizing when X has 5× the trades.**
