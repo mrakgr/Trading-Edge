@@ -646,3 +646,24 @@ information. Inside rr ≥ 2 the speed ladder is monotone at mc=5 (−1..−0.5%
 **LowFlyer's −12% depth floor: NO.** On spec v3 the trips deeper than −12% are the BEST cell (148 trips / 16 tkd,
 PF−1 35.8, worst −16.7); the floor costs 16% of net (1,252 → 1,047) and lowers PF (2.47 → 2.30); −6% is worse (710).
 The falling knife LowFlyer cut at −12% does not exist here — `dollar_vol_60 ≥ $1M ∧ eff ∧ rate` already removed it.
+
+## §L12 — can SPEED replace the ORDINAL? (mc=1, spec v3 @ 50bp; 2026-09-05 late night)
+
+| which-bar gate | trades/yr | MOC PF−1 / net22 / worst | 10m PF−1 / net22 / worst | median ordinal selected |
+|---|---:|---|---|---:|
+| 1st bar (none) | 30 | 1.32 / 218 / −17 | 1.75 / 225 / −20 | 6 |
+| **ordinal ≥ 4** | 19 | **4.64 / 282 / −11** | 3.61 / **266** / −15 | 10 |
+| ordinal ≥ 5 | 16 | 5.03 / 275 / −11 | 4.05 / 261 / −14 | 11 |
+| speed_1m < −2% | 19 | 1.98 / 199 / −17 | 2.92 / 224 / −20 | 7 |
+| speed_1m < −3% | 12 | 3.75 / 204 / −17 | 6.74 / 245 / −20 | 7 |
+| d1m < −3% | 10 | 4.55 / 202 / −17 | 10.8 / 252 / −20 | 6 |
+| s5 < −1% | 9 | 5.24 / 196 / −17 | 14.2 / 251 / −20 | 7 |
+| ordinal ≥ 4 ∧ speed_1m < −2% | 14 | 8.20 / 266 / −11 | 7.14 / 290 / −15 | 9 |
+
+**No.** Speed does not select later bars (median ordinal 7 vs 10, and 9–10% of its picks are still the day's first
+bar; median speed barely rises with the ordinal, −2.1% → −3.2%) and on MOC it never reaches the ordinal's net
+(164–204 vs 275–282) nor its worst (−17 vs −11). With the 10m cover the fast bars post huge PFs (d1m < −3% 10.8,
+s5 < −1% 14.2) at ~250 net — near the ordinal's 261–266 but on 9–12 trades/yr. The two are complementary: the
+ordinal says "the leg has kept going", speed says "this bar is fast"; stacked, ordinal ≥ 4 ∧ speed < −2% is 14
+trades/yr at PF−1 8.2 (MOC, net −6%) / 7.1 (10m, net +9%). ⇒ speed = a sizing tier inside the ordinal (or inside
+the mc=5 ladder), not its replacement. The mc=5 structure (§L9) makes the ordinal moot anyway.
