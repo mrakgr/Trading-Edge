@@ -938,3 +938,23 @@ both — i.e. **grade C's own weight is doing nothing; A and B are the ladder.**
 C is kept as a rung for the operator's shape but its weight is indistinguishable from E (drop it if simplicity is preferred: X/E
 at 1.00 / 0.26 is the same book). Same caveats as S42: edge-based, never 1/vol ([[feedback_no_vol_scaled_sizing_in_mr]]);
 weights unstable on the small cells; revisit when live diverges. Sized mc=5 book: net/exposure +24% held-out, maxDD 71 → 35.
+
+**⭐ RATIFIED (user, 2026-09-06): TWO grades.** X = `rr ≥ 5 ∨ lows_rr3_120 ≥ 20` (full size) · E = none. Weight of E =
+min(PF−1, 10)/max = **0.26 (mc=1) / 0.27 (mc=5)**; sqrt fallback 0.51 / 0.52; fitted on 2022+ alone 0.20 / 0.30.
+
+| book | grade | n | % | PF−1 | win | avg% | worst | PF−1 22+ | net 22+ |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| mc=1 | X | 56 | 53 | 11.6 | 84 | 7.0 | −11.1 | 27.2 | 232 |
+| mc=1 | E | 50 | 47 | 2.65 | 62 | 3.0 | −10.6 | 1.97 | 63 |
+| mc=5 | X | 170 | 54 | 24.4 | 89 | 8.8 | −11.1 | 32.8 | 877 |
+| mc=5 | E | 144 | 46 | 2.68 | 60 | 3.4 | −10.6 | 2.98 | 240 |
+
+| sized book | net | exposure | net/exposure | t | worst | maxDD | held-out |
+|---|---:|---:|---:|---:|---:|---:|---|
+| mc=1 equal | 543 | 1.00 | 543 | 6.30 | −11.1 | 24 | — |
+| mc=1 X 1.00 / E 0.26 | 432 | 0.65 | 661 | 5.58 | −11.1 | 16 | 7/7 yrs, **1.22×** (fold wE 0.16–0.31) |
+| mc=5 equal | 1,977 | 1.00 | 1,977 | 11.71 | −11.1 | 71 | — |
+| mc=5 X 1.00 / E 0.27 | 1,624 | 0.66 | 2,445 | 10.39 | −11.1 | 33 | 7/7 yrs, **1.24×** (fold wE 0.19–0.36) |
+
+Held-out avg%/trade per unit exposure by year (mc=5, X/E vs equal): 2020 7.6 vs 6.3 · 2021 8.7 vs 7.2 · 2022 7.7 vs 6.1 ·
+2023 2.4 vs 2.2 · 2024 14.5 vs 10.5 · 2025 8.1 vs 6.8 · 2026 4.8 vs 4.0. Two levers, one weight to remember: **E ≈ ¼ of X.**
