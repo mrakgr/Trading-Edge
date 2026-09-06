@@ -4132,3 +4132,53 @@ REPLAY-INSIDE (the channel's exit frees the slot) agrees within 0.01 at every ru
 here as (a) the exit horizon is a monotone net-vs-tail dial, (b) MaxFlyerV2's gates were
 artifacts, (c) the `rr ≥ 12` and `rr ≥ 40` cells belong to this book's roster, (d) the
 engine speedup and the retire-guard fix, both of which SpikeFader now carries.
+
+## §S48 — the LowFader leg features ported (2026-09-06, user): `rate_600` is a WEAK, NON-MONOTONE band on SpikeFader; `highs_rr{k}_N` recorded (s48_rr)
+
+Same port as FlushFader §S48 (docs/lowfader_results.md §L16/§L18 for the features). **rate_600 = highs_600 / bars_600** post-hoc
+on s47 (spec book 3,573, 9m exit, `scripts/analysis/legrate_port.py`, `data/legrate_port_sf.log`): bands (PF−1 raw / trimmed)
+(0, 0.05] 1.06 / 3.77 (14%) · (0.05, 0.1] 1.22 / 4.69 (59%) · (0.1, 0.15] 1.44 / 5.20 (19%) · (0.15, 0.2] 1.63 / 7.25 (5%) ·
+**(0.2, 0.3] 0.26 / 1.17** (2%). Rises through 0.2 then collapses; as a floor `≥ 0.15` = 8% of the book at 0.97 (< the book's
+1.21; 2022 −0.14, 2024 −0.12); `≥ 0.1` = 28% at 1.29 (2024 0.58). ρ(rate, ret) = −0.001. ⚠ Same side-flip lesson as ever: the
+LowFader floor does not transplant; the (0.1, 0.2] band is a mild tier at best and the year columns disagree. **No seat.**
+
+**highs_rr{1,2,3}_{120,180,300,600,1200} (engine, this commit):** `RrLegCounts` per leg (new 20m HIGHS with rr ≥ 1/2/3 at that
+bar), reset with the LegCounters. Corpus `data/spikefader_s48_rr` = the s47 frame rerun (`spikefader_s44_whitelist`, 2020-01-02..
+2026-07-17; s47 untouched). ⚠ [[feedback_side_flip_inverts_rulings]]: on this SHORT side the quiet end of rr is grade A, so the
+LOUD-leg count may invert — the study reads both `highs_rr3_120 ≥ k` and its quiet complement. Results → next section.
+
+### §S48 results — `highs_rr{k}_N` on the spec book: a U-shaped, year-unstable band; the quiet complement is grade A again (2026-09-06)
+
+Corpus `data/spikefader_s48_rr` (`scripts/equity/rr_port_reruns.sh`, 20 min). **Trip-set identity: 935,595 = 935,595 (s47)**, spec
+book 3,573 @ PF−1 1.213, roster cells A113/B154/X111/C29/D675/E2491 — record-only columns. Unlike FlushFader this book is FULL
+of loud legs (rr median 2.05; `highs_rr3_120` median 0 / q75 13 / q90 34; `highs_rr2_600` median 32); ρ(count, ret) ≤ 0.05.
+
+| `highs_rr3_120` band (mc=1, 9m exit; `scripts/analysis/rrcount_port.py`, log `data/rrcount_port_sf.log`) | n | % | PF−1 | trimmed | avg% | worst | 2020 | 2022 | 2024 | 2026 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 2,110 | 59 | 1.23 | 4.83 | 1.8 | −54 | 1.84 | 0.69 | 0.88 | 1.11 |
+| (0, 2] | 127 | 4 | 2.52 | 6.87 | 2.8 | −16 | 2.88 | 0.19 | 5.44 | 591 |
+| (2, 5] | 153 | 4 | 0.62 | 2.87 | 1.3 | −53 | 4.73 | 0.03 | 0.68 | −0.21 |
+| (5, 10] | 206 | 6 | 0.75 | 3.33 | 1.7 | −83 | 0.32 | −0.61 | 3.56 | 2.03 |
+| (10, 20] | 347 | 10 | 0.93 | 4.18 | 2.0 | −77 | 0.57 | 0.63 | 1.74 | 0.88 |
+| (20, 40] | 380 | 11 | 1.33 | 3.98 | 2.4 | −45 | 0.59 | 0.73 | 2.45 | 9.57 |
+| > 40 | 250 | 7 | 1.88 | 6.12 | 3.3 | −72 | 2.06 | −0.13 | 2.91 | 5.85 |
+
+A U: both ends of the count beat the middle (the same U as rr itself — §S45/S46 seated BOTH ends of rr), and the year columns
+disagree in every band. Floors: `≥ 20` = 18% at 1.64 (2020 1.07, 2022 0.26, 2026 7.27), `≥ 40` 7% at 1.88 (2022 −0.13, 2023
+−0.56) — the loud end is grade X's territory (105 of X's 111 trades have ≥ 10) and adds no cell of its own; inside D it splits
+2.18 vs 1.57, inside E 0.55 vs 0.78 (the wrong way). `highs_rr2_600 = 0` (24%) = 1.83 vs > 0 at 1.0–1.5 — the QUIET end is the
+better cell, i.e. the feature points where rr already points.
+
+**The quiet complement as a candidate voice** (`frac1 = highs_rr1_120 / (k120+1) ≤ 0.1`: "a 2m leg whose highs printed on no
+volume"; log `data/rrcount_port_sf_quiet.log`): 461 trades at PF−1 2.59 — but 111 of grade A's 113 and 70 of B's 154 are in it
+(ρ(frac1, rr) = 0.38). S42 unique cell (frac1 ≤ 0.1 ∧ E): 254 trades at 1.42 vs E's 0.66 — **same-n control percentile 92.7
+(2,000 random E subsets: median 0.73, p95 1.51)**, 2024 0.30 / 2025 0.75; **roster LOYO with Q seated between B and X: 2.620%
+vs v3.4's 2.640% per unit exposure — no improvement.** The quiet-tape family is already seated (A `rr < 0.5`); a leg-level
+restatement of it does not earn a second seat.
+
+**Verdict for both ports (user's question "do they make a difference"): NO.** `rate_600`: inert (FlushFader) / weak non-monotone
+(SpikeFader). `rr-qualified counts`: absent-and-inverted (FlushFader), U-shaped-and-redundant (SpikeFader). Both stay recorded
+in all three engines (record-only, trip sets zero-diff). The LowFader lesson generalises the S42 one: the loud-volume leg count
+is a LowFader-specific voice because LowFader enters 40 lows deep with the run extended (crf) — it is the urgency of the flow
+being faded at that depth; the early-leg fader (FlushFader) and the pop-fader (SpikeFader) read the same number as "the move
+is still going".

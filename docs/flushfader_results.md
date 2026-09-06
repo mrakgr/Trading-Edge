@@ -17203,3 +17203,47 @@ now holds at v3.1.
 engine's calendar-aware 12:00 cutoff refuses them. The ENGINE is the production
 truth; the script frame guard is documented as flat-cutoff (S43bc measured the same
 3-trip class). Diff: scratch full_diff_v31.py.
+
+## §S48 — the LowFader leg features ported (2026-09-06, user): `rate_600` is INERT on FlushFader; `lows_rr{k}_N` recorded (v50_rr)
+
+LowFader's rebuild (docs/lowfader_results.md §L4–§L23) produced two engine-native features: **`rate_600` = lows_600 / bars_600**
+(the density of the 10m leg; LowFader gates ≥ 0.15) and **`lows_rr3_120`** (new 20m lows in the current 2m leg on which
+rr = vol_60/(vol_0945_tape/15) ≥ 3 held; LowFader's size-up voice is `rr ≥ 5 ∨ lows_rr3_120 ≥ 20`). User: port both here
+and to SpikeFader and see if they make a difference.
+
+**rate_600 (post-hoc on v49_spec20, production book 1,369 @ 4.128, `scripts/analysis/legrate_port.py`, `data/legrate_port.log`):
+INERT.** The book's leg density is far below LowFader's (median 0.053, q95 0.159 — this spec enters early legs, LowFader enters
+40-low legs); ρ(rate, ret) = 0.001. Bands (PF−1 raw / trimmed): (0, 0.05] 2.97 / 9.22 (47%) · (0.05, 0.1] 3.66 / 9.99 (39%) ·
+(0.1, 0.15] 2.61 / 6.91 · (0.15, 0.2] 3.17 / 6.93 · (0.2, 0.3] 1.54 / 3.95. LowFader's floor `≥ 0.15` keeps 6% of the book at
+PF−1 2.41 (vs 3.13 all); `< 0.1` = 85% at 3.24. Year columns flat. No seat; not a tier.
+
+**lows_rr{1,2,3}_{120,180,300,600,1200} (engine, this commit):** `RrLegCounts` (the LowFader class) instanced per leg, fed at the
+leg-event site with the bar's time-clock rr, reset at the LegCounters' reset sites; 15 INTEGER columns after
+`lows_since_first_low_180`. Corpus `data/equity/flushfader/v50_rr` = the v49 frame rerun (same whitelist/flags; v49 untouched
+as the reference). Results → the next section once the rerun lands.
+
+### §S48 results — `lows_rr{k}_N` on the production book: ABSENT where it matters and INVERTED where it fires (2026-09-06)
+
+Corpus `data/equity/flushfader/v50_rr` (`scripts/equity/rr_port_reruns.sh`, 90 s). **Trip-set identity: 39,769 = 39,769 (v49),
+book 1,369 @ 4.128, tiers A153/B411/C239/D566 — bit-identical**, the new columns are record-only.
+
+**The book has no loud legs.** rr at the signal: median 0.67, q90 2.09 (LowFader's spec floor is 2, its A voice 5). `lows_rr3_120`
+= 0 on **93%** of trades, `lows_rr2_120` = 0 on 85%, `lows_rr2_600` = 0 on 74%; ρ(count, ret) ∈ [−0.03, +0.03] for all 12.
+FlushFader enters the leg EARLY (`secs_since_first_low ≤ 450` is a voice; K band [26, 50]); LowFader enters 40 lows deep.
+
+| gate (mc=1 book, `scripts/analysis/rrcount_port.py`, log `data/rrcount_port_ff.log`) | n | % | PF−1 | trimmed | win | net | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| all | 1,369 | 100 | 3.13 | 8.86 | 78.2 | 2,682 | −30.6 |
+| lows_rr3_120 = 0 | 1,277 | 93 | 3.16 | 9.16 | 78.5 | 2,507 | −30.6 |
+| lows_rr3_120 ≥ 1 | 92 | 7 | 2.77 | 5.97 | 73.9 | 176 | −10.5 |
+| lows_rr3_120 ≥ 5 | 56 | 4 | 1.54 | 3.48 | 69.6 | 75 | −10.5 |
+| lows_rr3_120 ≥ 10 | 29 | 2 | 0.73 | 2.30 | 65.5 | 24 | −10.5 |
+| lows_rr2_120 ≥ 10 | 73 | 5 | 2.16 | 4.47 | 72.6 | 131 | −10.5 |
+| **LowFader's X voice: rr ≥ 5 ∨ lows_rr3_120 ≥ 20** | **20** | **1** | **0.76** | 2.90 | 70.0 | 15 | −10.5 |
+| rr ≥ 5 alone | 16 | 1 | 0.12 | — | 62.5 | 2 | −10.5 |
+
+Inside every production tier the ≥ 10 cell is worse than its complement (A 0.55 vs 6.85 · C 0.32 vs 3.19 · D 0.54 vs 2.17; B
+30.3 on 5 trades). The small (0, 5] cells read 5–8 PF−1 on 21–43 trades but the ladder is non-monotone and the year columns are
+empty. **Verdict: no seat, no tier. The loud-leg count that is LowFader's A voice INVERTS on FlushFader** — same side (long MR),
+different entry depth: urgency on the current bar pays when the leg is 40 lows deep and the run has extended (crf), and hurts
+on an early-leg entry where a loud low is the flush still going. (rate_600 inert, above.) The feature stays recorded.

@@ -294,6 +294,11 @@ CREATE TABLE trips (
     bars_since_first_high_600 INTEGER, highs_since_first_high_600 INTEGER,
     highs_since_first_high_30 INTEGER, highs_since_first_high_60 INTEGER,
     highs_since_first_high_120 INTEGER, highs_since_first_high_180 INTEGER,
+    highs_rr1_120 INTEGER, highs_rr2_120 INTEGER, highs_rr3_120 INTEGER,
+    highs_rr1_180 INTEGER, highs_rr2_180 INTEGER, highs_rr3_180 INTEGER,
+    highs_rr1_300 INTEGER, highs_rr2_300 INTEGER, highs_rr3_300 INTEGER,
+    highs_rr1_600 INTEGER, highs_rr2_600 INTEGER, highs_rr3_600 INTEGER,
+    highs_rr1_1200 INTEGER, highs_rr2_1200 INTEGER, highs_rr3_1200 INTEGER,
     -- ⭐ S44 (2026-09-03): the SMA breakout block. 30-bar SMA, the {3,5,10,20}m
     -- Min reset channels + 20m breakout counters run ON it, and MAGNITUDE /
     -- RATE since each channel's last reset -- on the SMA channels and on the
@@ -564,6 +569,11 @@ type TripSink(outDir: string) =
             i p.BarsSinceFirstHigh600; i p.HighsSinceFirstHigh600
             i p.HighsSinceFirstHigh30; i p.HighsSinceFirstHigh60
             i p.HighsSinceFirstHigh120; i p.HighsSinceFirstHigh180
+            i p.HighsRr1_120; i p.HighsRr2_120; i p.HighsRr3_120
+            i p.HighsRr1_180; i p.HighsRr2_180; i p.HighsRr3_180
+            i p.HighsRr1_300; i p.HighsRr2_300; i p.HighsRr3_300
+            i p.HighsRr1_600; i p.HighsRr2_600; i p.HighsRr3_600
+            i p.HighsRr1_1200; i p.HighsRr2_1200; i p.HighsRr3_1200
             // S44 -- POSITIONAL: this run must match the schema block above.
             f p.SmaPx; f p.SmaDist
             i p.SmaBrLo180Bars; i p.SmaBrLo300Bars
