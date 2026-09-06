@@ -896,3 +896,45 @@ rr < 5 is the only 2026 loser, 0.78), and its (5,8] band is the sharpest cell in
 64%), so on its own it leaves a fat 63% base at PF−1 3.6. **Three-rung ladder: A = rr ≥ 5 (6.3/yr, 26.3, avg 7.8%) · B = rr < 5 ∧
 rr3_120 ≥ 10 (6.3/yr, 7.1, avg 4.2%, worst −5.7) · C = the rest (5.4/yr, 2.7, avg 2.8%, worst −10.6).** If one lever only:
 rr ≥ 5.
+
+## §L19 — ⭐ THE SIZING LADDER: `rr ≥ 5` · `rr3_120 ≥ 20` · `rr3_120 ≥ 10` · none, SpikeFader's max-grade rule (2026-09-06, user)
+
+User: the three levers as size-ups with SpikeFader's operator (S42: grade = the STRONGEST voice firing, weight = edge/max edge),
+the 4th option = none. `scripts/analysis/lowfader_specv3_grades.py`, log `data/lowfader_specv3_grades.log`. FINAL book, mc=1
+MOC (106 trades, 16/yr) and mc=5 MOC (314, 47/yr), sizing per position.
+
+**Grades (A > B > C > E), mc=1 / mc=5:**
+
+| grade | rule | n (mc1) | PF−1 | win | avg% | worst | PF−1 22+ | n (mc5) | PF−1 | avg% | worst |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A | rr ≥ 5 | 37 (35%) | 7.62 | 81 | 6.7 | −11.1 | 24.5 | 113 (36%) | 18.4 | 9.2 | −11.1 |
+| B | rr < 5 ∧ rr3_120 ≥ 20 | 19 (18%) | 106 | 89 | 7.6 | −1.2 | 41.1 | 57 (18%) | 101 | 8.0 | −1.2 |
+| C | rr < 5 ∧ rr3_120 ∈ [10,20) | 15 (14%) | 1.91 | 60 | 2.6 | −5.7 | 1.67 | 37 (12%) | 1.72 | 2.7 | −5.7 |
+| E | none | 35 (33%) | 3.05 | 63 | 3.2 | −10.6 | 2.23 | 107 (34%) | 3.12 | 3.6 | −10.6 |
+
+Two things the S42 transplant exposes on a 106-trade book: (1) **the raw (PF−1)/max degenerates** — grade B has one loser in 19
+trades, PF−1 106, so every other weight collapses (A 0.07 / C 0.02 / E 0.03, and A refits to 0.60 on 2022+ alone; held-out it
+still wins 5/7 years at 1.39×, but on weights that are noise). (2) **grade C is NOT a size-up**: rr3_120 ∈ [10,20) without rr ≥ 5
+is BELOW none (1.91 vs 3.05; mc=5 1.72 vs 3.12) — the `rr3_120 ≥ 10` lever earned its §L16/§L18 numbers only through its overlap
+with A and B. The fix that keeps the user's operator: **cap the edge at PF−1 = 10** before normalising (the estimate a 19-trade cell
+can support), which makes the fit stable across every fold:
+
+| scheme (edge = min(PF−1, 10)/max) | weights A · B · C · E | net (all yrs) | avg exposure | net/exposure | t | worst | maxDD | held-out linear vs equal |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| mc=1 equal weight | 1 · 1 · 1 · 1 | 543 | 1.00 | 543 | 6.30 | −11.1 | 24 | — |
+| mc=1 linear | 0.76 · 1.00 · 0.19 · 0.31 | 374 | 0.57 | 654 | 5.81 | −8.4 | 14 | **7/7 years, 1.15×** |
+| mc=1 sqrt | 0.87 · 1.00 · 0.44 · 0.55 | 439 | 0.73 | 603 | 6.12 | −9.7 | 18 | 7/7 |
+| mc=5 equal weight | 1 · 1 · 1 · 1 | 1,977 | 1.00 | 1,977 | 11.71 | −11.1 | 71 | — |
+| mc=5 linear | 1.00 · 1.00 · 0.17 · 0.31 | 1,631 | 0.67 | 2,442 | 10.44 | −11.1 | 35 | **7/7 years, 1.23×** |
+| mc=5 sqrt | 1.00 · 1.00 · 0.42 · 0.56 | 1,750 | 0.78 | 2,242 | 11.10 | −11.1 | 48 | 7/7 |
+
+Held-out fold weights (mc=1, linear): A 0.60–1.00, B 1.00, C 0.09–0.29, E 0.16–0.40 — stable where it matters. Average-return
+weights (A 0.88 · B 1.00 · C 0.34 · E 0.42) give the same ordering at 1.12× (mc=1) / 1.18× (mc=5), 7/7 both.
+The two-grade collapse X = (rr ≥ 5 ∨ rr3_120 ≥ 20) vs E = rest: weights 1.00 · 0.26, held-out 1.22× (mc=1) / 1.24× (mc=5), 7/7
+both — i.e. **grade C's own weight is doing nothing; A and B are the ladder.**
+
+**⭐ ADOPTED LADDER (2026-09-06):** grade = strongest voice firing; **A `rr ≥ 5` → 1.00 (mc=5) / 0.76 (mc=1) · B `rr3_120 ≥ 20` →
+1.00 · C `rr3_120 ≥ 10` → 0.2 · E none → 0.3**, weights = min(PF−1, 10)/max. Practically: full size on A or B, ~¼–⅓ size otherwise;
+C is kept as a rung for the operator's shape but its weight is indistinguishable from E (drop it if simplicity is preferred: X/E
+at 1.00 / 0.26 is the same book). Same caveats as S42: edge-based, never 1/vol ([[feedback_no_vol_scaled_sizing_in_mr]]);
+weights unstable on the small cells; revisit when live diverges. Sized mc=5 book: net/exposure +24% held-out, maxDD 71 → 35.
