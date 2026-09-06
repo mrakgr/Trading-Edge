@@ -817,3 +817,48 @@ the weak band (1.67). `drop_reset_120 ≤ −15%`: 5.1/yr, PF−1 26.3, net 180,
 **Verdict:** SPEC v3 FINAL is frozen. Sizing tiers on top of it, in order of evidence: `drop_reset_{120..1200} ≤ −20%`,
 `lows_rr3_120 ≥ 10/20`, `rr` and `gap_adj_60` (§L5), `spec_ord ≥ 3` (9.8/yr, PF−1 12.8, net 246). Exclusion candidates too thin
 to adopt (5–10 tkd22): `lows_rr3_N = 0`, "no 2m-high reset yet".
+
+## §L17 — can the rr-qualified leg counts REPLACE the signal-bar `rr ≥ 2`? NO (2026-09-06, breakfast handover)
+
+Frame NORR = SPEC FINAL minus `rr ≥ 2`, on a fresh engine rerun of the 163 tkds that have a NORR row
+(`lowfader_spec3norr_whitelist` → `data/lowfader_wl_spec3norr`; every signal row of those days is present, so the rr < 2 rows
+exist — the spec3 corpus could not answer this because its tkds were selected WITH the rr gate).
+Script `scripts/analysis/lowfader_specv3_rrcount_vs_rr.py`, log `data/lowfader_specv3_rrcount_vs_rr.log`. NORR = 717 trips /
+163 tkd / 91 tkd22; FINAL = 433 / 106.
+
+**The rr ladder on NORR** (mc=1 MOC / mc=5, 2022+) — the signal-bar rr is a knife at 2:
+
+| rr band | n | tkd22 | mc1 PF−1 | mc1 net | win% | mc5 PF−1 | mc5 net | mc5 worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| (0.5, 1] | 54 | 10 | −0.40 | −16 | 60 | −0.52 | −69 | −13.7 |
+| (1, 1.5] | 138 | 23 | −0.24 | −22 | 52 | −0.24 | −63 | −21.1 |
+| (1.5, 2] | 88 | 15 | 0.34 | 12 | 53 | 0.65 | 43 | −13.7 |
+| (2, 3] | 141 | 25 | 4.19 | 70 | 68 | 4.28 | 232 | −10.6 |
+| (3, 5] | 131 | 22 | 3.60 | 64 | 59 | 6.72 | 217 | −5.7 |
+| (5, 10] | 72 | 15 | 16.5 | 118 | 87 | 20.5 | 456 | −6.2 |
+| > 10 | 89 | 10 | inf | 123 | 100 | inf | 624 | −11.1 |
+
+**Count gates with the rr gate OFF never get close** (mc=1 MOC tr/yr · PF−1 · net · worst | mc=5 PF−1 · net):
+FINAL 16.0 · 7.30 · 294 · −11.1 | 10.4 · 1,117. NORR 1st bar 24.6 · 1.67 · 259 · −21.1 | 2.06 · 1,003.
+lows_rr2_120 ≥ 10: 20.7 · 2.92 · 276 · −21.1 | 3.98 · 1,039; ≥ 20: 16.7 · 2.88 · 242 | 4.13 · 998.
+lows_rr3_120 ≥ 10: 14.2 · 2.98 · 234 · −21.1 | 4.24 · 896; ≥ 20: 9.0 · 3.08 · 171 | 3.92 · 678; ≥ 40: 3.3 · 6.07 · 94.
+lows_rr2_600 ≥ 20: 18.6 · 1.53 · 210 | 2.00 · 887; lows_rr3_600 ≥ 10: 15.5 · 1.60 · 205 | 1.93 · 792.
+Fractions: frac_rr2_120 ≥ 0.5: 8.6 · 3.30 · 162; ≥ 0.75: 3.2 · 15.8 · 98 (the ≥ 0.75/0.9 cells are 5–10 tkd22 and are the
+rr ≥ 2 rows anyway). Even `rr ≥ 1` relaxed (23.2/yr, 1.77, 260, −21.1) beats every count-only gate on net, and none beats
+rr ≥ 1.5 (18.9 · 4.47 · 289 · −13.7 | 6.94 · 1,130).
+
+**The rescue pool is dead in every slice.** NORR ∧ rr < 2 (284 trips / 39 tkd22): PF−1 −0.14, net −18, mc=5 −0.18 / −70.
+Conditioning on a high count makes it WORSE, not better: rr < 2 ∧ lows_rr3_120 ≥ 10: −0.73 / −41 (mc=5 −0.70 / −111);
+≥ 20: −0.99 / −47; rr < 2 ∧ lows_rr3_600 ≥ 10: −0.66 / −70 (mc=5 −224); rr < 2 ∧ frac_rr2_600 ≥ 0.5: −0.94 / −49. The only
+non-negative rescue cell is rr ∈ [1.5, 2) ∧ lows_rr3_120 ≥ 10 (20 trips / 6 tkd22, PF−1 0.55, net 5). Given lows_rr3_120 ≥ 10,
+the rr ladder still reads (1, 1.5] −0.80 → (1.5, 2] 0.55 → (2, 3] 50.8 → (3, 5] 5.2 → (5, 10] 15.4 → > 10 inf: **a leg full
+of high-rr lows whose CURRENT low is quiet is a loser** — the volume has to be on THIS bar (the flush has to be happening now,
+not earlier in the leg). Mechanism reading: rr at the signal is the urgency of the flow being faded; the count is the leg's
+history, which only sorts among bars that already have the urgency.
+
+**Count on top of rr** (§L16 restated at matched cells): FINAL ∧ lows_rr3_120 ≥ 10 = 11.3/yr · 12.2 · 281 · −11.1 vs the same
+count with rr off 14.2 · 2.98 · 234 · −21.1 — the 3 extra trades/yr are the rescue pool's losers.
+
+**Verdict:** `rr ≥ 2` at the signal stays; the leg counts are a conditional tier inside it, never a substitute. Year table of
+the best count-only gate (lows_rr3_120 ≥ 10, rr off): 2022 PF 2.49 / net 49 (FINAL 75.0 / 100), 2023 1.86 / 13, 2026 1.00 / 0
+with mc=5 worst −21.1 — every modern year worse than FINAL.
