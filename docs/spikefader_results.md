@@ -4201,3 +4201,22 @@ it down — sized net per unit exposure FALLS (9,999 → 9,873) and the sized t 
 ceiling lands at percentile 95.8 — on the line, on +0.037 PF−1. It also deletes 2 of A's 113 (both winners) and 9 of B's 154.
 **Verdict: no.** A gate has to beat the sizing it replaces; this one removes trades the ladder was already sizing at a fifth,
 costs net on the full book AND on the sized book, and holds in 3 of 7 years. rate_600 stays a recorded column.
+
+### §S48 addendum 2 — the LOUD end of `highs_rr3_120` as a roster voice: no seat (2026-09-06, user)
+
+`data/spikefader_rr3_voice.log`. S42 unique-cell test (the voice's trades inside grade E, vs E's 0.715) + same-n control (1,000
+random E subsets) + roster LOYO with the voice seated:
+
+| candidate | n | PF−1 | unique n (E) | unique PF−1 | same-n p95 | percentile | grades it overlaps |
+|---|---:|---:|---:|---:|---:|---:|---|
+| rr3_120 ≥ 20 | 654 | 1.64 | 385 | 0.77 | 1.34 | 58 | E385 D162 X85 |
+| rr3_120 ≥ 40 | 265 | 2.00 | 134 | 1.09 | 1.91 | 72 | E134 D63 X59 |
+| rr3_600 ≥ 40 | 827 | 1.40 | 425 | 0.52 | 1.24 | 21 | E425 D272 X108 |
+| rr3_120 = 0 (quiet) | 2,110 | 1.23 | 1,531 | 0.89 | 0.90 | 95 | E1531 D323 B132 A113 |
+| rr2_600 = 0 (quiet) | 849 | 1.83 | 548 | 1.11 | 1.19 | 92 | E548 B116 A104 |
+
+The loud end's headline PF−1 (2.00 at ≥ 40) is grade X + D wearing a new name: its unique cell is 1.09 at the 72nd percentile of
+chance. Roster LOYO: L40 seated after X 2.569 (v3.4 2.640), L40 last 2.639, the quiet zero-cell last 2.612 — nothing beats the
+roster. (L20 seated after X prints 2.742, an ARTIFACT: grade C collapses to 19 all-winner trades, the capped weight fit pins C at
+1.00 and A at 0.38 — a degenerate fit, not a better roster; noted so nobody re-discovers it.) **Verdict: no seat, either end;
+the count stays a column.** With this and the rate ceiling, the LowFader port to SpikeFader is closed.
