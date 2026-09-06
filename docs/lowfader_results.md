@@ -1282,3 +1282,19 @@ p5 loss / the cell's p5 loss):
 tail at 3:1. But the honest caveat stands: the cell's edge is 13 trades above 200bp and one bad year (2022) is negative; the
 100–200bp bands between the ceiling and the money are losers. A `> 200bp` cell at 0.2× is 2 trades/yr — a lottery sleeve, not a
 tier. ⚠ [[feedback_no_vol_scaled_sizing_in_mr]] is about 1/vol INSIDE a book; this is a separate cell sized by its own edge/tail.
+
+**§L24 addendum — the cell WITHOUT CTNT 2024-05-20** (`data/lowfader_hivol_cell_exctnt.log`, 40 trades):
+
+| exit | PF | PF22 | win | avg% | avg22 | net22 | worst | p5 | tail<−10% | sd |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MOC | 2.35 | 1.61 | 62 | 6.3 | 4.5 | 98 | −54.7 | −18.2 | 12.5 | 22 |
+| 5m | 1.09 | 0.86 | 50 | 0.4 | −0.9 | −19 | −34.8 | −19.5 | 17.5 | 15 |
+| 10m | 2.37 | 2.02 | 52 | 4.5 | 4.7 | 103 | −23.1 | −15.2 | 12.5 | 21 |
+| 20m | 1.67 | 0.94 | 60 | 2.6 | −0.4 | −9 | −43.1 | −14.9 | 15.0 | 15 |
+| 1h | 2.65 | 1.43 | 70 | 5.9 | 2.5 | 54 | −41.1 | −17.7 | 12.5 | 18 |
+| v4 book (≤ 100bp) MOC | 5.34 | 4.57 | 70 | 3.6 | 3.1 | 433 | −12.8 | −5.0 | 1.4 | 7 |
+
+Year table ex-CTNT (MOC): 2020 4.95 · 2021 34 · **2022 0.80 · 2023 26 · 2024 0.56 · 2025 2.40 · 2026 0.00** — three of the five modern
+years negative; 2022+ PF 1.61 on 22 trades. With CTNT gone the 10m cover's "cost" vanishes too (CTNT was −5.9 at 10m vs +265 at
+MOC): 10m = MOC on net22 (103 vs 98) with worst −23 vs −55 — but at PF22 2.0 and a 52% win rate. Sizing by edge × tail collapses to
+**0.09–0.11×**, i.e. +8 net22 on the sized book. **Final ruling: the > 100bp cell is one trade. Keep the ceiling; do not trade the cell.**
