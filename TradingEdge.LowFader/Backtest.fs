@@ -80,9 +80,10 @@ let defaultConfig =
           MinVolat20m      = 0.004      // ⭐ SPEC v1.2 (S18): the 40bp volatility floor
           MaxVolat20m      = Double.PositiveInfinity
           // ⭐ 2026-09-05: the spec-ordinal gates = SPEC v2 (docs/lowfader_results.md §L5), record-only
-          OrdVolatLo = 0.0039; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40
+          OrdVolatLo = 0.005; OrdVolatHi = 0.010; OrdMaxEffEwma10m = -0.7; OrdMinLows600 = 40   // OrdVolatLo 0.0039 -> 0.005 on 2026-09-06 (§L9 raised the spec floor to 50bp; the counter had lagged: 115 extra rows in 42-50bp)
           OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 30
           OrdMinDv60 = 1e6              // ⭐ 2026-09-05 §L7 (user): SPEC v3 = v2 ∧ dollar_vol_60 >= $1M (time-clock)
+          OrdMinLows120 = 30; OrdMaxCrf = -0.002   // ⭐ 2026-09-06 (user): SPEC v3 FINAL = v3 ∧ l120 >= 30 ∧ crf <= -0.2% (§L13/§L15)
           // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
           // stack; disable individually for sweeps (see IntradayConfig for the
           // off-conventions). Formulas identical to the recorded columns.
@@ -403,6 +404,11 @@ CREATE TABLE trips (
     gap_120 INTEGER,
     downticks_since_flow INTEGER, upticks_since_flow INTEGER, lows_since_uptick INTEGER, chg_since_last_uptick DOUBLE, chg_since_run_pre_low DOUBLE, chg_since_run_first_low DOUBLE, chg_since_run_first_dn DOUBLE,
     lows_since_first_low_120 INTEGER, lows_since_first_low_180 INTEGER,
+    lows_rr1_120 INTEGER, lows_rr2_120 INTEGER, lows_rr3_120 INTEGER, lows_rr1_180 INTEGER, lows_rr2_180 INTEGER, lows_rr3_180 INTEGER,
+    lows_rr1_300 INTEGER, lows_rr2_300 INTEGER, lows_rr3_300 INTEGER, lows_rr1_600 INTEGER, lows_rr2_600 INTEGER, lows_rr3_600 INTEGER,
+    lows_rr1_1200 INTEGER, lows_rr2_1200 INTEGER, lows_rr3_1200 INTEGER,
+    reset_hi_120 DOUBLE, reset_hi_180 DOUBLE, reset_hi_300 DOUBLE, reset_hi_600 DOUBLE, reset_hi_1200 DOUBLE,
+    first_low_px_120 DOUBLE, first_low_px_180 DOUBLE, first_low_px_300 DOUBLE, first_low_px_600 DOUBLE,
     volat_5m DOUBLE, volat_3m DOUBLE,
     vwap_ewp_12060_be DOUBLE, vwap_ewp_12030_be DOUBLE, vwap_ewp_6030_be DOUBLE,
     ac1_ewma DOUBLE, ac2_ewma DOUBLE, ac3_ewma DOUBLE,
@@ -604,6 +610,11 @@ type TripSink(outDir: string, nextOpenExit: bool) =
             i p.Gap120
             i p.DownticksSinceFlow; i p.UpticksSinceFlow; i p.LowsSinceUptick; f p.ChgSinceLastUptick; f p.ChgSinceRunPreLow; f p.ChgSinceRunFirstLow; f p.ChgSinceRunFirstDn
             i p.LowsSinceFirstLow120; i p.LowsSinceFirstLow180
+            i p.LowsRr1_120; i p.LowsRr2_120; i p.LowsRr3_120; i p.LowsRr1_180; i p.LowsRr2_180; i p.LowsRr3_180
+            i p.LowsRr1_300; i p.LowsRr2_300; i p.LowsRr3_300; i p.LowsRr1_600; i p.LowsRr2_600; i p.LowsRr3_600
+            i p.LowsRr1_1200; i p.LowsRr2_1200; i p.LowsRr3_1200
+            f p.ResetHi120; f p.ResetHi180; f p.ResetHi300; f p.ResetHi600; f p.ResetHi1200
+            f p.FirstLowPx120; f p.FirstLowPx180; f p.FirstLowPx300; f p.FirstLowPx600
             f p.Volat5m; f p.Volat3m
             f p.VwapEwp12060Be; f p.VwapEwp12030Be; f p.VwapEwp6030Be
             f p.Ac1Ewma; f p.Ac2Ewma; f p.Ac3Ewma

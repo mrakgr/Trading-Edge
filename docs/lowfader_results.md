@@ -761,3 +761,59 @@ reset-bar vwap in the `br{N}.BarsSinceBreach = 0` branch and the first-low price
 **Verdict:** crf ≤ −0.1% stays the which-bar gate; `drop_1200` (≤ −8/−10/−20%) and `mag_120` are sizing tiers on top of it
 (crf ∧ drop_1200 ≤ −10%: 10.6/yr, PF−1 8.2, net 242, worst −11.1; mc=5 12.2 / 1,023). Sub-20m first-low magnitudes add
 nothing over the 20m one on this spec because the legs coincide.
+
+## §L16 — ⭐ SPEC v3 FINAL (crf ≤ −0.2% adopted) + the rr-QUALIFIED leg counts + the reset-high anchors (2026-09-06)
+
+**User decision:** `chg_since_run_first_low ≤ −0.2%` goes into the spec; **no further gate additions** ("the amount of trades
+we have are so low that we cannot be sure we aren't overfitting, but I think this system is likely to have an edge").
+
+**⭐ SPEC v3 FINAL:** `volat_20m ∈ (50,100] ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧ lows_120 ≥ 30 ∧ rr ≥ 2 ∧
+chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2%` on the mr_candidate_1s_v2 universe (barnum ≥ 22, the
+engine's $100k/60-trade floors). mc=0: 433 trips / 106 tkd (61 in 2022+). **mc=1 MOC 16.0 tr/yr, PF−1 7.30, net22 294, worst
+−11.1; 10m cover 4.31 / 261; mc=5 47.4 tr/yr, PF−1 10.42, net22 1,117, worst −11.1.** Year table (mc=1 MOC / mc=5):
+
+| year | n | MOC PF | MOC net | win% | mc=5 n | mc=5 PF | mc=5 net | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2020 | 34 | 9.23 | 193 | 76 | 99 | 11.33 | 623 | −5.8 |
+| 2021 | 11 | 3.05 | 56 | 64 | 33 | 4.21 | 237 | −11.1 |
+| 2022 | 16 | 75.0 | 100 | 94 | 49 | 55.0 | 296 | −1.3 |
+| 2023 | 12 | 2.66 | 29 | 58 | 40 | 2.65 | 89 | −6.2 |
+| 2024 | 12 | 9.46 | 72 | 75 | 36 | 18.9 | 379 | −3.6 |
+| 2025 | 15 | 13.0 | 78 | 73 | 44 | 16.9 | 301 | −2.6 |
+| 2026 | 6 | 3.38 | 16 | 50 | 13 | 7.71 | 51 | −5.6 |
+
+**Engine (commit this section):** `Ord*` gates now carry `OrdMinLows120 = 30` and `OrdMaxCrf = −0.002` (+ `OrdVolatLo` 0.0039 →
+0.005: the counter had lagged §L9's floor — 115 extra rows in 42–50bp), so **`spec_ord > 0` ≡ the post-hoc SPEC FINAL row set
+(433 = 433, max ordinal 23)** on the rerun corpus `data/lowfader_wl_spec3` (whitelist `lowfader_spec3_whitelist`, the 195
+spec-v3 tkds; a rerun takes seconds). New RECORD-ONLY columns: `lows_rr{1,2,3}_{120,180,300,600,1200}` (new 20m lows in the
+current N-leg on which rr ≥ 1/2/3 held, first low included, reset with the leg), `reset_hi_{120..1200}` (vwap of the bar that
+set the N-bar high that reset the leg; nan = none yet today), `first_low_px_{120..600}` (`LegCounters.OnEventAt`).
+The §L15 post-hoc reconstruction checked against the engine stamps: 98.1–100% exact where reconstructed (90–93% coverage).
+
+**rr-qualified leg counts** (`scripts/analysis/lowfader_specv3_rrlegs.py`, log `data/lowfader_specv3_rrlegs.log`). On FINAL
+rows the median leg has 60 lows with rr ≥ 1, 35 with rr ≥ 2, 18 with rr ≥ 3 (2m leg; the 20m leg 70/40/19); ρ with the
+ordinal ≤ 0.33. **A graded tier, not a gate** — the rr ≥ 3 count ladders on the FINAL frame (mc=1 MOC / mc=5):
+
+| gate | tr/yr | MOC PF−1 / net / worst | 10m PF−1 / net | mc=5 PF−1 / net |
+|---|---:|---|---|---|
+| FINAL | 16.0 | 7.30 / 294 / −11.1 | 4.31 / 261 | 10.42 / 1,117 |
+| lows_rr3_120 ≥ 3 | 13.4 | 11.0 / 283 / −11.1 | 4.93 / 263 | 18.2 / 1,061 |
+| lows_rr3_120 ≥ 10 | 11.3 | 12.2 / 281 / −11.1 | 8.88 / 291 | 19.4 / 1,015 |
+| lows_rr3_120 ≥ 20 | 7.8 | 28.8 / 218 / −11.1 | 12.4 / 226 | 33.3 / 825 |
+| lows_rr2_600 ≥ 10 | 15.4 | 8.94 / 295 / −11.1 | 4.83 / 273 | 12.0 / 1,065 |
+
+Bands: `lows_rr3_N = 0` (no rr ≥ 3 low in the leg; 52 trips / 5 tkd22) is the one losing cell (PF−1 0.89, net 6, mc=5 0.63);
+(20, 40] is the A+ cell (PF−1 ~95, mc=5 worst −5.1). Net is flat to ≥ 10 then falls — a sizing tier above the spec. **They do
+NOT substitute for crf**: on spec3 without crf, `lows_rr3_120 ≥ 20` reaches PF−1 6.46 at 11.9/yr, net 201 (crf: 7.30 / 16.0 /
+294); `frac_rr2_600 ≥ 0.5` 4.18 / 11.8 / 178. crf stays the which-bar gate.
+
+**Reset-high anchors (engine-exact).** `drop_reset_N = signal_vwap / reset_hi_N − 1`: FINAL rows are a median −16 to −18% below
+the last N-high that reset the leg (min −46%). **Trips whose 2m leg never reset today (no 2m high yet, 36 trips / 10 tkd22)
+are the losers: PF−1 0.86, net 13, 10m −0.31**; the 397 that had a reset run PF−1 11.3 / net 290 / mc=5 13.9. The drop ladder:
+(−30, −20] from the 2m reset high = PF−1 60.6, mc=5 144 with worst −2.7 (80 trips / 9 tkd22); ≤ −30 33.6 / 36.8; (−10, −8]
+the weak band (1.67). `drop_reset_120 ≤ −15%`: 5.1/yr, PF−1 26.3, net 180, mc=5 31.8 / 763. Same family as §L15's
+`drop_1200 ≤ −20%`, now for every window.
+
+**Verdict:** SPEC v3 FINAL is frozen. Sizing tiers on top of it, in order of evidence: `drop_reset_{120..1200} ≤ −20%`,
+`lows_rr3_120 ≥ 10/20`, `rr` and `gap_adj_60` (§L5), `spec_ord ≥ 3` (9.8/yr, PF−1 12.8, net 246). Exclusion candidates too thin
+to adopt (5–10 tkd22): `lows_rr3_N = 0`, "no 2m-high reset yet".

@@ -195,6 +195,20 @@ type FlushPosition =
       // signal_vwap/x − 1 in SQL) + the S34c autocorr port. All record-only.
       LowsSinceFirstLow120: int
       LowsSinceFirstLow180: int
+      // ⭐ 2026-09-06 (user, §L16): rr-QUALIFIED leg counts — new 20m lows in the CURRENT N-leg on which
+      // rr = vol_60 (time-clock) / (vol_0945_tape/15) >= 1 / 2 / 3 held at that bar. The leg's first low is
+      // INCLUDED (so >= 1 on every trip whose own rr passes); reset with the leg (same sites as the LegCounters).
+      // A cold/absent rr counts for nothing. RECORD-ONLY.
+      LowsRr1_120: int; LowsRr2_120: int; LowsRr3_120: int
+      LowsRr1_180: int; LowsRr2_180: int; LowsRr3_180: int
+      LowsRr1_300: int; LowsRr2_300: int; LowsRr3_300: int
+      LowsRr1_600: int; LowsRr2_600: int; LowsRr3_600: int
+      LowsRr1_1200: int; LowsRr2_1200: int; LowsRr3_1200: int
+      // ⭐ 2026-09-06 (§L15 finding 3): the N-leg's RESET-HIGH anchor — vwap of the bar that set the new N-bar
+      // high and reset the N-leg (nan = no reset yet today; the 20m high can DECAY out of chan_hi after 1200
+      // bars, this does not) + the N-leg's FIRST-LOW price (nan = disarmed; the 1200 twin is first_low_vwap).
+      ResetHi120: float; ResetHi180: float; ResetHi300: float; ResetHi600: float; ResetHi1200: float
+      FirstLowPx120: float; FirstLowPx180: float; FirstLowPx300: float; FirstLowPx600: float
       Volat5m: float
       Volat3m: float
       VwapEwp12060Be: float
@@ -653,7 +667,7 @@ type IntradayConfig =
       // gate the ENTRY — the sampler stays a base run; the ordinal is the live-knowable "n-th qualifying low of
       // the leg" (§L5h/§L5i). Cold features FAIL the check. chg_1d here is SIGNAL-bar vwap vs the prior close
       // (the post-hoc column uses the fill px — a boundary-only difference).
-      OrdVolatLo: float          // volat_20m > this (default 0.0039)
+      OrdVolatLo: float          // volat_20m > this (default 0.005 — SPEC v3's 50bp floor, §L9)
       OrdVolatHi: float          // volat_20m <= this (default 0.010)
       OrdMaxEffEwma10m: float    // eff_ewma_10m < this (default -0.7)
       OrdMinLows600: int         // lows_since_first_low_600 >= this (default 40)
@@ -662,6 +676,9 @@ type IntradayConfig =
       OrdMaxChg1d: float         // signal vwap / (close_m1 + div_m1) - 1 <= this (default -0.04)
       OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 30)
       OrdMinDv60: float          // dollar_vol_60 (TIME-clock, 60 tradeable s) >= this (default 1e6 — §L7: the spec is dead under $1M/min)
+      OrdMinLows120: int         // ⭐ §L13 (user 2026-09-05): lows_since_first_low_120 >= this (default 30)
+      OrdMaxCrf: float           // ⭐ §L14/§L15 (user 2026-09-06): chg_since_run_first_low <= this (default -0.002) — the
+                                 // which-bar gate that REPLACED the ordinal; the run's first low (crf = 0) FAILS it.
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
@@ -819,6 +836,21 @@ type IntradayConfig =
       MocSecShort: int }
 
 /// The FlushFader engine. One instance per (ticker, day).
+/// ⭐ 2026-09-06 (user, §L16): rr-qualified low counts for ONE leg. Reset with the leg's LegCounters;
+/// OnLow on every new 20m low with that bar's rr (nan = cold, counts for nothing).
+type RrLegCounts() =
+    let mutable c1 = 0
+    let mutable c2 = 0
+    let mutable c3 = 0
+    member _.C1 = c1
+    member _.C2 = c2
+    member _.C3 = c3
+    member _.Reset () = c1 <- 0; c2 <- 0; c3 <- 0
+    member _.OnLow (rr: float) =
+        if rr >= 1.0 then c1 <- c1 + 1
+        if rr >= 2.0 then c2 <- c2 + 1
+        if rr >= 3.0 then c3 <- c3 + 1
+
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevCloseTotal: float) =
     // prevCloseTotal = close_m1 + div_m1 in D's raw scale (nan when unknown -> the chg_1d ordinal gate fails closed)
     // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
@@ -909,6 +941,17 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
     // RECORD-ONLY, counts only (lows_since_first_low_{120,180}).
     let counters120 = LegCounters()
     let counters180 = LegCounters()
+    // ⭐ 2026-09-06 (user, §L16): the rr-qualified low counts per leg + the reset-high anchors (§L15).
+    let rr120 = RrLegCounts()
+    let rr180 = RrLegCounts()
+    let rr300 = RrLegCounts()
+    let rr600 = RrLegCounts()
+    let rr1200 = RrLegCounts()
+    let mutable resetHi120 = nan
+    let mutable resetHi180 = nan
+    let mutable resetHi300 = nan
+    let mutable resetHi600 = nan
+    let mutable resetHi1200 = nan
     // ⭐ S38q OLS trend features (record-only): RollingMa's OlsSlopeMa on
     // ln(vwap) per present bar; signed r = sign(slope)·√R²
     let ols300 = OlsSlopeMa 300                  // ⭐ S39p (user): the 5m slope — the missing
@@ -1957,11 +2000,15 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                 runPreLowVwap <- prevVwap
                 runFirstLowVwap <- bar.vwap
             lowsSinceUp <- lowsSinceUp + 1
-            counters.OnEvent bar.etSec
-            counters300.OnEvent bar.etSec
-            counters600.OnEvent bar.etSec
-            counters120.OnEvent bar.etSec
-            counters180.OnEvent bar.etSec
+            // 2026-09-06: OnEventAt stamps the leg's FIRST-low price (counts unchanged — it calls OnEvent).
+            counters.OnEventAt(bar.etSec, bar.vwap)
+            counters300.OnEventAt(bar.etSec, bar.vwap)
+            counters600.OnEventAt(bar.etSec, bar.vwap)
+            counters120.OnEventAt(bar.etSec, bar.vwap)
+            counters180.OnEventAt(bar.etSec, bar.vwap)
+            // ⭐ §L16: this low's rr (the spec's volume-rate ratio, time-clock; pushed in the barRoller block above)
+            let rrNow = match tVolSum60.State with ValueSome v60 when vol0945Tape > 0.0 -> v60 / (vol0945Tape / 15.0) | _ -> nan
+            rr120.OnLow rrNow; rr180.OnLow rrNow; rr300.OnLow rrNow; rr600.OnLow rrNow; rr1200.OnLow rrNow
 
         // ===== 5. advance open positions: forward marks, hold clock, exit signals =====
         // Exit precedence: moc > acceptance stops > target. Stops and target are
@@ -2319,6 +2366,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             && (not (Double.IsNaN prevCloseTotal) && prevCloseTotal > 0.0 && bar.vwap / prevCloseTotal - 1.0 <= cfg.OrdMaxChg1d)
             && adjGap60 <= cfg.OrdMaxGapAdj60
             && (match tDvSum60.State with ValueSome dv -> dv >= cfg.OrdMinDv60 | ValueNone -> false)
+            && counters120.EventsSinceFirst >= cfg.OrdMinLows120
+            && (not (Double.IsNaN runFirstLowVwap) && runFirstLowVwap > 0.0 && bar.vwap / runFirstLowVwap - 1.0 <= cfg.OrdMaxCrf)
         if ordPass then specOrd <- specOrd + 1
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m
@@ -2448,6 +2497,14 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
                       LowsSinceFirstLow600 = counters600.EventsSinceFirst
                       LowsSinceFirstLow120 = counters120.EventsSinceFirst
                       LowsSinceFirstLow180 = counters180.EventsSinceFirst
+                      LowsRr1_120 = rr120.C1; LowsRr2_120 = rr120.C2; LowsRr3_120 = rr120.C3
+                      LowsRr1_180 = rr180.C1; LowsRr2_180 = rr180.C2; LowsRr3_180 = rr180.C3
+                      LowsRr1_300 = rr300.C1; LowsRr2_300 = rr300.C2; LowsRr3_300 = rr300.C3
+                      LowsRr1_600 = rr600.C1; LowsRr2_600 = rr600.C2; LowsRr3_600 = rr600.C3
+                      LowsRr1_1200 = rr1200.C1; LowsRr2_1200 = rr1200.C2; LowsRr3_1200 = rr1200.C3
+                      ResetHi120 = resetHi120; ResetHi180 = resetHi180; ResetHi300 = resetHi300; ResetHi600 = resetHi600; ResetHi1200 = resetHi1200
+                      FirstLowPx120 = counters120.FirstEventPx; FirstLowPx180 = counters180.FirstEventPx
+                      FirstLowPx300 = counters300.FirstEventPx; FirstLowPx600 = counters600.FirstEventPx
                       Volat5m = vv ew10.State
                       Volat3m = vv ew6.State
                       VwapEwp12060Be = wdVwap pxDecayB120.Sum pxDecayB120.Weight pxDecayB60.Sum pxDecayB60.Weight
@@ -2799,6 +2856,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // clobber the very leg an entry just joined. =====
         if isNewHigh then
             counters.Reset()
+            rr1200.Reset(); resetHi1200 <- bar.vwap   // §L16 / §L15: the 20m leg's rr counts + reset-high anchor
             tradeIdx <- 0
             // S40l: the leg is over — clear the leg-participation anchors.
             legVolAnchor <- nan
@@ -2822,11 +2880,11 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
         // step 4). A new 5m/10m high can't share a bar with an entry either
         // (vwap < prior min1200 <= prior max300/600), so ordering is safe; a
         // 20m-high bar implies both, keeping all three counters in sync.
-        if br300.BarsSinceBreach = 0 then counters300.Reset()
-        if br600.BarsSinceBreach = 0 then counters600.Reset()
+        if br300.BarsSinceBreach = 0 then counters300.Reset(); rr300.Reset(); resetHi300 <- bar.vwap
+        if br600.BarsSinceBreach = 0 then counters600.Reset(); rr600.Reset(); resetHi600 <- bar.vwap
         // S43cf: the 2m/3m rungs of the same ladder (a 20m-high bar implies all)
-        if br120.BarsSinceBreach = 0 then counters120.Reset()
-        if br180.BarsSinceBreach = 0 then counters180.Reset()
+        if br120.BarsSinceBreach = 0 then counters120.Reset(); rr120.Reset(); resetHi120 <- bar.vwap
+        if br180.BarsSinceBreach = 0 then counters180.Reset(); rr180.Reset(); resetHi180 <- bar.vwap
         // the aux-mark lookback: remember this bar as "the previous bar"
         // (+ S40x pre-hole snapshots: this bar's adjusted 1m gap and post-push
         // 5m range become the classifier inputs if the NEXT bar reveals a hole)
