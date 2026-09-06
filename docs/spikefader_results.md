@@ -4290,3 +4290,25 @@ beat 2.640 do it by taking X's trades (X shrinks 111 → 45–63, X's weight fal
 2.56 · 2.32 · 1.36 · 1.92 · 3.52 · 2.80 · 4.30 — better in 4 of 7, worse in 2022 by 0.11. **Verdict: no seat.** The rr-count family on
 SpikeFader is exhausted: at rr ≥ 1–3 it is redundant with the quiet/loud grades (addenda 1–2), at rr ≥ 5–8 its unique cells are
 E-grade, at rr ≥ 12 it is X's own history (a +2.5% sub-tier of X that fails the same-n control and 2022). Columns stay recorded.
+
+### §S48 addendum 6 — `highs_rr8_120 ≥ 20` seated at every position (2026-09-06, user: "does it really not improve the roster?")
+
+`data/spikefader_rr8_20_seat.log`. The cell: 120 trades (52 of them in 2021), PF−1 3.69, win 78%, worst −24 — by v3.4 grade X71
+(3.79) · E30 (**0.68**) · D16 (12.8) · B2 · C1.
+
+| roster | held-out %/unit exp | per year 2020..2026 | years better | L n / w | X n / w | sized net | exposure | net/exp | sized worst | maxDD | t |
+|---|---:|---|---:|---|---|---:|---:|---:|---:|---:|---:|
+| v3.4 | 2.640 | 2.56 · 2.32 · 1.36 · 1.92 · 3.52 · 2.80 · 4.30 | — | — | 111 / 0.74 | 3,263 | 0.326 | 9,995 | −51.7 | 52 | 15.56 |
+| L first / after A | 2.658 | 2.42 · 2.36 · 1.41 · 1.83 · 3.59 · 2.84 · 4.39 | 5/7 | 120 / 0.98 | 40 / 0.45 | 3,334 | 0.331 | 10,065 | −50.9 | 51 | 15.54 |
+| L after B | 2.654 | 2.43 · 2.36 · 1.41 · 1.84 · 3.58 · 2.84 · 4.38 | 5/7 | 118 / 0.96 | 40 / 0.45 | 3,334 | 0.331 | 10,063 | −51.7 | 52 | 15.54 |
+| L after X | 2.614 | 2.31 · 2.33 · 1.37 · 1.86 · 3.55 · 2.81 · 4.36 | 5/7 | 47 / 0.91 | 111 / 0.74 | 3,292 | 0.330 | 9,991 | −51.7 | 52 | 15.49 |
+| L last | 2.634 | 2.53 · 2.32 · 1.35 · 1.92 · 3.52 · 2.80 · 4.29 | 0/7 | 30 / 0.18 | 111 / 0.74 | 3,263 | 0.327 | 9,994 | −51.7 | 52 | 15.56 |
+
+Seated above X it is a +0.7% held-out (2.658), +0.7% net per unit exposure, 5 of 7 years better by 0.04–0.09 and 2020 worse by
+0.14 (its 14 2020 trades), t unchanged, tail unchanged. What it does mechanically: it takes 71 of X's 111 trades and grades them
+0.98 instead of 0.74, and X's remainder falls to 0.45 — i.e. **it splits X into "X with ≥ 20 rr ≥ 8 highs behind it" (better) and
+"X without" (worse)**. Its own non-X trades are 30 E at 0.68 (worse than E) and 16 D at 12.8 (n = 16). Seated below X it has
+nothing left (47 trades, then 30 at weight 0.18) and the roster is unchanged or worse.
+**Verdict: a +0.7% that is X's sub-tier, not a voice** — the same finding as addenda 2–5 with its most favourable threshold. If X
+is ever re-sized this is the split to use (weight X-with-leg ≈ 1.0, X-without ≈ 0.45); as a seat it does not clear the S46 bar
+(rr ≥ 12 got in on a fold-by-fold win with 69 solo trips; this has 30 solo trips at 0.68).
