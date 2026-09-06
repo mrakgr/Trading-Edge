@@ -679,6 +679,8 @@ type IntradayConfig =
       OrdMinLows120: int         // ⭐ §L13 (user 2026-09-05): lows_since_first_low_120 >= this (default 30)
       OrdMaxCrf: float           // ⭐ §L14/§L15 (user 2026-09-06): chg_since_run_first_low <= this (default -0.002) — the
                                  // which-bar gate that REPLACED the ordinal; the run's first low (crf = 0) FAILS it.
+      OrdMaxDv0945Tape: float    // ⭐ §L20 (user 2026-09-06): dv_0945_tape < this (default 2e7 — the $20M ceiling: above it the
+                                 // 2022+ book nets zero, §L8/§L20). The candidate table's $2M floor is the other side of the band.
       // ⭐ |eff_20m| floor — same record-first stance (V6's adx analog; keep 0). A signal
       // with eff still cold FAILS a positive floor.
       // (MinAbsEff20m DELETED, S40i: fully superseded — AbsEff20Lo IS the abs floor.)
@@ -2368,6 +2370,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             && (match tDvSum60.State with ValueSome dv -> dv >= cfg.OrdMinDv60 | ValueNone -> false)
             && counters120.EventsSinceFirst >= cfg.OrdMinLows120
             && (not (Double.IsNaN runFirstLowVwap) && runFirstLowVwap > 0.0 && bar.vwap / runFirstLowVwap - 1.0 <= cfg.OrdMaxCrf)
+            && dv0945Tape < cfg.OrdMaxDv0945Tape
         if ordPass then specOrd <- specOrd + 1
         if inWindow && channelWarm && isNewLow && floorsOk && volatOk && specOk && this.HasSlot then
             let struct (vs20m, vr20m) = volatOlsRead volatOls20m

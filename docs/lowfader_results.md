@@ -958,3 +958,86 @@ min(PF−1, 10)/max = **0.26 (mc=1) / 0.27 (mc=5)**; sqrt fallback 0.51 / 0.52; 
 
 Held-out avg%/trade per unit exposure by year (mc=5, X/E vs equal): 2020 7.6 vs 6.3 · 2021 8.7 vs 7.2 · 2022 7.7 vs 6.1 ·
 2023 2.4 vs 2.2 · 2024 14.5 vs 10.5 · 2025 8.1 vs 6.8 · 2026 4.8 vs 4.0. Two levers, one weight to remember: **E ≈ ¼ of X.**
+
+## §L20 — ⭐⭐ THE FINAL SYSTEM: SPEC v3.1 (+ $20M ceiling), NO averaging down, two-grade sizing; breadth and float re-checked (2026-09-06)
+
+**User decisions:** the `dv_0945_tape < $20M` ceiling goes IN (§L8/§L19's band: above $20M the 2022+ book nets zero); **NO
+averaging down** — crf fixed the which-bar problem, so a small account takes the FULL position on the first qualifying signal
+(mc=1 MOC). Engine: `OrdMaxDv0945Tape = 2e7` added to the Ord gates; `spec_ord > 0` ≡ the spec (317 trips / 84 tkd, none ≥ $20M).
+
+**SPEC v3.1 FINAL** (all on the signal bar, 1s tape; the engine's Ord gates carry every term):
+`volat_20m ∈ (50, 100] bp ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧ lows_120 ≥ 30 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧
+gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < $20M` · universe `mr_candidate_1s_v2` (barnum ≥ 22;
+the table's own floors `dv_0945_tape ≥ $2M`, `n_bars_1s ≥ 200`) · engine floors `dv_60 ≥ $100k`, `tc_60 ≥ 60`, entry window
+09:45–15:00 · exit MOC · one position per ticker-day, the first qualifying signal · **sizing: grade X = `rr ≥ 5 ∨ lows_rr3_120 ≥
+20` → 1.00, E = none → 0.29** (min(PF−1,10)/max; LOYO folds 0.20–0.40; held-out 7/7 years, 1.16×).
+Corpus `data/lowfader_wl_spec3` (`lowfader_spec3_whitelist`), scripts `lowfader_final_breadth_float.py` (log of the same name).
+
+| production book (mc=1 MOC) | n | n22 | PF−1 | PF−1 22+ | win | avg% | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| FINAL v3.1 — 12.7 trades/yr | 84 | 51 | 7.24 | 9.69 | 76 | 5.65 | 295 | −10.6 |
+| grade X (56%) | 47 | 28 | 16.9 | 26.4 | 85 | 7.28 | 225 | −6.2 |
+| grade E (44%) | 37 | 23 | 2.92 | 3.19 | 65 | 3.58 | 70 | −10.6 |
+
+| year | n | PF | net | win | avg% | worst | n X | net X | net E |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2020 | 26 | 7.83 | 146 | 77 | 5.6 | −5.8 | 14 | 79 | 68 |
+| 2021 | 7 | 3.44 | 33 | 71 | 4.8 | −10.6 | 5 | 38 | −5 |
+| 2022 | 12 | inf | 97 | 100 | 8.1 | 0.0 | 4 | 55 | 42 |
+| 2023 | 11 | 3.39 | 32 | 64 | 2.9 | −6.2 | 7 | 24 | 8 |
+| 2024 | 12 | 9.46 | 72 | 75 | 6.0 | −3.6 | 6 | 64 | 8 |
+| 2025 | 11 | 48.6 | 79 | 82 | 7.2 | −0.9 | 8 | 65 | 14 |
+| 2026 | 5 | 3.03 | 14 | 40 | 2.7 | −5.6 | 3 | 17 | −3 |
+
+Sized (E = 0.29): net 381 on 0.69 exposure = 553/unit vs equal 475; worst −6.2; maxDD 9 vs 11.
+
+**The two features this rebuild produced:** `rate_600` (= lows / bars over the 10m leg, §L4) and `lows_rr3_120` (rr-qualified
+lows in the 2m leg, §L16–§L19) — both engine-native, both in the record.
+
+### BREADTH (D-1 `pct_above_20`, lagged) — ⚠ INVERTS vs LowFlyer; not a size-up here
+
+LowFlyer sized ×3 on breadth ≥ 0.65 (PF 4.23 vs 2.33). On this book the sign flips:
+
+| breadth (D-1) | n | n22 | PF−1 | PF−1 22+ | win | avg% | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| (0, 0.2] | 13 | 3 | 9.71 | 0.89 | 69 | 6.7 | 2 | −5.7 |
+| (0.2, 0.35] | 13 | 8 | 16.6 | 7.25 | 92 | 6.3 | 36 | −5.0 |
+| (0.35, 0.5] | 22 | 17 | 6.38 | 115 | 86 | 4.6 | 106 | −10.6 |
+| (0.5, 0.65] | 22 | 16 | 9.09 | 11.2 | 73 | 7.1 | 128 | −5.8 |
+| (0.65, 0.8] | 8 | 4 | 1.38 | 1.52 | 50 | 2.1 | 8 | −4.3 |
+| (0.8, 1] | 6 | 3 | 5.01 | 2.56 | 67 | 5.2 | 16 | −6.2 |
+| **≥ 0.65** | 14 | 7 | 2.60 | 2.10 | 57 | 3.5 | 23 | −6.2 |
+| **< 0.65** | 70 | 44 | 9.08 | 14.1 | 80 | 6.1 | 271 | −10.6 |
+
+By year the strong-breadth cell is worse in 2020 (3.6 vs 7.7), 2023 (1.4 vs 3.2), 2024 (−1.00 vs 21.7), ≈ in 2021–22, empty
+2025–26; inside grade X: breadth ≥ 0.65 2.85 vs < 0.65 45.8. mc=0 rows agree (6.1 vs 20.6). The book lives on WEAK-breadth
+days (median 0.48, q75 0.61): the spec (chg_1d ≤ −4%, 40+ lows, quiet-volume rr) already selects sold-off tapes, and a −4%
+flush on a strong-breadth day is idiosyncratic rather than a market-wide washout. **Verdict: no discriminative power in
+LowFlyer's direction; if anything a DOWNGRADE at ≥ 0.65 (14 trades, 7 in 2022+ — too thin to act on). Watch item.** Another
+entry for [[feedback_side_flip_inverts_rulings]]'s list: the port inverts even within the same side when the universe changes.
+
+### FLOAT (SEC public float, ASOF known_date ≤ trade_date, revalued to the entry day) — still discriminates, but this is a LARGE-CAP book now
+
+Coverage 79% (82% in 2022+). Median float at entry **$2.2B** (q25 $0.7B); LowFlyer's `< $300M` gate covers **8 of 84**
+trades — the liquidity floors (`dv_0945 ≥ $2M`, `dollar_vol_60 ≥ $1M`) moved the book up-cap.
+
+| float at entry | n | n22 | PF−1 | PF−1 22+ | win | avg% | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| ≤ $100M | 6 | 4 | inf | inf | 100 | 14.9 | 64 | +6.4 |
+| ($100M, $300M] | 2 | 0 | inf | — | 100 | 10.5 | 0 | +5.7 |
+| ($300M, $1B] | 14 | 10 | 12.1 | 18.0 | 71 | 6.2 | 51 | −4.3 |
+| ($1B, $3B] | 15 | 12 | 2.17 | 6.23 | 67 | 4.1 | 73 | −10.6 |
+| > $3B | 29 | 16 | 8.23 | 17.3 | 79 | 4.5 | 81 | −5.7 |
+| no float | 18 | 9 | 6.00 | 2.32 | 72 | 4.8 | 26 | −6.2 |
+| **< $300M** | 8 | 4 | inf | inf | 100 | 13.8 | 64 | +5.7 |
+| **≥ $300M** | 58 | 38 | 5.43 | 10.7 | 74 | 4.8 | 205 | −10.6 |
+
+ρ(log float, ret) = −0.27; every one of the 39 mc=0 rows under $300M is a winner (avg 16.5%), and the 8 mc=1 trades are all
+winners every year they occur. Above $300M the ladder is NOT monotone ($1–3B the weakest band, > $3B fine). **Verdict: the
+low-float overreaction is real and survives, but as a gate it would delete 90% of the book; as a THIRD size-up voice it is
+5 X-trades + 3 E-trades — too thin to earn a weight. Keep `float < $300M` as a watch-item voice (all winners) and revisit
+when the count passes ~20.**
+
+**The system is FINAL as of 2026-09-06.** Open follow-ups, none blocking: remote pushes; the breadth downgrade and the
+float voice as watch items; a second entry family for more days ("failed gap-up" short); Scanner port of SPEC v3.1 + the
+two new engine features (LegCounters price stamps, RrLegCounts) when LowFader goes live.

@@ -84,6 +84,7 @@ let defaultConfig =
           OrdMinRate600 = 0.15; OrdMinRr = 2.0; OrdMaxChg1d = -0.04; OrdMaxGapAdj60 = 30
           OrdMinDv60 = 1e6              // ⭐ 2026-09-05 §L7 (user): SPEC v3 = v2 ∧ dollar_vol_60 >= $1M (time-clock)
           OrdMinLows120 = 30; OrdMaxCrf = -0.002   // ⭐ 2026-09-06 (user): SPEC v3 FINAL = v3 ∧ l120 >= 30 ∧ crf <= -0.2% (§L13/§L15)
+          OrdMaxDv0945Tape = 2e7                    // ⭐ 2026-09-06 (user, §L20): ∧ dv_0945_tape < $20M
           // ⭐ SPEC v1.2 GATES (S18, baked 2026-07-29). Defaults = the production
           // stack; disable individually for sweeps (see IntradayConfig for the
           // off-conventions). Formulas identical to the recorded columns.

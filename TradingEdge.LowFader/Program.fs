@@ -38,6 +38,7 @@ type Args =
     | Ord_Min_Dv_60 of float
     | Ord_Min_Lows_120 of int
     | Ord_Max_Crf of float
+    | Ord_Max_Dv_0945_Tape of float
     | Max_Volat_20m of float
     // ----- SPEC v1.2 gates (defaults = the S18 production stack) -----
     | Max_Speed_1m of float
@@ -113,6 +114,7 @@ type Args =
             | Ord_Min_Dv_60 _ -> "SPEC-ORDINAL gate: dollar_vol_60 (time-clock) >= this. Default 1e6 (SPEC v3, §L7)."
             | Ord_Min_Lows_120 _ -> "SPEC-ORDINAL gate: lows_since_first_low_120 >= this. Default 30 (§L13)."
             | Ord_Max_Crf _ -> "SPEC-ORDINAL gate: chg_since_run_first_low <= this. Default -0.002 (§L15; the run's first low fails)."
+            | Ord_Max_Dv_0945_Tape _ -> "SPEC-ORDINAL gate: dv_0945_tape < this. Default 2e7 (§L20, the $20M ceiling)."
             | Min_Volat_20m _ -> "volat_20m floor at the signal (raw mean-|r|/30s units; cold volat FAILS a positive floor). Default 0 = off. ⚠ RECORD-FIRST: the breakout F10 band does NOT transfer to MR (THE INVERSION) — band post-hoc over the volat_20m column."
             | Max_Volat_20m _ -> "volat_20m ceiling. Default inf = off. Same record-first stance."
             | Max_Speed_1m _ -> "⭐ SPEC v1.2: flush speed gate — vwap/vwap_60_prev - 1 < this at the signal. Default -0.02. 0 = off."
@@ -219,6 +221,7 @@ let main argv =
                     OrdMinDv60       = parsed.GetResult(Ord_Min_Dv_60,       defaultValue = d.Intraday.OrdMinDv60)
                     OrdMinLows120    = parsed.GetResult(Ord_Min_Lows_120,    defaultValue = d.Intraday.OrdMinLows120)
                     OrdMaxCrf        = parsed.GetResult(Ord_Max_Crf,         defaultValue = d.Intraday.OrdMaxCrf)
+                    OrdMaxDv0945Tape = parsed.GetResult(Ord_Max_Dv_0945_Tape, defaultValue = d.Intraday.OrdMaxDv0945Tape)
                     MaxVolat20m      = parsed.GetResult(Max_Volat_20m,      defaultValue = d.Intraday.MaxVolat20m)
                     MaxSpeed1m       = parsed.GetResult(Max_Speed_1m,       defaultValue = dI.MaxSpeed1m)
                     MaxDist1mHi      = parsed.GetResult(Max_Dist_1m,        defaultValue = dI.MaxDist1mHi)
