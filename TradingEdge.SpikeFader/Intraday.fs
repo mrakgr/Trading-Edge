@@ -197,6 +197,10 @@ type FlushPosition =
       HighsRr1_300: int; HighsRr2_300: int; HighsRr3_300: int
       HighsRr1_600: int; HighsRr2_600: int; HighsRr3_600: int
       HighsRr1_1200: int; HighsRr2_1200: int; HighsRr3_1200: int
+      // ⭐ 2026-09-06 addendum 5: the loud rungs 5 / 8 / 12 for the 2m, 10m, 20m legs
+      HighsRr5_120: int; HighsRr8_120: int; HighsRr12_120: int
+      HighsRr5_600: int; HighsRr8_600: int; HighsRr12_600: int
+      HighsRr5_1200: int; HighsRr8_1200: int; HighsRr12_1200: int
       // ----- ⭐ S44 (user 2026-09-03): THE SMA BREAKOUT BLOCK (record-only) ---
       // A 30-bar SMA, the {3,5,10,20}m Min reset channels and the 20m breakout
       // counters run ON it, plus MAGNITUDE and RATE since each channel's last
@@ -912,14 +916,24 @@ type RrLegCounts() =
     let mutable c1 = 0
     let mutable c2 = 0
     let mutable c3 = 0
+    // ⭐ 2026-09-06 addendum 5 (user): the loud rungs — 5, 8, and 12 (= grade X's rr floor)
+    let mutable c5 = 0
+    let mutable c8 = 0
+    let mutable c12 = 0
     member _.C1 = c1
     member _.C2 = c2
     member _.C3 = c3
-    member _.Reset () = c1 <- 0; c2 <- 0; c3 <- 0
+    member _.C5 = c5
+    member _.C8 = c8
+    member _.C12 = c12
+    member _.Reset () = c1 <- 0; c2 <- 0; c3 <- 0; c5 <- 0; c8 <- 0; c12 <- 0
     member _.OnEvent (rr: float) =
         if rr >= 1.0 then c1 <- c1 + 1
         if rr >= 2.0 then c2 <- c2 + 1
         if rr >= 3.0 then c3 <- c3 + 1
+        if rr >= 5.0 then c5 <- c5 + 1
+        if rr >= 8.0 then c8 <- c8 + 1
+        if rr >= 12.0 then c12 <- c12 + 1
 
 type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
@@ -2965,6 +2979,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       HighsRr1_300 = rr300.C1; HighsRr2_300 = rr300.C2; HighsRr3_300 = rr300.C3
                       HighsRr1_600 = rr600.C1; HighsRr2_600 = rr600.C2; HighsRr3_600 = rr600.C3
                       HighsRr1_1200 = rr1200.C1; HighsRr2_1200 = rr1200.C2; HighsRr3_1200 = rr1200.C3
+                      HighsRr5_120 = rr120.C5; HighsRr8_120 = rr120.C8; HighsRr12_120 = rr120.C12
+                      HighsRr5_600 = rr600.C5; HighsRr8_600 = rr600.C8; HighsRr12_600 = rr600.C12
+                      HighsRr5_1200 = rr1200.C5; HighsRr8_1200 = rr1200.C8; HighsRr12_1200 = rr1200.C12
                       // ----- S44: the SMA breakout block -----
                       SmaPx = smaCur
                       SmaDist = (if Double.IsNaN smaCur || smaCur <= 0.0 then nan

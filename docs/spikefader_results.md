@@ -4260,3 +4260,33 @@ The honest rows: **+0.025 (+0.9%) held-out, better in 4 of 7 years by 0.01–0.0
 cell is 6 trades. §S46 seated `rr ≥ 12` on 112 trips with 69 solo and a fold-by-fold win; this is a quarter of that with no
 solo cell to speak of. **Verdict: not a seat.** Recorded as the one cell of the feature that reads clean on this book — revisit
 if it reaches ~60 trades (at 4/yr that is 2035; in practice, never on its own). The rr-count port to SpikeFader is closed.
+
+### §S48 addendum 5 — rr5 / rr8 / rr12 leg counts (2026-09-06, user): the higher the rr rung, the more the count IS grade X
+
+Engine: `RrLegCounts` gained C5/C8/C12 (SpikeFader only); `highs_rr{5,8,12}_{120,600,1200}` recorded. Corpus
+`data/spikefader_s49_rr5` (`scripts/equity/spikefader_run_s49_rr5.sh`, 20 min; **935,595 = 935,595 trips, zero-diff**), study
+`scripts/analysis/spikefader_rr5.py`, log `data/spikefader_rr5.log`. The book's quantiles: rr5_120 q75 0 / q90 16 / q99 54; rr8_120
+q95 13; rr12_120 q95 0 / q99 25 — a 2m leg with several rr ≥ 12 highs is rare and it is X's leg (grade X = rr ≥ 12 at the signal).
+
+| floor | n | PF−1 | win | avg% | worst | grades | unique n (E) | unique PF−1 | same-n p95 | percentile |
+|---|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|
+| rr5_120 ≥ 10 | 483 | 1.68 | 74.7 | 3.0 | −72.4 | E250 D116 X104 | 250 | 0.76 | 1.50 | 54 |
+| rr5_120 ≥ 20 | 291 | 2.46 | 76.3 | 3.7 | −30.5 | E131 X84 D70 | 131 | 0.62 | 2.01 | 39 |
+| rr5_120 ≥ 40 | 103 | 3.43 | 76.7 | 4.5 | −24.0 | X49 E34 D17 | 34 | 0.25 | 5.34 | 25 |
+| rr8_120 ≥ 10 | 214 | 2.57 | 76.2 | 3.8 | −30.3 | X101 E68 D42 | 68 | 0.71 | 2.79 | 45 |
+| rr8_120 ≥ 20 | 120 | 3.69 | 78.3 | 4.4 | −24.0 | X71 E30 D16 | 30 | 0.68 | 4.62 | 44 |
+| rr12_120 ≥ 1 | 172 | 2.26 | 73.8 | 3.3 | −22.6 | **X111** E41 D16 | 41 | 0.26 | 3.84 | 23 |
+| rr12_120 ≥ 10 | 93 | 4.04 | 77.4 | 4.0 | −15.9 | X77 E12 | 12 | 3.26 | 34 | 73 |
+| rr12_600 ≥ 10 | 148 | 4.09 | 77.0 | 3.8 | −15.9 | X85 E48 D12 | 48 | 2.69 | 3.48 | 91 |
+| rr12_600 ≥ 20 | 84 | 4.45 | 79.8 | 3.8 | −11.2 | X66 E17 | 17 | 3.83 | 13.2 | 81 |
+
+Every rr5/rr8 unique cell sits at or below E (0.25–0.76, percentiles 25–54). The rr12 counts contain ALL of X by construction
+(rr12_120 ≥ 1 ⊇ X) and their unique cells are 12–48 trades at percentiles 73–91 — below the line, and shrinking as the floor rises.
+
+Roster LOYO (candidate seated after B, before X; v3.4 = 2.640): rr5_120 ≥ 10/20/40 → 2.576 / 2.510 / 2.596; rr8_120 ≥ 10/20 →
+2.571 / 2.654; rr12_120 ≥ 5/10/20 → 2.598 / 2.657 / 2.686; rr12_600 ≥ 20 → **2.705 (+2.5%)**; rr5_600 ≥ 40 → 2.335. The two that
+beat 2.640 do it by taking X's trades (X shrinks 111 → 45–63, X's weight falls to 0.35–0.57) — i.e. they re-partition X into
+"X with a loud leg behind it" (seated at 1.00) and the rest; per year 2.62 · 2.36 · **1.25** · 1.91 · 3.53 · 2.84 · 4.28 vs v3.4's
+2.56 · 2.32 · 1.36 · 1.92 · 3.52 · 2.80 · 4.30 — better in 4 of 7, worse in 2022 by 0.11. **Verdict: no seat.** The rr-count family on
+SpikeFader is exhausted: at rr ≥ 1–3 it is redundant with the quiet/loud grades (addenda 1–2), at rr ≥ 5–8 its unique cells are
+E-grade, at rr ≥ 12 it is X's own history (a +2.5% sub-tier of X that fails the same-n control and 2022). Columns stay recorded.
