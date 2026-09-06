@@ -667,3 +667,14 @@ s5 < −1% 14.2) at ~250 net — near the ordinal's 261–266 but on 9–12 trad
 ordinal says "the leg has kept going", speed says "this bar is fast"; stacked, ordinal ≥ 4 ∧ speed < −2% is 14
 trades/yr at PF−1 8.2 (MOC, net −6%) / 7.1 (10m, net +9%). ⇒ speed = a sizing tier inside the ordinal (or inside
 the mc=5 ladder), not its replacement. The mc=5 structure (§L9) makes the ordinal moot anyway.
+
+## §L13 — can the shorter leg counters replace the ordinal? (2026-09-05 late night, user)
+
+On spec v3 the 2m/3m/5m/10m/session leg counters COINCIDE (medians 70 / 75 / 76 / 76 / 80; `l180 ≥ 40` keeps 1,530 of
+1,532 trips): a leg that already has 40 lows in the 10m window with rate ≥ 0.15 and eff < −0.7 has had no 2m/3m/5m-high
+reset, so the shorter windows carry no separate information. As which-bar gates at mc=1 they are no-ops up to their
+p10 and then cut trades without lifting net (l600 ≥ 80: 13 trades/yr, net 107; lsess ≥ 100: 8/yr, 154 — vs the
+ordinal ≥ 4's 19/yr, 282, worst −11). They do not select later bars (median ordinal 7–9 vs 10, 8–12% still first
+bars, ρ 0.2): the ordinal counts SPEC-qualifying bars (rr ≥ 2 ∧ chg_1d ∧ gap ∧ dv …), a different count from raw lows
+— a 70-low leg can have only its last few bars loud. **Not a substitute.** One small free tweak at mc=5: `l120 ≥ 20–30`
+(the fresh-2m-leg cut) lifts PF−1 2.47 → 2.9–3.0 at +4% net (1,306) and the same trade count.
