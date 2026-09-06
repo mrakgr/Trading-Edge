@@ -1298,3 +1298,18 @@ Year table ex-CTNT (MOC): 2020 4.95 · 2021 34 · **2022 0.80 · 2023 26 · 2024
 years negative; 2022+ PF 1.61 on 22 trades. With CTNT gone the 10m cover's "cost" vanishes too (CTNT was −5.9 at 10m vs +265 at
 MOC): 10m = MOC on net22 (103 vs 98) with worst −23 vs −55 — but at PF22 2.0 and a 52% win rate. Sizing by edge × tail collapses to
 **0.09–0.11×**, i.e. +8 net22 on the sized book. **Final ruling: the > 100bp cell is one trade. Keep the ceiling; do not trade the cell.**
+
+## §L25 — the volatility floor at 20bp: no (2026-09-06, user)
+
+Whole-tape corpus (run at 20bp), SPEC v4 otherwise, mc=1 first bar (`data/lowfader_floor20.log`):
+
+| floor | trades | tr/yr | PF | PF22 | win22 | avg22 | net22 | worst |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 30bp (SPEC v4) | 221 | 33.3 | 5.17 | 4.57 | 68 | 3.1 | 433 | −12.8 |
+| 25bp | 241 | 36.3 | 4.80 | 4.48 | 67 | 2.9 | 439 | −12.8 |
+| 20bp | 254 | 38.3 | 4.69 | 4.21 | 65 | 2.7 | 432 | −12.8 |
+| the 33 added 20–30bp days alone | 33 | 5.0 | 2.17 | 1.68 | 60 | 0.4 | 9 | −12.0 |
+
+Bands: (20, 25] 15 trades, PF22 0.96, avg22 −0.04%, net22 0 · (25, 30] 22, PF22 3.56, net22 +13 · vs (30, 40] 3.53 / +74 and the
+book climbing to (80, 100] 51 / +144. The added days net +9 over 4.6 years (with the 10m cover +8); the entry shift touches 4
+days. Net22 is flat (433 → 432) while PF22 falls 4.57 → 4.21. **The floor stays at 30bp** — 30–40bp was the last band that pays.
