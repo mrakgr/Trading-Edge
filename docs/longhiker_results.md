@@ -3462,3 +3462,9 @@ divergence is the 1s microstructure noise inside the slots, which `tight` cannot
 Base pass: `scripts/equity/longhiker_run_consol.sh` → `data/longhiker_trips_consol/` (v7 sampler,
 2020-01-02 → 2026-09-04); study `scripts/equity/longhiker_consol_study.py` (mc=1 replay inside
 each gate, both sides in TRADE convention, tables T0-T6).
+
+⏭ **Queued (user):** a 30s-slot version of the breakout study — "maybe 1s bars are noisy and that
+is skewing the results". Note that the within-slot 1s noise IS this ratio's numerator; a slot-vwap
+sampler (fire on new slot-vwap extremes instead of 1s-vwap extremes) is the variant that removes
+single-print breakouts from the rung, and the two are different features, not one cleaner than the
+other.
