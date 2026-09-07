@@ -1189,3 +1189,28 @@ win rate, 176 bp of median and a year; the year table without it has four negati
 (2006, 2009, 2016, 2019) against S8's one. Here the 52w closing high IS doing work — as the
 statement that the straight line went to a place nobody who bought in the last year is under
 water, which is the trapped-holder condition the ratios describe locally. **Ruling: keep it.**
+
+### S8 addendum 2 — the 52w closing high REPLACED by a 20d closing high (user, 2026-09-07): ⭐ better
+
+Log `data/springflyer_simple_20d.log`. Ratios > 0.9 × 20-session close range > 200%, the new-high
+condition at three horizons (289 spec rows; 86% are at a 20d closing high, 85% at a 63d, 73% at a 52w):
+
+| new-high condition | n/yr | r1 / PF | r3 / PF | r5 / PF | r10 / PF | win5 | yrs5 | med r5 |
+|---|---|---|---|---|---|---|---|---|
+| none | 13 | +601 / 2.30 | +1,139 / 3.68 | +1,246 / 3.01 | +1,428 / 2.77 | 65% | 17/21 | +526 |
+| **20d closing high** | 11 | +647 / 2.24 | +1,257 / 3.69 | **+1,492 / 3.63** | **+1,750 / 3.46** | 70% | 18/21 | **+852** |
+| 63d closing high | 11 | +666 / 2.31 | +1,286 / 3.87 | +1,515 / 3.73 | +1,745 / 3.44 | 70% | 18/21 | +852 |
+| 52w closing high (S8) | 10 | +581 / 2.15 | +1,122 / 3.39 | +1,298 / 3.23 | +1,477 / 3.01 | 71% | 18/21 | +702 |
+| 20d high but NOT 52w | 2 | +1,022 / 2.68 | +2,027 / 5.45 | +2,602 / 6.37 | +3,303 / 6.84 | 68% | 8/11 | +3,185 |
+| NOT a 20d closing high | 2 | +315 / 4.70 | +410 / 3.43 | **−279 / 0.70** | −566 / 0.60 | 32% | 7/15 | −136 |
+
+**Read**: the population the new-high condition needs to exclude is the 2/yr that are NOT even at
+a 20-day closing high (a straight-line tripling that has already rolled over: r5 −279 / 0.70, 32%
+win) — and the 20d condition excludes exactly those while KEEPING the 2/yr the 52w condition threw
+away (20d-high-but-not-52w: r5 +2,602 / 6.37, median +3,185 — the crushed name that tripled to a
+one-month high). 63d ≡ 20d. Year table: 2006 (3), 2008 (4), 2009 (25) negative, 2019 flat, the
+rest positive, 2016-2026 at PF 2.2-18 at five days.
+
+**SPEC v1 (SpringFlyer short): `er10 > 0.9 ∧ er20 > 0.9 ∧ close ≥ max close of the prior 20
+sessions ∧ 20-session close range > 200%`, short at that close, cover in 5-10 sessions: r5 +1,492 /
+3.63, r10 +1,750 / 3.46, 70% win, 18/21 years, median +852 bp, ~11 signals/yr (~20/yr since 2017).**
