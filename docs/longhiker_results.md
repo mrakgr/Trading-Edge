@@ -3319,3 +3319,51 @@ Trade-weighted PF on the mc=1 replayed book (one open position per tkd), gross o
 | 5+ | 142 | +62.9 | +9.1 | 52.7 | 6/7 | +0.2 | 1.33 | 50.8 |
 
 **Read**: rr is a MEAN dial, not an EDGE dial — the mean rises to the 5+ band (+31.7 / +43.4 at 121 tkd/yr) but PF does not (1.62/1.65 vs 1.50/1.54 all-in), years fall to 5/7, and the trim-positive band is 0.25-0.5 (PF 1.75/1.82, the best PF on the table, 157/yr). The same U SpikeFader carries (both ends hold a seat, the middle is the bulk) — no monotone floor exists. `rvol_0945` (S38 in-play): the means at 2-5 / 5+ are the largest on the page (+47 / +63) but on 5-6/7 years with win% falling to 51-53 — the catalyst days carry the tail, the ≤0.5 bulk carries the PF (1.68, trim +6.1). ⚠ `vol_ratio` 2+ is the BEST band here (+31.3, 7/7) — the S33/MaxRider "low 1m/20m is what you want" reading INVERTS inside the shakeout state (the reclaim wants participation NOW). Noted, not chased.
+
+### §8 `gap_60` on the slow reclaim (user question, 2026-09-07) — an inverted U; the fully-dense minute is the WORST band
+
+⚠ LongHiker has no `gap_adj_60`: the halt detector was never ported, so the raw `gap_60` (missing seconds in the trailing wall-clock minute) is the proxy; a resumed-halt bar reads ~60 here. The frame cut (`gap_60 < 30`) LIFTED for the first two tables. Log `data/longhiker_shake_gap.log`.
+
+
+### gap_60 (raw missing seconds, last wall-clock minute) on k=1-4 x deep x slow, NO gap cut, exit ts30
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| 0 (fully dense) | 175 | +16.5 | +1.5 | 50.7 | 5/7 | -18.5 | 1.07 | 48.5 |
+| 1-5 | 239 | +27.6 | +6.7 | 54.5 | 7/7 | -2.9 | 1.57 | 52.6 |
+| 6-15 | 403 | +21.1 | +8.4 | 56.2 | 7/7 | +2.4 | 1.65 | 54.7 |
+| 16-29 | 835 | +15.6 | +7.5 | 56.8 | 7/7 | +2.2 | 1.66 | 55.0 |
+| 30-45 (outside frame) | 2,046 | +9.6 | +4.5 | 54.8 | 7/7 | -0.1 | 1.37 | 52.3 |
+| 46-60 (outside frame) | 1,285 | +8.8 | +3.3 | 53.1 | 7/7 | -3.3 | 1.27 | 50.6 |
+| frame (<30) | 1,384 | +22.2 | +9.0 | 57.3 | 7/7 | +1.6 | 1.50 | 54.1 |
+| all | 3,784 | +15.5 | +6.7 | 56.5 | 7/7 | +1.0 | 1.40 | 52.4 |
+
+### gap_60 (raw missing seconds, last wall-clock minute) on k=1-4 x deep x slow, NO gap cut, exit ts60
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| 0 (fully dense) | 175 | +22.1 | +2.6 | 51.1 | 5/7 | -25.0 | 1.11 | 49.6 |
+| 1-5 | 239 | +38.0 | +12.6 | 54.6 | 7/7 | -0.6 | 1.62 | 53.1 |
+| 6-15 | 403 | +31.0 | +10.1 | 56.1 | 7/7 | +5.5 | 1.77 | 55.2 |
+| 16-29 | 835 | +19.8 | +8.3 | 55.5 | 7/7 | +2.0 | 1.61 | 54.5 |
+| 30-45 (outside frame) | 2,046 | +11.6 | +5.6 | 54.1 | 7/7 | -1.3 | 1.36 | 52.2 |
+| 46-60 (outside frame) | 1,285 | +10.7 | +3.6 | 52.1 | 7/7 | -5.8 | 1.25 | 50.4 |
+| frame (<30) | 1,383 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | 1.54 | 54.0 |
+| all | 3,784 | +19.4 | +7.6 | 55.4 | 7/7 | -0.2 | 1.41 | 52.3 |
+
+### gap_1200 (missing seconds in the last 20 min) inside the frame, ts60
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| <1m | 95 | +23.6 | +13.6 | 56.3 | 5/7 | -17.6 | 1.11 | 52.3 |
+| 1-3m | 105 | +27.4 | +12.6 | 55.9 | 6/7 | -9.0 | 1.29 | 52.4 |
+| 3-7m | 259 | +35.6 | +12.5 | 57.4 | 7/7 | +3.0 | 1.60 | 54.6 |
+| 7-13m | 737 | +22.6 | +9.1 | 55.8 | 7/7 | +1.1 | 1.58 | 54.0 |
+| 13m+ | 277 | +33.4 | +9.7 | 54.8 | 7/7 | +5.8 | 1.89 | 54.6 |
+
+### the frame with the fully-dense minute EXCLUDED (1 <= gap_60 < 30)
+| exit | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| ts30 gap 1-29 | 1,259 | +21.3 | +8.9 | 57.6 | 7/7 | +3.2 | 1.65 | 54.8 |
+| ts30 gap 0-29 (frame) | 1,384 | +22.2 | +9.0 | 57.3 | 7/7 | +1.6 | 1.50 | 54.1 |
+| ts60 gap 1-29 | 1,259 | +28.0 | +10.8 | 56.6 | 7/7 | +3.8 | 1.67 | 54.6 |
+| ts60 gap 0-29 (frame) | 1,383 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | 1.54 | 54.0 |
+
+**Read**: the frame cut is right on the sparse side (30-45 PF 1.36, 46-60 PF 1.25, trims negative) — but the DENSE END is the worst band on the page: `gap_60 = 0` (a print every second, the megacap/ETF-grade tape) reads PF 1.07-1.11, trim −18/−25, 5/7 at 175 tkd/yr. The edge lives at 1-29 missing seconds (PF 1.57-1.77, trim-positive from 6 up). Excluding the fully-dense minute lifts the frame to PF 1.57/1.62 at 1,209 tkd/yr. The 20-min twin says the same thing from the other side: `gap_1200` 13m+ (a tape that was mostly SILENT over the last 20 min but is printing NOW) is the best PF on the page (1.89, trim +5.8) while <1m (continuously dense) is 1.11 — the reclaim on a tape that just WOKE UP, consistent with §7's `vol_ratio` 2+ inversion. ⏭ If this cell is ever specced: `1 <= gap_60 < 30`, and port the halt-adjusted gap so the sparse cut stops confounding halts with thin tape.
