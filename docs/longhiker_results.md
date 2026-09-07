@@ -3238,3 +3238,25 @@ selects the reclaim; extension on a violent tape is the fade.
   universe are still unmeasured (S31's open gap), so it is not yet "tradeable", it is "worth costing".
 - ⏭ Queued: the break-below-floor stamp (§2); the 30m-60m anchors as a k-agreement filter; the
   short mirror (session LOW after a 20m+ high); a spread measurement on the deep×slow book.
+
+### §5 Every recorded exit on the k=1-4 × deep × slow cell (2026-09-07, user question)
+
+Same cell, same mc=1 replay; `trim-bot5` = eqw with the WORST 5% of days removed (the MR-style trim, shown for symmetry). Log `data/longhiker_shake_exits.log`.
+
+| exit | how it fills | mean hold s | eqw | med | up% | yrs | trim-top5 | trim-bot5 | trades/yr |
+|---|---|---|---|---|---|---|---|---|---|
+| ts30 | 30 present bars after fill, at that bar vwap (PRODUCTION) | 44 | +22.2 | +9.0 | 57.3 | 7/7 | +1.6 | +36.3 | 1,773 |
+| ts60 | 60 present bars | 89 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | +47.5 | 1,656 |
+| ts90 | 90 present bars | 136 | +30.8 | +11.8 | 56.0 | 7/7 | -0.8 | +53.0 | 1,608 |
+| ts120 | 120 present bars | 185 | +32.3 | +11.9 | 54.9 | 7/7 | -2.9 | +57.2 | 1,584 |
+| fwd30 | 30 wall-clock s | 30 | +20.2 | +7.2 | 57.2 | 7/7 | +1.4 | +33.4 | 1,822 |
+| fwd60 | 60 s | 60 | +25.8 | +9.3 | 56.7 | 7/7 | +1.7 | +43.5 | 1,693 |
+| fwd120 | 2 min | 120 | +28.4 | +9.6 | 54.8 | 7/7 | -1.7 | +51.1 | 1,607 |
+| fwd300 | 5 min | 300 | +31.4 | +5.7 | 52.0 | 7/7 | -10.6 | +63.8 | 1,541 |
+| fwd600 | 10 min | 600 | +33.9 | +3.2 | 50.7 | 7/7 | -23.6 | +76.9 | 1,512 |
+| fwd1200 | 20 min | 1200 | +29.5 | +0.0 | 48.2 | 7/7 | -44.1 | +84.7 | 1,493 |
+| lo60 | first new 1m LOW after fill, next-bar vwap (trail) | 162 | +25.8 | -8.3 | 45.6 | 7/7 | -10.6 | +46.2 | 1,615 |
+| lo120 | first new 2m low (trail) | 332 | +25.8 | -16.2 | 44.0 | 7/7 | -20.1 | +51.7 | 1,560 |
+| lo300 | first new 5m low (trail) | 878 | +14.2 | -36.2 | 39.8 | 5/7 | -47.0 | +51.2 | 1,514 |
+
+**Read**: the fixed timestop family is the only one with a positive median AND a positive top-trim; the horizon dial trades tail for bulk (ts30 → ts120 lifts the mean +22 → +32 but the top-trim goes +1.6 → −2.9). The wall-clock forward marks say the same thing (fwd60 ≈ ts60). Every price-level trail has a NEGATIVE median — S25/S33 again: a stop that waits for real give-back sells the base of the next leg. ts60 is the best-balanced point (mean +28.8, med +10.9, top-trim +1.6, 7/7).
