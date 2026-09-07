@@ -50,6 +50,7 @@ let defaultConfig =
         { MinEffOpenSlots = 4          // eff_open FEATURE warmth (gate removed in v7)
           HoldBars        = 30         // ⭐ the timestop, in present bars
           SignalOnExtremesOnly = true  // ⭐ user, 2026-08-24: only new-extreme bars.
+          SignalOnSessionHighOnly = false // the shakeout sampler (2026-09-06); opt in
                                        // The intermediate bars are ~88% of the book and are
                                        // no longer of interest; dropping them also cuts the
                                        // corpus and the run time by roughly that much.
@@ -180,6 +181,13 @@ let private RowsPerPart = 250_000
 /// appender below both walk the same array, in the same order.
 let private hiRateCols =
     HI_RATE_HL |> Array.map (fun h -> sprintf "    hi_rate_hl%d DOUBLE," (int h)) |> String.concat "\n"
+/// ⭐ the shakeout family, one block per SHAKE_CHANS entry (indexed in lockstep
+/// with the record's Shake* arrays — the appender below walks the same order).
+let private shakeCols =
+    SHAKE_NAMES
+    |> Array.map (fun n ->
+        sprintf "    sess_hi_since_lo_%s INTEGER, secs_since_lo_%s INTEGER, bars_since_lo_%s INTEGER, lo_px_%s DOUBLE, sess_hi_at_lo_%s DOUBLE," n n n n n)
+    |> String.concat "\n"
 
 let private exitCols =
     EX_SPECS
@@ -217,6 +225,8 @@ CREATE TABLE trips (
     highs_20m_since_lo_60 INTEGER, highs_20m_since_lo_120 INTEGER,
     highs_20m_since_lo_300 INTEGER, highs_20m_since_lo_600 INTEGER,
     highs_20m_since_lo_1200 INTEGER,
+    is_sess_hi INTEGER,
+@SHAKE_COLS@
     gap_open INTEGER, gap_10 INTEGER, gap_30 INTEGER, gap_60 INTEGER,
     gap_120 INTEGER, gap_300 INTEGER, gap_600 INTEGER, gap_1200 INTEGER,
     dv_sess DOUBLE, dv_10 DOUBLE, dv_30 DOUBLE, dv_60 DOUBLE,
@@ -247,7 +257,7 @@ CREATE TABLE trips (
 // line sits at column 0 cannot be followed by `.Replace` on the same line — F#'s
 // offside rule reads the continuation as a new top-level declaration.
 let private tripTableSql =
-    tripTableTemplate.Replace("@EXIT_COLS@", exitCols).Replace("@HIRATE_COLS@", hiRateCols)
+    tripTableTemplate.Replace("@EXIT_COLS@", exitCols).Replace("@HIRATE_COLS@", hiRateCols).Replace("@SHAKE_COLS@", shakeCols)
 
 type TripSink(outDir: string) =
     let conn = new DuckDBConnection("Data Source=:memory:")
@@ -326,6 +336,10 @@ type TripSink(outDir: string) =
             i p.Highs20mSinceLo60; i p.Highs20mSinceLo120
             i p.Highs20mSinceLo300; i p.Highs20mSinceLo600
             i p.Highs20mSinceLo1200
+            i p.IsSessHi
+            for k in 0 .. SHAKE_CHANS.Length - 1 do
+                i p.SessHiSinceLo.[k]; i p.ShakeSecsSinceLo.[k]; i p.ShakeBarsSinceLo.[k]
+                f p.ShakeLoPx.[k]; f p.ShakeSessHiAtLo.[k]
             i p.GapOpen; i p.Gap10; i p.Gap30; i p.Gap60
             i p.Gap120; i p.Gap300; i p.Gap600; i p.Gap1200
             f p.DvSess; f p.Dv10; f p.Dv30; f p.Dv60

@@ -23,6 +23,7 @@ type Args =
     | Min_Eff_Open_Slots of int
     | Hold_Bars of int
     | Signal_On_Extremes_Only of bool
+    | Signal_On_Session_High_Only of bool
     | Signal_Stride of int
     // ----- per-bar liquidity floors -----
     | Dv_Floor_60 of float
@@ -56,6 +57,7 @@ type Args =
             | Min_Eff_Open_Slots _ -> "Completed 30-bar slots before the eff_open FEATURE is warm (the v7 sampler has NO eff gate). Default 4."
             | Hold_Bars _ -> "⭐ THE EXIT: a pure TIMESTOP — exit this many PRESENT bars after the fill bar, at that bar's vwap. Default 30. The fwd_vwap_* columns answer every other horizon post-hoc, so do NOT sweep this by re-running."
             | Signal_On_Extremes_Only _ -> "⭐ Fire ONLY on bars printing a NEW EXTREME in a tracked channel (a new {1,2,5,10,20}m high OR low). Default true — the intermediate bars are ~88%% of the book. ⚠ This shrinks but does not remove the trip-count weighting problem (S15): a day making more new highs still yields more trips."
+            | Signal_On_Session_High_Only _ -> "⭐ Fire ONLY on bars printing a STRICT new SESSION high (the shakeout study, 2026-09-06). A long-only subset of the 20m-high rung; the sess_hi_since_lo_* / secs_since_lo_{20,30,40,60}m / lo_px_* / sess_hi_at_lo_* columns are recorded either way. Default false."
             | Signal_Stride _ -> "Fire only every Nth qualifying bar per (ticker,day). Default 1 = every bar (the design). > 1 is a UNIFORM SUBSAMPLE — unbiased for means, but ⚠ never report a stride run as a book."
             | Dv_Floor_60 _ -> "Hard entry gate: >= this many DOLLARS traded over the trailing 60 present bars. Default 100000. 0 = off."
             | Tc_Floor_60 _ -> "Hard entry gate: >= this many TRADES over the same window. Default 60 — volume without trades is one block print. 0 = off."
@@ -95,6 +97,7 @@ let main argv =
                     MinEffOpenSlots  = parsed.GetResult(Min_Eff_Open_Slots, defaultValue = d.Intraday.MinEffOpenSlots)
                     HoldBars         = parsed.GetResult(Hold_Bars,          defaultValue = d.Intraday.HoldBars)
                     SignalOnExtremesOnly = parsed.GetResult(Signal_On_Extremes_Only, defaultValue = d.Intraday.SignalOnExtremesOnly)
+                    SignalOnSessionHighOnly = parsed.GetResult(Signal_On_Session_High_Only, defaultValue = d.Intraday.SignalOnSessionHighOnly)
                     SignalStride     = parsed.GetResult(Signal_Stride,      defaultValue = d.Intraday.SignalStride)
                     DvFloor60        = parsed.GetResult(Dv_Floor_60,        defaultValue = d.Intraday.DvFloor60)
                     TcFloor60        = parsed.GetResult(Tc_Floor_60,        defaultValue = d.Intraday.TcFloor60)

@@ -388,6 +388,21 @@ type LhPosition =
       Highs20mSinceLo300: int
       Highs20mSinceLo600: int
       Highs20mSinceLo1200: int
+      // ----- ⭐ THE SHAKEOUT FAMILY (user, 2026-09-06): the reversal after a break
+      // BELOW the range — the market breaks the consolidation to shake out the weak
+      // hands, then promptly makes new highs. Anchored on the last new {20,30,40,60}m
+      // LOW (present-bar channels SHAKE_CHANS): how many new SESSION highs have
+      // printed since it, how long ago it was (seconds and present bars), its price
+      // (the distance is derived in SQL), and the session high AT THE MOMENT it
+      // printed (the depth of the shakeout, and the size of the reclaim). Arrays
+      // are indexed by SHAKE_CHANS. -1 / nan while no such low has fired this
+      // session — the count then runs from the open, like the reseat family. -----
+      IsSessHi: int              // 1 = this bar is a STRICT new session high
+      SessHiSinceLo: int[]       // new session highs since the last new N-m low
+      ShakeSecsSinceLo: int[]    // wall-clock seconds since that low (-1 = never)
+      ShakeBarsSinceLo: int[]    // present bars since that low (-1 = never)
+      ShakeLoPx: float[]         // that low's vwap (nan = never)
+      ShakeSessHiAtLo: float[]   // the session high when that low printed (nan = never)
       // ----- gaps: missing seconds in each trailing WALL-CLOCK window -----
       GapOpen: int               // session seconds elapsed minus present bars
       Gap10: int
@@ -502,6 +517,12 @@ type IntradayConfig =
       /// multiplier (~8-13 trips/ticker-day toward ~1-2), it does not change the
       /// mechanism. Keep reporting the equal-weight-by-ticker-day figure.
       SignalOnExtremesOnly: bool
+      /// ⭐ Fire ONLY on bars printing a STRICT new SESSION high (2026-09-06, the
+      /// shakeout study). A subset of the 20m-high rung, long side only: the
+      /// state the shakeout thesis is about is "back at the highs after the
+      /// break", and sampling anything wider multiplies the corpus ~10x for
+      /// bars the thesis never looks at. Default false (v7 behaviour).
+      SignalOnSessionHighOnly: bool
       /// Fire only every Nth qualifying bar per (ticker, day). 1 = every bar
       /// (the design). > 1 is a UNIFORM SUBSAMPLE of the same signal set —
       /// unbiased for means, and the escape hatch if a full-period run's trip
@@ -537,6 +558,11 @@ let private CH1200 = 4
 /// Trailing WALL-CLOCK gap windows, in seconds: open / 10s / 30s / 1m / 2m / 5m /
 /// 10m / 20m (the `open` member is computed directly, not from a counter).
 let GAP_SECS = [| 10; 30; 60; 120; 300; 600; 1200 |]
+
+/// ⭐ The shakeout anchors, in present bars: the last new 20m / 30m / 40m / 60m
+/// LOW. Order is load-bearing — the Shake* arrays on the record are indexed by it.
+let SHAKE_CHANS = [| 1200; 1800; 2400; 3600 |]
+let SHAKE_NAMES = [| "20m"; "30m"; "40m"; "60m" |]
 
 /// Forward-mark horizons, in WALL-CLOCK seconds after the fill. Order is
 /// load-bearing: `fwdCur` and the dispatch in step 4 are indexed by it.
@@ -690,6 +716,16 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     /// New 20m highs since the last N-bar low (0 = at/since that low; while the
     /// low has never fired the anchor is the session open).
     let hiSinceLo = Array.create CHANS.Length 0
+    // ----- ⭐ the shakeout anchors, one entry per SHAKE_CHANS index -----
+    let shakeMin = SHAKE_CHANS |> Array.map MinMa
+    let shakePriorMin : float voption[] = Array.create SHAKE_CHANS.Length ValueNone
+    let shakeLoSec = Array.create SHAKE_CHANS.Length -1
+    let shakeLoBar = Array.create SHAKE_CHANS.Length -1
+    let shakeLoPx = Array.create SHAKE_CHANS.Length nan
+    let shakeSessHiAtLo = Array.create SHAKE_CHANS.Length nan
+    /// new SESSION highs since the last new N-m low (from the open while none fired)
+    let sessHiSinceLo = Array.create SHAKE_CHANS.Length 0
+    let mutable priorSessHi : float voption = ValueNone
 
     // ----- gaps, session, speed -----
     let gaps = GAP_SECS |> Array.map (fun w -> GapCounter(w, cfg.SessionStartSec))
@@ -735,6 +771,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         for i in 0 .. CHANS.Length - 1 do
             priorMax.[i] <- maxCh.[i].State
             priorMin.[i] <- minCh.[i].State
+        for i in 0 .. SHAKE_CHANS.Length - 1 do
+            shakePriorMin.[i] <- shakeMin.[i].State
+        priorSessHi <- sessHi.State
 
         // ===== 2. fold this bar into every structure =====
         barsPresent <- barsPresent + 1
@@ -766,6 +805,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             minCh.[i].Push bar.vwap
         sessHi.Push bar.vwap
         sessLo.Push bar.vwap
+        for i in 0 .. SHAKE_CHANS.Length - 1 do
+            shakeMin.[i].Push bar.vwap
 
         // ----- the slot chain: one |r| per completed 30-bar slot -----
         match slots.Push(bar.vwap, bar.volume) with
@@ -837,6 +878,25 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                 lastLoSec.[i] <- bar.etSec
                 hiSinceLo.[i] <- 0
             | _ -> ()
+        // ⭐ the shakeout anchors: a STRICT new N-m low resets the session-high
+        // count and stamps the low (price, time, bar) and the session high that
+        // stood when it printed. Strict on the session high too (F21 ties).
+        // ⚠ priorSessHi is the STRICTLY-PRIOR session high, so the stamp cannot
+        // include this bar even though sessHi has already been pushed.
+        for i in 0 .. SHAKE_CHANS.Length - 1 do
+            match shakePriorMin.[i] with
+            | ValueSome lo when bar.vwap < lo ->
+                shakeLoSec.[i] <- bar.etSec
+                shakeLoBar.[i] <- barsPresent
+                shakeLoPx.[i] <- bar.vwap
+                shakeSessHiAtLo.[i] <- vv priorSessHi
+                sessHiSinceLo.[i] <- 0
+            | _ -> ()
+        let isNewSessHi =
+            match priorSessHi with ValueSome hi -> bar.vwap > hi | ValueNone -> false
+        if isNewSessHi then
+            for i in 0 .. SHAKE_CHANS.Length - 1 do
+                sessHiSinceLo.[i] <- sessHiSinceLo.[i] + 1
         let isNewHi1200 =
             match priorMax.[CH1200] with ValueSome hi -> bar.vwap > hi | ValueNone -> false
         let isNewLo1200 = lastLoSec.[CH1200] = bar.etSec
@@ -945,7 +1005,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             && (Double.IsPositiveInfinity cfg.MaxVolat20m
                 || (match ew40.State with ValueSome v -> v < cfg.MaxVolat20m | ValueNone -> true))
         let extremeOk = not cfg.SignalOnExtremesOnly || isExtreme
-        if inWindow && floorsOk && volatOk && extremeOk && bar.etSec < mocSec && this.HasSlot then
+        let sessHiOk = not cfg.SignalOnSessionHighOnly || isNewSessHi
+        if inWindow && floorsOk && volatOk && extremeOk && sessHiOk && bar.etSec < mocSec && this.HasSlot then
             sinceLastSignal <- sinceLastSignal + 1
             if cfg.SignalStride <= 1 || sinceLastSignal >= cfg.SignalStride then
                 sinceLastSignal <- 0
@@ -1049,6 +1110,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Highs20mSinceLo300 = hiSinceLo.[2]
                           Highs20mSinceLo600 = hiSinceLo.[3]
                           Highs20mSinceLo1200 = hiSinceLo.[4]
+                          IsSessHi = (if isNewSessHi then 1 else 0)
+                          SessHiSinceLo = Array.copy sessHiSinceLo
+                          ShakeSecsSinceLo = shakeLoSec |> Array.map (fun l -> secsSince l bar.etSec)
+                          ShakeBarsSinceLo = shakeLoBar |> Array.map (fun b -> if b < 0 then -1 else barsPresent - b)
+                          ShakeLoPx = Array.copy shakeLoPx
+                          ShakeSessHiAtLo = Array.copy shakeSessHiAtLo
                           GapOpen = max 0 (bar.etSec - cfg.SessionStartSec + 1 - barsPresent)
                           Gap10 = gaps.[0].Gaps
                           Gap30 = gaps.[1].Gaps
