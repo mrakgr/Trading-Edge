@@ -1027,9 +1027,17 @@ green-day control. Short at D's close; short returns.
 
 ### Verdict — the ladder works and the ratio is the lever that matters; the 52w high is not; and the green climax day beats the red day AGAIN, by more
 
-- **T1**: the base (3-day ≥ 50%, red, retrace3 < 0.3) is r10 +481 / 1.55, 15/22, 237/yr. Adding
-  the 52w closing high REMOVES edge (r10 +370 / 1.42, 13/22 — the not-at-52w control is +428 /
-  1.46): being at the high is not the point, the move is. Volume alone does little (rvol ≥ 5 / 10:
+- **T1**: the base (3-day ≥ 50%, red, retrace3 < 0.3) is r10 +481 / 1.55, 15/22, 237/yr.
+  ⚠ CORRECTED (user caught it, 2026-09-07): the 52w closing-high condition is NOT "removing edge" —
+  that read compared rungs of different size. Split AT EACH RUNG (`data/springflyer_52w_split.log`):
+  at the base and rvol rungs the not-at-52w complement is BETTER at 10 days (r10 +530 / 1.61 vs
+  +370 / 1.42; +656 / 1.82 vs +311 / 1.37) and at the er ≥ 0.8 rung the 52w side is better at 5
+  days (+311 / 1.45, 18/22 vs +70 / 1.07, 13/21) and equal at 10 (1.50 vs 1.46); at er ≥ 0.9 the
+  two sides are 1.93 / 1.34 at r5 and 1.92 / 1.87 at r10 on 17 vs 7 per year. On the GREEN day the
+  not-at-52w side wins every rung (base r5 1.64 vs 1.35; rvol ≥ 5: 1.86 vs 1.44; er ≥ 0.9: 4/yr at
+  PF 10, too few to quote). Net: **the 52w closing high is a horizon-dependent, non-monotone
+  condition — never a floor; the move and the ratio are what carry the cell, and the 52w high
+  mostly trims the sample.** Volume alone does little (rvol ≥ 5 / 10:
   1.37 / 1.48). **The efficiency ratio is the lever**: er10 ≥ 0.8 → r5 +311 / 1.45, **18/22**;
   **er10 ≥ 0.9 → r5 +599 / 1.93, r10 +730 / 1.92, 17/21**, 17/yr; with rvol ≥ 10 r10 +804 / 2.10.
   T2 confirms it band by band: er 0.7-0.9 is FLAT (−12 / +58 at r5), **0.9+ is the whole cell
@@ -1048,7 +1056,7 @@ green-day control. Short at D's close; short returns.
 
 **What the spec says, and what it changes**: the user's three additions rank as (1) the
 efficiency ratio at 0.9 — a knife, the single strongest gate found on the daily short side; (2)
-the volume — additive only at 10×+; (3) the 52w closing high — inert to negative. And for the
+the volume — additive only at 10×+; (3) the 52w closing high — non-monotone, not a floor (see the corrected T1 note). And for the
 second time (S6, S7) the red-candle confirmation is a cost: the green climax day with er10 ≥ 0.9
 and rvol ≥ 5 is **PF ~3 at 5-10 days in 20/21 years** against the red day's ~1.9. The mechanism
 reads as: the ratio says the move was ONE-WAY (nobody sold on the way up — no supply overhead,
