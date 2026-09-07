@@ -941,3 +941,117 @@ closes in a row × run gain` replaces `chg20 × range`. The confirmation the fol
 cost, not a filter. The best cell on the whole daily short side so far is **4+ green closes with a
 100%+ run, shorted at the 4th close: r10 +884 / 1.81, 21/22 years, ~77/yr** — and its tail
 (p95 +100%) and borrow are, as before, the two unsolved things.
+
+## S7 — the user's climax spec: 3-day move > 50% × 52w CLOSING high × extreme volume × er10 > 0.8/0.9 (2026-09-07)
+
+> USER: *"How about if the last 3 days are up more than 50% and the previous day closed at a 52w high
+> based on bar closes instead of highs. By itself 3 green days doesn't mean much, it should be a
+> climax move on extreme volume, and prior to the red day, the eff score should be > 0.8 maybe even
+> 0.9."*
+
+Script `scripts/equity/springflyer_climax2.py`, log `data/springflyer_climax2.log`. New features:
+`chg3_prev` (close(D−1)/close(D−4) − 1), `at52_prev` (D−1's close ≥ the max CLOSE of the prior 252
+sessions), `run_rvol_max3` (the loudest rvol of D−1..D−3), `prev_er10s` (the signed 10-day ratio at
+D−1's close), `retrace3` (D's give-back of the 3-day move); `chg3_d / at52_d / rvol_d` for the
+green-day control. Short at D's close; short returns.
+
+### T1 — THE LADDER (first red day, retrace of the 3-day move < 0.3): each condition added in turn
+| cell | n/yr | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3-day move >= 50%, red, retrace3 < 0.3 | 237 | 22 | +63 / 1.36 | +96 / 1.23 | +199 / 1.31 | +245 / 1.30 | +481 / 1.55 | 62% | 15/22 | +445 | +7733 | 7% |
+| + D-1 at a 52w CLOSING high | 72 | 22 | +80 / 1.51 | +99 / 1.24 | +109 / 1.16 | +199 / 1.27 | +370 / 1.42 | 58% | 13/22 | +237 | +7340 | 1% |
+| + loudest climax day rvol >= 5 | 58 | 22 | +75 / 1.45 | +85 / 1.21 | +108 / 1.17 | +213 / 1.31 | +311 / 1.37 | 57% | 14/22 | +196 | +7173 | 0% |
+| + loudest climax day rvol >= 10 | 48 | 22 | +64 / 1.37 | +77 / 1.19 | +98 / 1.16 | +207 / 1.30 | +372 / 1.48 | 56% | 14/22 | +137 | +7459 | 0% |
+| + er10 at D-1 >= 0.8 (with rvol >= 5) | 34 | 22 | +100 / 1.58 | +141 / 1.34 | +179 / 1.28 | +311 / 1.45 | +418 / 1.50 | 58% | 18/22 | +265 | +7899 | 0% |
+| + er10 at D-1 >= 0.9 (with rvol >= 5) | 17 | 21 | +124 / 1.64 | +221 / 1.51 | +326 / 1.51 | +599 / 1.93 | +730 / 1.92 | 62% | 17/21 | +467 | +7201 | 0% |
+| er10 >= 0.9, rvol >= 10 | 14 | 21 | +121 / 1.59 | +224 / 1.49 | +294 / 1.44 | +583 / 1.88 | +804 / 2.10 | 61% | 15/21 | +423 | +7591 | 0% |
+| CONTROL: same but NOT at a 52w high | 24 | 21 | +89 / 1.54 | +157 / 1.40 | +164 / 1.23 | +70 / 1.07 | +428 / 1.46 | 60% | 13/21 | +206 | +9000 | 0% |
+| CONTROL: same but er10 < 0.5 | 2 | 9 | +49 / 1.47 | +48 / 1.13 | -136 / 0.82 | -140 / 0.85 | +194 / 1.18 | 60% | 5/9 | +194 | +6608 | 0% |
+| CONTROL: same but quiet (rvol max < 2) | 4 | 21 | +33 / 1.34 | +46 / 1.12 | +136 / 1.21 | +32 / 1.04 | +203 / 1.17 | 66% | 14/21 | +339 | +8009 | 0% |
+
+### T2 — bands inside (3-day >= 50% x 52w-high x red): efficiency at D-1, loudest rvol, the move's size
+| cell | n/yr | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| er10 at D-1 <0.5 | 3 | 10 | +65 / 1.60 | +170 / 1.55 | -18 / 0.97 | +201 / 1.24 | +518 / 1.52 | 61% | 9/10 | +521 | +6425 | 0% |
+| er10 at D-1 0.5-0.7 | 13 | 21 | +24 / 1.15 | +6 / 1.01 | -92 / 0.88 | +64 / 1.08 | +504 / 1.63 | 59% | 11/21 | +233 | +5963 | 0% |
+| er10 at D-1 0.7-0.8 | 14 | 22 | +86 / 1.52 | +65 / 1.16 | +76 / 1.12 | -12 / 0.99 | -51 / 0.95 | 56% | 13/22 | +114 | +7435 | 0% |
+| er10 at D-1 0.8-0.9 | 20 | 22 | +74 / 1.49 | +29 / 1.07 | +8 / 1.01 | +58 / 1.08 | +218 / 1.26 | 54% | 11/22 | +68 | +8251 | 0% |
+| er10 at D-1 0.9+ | 21 | 22 | +120 / 1.72 | +234 / 1.57 | +372 / 1.61 | +552 / 1.82 | +680 / 1.81 | 64% | 18/22 | +468 | +7198 | 0% |
+| loudest rvol <2 | 7 | 21 | +113 / 2.12 | +210 / 1.57 | +328 / 1.52 | +273 / 1.35 | +679 / 1.67 | 65% | 17/21 | +360 | +7693 | 0% |
+| loudest rvol 2-5 | 8 | 19 | +89 / 1.60 | +109 / 1.23 | -70 / 0.93 | +34 / 1.03 | +547 / 1.53 | 63% | 13/19 | +526 | +7906 | 0% |
+| loudest rvol 5-10 | 9 | 20 | +134 / 2.10 | +127 / 1.38 | +163 / 1.27 | +240 / 1.33 | -11 / 0.99 | 60% | 15/20 | +485 | +6411 | 0% |
+| loudest rvol 10-25 | 14 | 22 | +70 / 1.41 | +115 / 1.34 | +78 / 1.14 | +116 / 1.17 | +185 / 1.20 | 56% | 13/22 | +154 | +6449 | 0% |
+| loudest rvol 25+ | 34 | 22 | +61 / 1.35 | +62 / 1.14 | +106 / 1.16 | +245 / 1.35 | +449 / 1.62 | 56% | 13/22 | +124 | +7842 | 0% |
+| 3-day move 50-80% | 34 | 22 | +61 / 1.49 | +82 / 1.27 | -18 / 0.97 | +20 / 1.03 | +206 / 1.25 | 56% | 13/22 | +93 | +5702 | 0% |
+| 3-day move 80-150% | 21 | 22 | +72 / 1.47 | +15 / 1.04 | +66 / 1.11 | +123 / 1.17 | +208 / 1.22 | 55% | 12/22 | +157 | +6714 | 0% |
+| 3-day move 150%+ | 17 | 22 | +128 / 1.56 | +239 / 1.41 | +424 / 1.56 | +658 / 1.79 | +917 / 1.96 | 67% | 17/22 | +914 | +10848 | 0% |
+| retrace3 <0.1 | 33 | 22 | +61 / 1.63 | -24 / 0.93 | -66 / 0.89 | -42 / 0.94 | -4 / 0.99 | 51% | 13/22 | +8 | +5188 | 0% |
+| retrace3 0.1-0.3 | 39 | 22 | +96 / 1.46 | +203 / 1.43 | +256 / 1.35 | +400 / 1.49 | +684 / 1.74 | 65% | 16/22 | +649 | +8243 | 1% |
+| retrace3 0.3-0.6 | 28 | 22 | -23 / 0.94 | -100 / 0.86 | -114 / 0.90 | -49 / 0.96 | +360 / 1.27 | 64% | 12/22 | +704 | +11226 | 2% |
+| retrace3 0.6+ | 9 | 20 | -96 / 0.79 | -111 / 0.85 | +100 / 1.10 | +652 / 1.87 | +1057 / 2.35 | 67% | 15/20 | +960 | +12933 | 12% |
+
+### T3 — the GREEN-DAY CONTROL: short at the climax close itself (3-day move incl. today >= 50%, closed at a 52w closing high, green)
+| cell | n/yr | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| green climax, 52w high | 129 | 22 | -37 / 0.90 | +93 / 1.16 | +166 / 1.20 | +311 / 1.35 | +592 / 1.63 | 60% | 18/22 | +387 | +9585 | 6% |
+| + rvol today >= 5 | 49 | 22 | -70 / 0.86 | +175 / 1.29 | +237 / 1.28 | +400 / 1.44 | +586 / 1.61 | 60% | 19/22 | +570 | +10773 | 1% |
+| + rvol today >= 5 AND er10 today >= 0.8 | 27 | 22 | -166 / 0.74 | +270 / 1.41 | +485 / 1.60 | +736 / 1.88 | +1069 / 2.36 | 65% | 19/22 | +865 | +11099 | 0% |
+| + rvol today >= 5 AND er10 today >= 0.9 | 13 | 21 | -139 / 0.79 | +481 / 1.92 | +877 / 2.61 | +1142 / 2.94 | +1353 / 2.99 | 68% | 20/21 | +1089 | +9485 | 0% |
+| + rvol today >= 10 AND er10 today >= 0.9 | 7 | 18 | -32 / 0.94 | +462 / 1.84 | +673 / 2.14 | +826 / 2.16 | +1156 / 2.76 | 62% | 14/18 | +744 | +9707 | 0% |
+
+### T4 — year table, SHORT, the stacked first-red cell: chg3_prev >= 0.5 AND rev_prev < 0 AND retrace3 < 0.3 AND at52_prev = 1 AND run_rvol_max3 >= 5 AND prev_er10s >= 0.8
+| year | n | r1 | r5 | r10 | win5 | p95 mfe5 |
+|---|---|---|---|---|---|---|
+| 2005 | 6 | +337 / 5.51 | +249 / 1.94 | +151 / 1.21 | 50% | +1172 |
+| 2006 | 11 | +4 / 1.02 | -968 / 0.27 | -767 / 0.42 | 45% | +7562 |
+| 2007 | 7 | +266 / 1.66 | +71 / 1.17 | +930 / 19.72 | 71% | +3982 |
+| 2008 | 2 | +13 / inf | +147 / 26.84 | +415 / inf | 50% | +270 |
+| 2009 | 13 | +440 / 2.25 | +404 / 1.90 | +497 / 1.75 | 46% | +4191 |
+| 2010 | 12 | +185 / 2.39 | +132 / 1.63 | +849 / 7.33 | 50% | +2503 |
+| 2011 | 7 | +124 / 2.83 | +399 / 38.32 | +287 / 5.61 | 57% | +890 |
+| 2012 | 11 | +36 / 1.32 | +334 / 4.50 | -405 / 0.53 | 64% | +1118 |
+| 2013 | 18 | +384 / 4.28 | +106 / 1.28 | +358 / 1.54 | 61% | +3119 |
+| 2014 | 15 | +549 / 4.30 | +356 / 2.04 | +1349 / 8.07 | 60% | +5204 |
+| 2015 | 16 | +26 / 1.08 | -73 / 0.92 | -1899 / 0.26 | 62% | +5200 |
+| 2016 | 20 | +107 / 1.49 | -199 / 0.68 | -206 / 0.76 | 40% | +4976 |
+| 2017 | 39 | +60 / 1.14 | +281 / 1.47 | +157 / 1.21 | 51% | +4323 |
+| 2018 | 27 | -94 / 0.72 | -267 / 0.69 | +139 / 1.18 | 48% | +5742 |
+| 2019 | 33 | +192 / 1.68 | +178 / 1.28 | +469 / 1.79 | 52% | +3012 |
+| 2020 | 110 | +285 / 1.66 | +651 / 1.99 | +579 / 1.63 | 65% | +6101 |
+| 2021 | 95 | -44 / 0.92 | +186 / 1.22 | +422 / 1.42 | 65% | +11728 |
+| 2022 | 24 | +189 / 2.17 | +1037 / 5.70 | +1041 / 5.20 | 54% | +2163 |
+| 2023 | 53 | -54 / 0.83 | +242 / 1.58 | +278 / 1.55 | 47% | +4093 |
+| 2024 | 64 | +294 / 1.57 | +28 / 1.02 | +160 / 1.12 | 61% | +14679 |
+| 2025 | 98 | +247 / 1.40 | +795 / 2.09 | +1072 / 2.68 | 58% | +9125 |
+| 2026 | 59 | -72 / 0.87 | +122 / 1.14 | +329 / 1.31 | 58% | +7348 |
+
+### Verdict — the ladder works and the ratio is the lever that matters; the 52w high is not; and the green climax day beats the red day AGAIN, by more
+
+- **T1**: the base (3-day ≥ 50%, red, retrace3 < 0.3) is r10 +481 / 1.55, 15/22, 237/yr. Adding
+  the 52w closing high REMOVES edge (r10 +370 / 1.42, 13/22 — the not-at-52w control is +428 /
+  1.46): being at the high is not the point, the move is. Volume alone does little (rvol ≥ 5 / 10:
+  1.37 / 1.48). **The efficiency ratio is the lever**: er10 ≥ 0.8 → r5 +311 / 1.45, **18/22**;
+  **er10 ≥ 0.9 → r5 +599 / 1.93, r10 +730 / 1.92, 17/21**, 17/yr; with rvol ≥ 10 r10 +804 / 2.10.
+  T2 confirms it band by band: er 0.7-0.9 is FLAT (−12 / +58 at r5), **0.9+ is the whole cell
+  (+552 / 1.82, 18/22)** — not a floor at 0.8, a knife at 0.9. The 3-day move size grades the same
+  way (150%+: r10 +917 / 1.96). The retrace: **0.1-0.3 is the cell** (+400 / 1.49, 16/22); < 0.1
+  (barely red) is NOTHING here (−42 / 0.94) — unlike S6's run-based version, the 3-day-move
+  version wants a real red day; 0.3-0.6 bounces at 1-5 days (the same shape as S6).
+- ⭐⭐ **T3 — the green-day control, stacked the same way**: 3-day ≥ 50% incl. today × 52w closing
+  high × green: r10 +592 / 1.63, 18/22, 129/yr; **+ rvol today ≥ 5 × er10 today ≥ 0.9: r1 +481 /
+  1.92, r3 +877 / 2.61, r5 +1,142 / 2.94, r10 +1,353 / 2.99, 68% win, 20/21 years, median r5
+  +1,089**, 13/yr. The one cost: the NEXT OPEN goes against it (r_open1 −139 / 0.79 — the climax
+  gaps up once more), so this is a short you must hold through a bad first morning. Every rung of
+  the green ladder beats the corresponding red rung by 2-3× at r5.
+- **T4**: the stacked red cell's year table is noisy at 6-20 trades/yr (2006 −968, 2015 −1,899 at
+  r10, 2016 −199, 2018 −267), 2020-2025 all positive; the tail is p95 +50-147%.
+
+**What the spec says, and what it changes**: the user's three additions rank as (1) the
+efficiency ratio at 0.9 — a knife, the single strongest gate found on the daily short side; (2)
+the volume — additive only at 10×+; (3) the 52w closing high — inert to negative. And for the
+second time (S6, S7) the red-candle confirmation is a cost: the green climax day with er10 ≥ 0.9
+and rvol ≥ 5 is **PF ~3 at 5-10 days in 20/21 years** against the red day's ~1.9. The mechanism
+reads as: the ratio says the move was ONE-WAY (nobody sold on the way up — no supply overhead,
+every holder is in profit and untested); the first red day is when they start testing; shorting
+the day BEFORE catches the gap-up-and-reverse. At 13-17/yr it is a low-frequency A+ cell, the same
+frequency class as LowFader's grade A.

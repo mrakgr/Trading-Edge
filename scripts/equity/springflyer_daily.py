@@ -85,8 +85,24 @@ if args.rebuild or not os.path.exists(args.feat):
         (LEAD(cum_div,3) OVER e - cum_div) / n              AS div_p3,
         (LEAD(cum_div,5) OVER e - cum_div) / n              AS div_p5,
         (LEAD(cum_div,7) OVER e - cum_div) / n              AS div_p7,
-        (LEAD(cum_div,10) OVER e - cum_div) / n             AS div_p10
+        (LEAD(cum_div,10) OVER e - cum_div) / n             AS div_p10,
+        -- per-row twins for LAGGING (the climax spec, 2026-09-07)
+        volume / NULLIF(AVG(volume / n) OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) * n, 0) AS rvol_t,
+        (cn - LAG(cn,10) OVER e) / NULLIF(SUM(dcn) OVER (e ROWS BETWEEN 9 PRECEDING AND CURRENT ROW), 0) AS er10s_t,
+        MAX(cn) OVER (e ROWS BETWEEN 252 PRECEDING AND 1 PRECEDING) AS hi252c_prior,   -- 52w CLOSING high before D
+        cn
       FROM b0
+      WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
+    ), c AS (
+      SELECT *,
+        LAG(er10s_t,1) OVER e                               AS prev_er10s,     -- efficiency at D-1's close
+        GREATEST(LAG(rvol_t,1) OVER e, LAG(rvol_t,2) OVER e, LAG(rvol_t,3) OVER e) AS run_rvol_max3,  -- loudest of D-1..D-3
+        LAG(cn,1) OVER e / LAG(cn,4) OVER e - 1             AS chg3_prev,      -- the 3-day move ending D-1
+        CASE WHEN LAG(cn,1) OVER e >= LAG(hi252c_prior,1) OVER e THEN 1 ELSE 0 END AS at52_prev,  -- D-1 closed at a 52w closing high
+        LAG(cn,4) OVER e / n                                AS close_m4,       -- D-4 close, D's scale (the 3-day move's base)
+        cn / LAG(cn,3) OVER e - 1                           AS chg3_d,         -- the 3-day move ending TODAY (green-day control)
+        CASE WHEN cn >= hi252c_prior THEN 1 ELSE 0 END      AS at52_d
+      FROM b
       WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
     )
     SELECT ticker, date, year(date) AS yr, barnum, open, high, low, close, volume,
@@ -95,6 +111,8 @@ if args.rebuild or not os.path.exists(args.feat):
       volume / NULLIF(avgvol20_prior,0) AS rvol,
       high / low - 1                    AS rng,           -- the day's range
       prev_streak, prev_run_gain, prev_run_maxday, up_streak_d, run_base,
+      prev_er10s, run_rvol_max3, chg3_prev, at52_prev, chg3_d, at52_d, rvol_t AS rvol_d,
+      CASE WHEN prev_close > close_m4 THEN (prev_close - close) / (prev_close - close_m4) END AS retrace3,  -- D's give-back of the 3-day move
       CASE WHEN prev_close > run_base THEN (prev_close - close) / (prev_close - run_base) END AS retrace,  -- D's give-back of the run (1 = all of it)
       (high / low - 1) / NULLIF(atr20_prior, 0) AS rng_atr,  -- in units of the stock's own prior average range
       atr20_prior,
@@ -124,7 +142,7 @@ if args.rebuild or not os.path.exists(args.feat):
       1e4*((low_f5 - close) / close)                      AS mae5,  -- worst low over the next 5 days
       1e4*((high_f5 - close) / close)                     AS mfe5,  -- highest high over the next 5 days (the SHORT's adverse excursion)
       1e4*((high_p1 - close) / close)                     AS hi1
-    FROM b
+    FROM c
     WHERE barnum >= 22 AND prev_close IS NOT NULL AND date >= '2005-01-01'
     ) TO '{args.feat}' (FORMAT PARQUET, COMPRESSION 'zstd');""")
     print(f"features built in {time.time()-t0:.0f}s -> {args.feat}", flush=True)
