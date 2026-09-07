@@ -290,3 +290,26 @@ decl_open < -0.10 AND rev_open > 0
   modelled. Borrow on these names (runners, rvol 4+) is unmodelled and will be the scarce one.
   **Not a spec until the tail is disqualified** — the S1 clpos 0.95-1 cell's smaller tail is the
   first lead.
+
+### S2 addendum — the `< −25%, close ≤ prev` long cell (+671 / 1.75): CRASH-CLUSTERED and ONE-TRADE-DRIVEN. Not a cell.
+
+> USER: *"Are these trips clustered during the crash periods or are they well distributed? Also is
+> the mean pushed by a few big trades?"* — both, badly. Log `data/springflyer_flush25.log`.
+
+- **Clustering**: 10,542 trips on 3,266 days; the top four days are all March 2020 (430 / 279 /
+  126 / 118 trips); 52% of trips sit on days with ≥ 5 trips. **2008 alone is 92% of the cell's
+  Σr5** (959 trips, r5 mean +6,811 / PF 10.5); the 2008-09..11 + 2020-03..04 crash months read
+  r5 +4,231 / PF 5.81 and **everything else reads −60 / 0.93 (win 43%)**; excluding 2008 and
+  2020 entirely: r5 −96 / PF 0.89, 9/20 years, r10 −306 / 0.75.
+- **Outliers**: median r5 is **−157 bp**. The #1 trade is a DATA ARTIFACT — `WB 2008-09-29`
+  (Wachovia) carries a raw close of **$0.01** (low 0.01, next open 2.30): r5 = +5,770,000 bp on
+  one row. Drop that ONE trade: mean +671 → +120 / PF 1.13; drop the top 5: +90 / 1.10; top 20:
+  +47 / 1.05; top 100 of 10,479: **−66 / 0.93**. The top 20 trades are 40% of all positive P&L.
+- ⚠ **Daily-tape hazard, new**: a `$0.01` close on a $10 stock passed every gate here (the raw
+  floor is on D−1). Any daily-bar study on this table needs a bad-print guard on the SIGNAL day
+  (e.g. `close / prev_close > 0.05` or a cross-check against the next open) — noted for the
+  price-adjustment doc, not yet applied anywhere.
+
+**Verdict**: the deep-flush-no-reversal long is a crash-rebound sample plus one bad print. The S1
+reading "the failed reversal is the buy" stands only in its shallower bands (−5..−10%, PF 1.08-1.09,
+16-18/22 years, +28..+36 bp — the ordinary MR drift), not as a deep-flush cell.
