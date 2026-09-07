@@ -180,3 +180,13 @@ if want('T6'):
                 rows.append(cell(f"side={s} AND {FRAME} AND consol_5m_lag1m >= {a} AND consol_5m_lag1m < {b} AND volat_20m >= {va} AND volat_20m < {vb}",
                                  label=f'{nm} consol_5m {lab} × volat {vl}'))
         show(rows, f"T6 — consol_5m_lag1m × volat_20m, {nm}")
+
+if want('T7'):
+    # the incremental content: consol bands INSIDE |eff_20m| < 0.2, where eff cannot tell a coil
+    # from a loose range (the user's founding point) — matched-window corr(log consol_20m, |eff_20m|)
+    # is -0.70 on the smoke week, so the 20m bands must be read inside an eff band
+    for w in ['5m', '20m']:
+        for s_, nm in SIDES:
+            show([cell(f"side={s_} AND {FRAME} AND abs(eff_20m) < 0.2 AND consol_{w}_lag1m >= {a} AND consol_{w}_lag1m < {b}",
+                       label=f'{nm} |eff_20m|<.2 × consol_{w}_lag1m {lab}') for a, b, lab in BANDS[w]],
+                 f"T7 — consol_{w}_lag1m bands inside |eff_20m| < 0.2, {nm}")
