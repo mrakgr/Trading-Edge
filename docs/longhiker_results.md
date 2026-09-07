@@ -3260,3 +3260,16 @@ Same cell, same mc=1 replay; `trim-bot5` = eqw with the WORST 5% of days removed
 | lo300 | first new 5m low (trail) | 878 | +14.2 | -36.2 | 39.8 | 5/7 | -47.0 | +51.2 | 1,514 |
 
 **Read**: the fixed timestop family is the only one with a positive median AND a positive top-trim; the horizon dial trades tail for bulk (ts30 → ts120 lifts the mean +22 → +32 but the top-trim goes +1.6 → −2.9). The wall-clock forward marks say the same thing (fwd60 ≈ ts60). Every price-level trail has a NEGATIVE median — S25/S33 again: a stop that waits for real give-back sells the base of the next leg. ts60 is the best-balanced point (mean +28.8, med +10.9, top-trim +1.6, 7/7).
+
+### §6 Profit factor on the same cell (user question, 2026-09-07)
+
+Trade-weighted PF on the mc=1 replayed book (one open position per tkd), gross of costs. `PF ex top-5% winners` drops the best 5% of TRADES — the tail-dependence check in PF units. Log `data/longhiker_shake_pf.log`.
+
+| exit | trades | trades/yr | win% | mean bp | PF (trade-weighted) | PF trim-bot5 | PF ex top-5% winners | PF by year 2020..2026 | worst trade % |
+|---|---|---|---|---|---|---|---|---|---|
+| ts30 | 12,410 | 1,773 | 54.1 | +15.3 | **1.500** | 2.810 | 0.837 | 1.66 / 1.87 / 1.57 / 1.44 / 1.15 / 1.36 / 1.42 | -22.3 |
+| ts60 | 11,588 | 1,655 | 54.0 | +22.1 | **1.535** | 2.789 | 0.881 | 1.80 / 1.83 / 1.51 / 1.40 / 1.17 / 1.45 / 1.50 | -23.5 |
+| ts120 | 11,084 | 1,583 | 53.6 | +26.4 | **1.467** | 2.578 | 0.844 | 1.69 / 1.71 / 1.51 / 1.40 / 1.19 / 1.27 / 1.47 | -32.0 |
+| fwd300 | 10,788 | 1,541 | 51.0 | +27.5 | **1.373** | 2.386 | 0.793 | 1.69 / 1.71 / 1.25 / 1.20 / 1.17 / 1.22 / 1.21 | -22.0 |
+
+**Read**: PF ~1.5 at every timestop, 7/7 years above 1 (2024 the weakest at 1.15-1.19); ts60 is the best PF as well as the best eqw balance. ⚠ Without the top 5% of trades every variant is BELOW 1 — the book is a fat-right-tail book: 54% winners at +15-26 bp mean with the whole edge in the top ~600 trades of 12k. That is the momentum profile (the MR books read PF ex-top-5% well above 1), and it is why costs decide it: at ~1,700 trades/yr a 10 bp round trip takes PF 1.5 to ~1.1.
