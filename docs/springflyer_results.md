@@ -1170,3 +1170,22 @@ a 5-10 day short at PF ~3 with a 70% win rate, at ~10 signals a year over 2005-2
 since 2017. This is SpringFlyer's spec candidate. Next: (1) the mc=1 book with one position per
 name and the tail rule (ShortSnoozer's gap × volatility disqualifier), (2) borrow / locate reality
 on the 10-20 names a year, (3) the intraday version on the 1s tape when Massive returns.
+
+### S8 addendum — the 52w closing-high condition REMOVED (user, 2026-09-07): keep it
+
+Log `data/springflyer_simple_no52.log`.
+
+| cell | n/yr | r1 / PF | r5 / PF | r10 / PF | win5 | yrs5 | med r5 |
+|---|---|---|---|---|---|---|---|
+| S8 (at a new 52w closing high) | 10 | +581 / 2.15 | +1,298 / 3.23 | +1,477 / 3.01 | 71% | 18/21 | +702 |
+| NOT at a 52w closing high | 4 | +655 / 2.94 | +1,106 / 2.53 | +1,293 / 2.28 | **49%** | **10/18** | **−18** |
+| condition removed (both) | 13 | +601 / 2.30 | +1,246 / 3.01 | +1,428 / 2.77 | 65% | 17/21 | +526 |
+
+The 4/yr the condition excludes are a different population: a 49% win rate, a NEGATIVE median,
+10/18 years — a mean carried by the crushed names that tripled off a low (more than 60% below
+their 52w high: +3,248 / 7.26 on ~1/yr) while the ones just under the high (0 to −10%) are a
+LOSER (r5 −710 / 0.27, 6/15). Removing the condition adds 3 signals a year and costs 6 points of
+win rate, 176 bp of median and a year; the year table without it has four negative years at r5
+(2006, 2009, 2016, 2019) against S8's one. Here the 52w closing high IS doing work — as the
+statement that the straight line went to a place nobody who bought in the last year is under
+water, which is the trapped-holder condition the ratios describe locally. **Ruling: keep it.**
