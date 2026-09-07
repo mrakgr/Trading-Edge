@@ -27,15 +27,34 @@ if args.rebuild or not os.path.exists(args.feat):
     con.execute("SET memory_limit='8GB'; SET threads=8")
     con.execute(f"""
     COPY (
-    WITH b0 AS (
-      SELECT *, close*n AS cn, ABS(close*n - LAG(close*n,1) OVER e) AS dcn
+    WITH b00 AS (
+      SELECT *, close*n AS cn, ABS(close*n - LAG(close*n,1) OVER e) AS dcn,
+        close*n / LAG(close*n,1) OVER e - 1 AS ret1,
+        CASE WHEN close*n > LAG(close*n,1) OVER e THEN 0 ELSE 1 END AS down_marker
       FROM daily_episodes_causal
       WHERE date >= '2004-06-01'
       WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
+    ), b01 AS (
+      -- ⭐ the up-close RUN (2026-09-07, the climax short): a run starts on a non-up day and
+      -- holds every consecutive up close after it. run_id increments on each non-up day.
+      SELECT *, SUM(down_marker) OVER (PARTITION BY ticker, episode ORDER BY date ROWS UNBOUNDED PRECEDING) AS run_id
+      FROM b00
+    ), b0 AS (
+      SELECT *,
+        ROW_NUMBER() OVER r - 1                                   AS up_streak,     -- consecutive up closes ending today
+        FIRST_VALUE(cn) OVER r                                    AS run_base_cn,   -- the close the run started from
+        MAX(ret1) OVER (r ROWS UNBOUNDED PRECEDING)               AS run_max_ret1   -- biggest single up day in the run so far
+      FROM b01
+      WINDOW r AS (PARTITION BY ticker, episode, run_id ORDER BY date)
     ), b AS (
       SELECT ticker, date, episode, open, high, low, close, volume, n, cum_div,
         ROW_NUMBER() OVER e AS barnum,
         LAG(close,1) OVER e * LAG(n,1) OVER e / n           AS prev_close,     -- D-1 close, D's scale
+        LAG(up_streak,1) OVER e                             AS prev_streak,    -- up closes in a row ending D-1
+        LAG(cn,1) OVER e / LAG(run_base_cn,1) OVER e - 1    AS prev_run_gain,  -- D-1 close vs the run's base close
+        LAG(run_base_cn,1) OVER e / n                       AS run_base,       -- the run's base close, D's scale
+        LAG(run_max_ret1,1) OVER e                          AS prev_run_maxday,
+        up_streak                                           AS up_streak_d,    -- D's own streak (0 if D closed down)
         LAG(close,1) OVER e                                 AS prev_close_raw, -- the $ floor
         MIN(low*n)  OVER (e ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING) / n   AS low7_prior,
         MIN(low*n)  OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) / n  AS low20_prior,
@@ -75,6 +94,8 @@ if args.rebuild or not os.path.exists(args.feat):
       avgvol20_prior, avgvol20_prior * prev_close AS dv20_prior,
       volume / NULLIF(avgvol20_prior,0) AS rvol,
       high / low - 1                    AS rng,           -- the day's range
+      prev_streak, prev_run_gain, prev_run_maxday, up_streak_d, run_base,
+      CASE WHEN prev_close > run_base THEN (prev_close - close) / (prev_close - run_base) END AS retrace,  -- D's give-back of the run (1 = all of it)
       (high / low - 1) / NULLIF(atr20_prior, 0) AS rng_atr,  -- in units of the stock's own prior average range
       atr20_prior,
       ABS(close*n - cn_m10) / NULLIF(path10, 0)  AS er10,

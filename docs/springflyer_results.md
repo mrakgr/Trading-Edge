@@ -813,3 +813,131 @@ mechanism (the trapped-runner unwind) looks like, versus a market-beta mechanism
 in a day, ex-crash r5 PF 1.54, 13/17 years) and as a one-day bounce (`er < −0.9`, r1 PF 1.7 at
 rng ≥ 15%), and it is not a single-name system: it is a market-timing system wearing single-name
 clothes. It belongs with TideFlyer, not with SpringFlyer's short.
+
+## S6 — the FIRST RED DAY after a CLIMAX (user, 2026-09-07; the Tim Sykes short)
+
+> USER: *"there is large move in the past few weeks and the price goes up sharply over a span of few
+> days each closing up on big green candles. Then the momentum stalls and there is a red candle. How
+> well would shorting on the first red candle work assuming that the first down day isn't bad enough
+> to the point of retracing most of the upmove."*
+
+Script `scripts/equity/springflyer_climax.py`, log `data/springflyer_climax.log`. New features:
+`prev_streak` (consecutive up closes ending D−1), `prev_run_gain` (D−1's close over the run's base
+close, the last non-up close), `retrace` = (close(D−1) − close(D)) / (close(D−1) − base), 1 = gave
+the whole run back; `prev_run_maxday`; `up_streak_d`. SHORT at D's close, AND at D+1's open
+(`@next open` columns). Short returns; `trips on 10+ days` = the clustering check.
+
+### T1 — the first RED day: streak x run gain, retrace < 50% (short mean bp / PF; entries at D's close, and at D+1's open)
+| cell | n/yr | r_open1 | r1 | r3 | r5 | r10 | r5 @next open | r10 @next open | win5 | yrs5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| streak >= 2, run 20-50%, red, retrace < 0.5 | 2,077 | -5 / 0.94 | +4 / 1.02 | +30 / 1.10 | +25 / 1.06 | -19 / 0.97 | +30 / 1.08 | -14 / 0.98 | 53% | 12/22 | +2650 | 71% |
+| streak >= 2, run 50-100%, red, retrace < 0.5 | 235 | +18 / 1.12 | +36 / 1.11 | +67 / 1.12 | +151 / 1.24 | +158 / 1.19 | +137 / 1.22 | +142 / 1.17 | 58% | 13/22 | +5106 | 21% |
+| streak >= 2, run 100%+, red, retrace < 0.5 | 101 | +50 / 1.18 | +45 / 1.07 | +184 / 1.22 | +366 / 1.39 | +641 / 1.60 | +285 / 1.30 | +572 / 1.53 | 65% | 17/22 | +9898 | 4% |
+| streak >= 3, run 20-50%, red, retrace < 0.5 | 1,744 | -3 / 0.97 | +7 / 1.04 | +38 / 1.13 | +26 / 1.07 | -27 / 0.95 | +29 / 1.08 | -24 / 0.96 | 53% | 11/22 | +2460 | 68% |
+| streak >= 3, run 50-100%, red, retrace < 0.5 | 195 | +25 / 1.19 | +52 / 1.18 | +106 / 1.22 | +175 / 1.30 | +168 / 1.21 | +153 / 1.26 | +146 / 1.18 | 58% | 15/22 | +4671 | 22% |
+| streak >= 3, run 100%+, red, retrace < 0.5 | 77 | +38 / 1.14 | +73 / 1.13 | +223 / 1.28 | +353 / 1.38 | +570 / 1.51 | +284 / 1.31 | +512 / 1.46 | 64% | 14/22 | +9476 | 4% |
+| streak >= 4, run 20-50%, red, retrace < 0.5 | 1,329 | -4 / 0.95 | +9 / 1.06 | +38 / 1.14 | +17 / 1.05 | -15 / 0.97 | +20 / 1.06 | -12 / 0.98 | 52% | 13/22 | +2293 | 62% |
+| streak >= 4, run 50-100%, red, retrace < 0.5 | 151 | +12 / 1.10 | +36 / 1.13 | +74 / 1.16 | +140 / 1.25 | +146 / 1.19 | +131 / 1.23 | +137 / 1.18 | 57% | 13/22 | +4363 | 21% |
+| streak >= 4, run 100%+, red, retrace < 0.5 | 55 | +33 / 1.13 | +104 / 1.21 | +206 / 1.27 | +342 / 1.39 | +501 / 1.46 | +287 / 1.33 | +452 / 1.41 | 64% | 14/22 | +9153 | 4% |
+
+### T2 — how much of the run did the red day give back? (streak >= 3, run >= 50%)
+| cell | n/yr | r_open1 | r1 | r3 | r5 | r10 | r5 @next open | r10 @next open | win5 | yrs5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| retrace 0-0.15 (barely red) | 140 | +64 / 1.58 | +106 / 1.38 | +168 / 1.35 | +255 / 1.47 | +217 / 1.28 | +200 / 1.36 | +162 / 1.20 | 58% | 15/22 | +4761 | 10% |
+| retrace 0.15-0.3 | 85 | +41 / 1.22 | +88 / 1.23 | +210 / 1.36 | +267 / 1.37 | +366 / 1.40 | +216 / 1.30 | +317 / 1.35 | 62% | 17/22 | +6578 | 12% |
+| retrace 0.3-0.5 | 47 | -98 / 0.72 | -134 / 0.78 | -71 / 0.92 | +59 / 1.06 | +317 / 1.27 | +112 / 1.12 | +380 / 1.34 | 62% | 9/22 | +9289 | 13% |
+| retrace 0.5-0.75 | 16 | -238 / 0.55 | -228 / 0.70 | -75 / 0.93 | -102 / 0.92 | +314 / 1.27 | +110 / 1.11 | +460 / 1.43 | 59% | 11/18 | +10136 | 8% |
+| retrace 0.75-1 | 2 | +83 / 1.33 | +110 / 1.16 | +705 / 2.59 | +181 / 1.12 | -102 / 0.94 | +18 / 1.01 | -275 / 0.86 | 70% | 9/15 | +14519 | 0% |
+| retrace >1 (closed below the base) | 1 | +577 / 2.07 | +1541 / 6.30 | +1773 / 3.39 | +3144 / 8.84 | +3911 / 21.17 | +2722 / 15.39 | +3507 / 71.49 | 88% | 8/9 | +6303 | 0% |
+
+### T3 — CONTROLS: short the GREEN climax day itself (no red yet), and the 2nd red day
+| cell | n/yr | r_open1 | r1 | r3 | r5 | r10 | r5 @next open | r10 @next open | win5 | yrs5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| green day, streak_d >= 3, run gain (incl. today) >= 50% | 425 | -7 / 0.97 | +67 / 1.15 | +216 / 1.35 | +313 / 1.44 | +339 / 1.36 | +307 / 1.44 | +334 / 1.37 | 61% | 19/22 | +6727 | 32% |
+| green day, streak_d >= 4, run gain >= 100% | 77 | +25 / 1.07 | +149 / 1.22 | +574 / 1.77 | +691 / 1.76 | +884 / 1.81 | +660 / 1.76 | +867 / 1.83 | 67% | 21/22 | +9997 | 5% |
+| the FIRST red (streak>=3, run>=50%, retrace<0.5) | 272 | +29 / 1.16 | +59 / 1.16 | +140 / 1.24 | +225 / 1.33 | +280 / 1.32 | +190 / 1.28 | +248 / 1.28 | 60% | 18/22 | +6046 | 22% |
+| a red day with NO climax (streak <= 1, |chg20| < 10%) | 135,958 | -4 / 0.89 | -5 / 0.94 | -15 / 0.90 | -25 / 0.88 | -40 / 0.86 | -21 / 0.89 | -36 / 0.87 | 46% | 4/22 | +1112 | 100% |
+
+### T4 — inside the first-red cell (streak >= 3, run >= 50%, retrace < 0.5): D's own shape and context
+| cell | n/yr | r_open1 | r1 | r3 | r5 | r10 | r5 @next open | r10 @next open | win5 | yrs5 | p95 mfe5 | trips on 10+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| D's range <7% | 41 | +28 / 1.47 | +66 / 1.43 | +80 / 1.33 | +91 / 1.30 | +84 / 1.19 | +71 / 1.23 | +62 / 1.14 | 50% | 10/22 | +2441 | 6% |
+| D's range 7-15% | 105 | +37 / 1.32 | +47 / 1.16 | +105 / 1.22 | +141 / 1.24 | +72 / 1.09 | +110 / 1.19 | +40 / 1.05 | 58% | 12/22 | +4519 | 17% |
+| D's range 15-30% | 93 | +34 / 1.17 | +66 / 1.15 | +167 / 1.24 | +298 / 1.39 | +431 / 1.44 | +256 / 1.33 | +394 / 1.40 | 63% | 17/22 | +7220 | 10% |
+| D's range 30%+ | 34 | -13 / 0.97 | +66 / 1.09 | +245 / 1.26 | +449 / 1.39 | +752 / 1.55 | +400 / 1.35 | +718 / 1.54 | 68% | 13/21 | +12460 | 0% |
+| D closed below the open (red body) | 228 | +24 / 1.13 | +43 / 1.11 | +109 / 1.19 | +191 / 1.27 | +254 / 1.28 | +160 / 1.23 | +227 / 1.25 | 59% | 18/22 | +6021 | 22% |
+| D closed above the open (gap-down, bought) | 42 | +55 / 1.33 | +151 / 1.45 | +316 / 1.58 | +397 / 1.64 | +408 / 1.46 | +337 / 1.53 | +344 / 1.38 | 64% | 13/22 | +6577 | 7% |
+| clpos 0-0.25 | 123 | -8 / 0.96 | +4 / 1.01 | +59 / 1.10 | +170 / 1.24 | +220 / 1.24 | +174 / 1.26 | +232 / 1.26 | 58% | 16/22 | +6104 | 15% |
+| clpos 0.25-0.5 | 86 | +35 / 1.21 | +74 / 1.20 | +175 / 1.30 | +247 / 1.36 | +365 / 1.44 | +196 / 1.28 | +307 / 1.36 | 61% | 16/22 | +6008 | 8% |
+| clpos 0.5-0.75 | 47 | +92 / 1.69 | +167 / 1.57 | +261 / 1.52 | +330 / 1.55 | +284 / 1.31 | +246 / 1.40 | +208 / 1.22 | 61% | 15/22 | +5624 | 7% |
+| clpos 0.75-1 | 16 | +95 / 1.70 | +78 / 1.22 | +218 / 1.41 | +226 / 1.32 | +277 / 1.33 | +117 / 1.16 | +168 / 1.19 | 63% | 12/21 | +6385 | 3% |
+| rvol on D <1 | 117 | +53 / 1.36 | +64 / 1.17 | +207 / 1.38 | +294 / 1.44 | +348 / 1.39 | +241 / 1.36 | +297 / 1.33 | 61% | 13/22 | +6388 | 16% |
+| rvol on D 1-2 | 101 | +11 / 1.07 | +35 / 1.10 | +96 / 1.17 | +185 / 1.29 | +242 / 1.30 | +169 / 1.27 | +224 / 1.28 | 59% | 17/22 | +5379 | 13% |
+| rvol on D 2-5 | 46 | -4 / 0.98 | +65 / 1.17 | +47 / 1.07 | +94 / 1.12 | +267 / 1.29 | +74 / 1.09 | +258 / 1.28 | 58% | 13/22 | +6180 | 1% |
+| rvol on D 5+ | 8 | +78 / 1.29 | +247 / 1.61 | +254 / 1.33 | +506 / 1.67 | -158 / 0.91 | +403 / 1.52 | -235 / 0.86 | 62% | 12/22 | +9233 | 0% |
+| biggest day in the run <15% | 27 | +38 / 1.40 | +82 / 1.39 | +146 / 1.42 | +193 / 1.44 | +210 / 1.33 | +172 / 1.40 | +189 / 1.29 | 55% | 19/22 | +2998 | 9% |
+| biggest day in the run 15-30% | 110 | +8 / 1.06 | +28 / 1.09 | +77 / 1.14 | +174 / 1.28 | +59 / 1.06 | +168 / 1.27 | +57 / 1.06 | 59% | 10/22 | +4881 | 21% |
+| biggest day in the run 30-60% | 84 | +37 / 1.23 | +121 / 1.38 | +171 / 1.30 | +205 / 1.29 | +252 / 1.28 | +165 / 1.24 | +209 / 1.23 | 60% | 13/22 | +6114 | 9% |
+| biggest day in the run 60%+ | 51 | +51 / 1.18 | +1 / 1.00 | +223 / 1.29 | +384 / 1.43 | +850 / 1.99 | +289 / 1.32 | +764 / 1.87 | 63% | 16/22 | +10436 | 0% |
+| chg20 <50% | 113 | +16 / 1.12 | +73 / 1.25 | +203 / 1.48 | +289 / 1.55 | +155 / 1.20 | +274 / 1.52 | +134 / 1.17 | 60% | 13/22 | +4547 | 29% |
+| chg20 50-150% | 114 | +17 / 1.10 | +2 / 1.01 | +30 / 1.05 | +56 / 1.08 | +161 / 1.18 | +34 / 1.05 | +146 / 1.16 | 58% | 15/22 | +6058 | 6% |
+| chg20 150%+ | 46 | +87 / 1.31 | +162 / 1.28 | +250 / 1.29 | +483 / 1.52 | +886 / 1.80 | +365 / 1.38 | +781 / 1.70 | 65% | 15/22 | +10442 | 1% |
+| prev close $2-5 | 70 | +15 / 1.06 | +59 / 1.13 | +167 / 1.25 | +270 / 1.34 | +396 / 1.38 | +244 / 1.31 | +376 / 1.36 | 64% | 17/22 | +8004 | 6% |
+| prev close $5-15 | 107 | +42 / 1.25 | +69 / 1.19 | +178 / 1.31 | +277 / 1.41 | +343 / 1.39 | +227 / 1.33 | +294 / 1.33 | 61% | 19/22 | +6002 | 14% |
+| prev close $15+ | 95 | +24 / 1.18 | +47 / 1.15 | +76 / 1.15 | +134 / 1.23 | +125 / 1.16 | +108 / 1.18 | +102 / 1.13 | 56% | 14/22 | +4699 | 13% |
+
+### T5 — year table, SHORT, first red: prev_streak >= 3 AND prev_run_gain >= 0.5 AND rev_prev < 0 AND retrace < 0.5
+| year | n | r1 | r5 | r10 | r5 @open | win5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|
+| 2005 | 27 | +82 / 1.33 | -252 / 0.68 | -138 / 0.82 | -178 / 0.75 | 56% | +4778 |
+| 2006 | 32 | +231 / 4.72 | +403 / 3.27 | +635 / 3.73 | +364 / 3.09 | 62% | +1624 |
+| 2007 | 44 | +123 / 1.59 | +22 / 1.04 | +322 / 1.76 | +28 / 1.06 | 57% | +4813 |
+| 2008 | 417 | +205 / 1.59 | +386 / 1.57 | +518 / 1.63 | +378 / 1.56 | 62% | +4676 |
+| 2009 | 290 | +6 / 1.02 | +8 / 1.01 | -111 / 0.88 | +80 / 1.12 | 51% | +4583 |
+| 2010 | 50 | +128 / 1.87 | +154 / 1.50 | +329 / 2.01 | +117 / 1.41 | 56% | +2857 |
+| 2011 | 42 | +21 / 1.08 | +114 / 1.31 | +311 / 1.77 | +164 / 1.56 | 60% | +4439 |
+| 2012 | 47 | -12 / 0.95 | +103 / 1.39 | +301 / 1.85 | +141 / 1.57 | 54% | +2804 |
+| 2013 | 72 | +51 / 1.18 | -209 / 0.68 | -269 / 0.72 | -268 / 0.59 | 46% | +5929 |
+| 2014 | 80 | +130 / 1.52 | +186 / 1.35 | +768 / 2.81 | +256 / 1.55 | 57% | +4666 |
+| 2015 | 115 | +10 / 1.03 | +60 / 1.09 | +212 / 1.31 | +111 / 1.20 | 62% | +2961 |
+| 2016 | 189 | -13 / 0.96 | -18 / 0.97 | -53 / 0.94 | +22 / 1.04 | 56% | +3719 |
+| 2017 | 133 | +138 / 1.39 | +216 / 1.28 | +152 / 1.15 | +166 / 1.23 | 57% | +7924 |
+| 2018 | 128 | +253 / 2.03 | +42 / 1.05 | +199 / 1.23 | -18 / 0.98 | 54% | +6044 |
+| 2019 | 161 | -76 / 0.77 | -36 / 0.94 | +199 / 1.33 | -120 / 0.82 | 48% | +3864 |
+| 2020 | 1062 | +167 / 1.62 | +510 / 2.07 | +35 / 1.04 | +420 / 1.83 | 67% | +4674 |
+| 2021 | 621 | -118 / 0.76 | +90 / 1.11 | +309 / 1.30 | +87 / 1.11 | 64% | +7271 |
+| 2022 | 416 | +84 / 1.24 | +309 / 1.47 | +700 / 2.20 | +229 / 1.34 | 60% | +6119 |
+| 2023 | 364 | +168 / 1.59 | +200 / 1.33 | +363 / 1.46 | +91 / 1.14 | 56% | +5455 |
+| 2024 | 520 | +21 / 1.04 | +112 / 1.13 | +432 / 1.44 | +89 / 1.10 | 58% | +9369 |
+| 2025 | 693 | +40 / 1.08 | +270 / 1.36 | +172 / 1.14 | +246 / 1.34 | 60% | +7474 |
+| 2026 | 487 | -96 / 0.80 | +177 / 1.21 | +605 / 1.64 | +135 / 1.16 | 58% | +7152 |
+
+### Verdict — it works (18/22 years), and the control says the RED DAY IS NOT NEEDED: the green climax day itself is the better short
+
+- **T1**: streak ≥ 3, run ≥ 50%, first red, retrace < 0.5: **r5 +225 / 1.33, r10 +280 / 1.32, 60%
+  win, 18/22 years, 272/yr**; run ≥ 100%: r10 +570 / 1.51 (77/yr, 14/22). The 20-50% run is
+  nothing (r10 negative, 68% of its trips on 10+-signal days — it is the market). Entry at the next
+  open costs ~30-40 bp of the 5-day (+190 / 1.28) but keeps the shape.
+- **T2 — the user's retrace condition is right, and tighter is better**: barely red (retrace
+  0-0.15) r5 +255 / 1.47, 0.15-0.3 +267 / 1.37 (17/22); **0.3-0.75 is NEGATIVE at 1-5 days**
+  (−134 / 0.78 r1; the deep red day bounces) and only recovers at 10 days. The cut belongs at 0.3.
+- ⭐⭐ **T3 — the CONTROL wins**: shorting the GREEN climax day with no red yet (`up_streak_d ≥ 3`,
+  run incl. today ≥ 50%): r5 +313 / 1.44, r10 +339 / 1.36, **19/22**, 425/yr; `streak_d ≥ 4` and
+  run ≥ 100%: **r5 +691 / 1.76, r10 +884 / 1.81, 67% win, 21/22 years**, 77/yr. Waiting for the
+  red candle costs ~90 bp of the 5-day and one year of consistency: the first red day has already
+  taken the first leg of the unwind, and the barely-red cell (T2) is exactly the one that kept most
+  of it. A red day with NO climax is a losing short (−25 / 0.88, 4/22) — the climax is the whole
+  signal; the red candle is a late confirmation of it.
+- **T4**: inside the first-red cell, D's range 15%+ (r10 +431..+752), the gap-down that was bought
+  back above its open (+397 / 1.64), QUIET volume on D (rvol < 1: +294 / 1.44 — the buyers are
+  gone, not fighting), the run's biggest day ≥ 60% (r10 +850 / 1.99) and `chg20 ≥ 150%` (r10 +886
+  / 1.80) all lift it; $15+ names carry the least.
+- **T5 / clustering**: 2005, 2013, 2016, 2019 negative at r5; 2020 is 1,062 of ~6,000 trips (the
+  mania year, +510 / 2.07) but the cell is 22% on 10+-signal days and the run ≥ 100% cells are 4% —
+  idiosyncratic, like S4's runner. Tail p95 mfe5 +47..+100% as everywhere on this side.
+
+**Where this sits**: the climax short is the S4 runner cell with a cleaner definition — `N green
+closes in a row × run gain` replaces `chg20 × range`. The confirmation the folklore waits for is a
+cost, not a filter. The best cell on the whole daily short side so far is **4+ green closes with a
+100%+ run, shorted at the 4th close: r10 +884 / 1.81, 21/22 years, ~77/yr** — and its tail
+(p95 +100%) and borrow are, as before, the two unsolved things.
