@@ -2081,3 +2081,64 @@ type LegCounters() =
         events <- -1
         firstEventSec <- -1
         firstEventPx <- nan
+
+/// ⭐ SLOT VARIANCE RATIO — the LongHiker CONSOLIDATION feature (user, 2026-09-07).
+/// The pushed stream (ln price per present bar) is cut into equal `slotLen`-push
+/// slots; per completed slot the population moments (n, Σx, Σx²) go into a ring.
+///
+///     ratio(k, lag) = mean within-slot variance / whole-window variance
+///                     over the k completed slots ending `lag` slots ago
+///
+/// Law of total variance on EQUAL slots: total = mean(within) + var(slot means),
+/// so the ratio is EXACTLY in [0, 1]: 1 = pure noise around one level (a coil,
+/// the slot means never move), 0 = every move is between slots (a trend).
+/// ⚠ A random walk reads ≈ 1.6/k (mean of the ratio; 1/k is the ratio of the
+/// means — SlotVarRatio_Test.fsx §3) — the reference is WINDOW-DEPENDENT, so a 3m
+/// and a 20m reading are not on one scale. `sqrt` of the ratio is the same
+/// feature (monotone) with the low end spread out — take it in SQL.
+/// Origin-shifted by the first pushed value (see EwmaVarMa: the moments are
+/// O(0.01) instead of O(5) so the s2/n − m² cancellation is harmless).
+type SlotVarRatioMa(slotLen: int, maxSlots: int) =
+    do if slotLen < 2 then invalidArg (nameof slotLen) "slotLen must be >= 2"
+       if maxSlots < 1 then invalidArg (nameof maxSlots) "maxSlots must be >= 1"
+    let ring = RingBuffer<struct (float * float * float)> maxSlots   // (n, Σy, Σy²) newest first
+    let mutable x0 = nan
+    let mutable pn = 0
+    let mutable p1 = 0.0
+    let mutable p2 = 0.0
+    /// Completed slots pushed into the ring (monotone, not clamped).
+    member _.SlotCount = ring.Count
+    member _.SlotLen = slotLen
+    member _.Push (x: float) =
+        if Double.IsNaN x0 then x0 <- x
+        let y = x - x0
+        pn <- pn + 1
+        p1 <- p1 + y
+        p2 <- p2 + y * y
+        if pn = slotLen then
+            ring.Push (struct (float pn, p1, p2))
+            pn <- 0; p1 <- 0.0; p2 <- 0.0
+    /// The ratio over the `k` completed slots ending `lag` completed slots ago
+    /// (lag 0 = the newest completed slot is the last one in the window).
+    /// ValueNone until k + lag slots have completed or when the window has no
+    /// spread at all (a constant tape).
+    member _.Ratio (k: int, lag: int) : float voption =
+        if k < 1 || lag < 0 || k + lag > ring.Live then ValueNone
+        else
+            let mutable sn = 0.0
+            let mutable s1 = 0.0
+            let mutable s2 = 0.0
+            let mutable w = 0.0            // Σ n_i · var_i
+            for b in lag .. lag + k - 1 do
+                let struct (n, a1, a2) = ring.[b]
+                let m = a1 / n
+                w <- w + max 0.0 (a2 - n * m * m)
+                sn <- sn + n; s1 <- s1 + a1; s2 <- s2 + a2
+            let mt = s1 / sn
+            let tot = s2 / sn - mt * mt
+            if tot <= 0.0 then ValueNone
+            else ValueSome (min 1.0 (max 0.0 ((w / sn) / tot)))
+    member _.Reset () =
+        ring.Reset ()
+        x0 <- nan
+        pn <- 0; p1 <- 0.0; p2 <- 0.0
