@@ -3273,3 +3273,49 @@ Trade-weighted PF on the mc=1 replayed book (one open position per tkd), gross o
 | fwd300 | 10,788 | 1,541 | 51.0 | +27.5 | **1.373** | 2.386 | 0.793 | 1.69 / 1.71 / 1.25 / 1.20 / 1.17 / 1.22 / 1.21 | -22.0 |
 
 **Read**: PF ~1.5 at every timestop, 7/7 years above 1 (2024 the weakest at 1.15-1.19); ts60 is the best PF as well as the best eqw balance. ⚠ Without the top 5% of trades every variant is BELOW 1 — the book is a fat-right-tail book: 54% winners at +15-26 bp mean with the whole edge in the top ~600 trades of 12k. That is the momentum profile (the MR books read PF ex-top-5% well above 1), and it is why costs decide it: at ~1,700 trades/yr a 10 bp round trip takes PF 1.5 to ~1.1.
+
+### §7 Does high `rr` help the slow reclaim? (user question, 2026-09-07) — NO seat
+
+`rr = (dv_60/60)/(dv_0945_tape/900)` (the Faders' rr on dollars; dv_60 is the present-bar minute, dense frame so ≈ time-clock). Same cell, bands replayed independently (mc=1 inside each band). Log `data/longhiker_shake_rr.log`.
+
+### rr = (dv_60/60)/(dv_0945/900) bands on k=1-4 x deep x slow, exit ts30
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| rr <0.25 | 21 | +2.3 | +5.2 | 53.8 | 5/7 | -2.8 | 0.95 | 53.7 |
+| 0.25-0.5 | 157 | +15.1 | +8.1 | 58.7 | 7/7 | +3.5 | 1.75 | 57.3 |
+| 0.5-1 | 470 | +16.4 | +6.4 | 55.4 | 7/7 | -1.6 | 1.56 | 53.5 |
+| 1-2 | 604 | +19.5 | +6.6 | 55.1 | 7/7 | -2.7 | 1.46 | 53.4 |
+| 2-5 | 415 | +18.0 | +7.6 | 55.2 | 6/7 | -6.1 | 1.36 | 53.2 |
+| 5+ | 121 | +31.7 | +9.0 | 54.7 | 5/7 | +1.4 | 1.62 | 54.1 |
+| all | 1,384 | +22.2 | +9.0 | 57.3 | 7/7 | +1.6 | 1.50 | 54.1 |
+
+### rr = (dv_60/60)/(dv_0945/900) bands on k=1-4 x deep x slow, exit ts60
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| rr <0.25 | 21 | +6.4 | +6.3 | 60.7 | 5/7 | -2.6 | 1.15 | 57.9 |
+| 0.25-0.5 | 157 | +22.3 | +9.8 | 57.4 | 7/7 | +4.9 | 1.82 | 56.3 |
+| 0.5-1 | 469 | +19.3 | +6.6 | 54.2 | 7/7 | -3.5 | 1.49 | 53.1 |
+| 1-2 | 604 | +24.5 | +6.8 | 53.8 | 7/7 | -4.4 | 1.46 | 53.0 |
+| 2-5 | 415 | +27.3 | +9.0 | 54.2 | 6/7 | -4.7 | 1.48 | 53.4 |
+| 5+ | 121 | +43.4 | +20.3 | 57.4 | 5/7 | +3.1 | 1.65 | 55.9 |
+| all | 1,383 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | 1.54 | 54.0 |
+
+### vol_ratio (1m/20m $ rate) bands, ts60
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| <0.5 | 12 | -5.0 | +1.4 | 50.0 | 2/7 | -11.3 | 0.77 | 50.0 |
+| 0.5-0.8 | 92 | +11.7 | +6.3 | 55.2 | 7/7 | -0.5 | 1.51 | 54.6 |
+| 0.8-1.2 | 299 | +10.6 | +7.1 | 55.0 | 6/7 | -3.7 | 1.33 | 54.4 |
+| 1.2-2 | 652 | +21.0 | +6.7 | 54.6 | 7/7 | -2.6 | 1.52 | 53.8 |
+| 2+ | 748 | +31.3 | +9.8 | 54.2 | 7/7 | -1.6 | 1.53 | 53.6 |
+
+### rvol_0945 (in-play, S38) bands, ts60
+| band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
+|---|---|---|---|---|---|---|---|---|
+| <0.5 | 947 | +22.2 | +10.8 | 57.2 | 7/7 | +6.1 | 1.68 | 55.1 |
+| 0.5-1 | 144 | +33.0 | +9.4 | 55.4 | 7/7 | +5.8 | 1.63 | 52.1 |
+| 1-2 | 84 | +24.0 | +9.1 | 54.7 | 5/7 | -3.4 | 1.35 | 52.3 |
+| 2-5 | 67 | +47.0 | +23.1 | 56.7 | 5/7 | +13.9 | 1.55 | 53.5 |
+| 5+ | 142 | +62.9 | +9.1 | 52.7 | 6/7 | +0.2 | 1.33 | 50.8 |
+
+**Read**: rr is a MEAN dial, not an EDGE dial — the mean rises to the 5+ band (+31.7 / +43.4 at 121 tkd/yr) but PF does not (1.62/1.65 vs 1.50/1.54 all-in), years fall to 5/7, and the trim-positive band is 0.25-0.5 (PF 1.75/1.82, the best PF on the table, 157/yr). The same U SpikeFader carries (both ends hold a seat, the middle is the bulk) — no monotone floor exists. `rvol_0945` (S38 in-play): the means at 2-5 / 5+ are the largest on the page (+47 / +63) but on 5-6/7 years with win% falling to 51-53 — the catalyst days carry the tail, the ≤0.5 bulk carries the PF (1.68, trim +6.1). ⚠ `vol_ratio` 2+ is the BEST band here (+31.3, 7/7) — the S33/MaxRider "low 1m/20m is what you want" reading INVERTS inside the shakeout state (the reclaim wants participation NOW). Noted, not chased.
