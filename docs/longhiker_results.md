@@ -3711,3 +3711,17 @@ ECN assumptions (no broker schedule in hand; Cobra is out, Lightspeed likely —
 Files: `data/longhiker_spread_sample.parquet` (per-tkd Roll/rev/tick), logs
 `longhiker_spread_study.log`, `longhiker_spread_econ.log`, `longhiker_consol_bounce.log`,
 `longhiker_consol_trendcell.log`.
+
+## S41 CLOSED (user, 2026-09-07, 20:50)
+
+> USER: *"I am convinced, if we want to get into the short-term momentum game, we have to
+> fundamentally change our mindset. It's a game that could potentially be played, but not in the
+> same way that we want to do the longer-term trades. Our whole focus has been on how to be more
+> selective and make our edges bigger, but the high frequency trading game should be about how
+> could we harvest these small edges more frequently. It's not a game we're currently equipped to
+> play. We have other systems that we should put into production."*
+
+Program state: LongHiker stays closed as a SYSTEM; S39-S41 stand as findings (slow reclaims, the
+coil grader, the passive-fade economics, the first spread table). Branch `longhiker-consol`
+(7 commits on `longhiker-shakeout`), corpus 105 GB + slice on disk. ⏭ The `consol` coil feature
+is to be ported into FlushFader as a TEST during tomorrow's FlushFader feature review.
