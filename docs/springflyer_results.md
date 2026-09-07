@@ -703,3 +703,113 @@ weak but positive short.
 and it is BETTER on the quiet days than in the panics (runner: quiet-day r10 PF 2.07 vs 1.82 all-in;
 efficient-up: 1.51 vs 1.26). Crash months only add ~2% of the trips. That is what a name-specific
 mechanism (the trapped-runner unwind) looks like, versus a market-beta mechanism (the panic bounce).
+
+## S5 — the efficiency ratio as a TIMING mechanism (user, 2026-09-07): `er < −0.9`, and the same-day COUNT
+
+> USER: *"It very much sounds like we should be buying when there are a lot of these types of
+> patterns on the same day. We did a lot of testing about that in the TideFlyer system. The stocks
+> which had a clean selloff worked much better than those with poor ones. I wonder if eff < −0.9
+> makes for even better longs?"* Log `data/springflyer_er_timing.log`. LONG returns throughout.
+
+### T1 — LONG, fine bands of er10_signed at the efficient-DOWN end, rng >= 15%
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| er10_s -1..-0.9 | 86 | 810 | 22 | +168 / 2.10 | +270 / 1.71 | +309 / 1.49 | +397 / 1.52 | +185 / 1.19 | 53% | 17/22 | +125 | -1100 |
+| er10_s -0.9..-0.8 | 154 | 1,236 | 22 | +70 / 1.38 | +154 / 1.40 | +215 / 1.39 | +374 / 1.58 | +300 / 1.38 | 55% | 15/22 | +221 | -987 |
+| er10_s -0.8..-0.7 | 257 | 1,719 | 22 | +40 / 1.23 | +102 / 1.27 | +242 / 1.45 | +449 / 1.74 | +287 / 1.38 | 56% | 19/22 | +222 | -1022 |
+| er10_s -0.7..-0.6 | 325 | 2,028 | 22 | +40 / 1.25 | +63 / 1.17 | +196 / 1.36 | +338 / 1.55 | +251 / 1.33 | 53% | 14/22 | +136 | -1014 |
+| er10_s -0.6..-0.4 | 793 | 3,203 | 22 | +37 / 1.25 | +23 / 1.07 | +142 / 1.27 | +222 / 1.37 | +135 / 1.18 | 52% | 14/22 | +78 | -988 |
+
+### T1 — LONG, fine bands of er10_signed at the efficient-DOWN end, rng >= 7%
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| er10_s -1..-0.9 | 474 | 2,410 | 22 | +41 / 1.39 | +72 / 1.29 | +103 / 1.26 | +120 / 1.24 | -5 / 0.99 | 53% | 17/22 | +74 | -741 |
+| er10_s -0.9..-0.8 | 876 | 3,371 | 22 | +25 / 1.24 | +46 / 1.19 | +66 / 1.17 | +94 / 1.20 | +59 / 1.09 | 53% | 16/22 | +78 | -701 |
+| er10_s -0.8..-0.7 | 1,456 | 4,096 | 22 | +15 / 1.14 | +36 / 1.15 | +75 / 1.20 | +106 / 1.23 | +67 / 1.11 | 53% | 17/22 | +68 | -697 |
+| er10_s -0.7..-0.6 | 2,044 | 4,560 | 22 | +11 / 1.11 | +20 / 1.09 | +57 / 1.15 | +71 / 1.15 | +68 / 1.11 | 52% | 18/22 | +43 | -696 |
+| er10_s -0.6..-0.4 | 5,740 | 5,251 | 22 | +9 / 1.09 | +3 / 1.01 | +44 / 1.12 | +52 / 1.11 | +61 / 1.11 | 51% | 19/22 | +25 | -679 |
+
+### T1 — LONG, fine bands of er10_signed at the efficient-DOWN end, any range
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| er10_s -1..-0.9 | 2,575 | 4,750 | 22 | +15 / 1.31 | +20 / 1.16 | +28 / 1.13 | +36 / 1.14 | +6 / 1.01 | 53% | 15/22 | +36 | -339 |
+| er10_s -0.9..-0.8 | 5,307 | 5,231 | 22 | +11 / 1.22 | +13 / 1.11 | +22 / 1.11 | +31 / 1.12 | +28 / 1.08 | 53% | 15/22 | +33 | -325 |
+| er10_s -0.8..-0.7 | 9,629 | 5,380 | 22 | +8 / 1.17 | +10 / 1.09 | +23 / 1.12 | +34 / 1.14 | +38 / 1.11 | 53% | 19/22 | +33 | -316 |
+| er10_s -0.7..-0.6 | 15,121 | 5,437 | 22 | +7 / 1.15 | +9 / 1.08 | +20 / 1.11 | +30 / 1.13 | +47 / 1.14 | 53% | 19/22 | +32 | -306 |
+| er10_s -0.6..-0.4 | 49,946 | 5,451 | 22 | +5 / 1.12 | +5 / 1.05 | +18 / 1.10 | +27 / 1.12 | +47 / 1.15 | 53% | 18/22 | +29 | -294 |
+
+### T1b — LONG, er20_signed fine bands, rng >= 7%
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| er20_s -1..-0.9 | 17 | 293 | 22 | +7 / 1.05 | -3 / 0.99 | -146 / 0.77 | -110 / 0.86 | -8 / 0.99 | 46% | 14/22 | -181 | -1092 |
+| er20_s -0.9..-0.8 | 104 | 1,083 | 22 | +57 / 1.42 | +92 / 1.28 | +120 / 1.22 | +297 / 1.47 | +341 / 1.52 | 53% | 18/22 | +103 | -802 |
+| er20_s -0.8..-0.7 | 360 | 2,221 | 22 | +43 / 1.34 | +80 / 1.28 | +151 / 1.32 | +241 / 1.42 | +212 / 1.32 | 55% | 20/22 | +141 | -756 |
+| er20_s -0.7..-0.6 | 889 | 3,388 | 22 | +17 / 1.14 | +43 / 1.16 | +84 / 1.19 | +145 / 1.27 | +149 / 1.23 | 53% | 20/22 | +83 | -738 |
+
+### T2 — TIMING: how many of these patterns printed the SAME DAY? cell = rng >= 7% AND er10_s < -0.8 (LONG), banded by the day's count
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| count 1 (alone) | 51 | 1,123 | 22 | +7 / 1.09 | -8 / 0.97 | +46 / 1.14 | +97 / 1.23 | +78 / 1.13 | 52% | 13/22 | +43 | -583 |
+| count 2-4 | 185 | 1,504 | 22 | +29 / 1.38 | +14 / 1.06 | +5 / 1.01 | -13 / 0.97 | -49 / 0.93 | 48% | 11/22 | -46 | -640 |
+| count 5-9 | 177 | 599 | 22 | +16 / 1.18 | -5 / 0.98 | -17 / 0.96 | -39 / 0.92 | -12 / 0.98 | 44% | 11/22 | -120 | -680 |
+| count 10-29 | 296 | 412 | 22 | +37 / 1.40 | +32 / 1.14 | +61 / 1.16 | +95 / 1.21 | +128 / 1.22 | 52% | 12/22 | +43 | -693 |
+| count 30-99 | 341 | 145 | 19 | +10 / 1.09 | +11 / 1.04 | +152 / 1.41 | +172 / 1.37 | +277 / 1.52 | 55% | 14/19 | +136 | -732 |
+| count 100+ | 298 | 30 | 10 | +61 / 1.43 | +202 / 1.74 | +123 / 1.29 | +189 / 1.35 | -254 / 0.72 | 60% | 6/10 | +302 | -839 |
+
+### T2b — the same by count band, with 2008 and 2020 EXCLUDED
+| cell | n/yr | days | yrs w/ trips | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| count 1 (alone) | 46 | 1,021 | 20 | +7 / 1.09 | -2 / 0.99 | +42 / 1.12 | +91 / 1.22 | +29 / 1.05 | 52% | 12/20 | +54 | -569 |
+| count 2-4 | 168 | 1,369 | 20 | +28 / 1.36 | +8 / 1.04 | -11 / 0.97 | -38 / 0.93 | -86 / 0.88 | 47% | 9/20 | -55 | -641 |
+| count 5-9 | 158 | 536 | 20 | +18 / 1.20 | -11 / 0.95 | +6 / 1.02 | -20 / 0.96 | -5 / 0.99 | 45% | 10/20 | -113 | -661 |
+| count 10-29 | 253 | 355 | 20 | +42 / 1.49 | +36 / 1.16 | +51 / 1.14 | +94 / 1.22 | +143 / 1.26 | 52% | 11/20 | +44 | -652 |
+| count 30-99 | 273 | 119 | 17 | +17 / 1.18 | +40 / 1.19 | +153 / 1.51 | +196 / 1.54 | +301 / 1.71 | 56% | 13/17 | +153 | -680 |
+| count 100+ | 172 | 15 | 8 | +90 / 2.16 | +221 / 2.16 | +401 / 3.17 | +538 / 4.26 | +323 / 1.89 | 74% | 6/8 | +527 | -474 |
+
+### T2c — the days with count >= 30: which are they? (date, count, mean r5 of the day's names)
+
+### T3 — TIMING inside a burst: days with count >= 30, by position in the burst (0 = the first such day, runs joined when <= 5 sessions apart), LONG
+| position | n trips | days | r1 | r3 | r5 | r10 | win5 | share of days with mean r5 > 0 |
+|---|---|---|---|---|---|---|---|---|
+| first day (0) | 2926 | 51 | +49 / 1.23 | +86 / 1.24 | +154 / 1.37 | +60 / 1.10 | 54% | 47% |
+| 2nd (1) | 2378 | 34 | -145 / 0.59 | +69 / 1.19 | +152 / 1.39 | -218 / 0.70 | 53% | 53% |
+| 3rd-4th (2-3) | 4073 | 43 | +258 / 2.52 | +293 / 2.13 | +355 / 2.06 | +351 / 1.78 | 63% | 49% |
+| 5th+ (4+) | 4684 | 47 | +118 / 1.36 | +72 / 1.13 | +58 / 1.08 | -146 / 0.85 | 57% | 60% |
+
+### T3b — today's count vs the trailing 5-day sum of counts (was the selloff already running?), count >= 30 today, LONG
+| trailing-5d count sum | n trips | days | r1 | r5 | r10 | win5 | days w/ mean r5 > 0 |
+|---|---|---|---|---|---|---|---|
+| < 30 (fresh) | 1098 | 16 | +28 / 1.15 | +24 / 1.06 | +107 / 1.21 | 57% | 44% |
+| 30-99 | 3048 | 56 | +112 / 1.57 | +191 / 1.48 | -138 / 0.81 | 52% | 50% |
+| 100-299 | 5149 | 69 | -72 / 0.75 | +250 / 1.71 | +391 / 1.85 | 58% | 57% |
+| 300+ (deep in it) | 4766 | 34 | +294 / 1.99 | +134 / 1.18 | -273 / 0.73 | 60% | 50% |
+
+### Verdict
+
+- **`er < −0.9` is a better ONE-DAY bounce, not a better 5-10-day long.** At rng ≥ 15% the
+  −1..−0.9 band front-loads: next open +168 / 2.10, r1 +270 / 1.71 (the best r1 on the page), but
+  r5 +397 / 1.52 sits below the −0.8..−0.7 band (+449 / 1.74, 19/22) and r10 fades to +185 / 1.19,
+  at 86/yr. On any range the extreme band is +36 / 1.14 at r5 and +6 at r10. The 20-day ratio
+  below −0.9 is NEGATIVE (−110 / 0.86): the 20-day capitulation keeps falling. The cleanest
+  selloff bounces hardest on day one and gives it back.
+- **The same-day count is a REGIME signal with a U, and it works ex-crash**: count 1 (alone)
+  r5 +97 / 1.23; 2-9 NEGATIVE (−13..−39); 10-29 +95 / 1.21; **30-99 +172 / 1.37, r10 +277 / 1.52,
+  14/19 years**; 100+ r5 +189 but r10 −254 (March 2020). With 2008 and 2020 removed: **30-99:
+  r5 +196 / 1.54, r10 +301 / 1.71, 13/17 years, 119 days**; 100+: +538 / 4.26 on 15 days. The
+  breadth days are the ordinary corrections (Aug 2011, Aug 2015, Jan 2016, Dec 2018, the 2021
+  rotations, Jan 2022, Apr 2025) — the TideFlyer sample, but with a positive quiet-day baseline
+  under it (count 1: 13/22) that TideFlyer never had.
+- ⚠ **Timing INSIDE a burst is unresolved — TideFlyer's actual problem, restated.** Of the 175
+  days with ≥ 30 patterns, the share whose names' mean r5 is positive is 47-60% in EVERY position
+  band (first day 47%, 3rd-4th 49%, 5th+ 60%) and in every trailing-count band (44-57%). The
+  trip-weighted means (3rd-4th day +355 / 2.06) are carried by a few big days; the day-level sign
+  is a coin flip. The first days of a cascade lose (2020-02-26 → 03-13: every day −500 to −3,600;
+  2016-01-08 → 01-15; 2022-01-13 → 01-21) and the count cannot tell the third day of a cascade
+  from the last. Whatever resolves it is not in this feature set (it needs the market's own
+  state — index drawdown / VIX / the count's DERIVATIVE — and the TideFlyer file already says the
+  same).
+
+**Where this leaves the long**: the clean-selloff bounce is real as a regime cell (30-99 patterns
+in a day, ex-crash r5 PF 1.54, 13/17 years) and as a one-day bounce (`er < −0.9`, r1 PF 1.7 at
+rng ≥ 15%), and it is not a single-name system: it is a market-timing system wearing single-name
+clothes. It belongs with TideFlyer, not with SpringFlyer's short.
