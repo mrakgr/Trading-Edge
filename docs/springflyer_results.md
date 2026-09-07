@@ -157,3 +157,136 @@ already happened. The Wyckoff spring as a CLOSE-of-day entry does not exist in t
 $5M+/day; if it exists at all it is an intraday entry (buy the reclaim as it happens, sell the
 strong close), which is the LongHiker S39 shape with a longer hold, or a next-day pattern (the
 spring's follow-through after a weak open — untested).
+
+## S2 — the SHORT side, OPEN as the reference (user, 2026-09-07)
+
+> USER: *"It seems we found a good short setup rather than a reversal long. What if we used the open
+> as a reference point?"*
+
+Script `scripts/equity/springflyer_short.py`, log `data/springflyer_short.log`. SHORT at D's close
+after a decline from the OPEN that closed back ABOVE the open; cover at D+k's close. Returns are
+SHORT returns (bp, + = profit). `mfe5` = the highest high over the next 5 days vs the entry (the
+short's adverse excursion); its median and p95 are on every row. Per-signal attribution, same
+FRAME as S1.
+
+### T1 — SHORT the reversal: decline from the OPEN (low vs open) x closed ABOVE the open; and the prev-close reference beside it
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| open ref: decl_open -3..-5%, close > open | 7,286 | -9 / 0.90 | +8 / 1.04 | +7 / 1.02 | +12 / 1.03 | -3 / 0.99 | 51% | 14/22 | +574 | +2615 |
+| open ref: decl_open -5..-7%, close > open | 1,564 | +3 / 1.03 | +24 / 1.09 | +33 / 1.08 | +68 / 1.13 | +69 / 1.10 | 54% | 14/22 | +704 | +3526 |
+| open ref: decl_open -7..-10%, close > open | 600 | +16 / 1.09 | +30 / 1.09 | +74 / 1.14 | +120 / 1.20 | +108 / 1.14 | 55% | 15/22 | +811 | +4521 |
+| open ref: decl_open -10..-15%, close > open | 194 | +22 / 1.11 | +56 / 1.13 | +192 / 1.32 | +220 / 1.30 | +260 / 1.29 | 58% | 16/22 | +969 | +6074 |
+| open ref: decl_open -15..-25%, close > open | 43 | +40 / 1.13 | +190 / 1.40 | +328 / 1.48 | +245 / 1.26 | +415 / 1.39 | 57% | 17/22 | +1236 | +8277 |
+| open ref: decl_open <-25%, close > open | 9 | +145 / 1.35 | +267 / 1.54 | +381 / 1.54 | +541 / 1.60 | +89 / 1.05 | 60% | 13/16 | +648 | +10328 |
+| prev ref: decl_prev -3..-5%, close > prev | 7,631 | -7 / 0.91 | +8 / 1.04 | -3 / 0.99 | +0 / 1.00 | -27 / 0.95 | 50% | 8/22 | +543 | +2387 |
+| prev ref: decl_prev -5..-7%, close > prev | 1,722 | -8 / 0.93 | +12 / 1.05 | -20 / 0.95 | +9 / 1.02 | -21 / 0.97 | 52% | 11/22 | +690 | +3202 |
+| prev ref: decl_prev -7..-10%, close > prev | 663 | -8 / 0.95 | +21 / 1.07 | +9 / 1.02 | -2 / 1.00 | +20 / 1.03 | 52% | 10/22 | +833 | +4046 |
+| prev ref: decl_prev -10..-15%, close > prev | 224 | -10 / 0.95 | +40 / 1.11 | +140 / 1.27 | +133 / 1.20 | +226 / 1.29 | 56% | 18/22 | +927 | +5201 |
+| prev ref: decl_prev -15..-25%, close > prev | 51 | +24 / 1.10 | +67 / 1.14 | +256 / 1.37 | +303 / 1.36 | +592 / 1.65 | 60% | 15/22 | +1173 | +7746 |
+| prev ref: decl_prev <-25%, close > prev | 8 | +303 / 2.68 | +501 / 2.97 | +638 / 2.25 | +804 / 2.25 | +286 / 1.17 | 69% | 14/18 | +593 | +9206 |
+| BOTH: decl_open -3..-5%, close > open AND > prev | 5,706 | -8 / 0.91 | +9 / 1.05 | +9 / 1.03 | +23 / 1.06 | +8 / 1.01 | 52% | 14/22 | +579 | +2682 |
+| BOTH: decl_open -5..-7%, close > open AND > prev | 1,194 | +10 / 1.08 | +33 / 1.12 | +33 / 1.07 | +92 / 1.18 | +73 / 1.11 | 55% | 17/22 | +711 | +3610 |
+| BOTH: decl_open -7..-10%, close > open AND > prev | 440 | +29 / 1.17 | +42 / 1.12 | +86 / 1.16 | +156 / 1.25 | +101 / 1.12 | 56% | 15/22 | +838 | +4698 |
+| BOTH: decl_open -10..-15%, close > open AND > prev | 135 | +38 / 1.17 | +101 / 1.24 | +215 / 1.33 | +326 / 1.44 | +306 / 1.33 | 61% | 19/22 | +989 | +6303 |
+| BOTH: decl_open -15..-25%, close > open AND > prev | 26 | +129 / 1.41 | +332 / 1.69 | +528 / 1.79 | +586 / 1.72 | +743 / 1.81 | 59% | 19/20 | +1264 | +8271 |
+| BOTH: decl_open <-25%, close > open AND > prev | 6 | +415 / 2.70 | +527 / 2.43 | +724 / 2.31 | +829 / 2.10 | -328 / 0.86 | 70% | 13/15 | +400 | +10328 |
+
+### T2 — how far ABOVE the open did it close? (decline from open <= -7%)
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| rev_open 0..+1% | 180 | +26 / 1.20 | +33 / 1.12 | +58 / 1.13 | +45 / 1.08 | +48 / 1.06 | 53% | 13/22 | +698 | +3988 |
+| rev_open +1..+3% | 253 | +33 / 1.23 | +43 / 1.14 | +73 / 1.15 | +75 / 1.12 | +95 / 1.13 | 54% | 12/22 | +800 | +4326 |
+| rev_open +3..+6% | 191 | +30 / 1.17 | +51 / 1.15 | +155 / 1.30 | +169 / 1.27 | +119 / 1.15 | 56% | 18/22 | +865 | +4683 |
+| rev_open +6..+10% | 113 | +18 / 1.09 | +35 / 1.09 | +108 / 1.18 | +180 / 1.25 | +95 / 1.10 | 57% | 14/22 | +992 | +5531 |
+| rev_open +10%+ | 109 | -37 / 0.91 | +83 / 1.13 | +262 / 1.31 | +466 / 1.51 | +623 / 1.57 | 63% | 19/22 | +1273 | +8954 |
+
+### T3 — the close's position in the range (decline from open <= -7%, close > open)
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| clpos 0.5-0.7 | 119 | -88 / 0.71 | -89 / 0.84 | +7 / 1.01 | +98 / 1.12 | +197 / 1.19 | 57% | 14/22 | +1228 | +7202 |
+| clpos 0.7-0.85 | 226 | -22 / 0.89 | -14 / 0.97 | +27 / 1.05 | +68 / 1.10 | +156 / 1.18 | 54% | 14/22 | +945 | +5302 |
+| clpos 0.85-0.95 | 259 | +22 / 1.15 | +42 / 1.14 | +102 / 1.22 | +81 / 1.14 | +69 / 1.09 | 53% | 13/22 | +797 | +4240 |
+| clpos 0.95-1 | 210 | +140 / 2.16 | +200 / 1.79 | +311 / 1.74 | +379 / 1.75 | +200 / 1.29 | 59% | 17/22 | +620 | +3600 |
+
+### T4 — the gap that set it up (decline from open <= -7%, close > open)
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap <-5% | 150 | -29 / 0.87 | -5 / 0.99 | +187 / 1.35 | +100 / 1.14 | +321 / 1.42 | 55% | 14/22 | +919 | +5972 |
+| gap -5..-1% | 197 | -26 / 0.85 | -30 / 0.91 | +21 / 1.04 | -32 / 0.95 | +120 / 1.15 | 52% | 13/22 | +871 | +4718 |
+| gap -1..+1% | 194 | +22 / 1.20 | +61 / 1.23 | +92 / 1.22 | +175 / 1.32 | +14 / 1.02 | 56% | 16/22 | +704 | +4072 |
+| gap +1..+5% | 176 | +44 / 1.25 | +49 / 1.14 | +24 / 1.04 | +123 / 1.19 | -83 / 0.91 | 55% | 15/22 | +935 | +4619 |
+| gap +5..+15% | 94 | +161 / 1.69 | +208 / 1.49 | +360 / 1.54 | +508 / 1.78 | +509 / 1.66 | 64% | 17/22 | +876 | +5640 |
+| gap +15%+ | 35 | -26 / 0.95 | +185 / 1.27 | +330 / 1.35 | +526 / 1.54 | +742 / 1.63 | 65% | 15/21 | +975 | +10911 |
+
+### T5 — 7d-low break and the 20-day context (decline from open <= -7%, close > open)
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| broke the 7d low | 401 | +5 / 1.03 | +35 / 1.12 | +106 / 1.25 | +67 / 1.12 | +77 / 1.12 | 51% | 15/22 | +736 | +3717 |
+| did NOT break the 7d low | 446 | +33 / 1.15 | +58 / 1.14 | +128 / 1.19 | +232 / 1.31 | +231 / 1.23 | 60% | 19/22 | +979 | +6389 |
+| chg20 < -15% | 324 | +23 / 1.11 | +4 / 1.01 | +37 / 1.06 | -24 / 0.97 | -26 / 0.97 | 51% | 10/22 | +1075 | +4926 |
+| chg20 -15..+15% | 243 | +7 / 1.06 | +67 / 1.31 | +123 / 1.37 | +202 / 1.51 | +158 / 1.28 | 56% | 15/22 | +557 | +2888 |
+| chg20 +15..+50% | 115 | +11 / 1.08 | +25 / 1.08 | +36 / 1.07 | +126 / 1.22 | +132 / 1.16 | 57% | 14/22 | +785 | +4530 |
+| chg20 +50%+ | 164 | +40 / 1.14 | +118 / 1.23 | +327 / 1.44 | +456 / 1.52 | +548 / 1.45 | 65% | 19/22 | +1194 | +8833 |
+
+### T6 — relative volume and liquidity (decline from open <= -7%, close > open)
+| cell | n/yr | r_open1: short mean bp / PF | r1: short mean bp / PF | r3: short mean bp / PF | r5: short mean bp / PF | r10: short mean bp / PF | win5 | yrs5 | med mfe5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| rvol <1 | 264 | +32 / 1.20 | +16 / 1.04 | +101 / 1.17 | +141 / 1.19 | +84 / 1.08 | 58% | 13/22 | +937 | +5515 |
+| rvol 1-2 | 344 | +35 / 1.20 | +63 / 1.19 | +151 / 1.30 | +163 / 1.27 | +138 / 1.19 | 54% | 17/22 | +858 | +4365 |
+| rvol 2-4 | 152 | -27 / 0.87 | +7 / 1.02 | -1 / 1.00 | +58 / 1.09 | +129 / 1.17 | 54% | 11/22 | +796 | +5323 |
+| rvol 4+ | 86 | +9 / 1.03 | +148 / 1.32 | +246 / 1.40 | +331 / 1.47 | +517 / 1.67 | 60% | 17/22 | +700 | +6289 |
+| dv20 $5-20M | 428 | +26 / 1.17 | +41 / 1.12 | +98 / 1.19 | +140 / 1.23 | +145 / 1.18 | 56% | 18/22 | +805 | +4840 |
+| dv20 $20-100M | 294 | +23 / 1.11 | +50 / 1.13 | +125 / 1.22 | +149 / 1.21 | +139 / 1.16 | 56% | 18/22 | +891 | +5421 |
+| dv20 $100M+ | 124 | -8 / 0.97 | +58 / 1.15 | +169 / 1.30 | +213 / 1.33 | +250 / 1.32 | 56% | 15/22 | +946 | +5082 |
+
+### T7 — year table, SHORT, cell = decline from open <= -10% AND close > open
+decl_open < -0.10 AND rev_open > 0
+| year | n | r_open1 | r1 | r3 | r5 | r10 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|
+| 2005 | 21 | +18 / 1.24 | -171 / 0.42 | -102 / 0.60 | -107 / 0.75 | -155 / 0.73 | +2028 |
+| 2006 | 26 | -85 / 0.38 | +165 / 2.99 | +222 / 1.97 | +155 / 1.63 | +25 / 1.06 | +1796 |
+| 2007 | 136 | -45 / 0.74 | -28 / 0.87 | +9 / 1.03 | +205 / 1.62 | +48 / 1.13 | +3066 |
+| 2008 | 1,252 | -161 / 0.49 | -141 / 0.73 | +16 / 1.03 | +226 / 1.33 | +331 / 1.43 | +5209 |
+| 2009 | 171 | +6 / 1.04 | +118 / 1.45 | -15 / 0.97 | -94 / 0.85 | -271 / 0.73 | +4231 |
+| 2010 | 41 | +12 / 1.25 | +184 / 4.75 | +162 / 2.35 | +43 / 1.15 | +509 / 3.65 | +1444 |
+| 2011 | 42 | +138 / 2.59 | +160 / 2.32 | +20 / 1.08 | -19 / 0.95 | -18 / 0.97 | +1935 |
+| 2012 | 19 | +68 / 2.13 | +238 / 2.83 | +15 / 1.04 | +240 / 1.77 | +44 / 1.11 | +2137 |
+| 2013 | 26 | -9 / 0.89 | +47 / 1.35 | +136 / 1.39 | +200 / 1.66 | -232 / 0.67 | +3594 |
+| 2014 | 53 | -38 / 0.77 | +50 / 1.19 | +274 / 1.82 | +341 / 1.83 | +497 / 2.13 | +3368 |
+| 2015 | 183 | -190 / 0.26 | +15 / 1.08 | -229 / 0.55 | -185 / 0.65 | -11 / 0.98 | +2364 |
+| 2016 | 113 | +81 / 1.78 | +5 / 1.02 | +270 / 1.71 | +332 / 1.71 | +294 / 1.46 | +3747 |
+| 2017 | 78 | -88 / 0.52 | -62 / 0.85 | +56 / 1.10 | +235 / 1.43 | +276 / 1.45 | +6255 |
+| 2018 | 118 | -21 / 0.90 | +146 / 1.48 | +249 / 1.54 | +287 / 1.52 | +233 / 1.30 | +6235 |
+| 2019 | 78 | +213 / 3.99 | +96 / 1.32 | +327 / 1.89 | +238 / 1.51 | +324 / 1.55 | +5260 |
+| 2020 | 915 | +189 / 1.79 | +333 / 1.86 | +467 / 1.73 | +126 / 1.14 | +61 / 1.07 | +6550 |
+| 2021 | 557 | +38 / 1.20 | +149 / 1.45 | +243 / 1.52 | +6 / 1.01 | +140 / 1.14 | +5894 |
+| 2022 | 258 | +198 / 2.33 | +219 / 1.62 | +503 / 1.96 | +640 / 2.06 | +879 / 2.27 | +4871 |
+| 2023 | 214 | +122 / 1.56 | +312 / 1.86 | +623 / 2.39 | +699 / 1.99 | +821 / 1.95 | +6819 |
+| 2024 | 335 | +91 / 1.34 | +135 / 1.23 | +423 / 1.57 | +618 / 1.77 | +777 / 1.67 | +10470 |
+| 2025 | 463 | +144 / 1.70 | +110 / 1.20 | +384 / 1.50 | +365 / 1.35 | +48 / 1.03 | +10385 |
+| 2026 | 328 | +51 / 1.14 | -63 / 0.92 | -95 / 0.93 | +223 / 1.17 | +578 / 1.38 | +13510 |
+
+### Verdict — the open reference is the better short, monotone in the decline, and the STRONGEST close is the best fade
+
+- **T1**: from the open the short is monotone in the decline depth (r5 +12 / +68 / +120 / +220 /
+  +245 / +541 bp, PF 1.03 → 1.60, win 51 → 60%, years 14 → 17/22); the prev-close reference is
+  weaker at every band and mixed below −10%. Requiring BOTH (closed above the open AND above the
+  previous close) is the best row: **−10..−15% from the open: r5 +326 / PF 1.44, 61% win,
+  19/22 years, 135/yr; −15..−25%: +586 / 1.72, 19/20 years, 26/yr.**
+- **T3 — the S1 gradient again, from the short side**: the day that closed AT its high (clpos
+  0.95-1) is the best cell on the page, **r5 +379 / PF 1.75, 17/22**, and — unexpectedly — the
+  one with the SMALLEST adverse tail (p95 mfe5 +36% vs +72% for the partial reclaim). The partial
+  reclaim (0.5-0.7) is a LOSER at 1 day (−89 / 0.84) and only turns at 5-10 days.
+- **T4/T5/T6**: the setup is a RUNNER's fade — gap +5..15% (+508 / 1.78, 17/22), `chg20 +50%+`
+  (+456 / 1.52, 19/22), rvol 4+ (+331 / 1.47), and the 7d-low break is NOT the thing (no break
+  +232 / 1.31 vs break +67 / 1.12). The names that fell 7%+ from the open and still closed up are
+  mostly names that had already run.
+- **T7 — era**: 2005-2015 mixed (2008 r_open1 −161, 2015 r5 −185); **2016-2026 positive at r5 in
+  10/11 years**, 2022-2024 at PF 1.8-2.1.
+- ⚠⚠ **THE TAIL**: p95 `mfe5` is +60-83% in the deep bands and +100%+ in the deepest (a 5-day
+  high MORE THAN DOUBLE the entry, in 1 short of 20). This is the ShortSnoozer / overnight-
+  reversal "ruinous short" class (`project_shortsnoozer_tail_broken`, `project_overnight_reversal`):
+  the mean survives only because the winners are many and the squeezes are few, and no stop is
+  modelled. Borrow on these names (runners, rvol 4+) is unmodelled and will be the scarce one.
+  **Not a spec until the tail is disqualified** — the S1 clpos 0.95-1 cell's smaller tail is the
+  first lead.

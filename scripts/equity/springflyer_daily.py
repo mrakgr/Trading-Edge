@@ -47,6 +47,8 @@ if args.rebuild or not os.path.exists(args.feat):
         LEAD(close,10) OVER e * LEAD(n,10) OVER e / n       AS close_p10,
         LEAD(low,1)  OVER e * LEAD(n,1)  OVER e / n         AS low_p1,
         MIN(low*n)  OVER (e ROWS BETWEEN 1 FOLLOWING AND 5 FOLLOWING) / n    AS low_f5,
+        MAX(high*n) OVER (e ROWS BETWEEN 1 FOLLOWING AND 5 FOLLOWING) / n    AS high_f5,
+        LEAD(high,1) OVER e * LEAD(n,1) OVER e / n          AS high_p1,
         (LEAD(cum_div,1) OVER e - cum_div) / n              AS div_p1,
         (LEAD(cum_div,2) OVER e - cum_div) / n              AS div_p2,
         (LEAD(cum_div,3) OVER e - cum_div) / n              AS div_p3,
@@ -80,7 +82,9 @@ if args.rebuild or not os.path.exists(args.feat):
       1e4*((close_p5 + div_p5 - close) / close)           AS r5,
       1e4*((close_p7 + div_p7 - close) / close)           AS r7,
       1e4*((close_p10 + div_p10 - close) / close)         AS r10,
-      1e4*((low_f5 - close) / close)                      AS mae5   -- worst low over the next 5 days
+      1e4*((low_f5 - close) / close)                      AS mae5,  -- worst low over the next 5 days
+      1e4*((high_f5 - close) / close)                     AS mfe5,  -- highest high over the next 5 days (the SHORT's adverse excursion)
+      1e4*((high_p1 - close) / close)                     AS hi1
     FROM b
     WHERE barnum >= 22 AND prev_close IS NOT NULL AND date >= '2005-01-01'
     ) TO '{args.feat}' (FORMAT PARQUET, COMPRESSION 'zstd');""")
