@@ -313,3 +313,12 @@ decl_open < -0.10 AND rev_open > 0
 **Verdict**: the deep-flush-no-reversal long is a crash-rebound sample plus one bad print. The S1
 reading "the failed reversal is the buy" stands only in its shallower bands (−5..−10%, PF 1.08-1.09,
 16-18/22 years, +28..+36 bp — the ordinary MR drift), not as a deep-flush cell.
+
+> **The WB 2008-09-29 row, verified against the minute bars** (`data/minute_aggs/2008-09-29.parquet`,
+> 442 WB bars): the crash was real — the stock printed ~$1 in the pre-market from 08:34 (the
+> Citigroup rescue) and the regular session closed $1.84 — but the tape's minimum print is $0.15
+> (one 14:33 bar, 39.6M shares, range 0.15-5.00, the delayed open) and the last post-market bars
+> are $2.04-2.05. **No $0.01 trade exists in the minute data.** The `daily_adjusted` row's
+> low = close = 0.01 is a defect of the vendor's DAILY flat file, not of the tape — the daily and
+> minute files disagree. A bad-print guard on the signal day (or a daily-vs-minute close
+> cross-check) is the fix; the minute files exist back to 2003-09 so the check is cheap.
