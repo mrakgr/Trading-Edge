@@ -670,3 +670,36 @@ the long. The range measures the energy; the prior trend's SIGN decides who is t
 the runner's tail (15% of `chg20 +150%+` trades see +50% against them within 5 days). ⏭ The
 HighFlyer daily tightness score (>7.5 = breakouts fail) is the obvious next feature to port here;
 the ShortSnoozer gap × volatility disqualifier is the tail tool.
+
+### S4 addendum — clustering: the efficient-DOWN bounce is a PANIC artifact (TideFlyer's disease); the runner short is NOT
+
+> USER: *"Is there a large amount of clustering in this bucket as before? We failed at creating the
+> TideFlyer system because all the good trades were during market panics or the 2008 crash."*
+> Log `data/springflyer_effdown.log`.
+
+**The efficient-down cell (`rng ≥ 15% ∧ er10_s < −0.6`, read as the LONG it is)**: 18,064 trips on
+3,126 days, but **62% of them on days with ≥ 10 trips**, the top ten days all March 2020 / October
+2008; 2008 + 2020 = 63% of Σr5. Crash months r5 +649 / 1.83 vs other days +242 / 1.44 — and on the
+QUIET days (< 5 trips, ex-crash) the long is **−40 / 0.94, 44% win; 2016+ quiet: −84 / 0.89,
+r10 −170 / 0.83**. Not outlier-driven (drop the top 100 of 18k: PF 1.59 → 1.45) — it is
+regime-driven: the bounce exists when EVERYTHING is bouncing. The "do not short efficient-down"
+ruling is therefore a crash-day ruling; on an ordinary day the efficient-down big-range name is a
+weak but positive short.
+
+**The short's own cells, same test** (short returns):
+
+| cell | slice | n | r5 / PF | r10 / PF | win5 | trips on ≥10-trip days |
+|---|---|---|---|---|---|---|
+| runner `chg20 ≥ 150%` × rng ≥ 15% | all | 9,589 | +471 / 1.45 | +935 / 1.82 | 67% | 26% |
+| | crash months | 195 | +763 / 2.15 | +837 / 2.14 | 66% | |
+| | other, days with < 5 trips | 3,818 | **+500 / 1.53** | **+1,004 / 2.07** | 68% | 0% |
+| | other, 2016+, days < 5 trips | 3,145 | +524 / 1.53 | +1,088 / 2.14 | 68% | 0% |
+| efficient UP `er10_s ≥ 0.6` × rng ≥ 15% | all | 14,428 | +173 / 1.21 | +254 / 1.26 | 60% | 39% |
+| | other, days with < 5 trips | 4,707 | **+247 / 1.38** | **+398 / 1.51** | 60% | 0% |
+| eff UP × closed DOWN on the day | all | 5,092 | +190 / 1.21 | +414 / 1.42 | 62% | 16% |
+| | other, 2016+, days < 5 trips | 2,480 | +162 / 1.16 | +458 / 1.43 | 61% | 0% |
+
+⭐ **The short's edge is the OPPOSITE of TideFlyer's**: it is idiosyncratic — one name at a time —
+and it is BETTER on the quiet days than in the panics (runner: quiet-day r10 PF 2.07 vs 1.82 all-in;
+efficient-up: 1.51 vs 1.26). Crash months only add ~2% of the trips. That is what a name-specific
+mechanism (the trapped-runner unwind) looks like, versus a market-beta mechanism (the panic bounce).
