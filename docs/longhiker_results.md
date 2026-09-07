@@ -3367,3 +3367,25 @@ Trade-weighted PF on the mc=1 replayed book (one open position per tkd), gross o
 | ts60 gap 0-29 (frame) | 1,383 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | 1.54 | 54.0 |
 
 **Read**: the frame cut is right on the sparse side (30-45 PF 1.36, 46-60 PF 1.25, trims negative) — but the DENSE END is the worst band on the page: `gap_60 = 0` (a print every second, the megacap/ETF-grade tape) reads PF 1.07-1.11, trim −18/−25, 5/7 at 175 tkd/yr. The edge lives at 1-29 missing seconds (PF 1.57-1.77, trim-positive from 6 up). Excluding the fully-dense minute lifts the frame to PF 1.57/1.62 at 1,209 tkd/yr. The 20-min twin says the same thing from the other side: `gap_1200` 13m+ (a tape that was mostly SILENT over the last 20 min but is printing NOW) is the best PF on the page (1.89, trim +5.8) while <1m (continuously dense) is 1.11 — the reclaim on a tape that just WOKE UP, consistent with §7's `vol_ratio` 2+ inversion. ⏭ If this cell is ever specced: `1 <= gap_60 < 30`, and port the halt-adjusted gap so the sparse cut stops confounding halts with thin tape.
+
+## 💀 S39 CLOSED (user, 2026-09-07) — a magnitude verdict, once more
+
+> USER: *"We're done with this system. To really make it worth it we'd need an idea that could get
+> the mean trade above 100 bps, and I don't have any right now. It's an interesting finding worth
+> noting that slow reclaims work much better than fast ones, but I am not sure how to build on it."*
+
+The bar is now stated explicitly: **a mean trade above 100 bp.** The best cell here is +22-30 bp
+eqw, PF ~1.5, below 1 without its top 5% of trades, at ~1,700 trades/yr — the S31/S37 verdict at
+5× the magnitude and still 3-4× short. Carried forward as findings, not as a system:
+
+1. ⭐ **The shakeout STATE is real (7/7)** — first 1-4 session highs after a 20m+ low; extension
+   (k≥5) is 0/7 and collapses on violent tape.
+2. ⭐⭐ **SLOW reclaims beat fast ones** — 40m+ from the low to the first new session high, after a
+   >4% pullback, is the good cell; <5m × deep is 2/7. The pattern is a travelled range being
+   re-taken over most of an hour, not a snap-back.
+3. **Fixed timestops only; ts60 the balance point; every price-level trail loses the median.**
+4. **rr is a mean dial, not an edge dial** (U, no seat); the tape that just WOKE UP (gap_1200 13m+,
+   vol_ratio 2+, gap_60 ≥ 1) is where the PF lives, and the fully dense minute is the worst band.
+
+Corpus `data/longhiker_trips_shake/` (23 GB) and slice `data/longhiker_study_shake.parquet` stay on
+disk until space is needed. Branch `longhiker-shakeout`, unmerged.
