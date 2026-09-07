@@ -44,7 +44,7 @@ if args.rebuild or not os.path.exists(args.slice):
         side*1e4*(fwd_vwap_1200/entry_px-1) AS r_fwd1200,
         gap_60, volat_20m, volat_20m_lag1m, dv_60, dv_1200, bars_present, dv_0945_tape, rvol_0945_honest,
         std_20m_lag1m/volat_20m_lag1m AS tight_lag, dv_ewma_1m/dv_ewma_20m AS vol_ratio, vol_ratio_max5m,
-        eff_open, eff_ewma_20m, vr4_ewma, hi_rate_hl120,
+        eff_open, eff_ewma_20m, eff_20m, eff_10m, vr4_ewma, hi_rate_hl120,
         highs_20m_since_lo_1200 AS reseat_1200, signal_vwap AS px,
         {ccols}
       FROM read_parquet('{args.corpus}/*.parquet')
@@ -190,3 +190,13 @@ if want('T7'):
             show([cell(f"side={s_} AND {FRAME} AND abs(eff_20m) < 0.2 AND consol_{w}_lag1m >= {a} AND consol_{w}_lag1m < {b}",
                        label=f'{nm} |eff_20m|<.2 × consol_{w}_lag1m {lab}') for a, b, lab in BANDS[w]],
                  f"T7 — consol_{w}_lag1m bands inside |eff_20m| < 0.2, {nm}")
+
+if want('T8'):
+    # the cleanest cells' exit sweep: calm-tape coil (T6) and the unlagged coil (T2), long
+    CALM = "volat_20m >= 0.002 AND volat_20m < 0.004"
+    for lab, g in [('lag1m >= .60 x calm', f"consol_5m_lag1m >= 0.6 AND {CALM}"),
+                   ('lag1m >= .45 x calm', f"consol_5m_lag1m >= 0.45 AND {CALM}"),
+                   ('UNLAGGED >= .20 x calm', f"consol_5m >= 0.2 AND {CALM}"),
+                   ('UNLAGGED >= .45 x calm', f"consol_5m >= 0.45 AND {CALM}")]:
+        show([cell(f"side=1 AND {FRAME} AND {g}", ex=e, label=f'LONG consol_5m {lab} @ {e}') for e in ['ts30', 'ts60', 'ts120', 'fwd300', 'fwd600']],
+             f"T8 — exit sweep, LONG consol_5m {lab}")

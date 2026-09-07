@@ -3468,3 +3468,122 @@ is skewing the results". Note that the within-slot 1s noise IS this ratio's nume
 sampler (fire on new slot-vwap extremes instead of 1s-vwap extremes) is the variant that removes
 single-print breakouts from the rung, and the two are different features, not one cleaner than the
 other.
+
+## S40 results — base pass 2020-01-02 → 2026-09-04 (v7 sampler, 201.7M trips / 1.17M tkd / 105 GB / 77 min)
+
+Full tables: `data/longhiker_consol_study_T0-6.log`, `_T7.log`, `_T8.log`. FRAME = S33's dense rung
+(`gap_60 < 30 ∧ volat_20m ≥ 20bp ∧ signal_sec ≥ 09:45`); every cell mc=1 replayed inside the gate,
+eqw = per-tkd mean bp in TRADE convention, 7 years.
+
+### ⭐ §1 The feature GRADES the long rung, monotone, and the coil is the GOOD end (T1, ts30)
+
+| consol_5m_lag1m | tkd/yr | eqw | med | up% | yrs | trim-top5 | 2026 |
+|---|---|---|---|---|---|---|---|
+| <.10 (trend into the high) | 17,933 | −4.13 | −0.74 | 48.2 | 0/7 | −9.05 | −5.23 |
+| .10-.20 | 18,122 | −0.56 | +0.18 | 50.4 | 3/7 | −6.21 | −1.72 |
+| .20-.30 | 13,167 | +0.66 | +0.62 | 51.1 | 3/7 | −6.02 | −0.09 |
+| .30-.45 | 9,380 | +1.16 | +0.84 | 51.3 | 5/7 | −6.61 | +1.54 |
+| .45-.60 | 3,700 | +1.09 | +0.66 | 50.9 | 5/7 | −9.37 | −0.23 |
+| .60+ (the coil) | 1,259 | +4.33 | +2.88 | 53.6 | 5/7 | −7.55 | +3.95 |
+
+3m reads the same (.75+: **+4.30, med +2.12, 7/7**, 2,699 tkd/yr; <.15: −3.61, 0/7). 10m is flat
+until .40+ (+1.98, 568 tkd/yr); **20m is flat/negative in every band** (.25+ +0.77 at 327 tkd/yr).
+⭐ **The v7 inversion was `tight`'s, not the thesis's**: on this measure the coil break IS the good
+long and the trend-into-the-extreme the bad one, exactly as the user wrote it 2026-08-26. The
+SHORT side is a weaker mirror: <.10 is −4.34/0/7 (a downtrend into the low does not continue at
+30 bars), the coil +0.60 (5m) / +1.83 (3m, 5/7) — flat.
+
+### §2 UNLAGGED beats lagged (T2, ts30, long, 5m)
+
+| consol_5m (unlagged) | tkd/yr | eqw | med | up% | yrs | trim-top5 |
+|---|---|---|---|---|---|---|
+| <.10 | 20,059 | −4.31 | −0.76 | 48.1 | 0/7 | −8.97 |
+| .10-.20 | 18,189 | +0.78 | +0.80 | 51.4 | 4/7 | −5.05 |
+| .20-.30 | 11,989 | **+2.74** | +1.56 | 52.3 | **7/7** | −4.53 |
+| .30-.45 | 7,974 | +2.67 | +1.54 | 52.0 | 6/7 | −5.77 |
+| .45-.60 | 2,928 | +3.69 | +2.07 | 52.3 | 5/7 | −7.98 |
+| .60+ | 991 | +6.08 | +2.42 | 52.7 | 6/7 | −7.92 |
+
+Both are causal (the ratio updates only on COMPLETED slots). The unlagged read adds "the coil was
+still intact as of the last completed slot, ≤30 bars ago" — a FRESH break — and that is worth
++2 bp and two years over the twin. The lag was built to stop the breakout DEFLATING the score;
+here the deflation is itself informative (a score already broken = a move already travelled).
+Keep both; the unlagged one is the feature.
+
+### §3 It is NOT eff (T7, ts30, long, inside |eff_20m| < 0.2)
+
+| consol_5m_lag1m, |eff_20m|<.2 | tkd/yr | eqw | med | yrs | 2026 |
+|---|---|---|---|---|---|
+| <.10 | 8,117 | −1.42 | −0.02 | 1/7 | −1.61 |
+| .10-.20 | 8,804 | +0.86 | +0.23 | 4/7 | +0.58 |
+| .20-.30 | 6,190 | +1.98 | +0.49 | 7/7 | +2.63 |
+| .30-.45 | 4,322 | +2.26 | +0.49 | 6/7 | +5.22 |
+| .45-.60 | 1,600 | +0.96 | +0.24 | 5/7 | +2.73 |
+| .60+ | 601 | **+7.31** | +2.85 | **7/7** | +9.46 |
+
+The 5m gradient SURVIVES the eff control at full size. The 20m gradient does NOT (all bands −0.3
+to +0.5 inside |eff|<.2; .25+ +2.5 at 291 tkd/yr) — matched-window corr(log consol_20m, |eff_20m|)
+is −0.70, and the 20m ratio is mostly a re-reading of eff. **5m is the window.**
+
+### §4 The volatility flip, again (T6, ts30, long)
+
+| consol_5m_lag1m × volat_20m | tkd/yr | eqw | med | up% | yrs | trim-top5 | worst day |
+|---|---|---|---|---|---|---|---|
+| .60+ × 20-40bp | 926 | **+5.18** | +3.24 | 54.7 | **7/7** | **−0.68** | −3.0% |
+| .60+ × 40-80bp | 285 | +6.46 | +2.41 | 52.2 | 6/7 | −10.28 | −9.7% |
+| .60+ × 80bp+ | 89 | −6.14 | −8.44 | 47.3 | 3/7 | −45.24 | −18.6% |
+| .30-.45 × 20-40bp | 7,157 | +1.30 | +0.73 | 51.3 | 6/7 | −3.07 | −5.1% |
+| .10-.20 × 80bp+ | 1,518 | −10.06 | −6.64 | 46.9 | 1/7 | −28.64 | −15.8% |
+
+S6b's rule holds: the coil pays on CALM tape and flips on violent tape. The calm coil is the
+cleanest cell on the page — trim-top5 −0.7 (near neutral, the first LongHiker long cell to get
+there at ts30 besides S39's deep×slow), worst day −3%.
+
+### §5 Exits (T5/T8) — the coil's horizon is MINUTES, not 30 s
+
+| cell (long) | tkd/yr | ts30 | ts60 | ts120 | fwd300 | fwd600 |
+|---|---|---|---|---|---|---|
+| consol_5m_lag1m ≥ .60 × calm | 926 | +5.18 | +7.61 (7/7, trim −0.3) | **+11.40** (6/7, med +6.5, trim −0.4) | +12.65 | +11.12 (med +0.1) |
+| consol_5m_lag1m ≥ .45 × calm | 3,129 | +2.07 | +4.63 | +7.67 | +8.95 | +6.52 |
+| consol_5m UNLAGGED ≥ .45 × calm | 2,535 | +4.85 (7/7) | +6.80 (7/7) | +8.50 | +8.93 | +7.40 |
+| consol_5m UNLAGGED ≥ .20 × calm | 11,720 | +2.03 (7/7) | +3.66 (7/7) | +4.06 | +2.71 | −0.17 |
+| consol_20m_lag1m ≥ .15 (any volat) | 2,061 | −1.71 | +1.77 | +10.99 (7/7) | +11.64 (7/7) | +5.16 |
+
+Unlike v6 (edge horizon ~30 s, ts30 optimal) the coil break keeps paying to 2-5 min: ts120
+doubles ts30 in every cell with the median intact (+6.5 on the best cell). Beyond 5 min the median
+goes to zero and the trim collapses — same wall as S39. ⭐ **The SHORT coil is a 20-MINUTE trade**:
+`consol_20m_lag1m ≥ .15` short reads −3.2 at ts30, +2.0 at ts120, **+16.6 at fwd1200 (7/7, med +3.8)**
+— the collapse out of a 20m coil is slow, and every short-side ts30 read above understates it.
+
+### §6 The v7 HIGH-VOLUME frame is still a graveyard (T4, ts30)
+
+`px>1 ∧ vol_ratio>2 ∧ gap_60<4 ∧ volat>20bp` (S33 §5's frame): long −20.3 eqw / 0/7, short −20.6 /
+0/7; `tight_lag<3.5` on top −31 / −30 (the v7 spec, reconfirmed 0/7). consol does not rescue it:
+best cell consol_20m .25+ +2.6 at 24 tkd/yr; every 5m band −3 to −13. A volume burst INTO a new
+extreme is S28's inversion (low 1m/20m volume ratio is what you want) — "high volume breakout"
+is the wrong frame on this tape regardless of how the consolidation is measured.
+
+### §7 consol × tight (T3, 20m, long, ts30) — the two are complementary
+
+| consol_20m .25+ × tight_lag | tkd/yr | eqw | med | up% | yrs | trim-top5 |
+|---|---|---|---|---|---|---|
+| tight <4 (v7's coil) | 116 | −1.74 | +0.00 | 49.0 | 3/7 | −11.61 |
+| tight 4-8 | 179 | −2.25 | +0.59 | 51.0 | 2/7 | −12.99 |
+| tight 8-11 | 43 | +5.50 | +4.47 | 55.5 | 5/7 | −4.81 |
+| tight 11+ | 18 | **+19.75** | +11.75 | 58.9 | 5/7 | **+2.78** |
+
+High consol (stationary slot means) × HIGH tight (a range wide in units of its 30s move) = a wide
+range being churned inside without drifting — the only trim-POSITIVE cell in the table, at 18
+tkd/yr. v7's coil (tight<4) × consol .25+ is −1.7. Consistent with S33: tight's "loose" and this
+ratio's "coil" are different axes, and the good cell is the intersection.
+
+## S40 verdict (Claude, pending the user)
+
+- ⭐ **The feature works as written**: bounded, monotone on the long rung, the coil is the good end
+  (the user's 2026-08-26 thesis, which `tight` had inverted), survives the eff control at 5m, 7/7
+  in the coil band, cleanest on calm tape, and the unlagged read is the sharper one.
+- **5m is the window; 20m is eff by another name; 3m ≈ 5m.**
+- **Exit horizon 1-2 min (ts60/ts120), not 30 s**; the short coil is a 20 min trade.
+- 💀 **Magnitude**: +5 to +11 bp eqw on the best cells (926 tkd/yr), +2 to +4 at 12k tkd/yr;
+  trim-top5 negative or ~0 everywhere; the 100 bp bar is 10× away. Same wall as S31/S37/S39.
+- The high-volume-breakout frame (vol_ratio>2) remains 0/7 with or without this feature.
