@@ -3389,3 +3389,76 @@ eqw, PF ~1.5, below 1 without its top 5% of trades, at ~1,700 trades/yr — the 
 
 Corpus `data/longhiker_trips_shake/` (23 GB) and slice `data/longhiker_study_shake.parquet` stay on
 disk until space is needed. Branch `longhiker-shakeout`, unmerged.
+
+# ⭐ S40 — THE CONSOLIDATION SLOT-VARIANCE RATIO (user, 2026-09-07; branch `longhiker-consol`)
+
+> USER: *"We'll split the last 10m into 30s slots and calculate the average variance of individual
+> slots and divide them by the variance of the entire 10m period. That should give us a high score
+> for tight consolidation unlike eff. It should be bounded in [0,1]. We might also want to divide
+> the standard deviations instead... I don't recall calculating the variances of 30s slots and
+> dividing those by the {3m,5m,10,20m} variances."*
+
+Not done before. The two neighbours in this doc are different objects: v7's `tight = std/volat`
+(S32) is level std over the mean |30s slot move| — unbounded, random walk ≈ 6, coil = the LEFT
+tail; S13/S14's variance ratio is Lo-MacKinlay on the slot RETURN stream. This one is the law of
+total variance on the LEVEL stream.
+
+## The feature
+
+    consol_Nm = mean within-slot variance / whole-window variance
+                over the last k = {6,10,20,40} completed 30-present-bar slots (3/5/10/20m),
+                on ln(1s vwap), population moments
+
+`total = mean(within) + var(slot means)` exactly on equal slots, so **consol ∈ [0,1]**:
+1 = the slot means never move (noise around one level — the coil), 0 = every move is between
+slots (a trend). `SlotVarRatioMa` (RollingMa.fs; per-slot (n, Σy, Σy²) ring, origin-shifted).
+Oracle `SlotVarRatio_Test.fsx`: direct computation at every completed slot, worst relerr 2e-13;
+shift invariance at 1e6; every reading in [0,1] over 20k random-walk bars; limits below.
+
+**std vs variance (user's question):** √ of the ratio is a monotone transform, so any gate on one
+is the same gate on the other — the variance form is recorded (it carries the exact bound), √ in
+SQL when the low end needs spreading. Averaging the stds FIRST is bounded too (Jensen) but breaks
+the exact decomposition; not used.
+
+⚠ **The reference is window-dependent.** A random walk reads ≈ 1.6/k (mean of the ratio; 1/k is
+the ratio of the means), so the windows are NOT on one scale:
+
+| window | slots k | i.i.d. noise | straight line | random walk (oracle §3) |
+|---|---|---|---|---|
+| 3m | 6 | | | 0.263 |
+| 5m | 10 | | | 0.176 |
+| 10m | 20 | 0.967 | 0.003 | 0.083 |
+| 20m | 40 | | | 0.043 |
+
+The coil is the band ABOVE the reference; a trend is below it.
+
+⚠ **Contamination, same as v7:** the breakout slot inflates the window variance and makes the coil
+read LOOSE on the signal bar. Every window ships a `_lag1m` twin ending 2 completed slots ago.
+Warmth: nan until k(+2) slots have completed — the 20m twin needs 42 slots (~21 min of present
+bars), 8% of signal rows on the smoke week.
+
+## Smoke week (2026-08-24..28, v7 sampler, 702k trips / 4,613 tkd)
+
+Bounds hold (min 0.003, max 0.999). Distribution on signal rows (new 20m extremes):
+
+| col | q10 | q25 | med | q75 | q90 | mean |
+|---|---|---|---|---|---|---|
+| consol_3m | .113 | .174 | .281 | .444 | .623 | .329 |
+| consol_5m | .069 | .108 | .175 | .285 | .419 | .216 |
+| consol_10m | .036 | .056 | .095 | .158 | .240 | .121 |
+| consol_20m | .019 | .032 | .058 | .098 | .149 | .074 |
+| consol_20m_lag1m | .021 | .035 | .063 | .107 | .161 | .080 |
+
+The medians land ON the random-walk reference (.28/.18/.10/.06 vs .26/.18/.08/.04) — a new 20m
+extreme is, at the median, a random walk that just touched its edge; the coil is the top quartile.
+The lag twin reads slightly higher than the signal-bar value (.080 vs .074): the breakout slot
+does deflate the score, as expected.
+
+⭐ **Not a transform of `tight`:** corr(consol_20m_lag1m, tight_lag) = −0.14/−0.15 (log-log −0.24/
+−0.26), corr with vr4_ewma −0.20, with eff_ewma_20m ±0.37 (sign by side — a trend into the
+extreme reads low, as it should). Under a pure random walk the two would be ≈ c/tight²; the
+divergence is the 1s microstructure noise inside the slots, which `tight` cannot see.
+
+Base pass: `scripts/equity/longhiker_run_consol.sh` → `data/longhiker_trips_consol/` (v7 sampler,
+2020-01-02 → 2026-09-04); study `scripts/equity/longhiker_consol_study.py` (mc=1 replay inside
+each gate, both sides in TRADE convention, tables T0-T6).
