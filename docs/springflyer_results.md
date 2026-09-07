@@ -1214,3 +1214,30 @@ rest positive, 2016-2026 at PF 2.2-18 at five days.
 **SPEC v1 (SpringFlyer short): `er10 > 0.9 ∧ er20 > 0.9 ∧ close ≥ max close of the prior 20
 sessions ∧ 20-session close range > 200%`, short at that close, cover in 5-10 sessions: r5 +1,492 /
 3.63, r10 +1,750 / 3.46, 70% win, 18/21 years, median +852 bp, ~11 signals/yr (~20/yr since 2017).**
+
+### S8 addendum 3 — the er20 requirement REMOVED (user, 2026-09-07): 3.6× the signals at nearly the same PF; er10 is the load-bearing ratio
+
+Log `data/springflyer_simple_er20.log`. Base = er10 > 0.9 × 20d closing high × 20-session close
+range > 200%; er20 varied:
+
+| er20 condition | n/yr | r1 / PF | r3 / PF | r5 / PF | r10 / PF | win5 | yrs5 | med r5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|---|---|
+| > 0.9 (SPEC v1) | 11 | +647 / 2.24 | +1,257 / 3.69 | +1,492 / 3.63 | +1,750 / 3.46 | 70% | 18/21 | +852 | +97% |
+| **removed** | **40** | +397 / 1.70 | +938 / 2.62 | **+1,291 / 3.16** | **+1,656 / 3.26** | 70% | 18/21 | **+1,071** | +88% |
+| ≤ 0.9 (what the spec excludes) | 28 | +298 / 1.51 | +812 / 2.30 | +1,211 / 2.99 | +1,619 / 3.19 | 70% | 17/20 | +1,188 | +83% |
+| 0.8-0.9 | 18 | +446 / 1.96 | +897 / 2.60 | +1,267 / 3.06 | +1,580 / 3.00 | 70% | 13/19 | +1,116 | +80% |
+| 0.6-0.8 | 8 | −30 / 0.96 | +673 / 1.88 | +968 / 2.47 | +1,535 / 2.93 | 70% | 16/18 | +1,064 | +108% |
+| ≤ 0.3 | ~0 | −358 / 0.49 | −103 / 0.86 | −328 / 0.66 | +142 / 1.33 | 44% | 1/4 | −51 | +56% |
+| > 0.8 | 29 | +524 / 2.07 | +1,036 / 2.98 | +1,354 / 3.27 | +1,646 / 3.16 | 70% | 18/21 | +1,008 | +86% |
+
+And the er10 threshold: with er20 > 0.9 held, every er10 band below 0.9 is EMPTY (< 1/yr — a 20-day
+ratio above 0.9 forces the 10-day one up); with er20 removed, `er10 0.5-0.9` is a much weaker cell
+(r5 +333 / 1.28, 102/yr, next-open and r1 negative) and `er10 > 0.95` (er20 > 0.9) is r5 +1,599 /
+3.98, r10 +1,932 / 4.06 at 9/yr.
+
+**Read**: er10 is the load-bearing ratio; er20 is a fine-grader that costs 3.6× the signals for
++0.5 of PF at 5 days and +0.2 at 10, and the population it excludes is 70% win, 17/20 years, with
+a HIGHER median (+1,188). Only the er20 ≤ 0.3 stub (a handful over 22 years) is bad, and 0.6-0.8
+loses the first day (r1 −30) before paying. **Removing er20 gives 40 signals/yr at r5 PF 3.16 /
+r10 3.26, median +1,071, 18/21 — the same consistency at 3.6× the frequency.** A floor at 0.6
+(≈ 38/yr) removes the stub at no cost. Decision: the user's.
