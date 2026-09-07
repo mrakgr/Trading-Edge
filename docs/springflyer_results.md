@@ -1241,3 +1241,105 @@ a HIGHER median (+1,188). Only the er20 ≤ 0.3 stub (a handful over 22 years) i
 loses the first day (r1 −30) before paying. **Removing er20 gives 40 signals/yr at r5 PF 3.16 /
 r10 3.26, median +1,071, 18/21 — the same consistency at 3.6× the frequency.** A floor at 0.6
 (≈ 38/yr) removes the stub at no cost. Decision: the user's.
+
+## ⭐⭐ S9 — SPEC v2 RATIFIED (user, 2026-09-07) and the first BOOK
+
+> USER: *"A floor at 0.6 seems fine. At 1 trade every 1.5 weeks, this system would be quite good."*
+
+**SPEC v2 (SpringFlyer, SHORT, daily bars)**: at day D's close, `er10 > 0.9 ∧ er20 > 0.6 ∧
+close ≥ max close of the prior 20 sessions ∧ (max close / min close over the last 20 sessions incl.
+D) − 1 > 2.0`, universe CS/ADRC with prior-20-day dollar volume ≥ $5M and a raw $2 floor on D−1's
+close. Short at D's close; cover at the close 5-10 sessions later. Every input is a value of D's
+close (the 15:59 convention); the efficiency ratios are Kaufman's on share-consistent closes.
+
+Log `data/springflyer_spec_v2.log`. 827 signals / 439 names over 2005→2026-09-04 (37.6/yr;
+66/yr since 2017); **42% of signals repeat a name within 14 days** — the climax prints the setup
+on consecutive closes, so the book takes ONE position per name and drops the repeats inside the
+hold (mc=1 per name; hold approximated as k × 1.45 calendar days).
+
+### the mc=1 BOOK (one position per name; repeats inside the hold dropped), short returns
+| hold | trades | trades/yr | win% | mean bp | median bp | PF | PF ex worst 5% | PF ex best 5% | worst trade | p95 5-day high | yrs PF>1 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1d | 597 | 27 | 64% | +409 | +385 | **1.66** | 4.02 | 1.23 | -44105 | +9476 | 16/21 |
+| 3d | 516 | 23 | 68% | +952 | +1000 | **2.45** | 5.23 | 1.89 | -16505 | +9719 | 18/21 |
+| 5d | 491 | 22 | 70% | +1281 | +1217 | **2.95** | 8.22 | 2.36 | -22187 | +9837 | 17/21 |
+| 10d | 480 | 22 | 74% | +1731 | +2107 | **3.17** | 7.33 | 2.64 | -19094 | +9963 | 17/21 |
+
+### year table, mc=1 book, 5-day hold
+| year | trades | win% | mean | median | PF | worst | sum bp |
+|---|---|---|---|---|---|---|---|
+| 2005 | 2 | 50% | -32 | -32 | 0.84 | -411 | -64 |
+| 2006 | 2 | 50% | +1872 | +1872 | 36.84 | -104 | +3745 |
+| 2007 | 10 | 50% | +941 | +367 | 1.90 | -4736 | +9412 |
+| 2008 | 3 | 33% | +256 | -715 | 1.50 | -820 | +767 |
+| 2009 | 19 | 37% | -16 | -56 | 0.98 | -8992 | -299 |
+| 2010 | 5 | 60% | +1209 | +203 | 23.09 | -141 | +6046 |
+| 2011 | 5 | 0% | -452 | -118 | 0.00 | -1302 | -2262 |
+| 2013 | 8 | 88% | -1110 | +1165 | 0.55 | -19582 | -8882 |
+| 2014 | 8 | 75% | +1370 | +694 | 34.65 | -262 | +10956 |
+| 2015 | 8 | 88% | +1313 | +527 | 11.90 | -964 | +10504 |
+| 2016 | 15 | 60% | +803 | +349 | 2.59 | -5761 | +12041 |
+| 2017 | 25 | 88% | +1908 | +2018 | 19.23 | -1586 | +47689 |
+| 2018 | 11 | 91% | +2829 | +1707 | 11.63 | -2927 | +31116 |
+| 2019 | 19 | 53% | +571 | +603 | 1.94 | -5792 | +10852 |
+| 2020 | 63 | 78% | +1467 | +2098 | 3.44 | -14428 | +92406 |
+| 2021 | 44 | 82% | +1462 | +1721 | 3.18 | -22187 | +64322 |
+| 2022 | 23 | 57% | +1099 | +80 | 3.63 | -2218 | +25272 |
+| 2023 | 26 | 65% | +1583 | +1238 | 4.99 | -4658 | +41150 |
+| 2024 | 68 | 68% | +682 | +1196 | 1.51 | -18121 | +46379 |
+| 2025 | 71 | 82% | +2327 | +2293 | 12.95 | -2781 | +165194 |
+| 2026 | 56 | 68% | +1122 | +1311 | 2.13 | -11650 | +62840 |
+
+### what the names look like (5d book)
+       prev_close_raw    dv20_prior  rvol_d  chg20      mfe5        r
+count           491.0  4.910000e+02   491.0  491.0     491.0    491.0
+mean             18.9  1.199169e+08     7.6    6.2    2541.0   1281.4
+std              51.6  5.044691e+08    13.3   15.5    6620.9   3471.7
+min               2.0  5.000715e+06     0.0    1.3   -8849.3 -22186.7
+10%               2.5  6.976070e+06     0.4    1.9    -628.8  -1592.7
+25%               3.9  1.235711e+07     1.2    2.2      76.7   -112.4
+50%               7.9  2.841190e+07     3.6    2.9    1054.4   1216.7
+75%              18.2  7.882857e+07     8.6    5.2    3443.5   3084.6
+90%              33.4  1.723794e+08    17.1    9.7    6270.7   4976.6
+max             908.4  7.338326e+09   128.3  252.9  118220.0   9743.6
+
+### the 10 worst 5-day trades
+ticker       date  prev_close_raw  chg20  rvol_d  r_open1      r1      r5    mfe5
+  MRIN 2021-06-28             4.0    4.0    21.0   2440.0 13067.0 22187.0 26347.0
+   NBG 2013-05-17             2.0    3.0     3.0   -962.0 -3389.0 19582.0 22218.0
+  AGFY 2024-11-19            19.0    5.0     0.0   1211.0  7381.0 18121.0 21161.0
+  WKHS 2020-06-25             9.0    2.0     7.0    631.0  1565.0 14428.0 16752.0
+  SERV 2024-07-22             8.0    3.0    11.0   -741.0   718.0 12109.0 12366.0
+  MGRT 2026-04-09            44.0    5.0     1.0   -461.0   140.0 11650.0 24965.0
+  LUMN 2024-07-31             3.0    2.0     4.0    381.0   540.0 11048.0 14857.0
+   GGC 2009-07-30             7.0   26.0     2.0    226.0  1176.0  8992.0 20504.0
+  LAES 2024-12-17             2.0    5.0     2.0   -604.0 -2148.0  8356.0 11040.0
+   CAR 2026-04-14           371.0    3.0     3.0   -416.0  -384.0  7348.0  8611.0
+
+### Verdict
+
+- **The book**: 5-day hold **491 trades / 22 per year, 70% win, mean +1,281 bp, median +1,217,
+  PF 2.95, 17/21 years**; 10-day hold **PF 3.17, 74% win, median +2,107**. ⭐ Unlike every
+  LongHiker cell, it survives the tail check in BOTH directions: PF 2.36 / 2.64 without its best
+  5% of trades, 8.2 / 7.3 without its worst 5%. The edge is in the bulk, not the tail.
+- **Years**: 2009 (19 trades, PF 0.98 — the crash-rebound names again), 2011 (5 trades, 0/5) and
+  2013 (8 trades; ONE −196% trade, NBG 2013-05-17, a Greek-bank recapitalisation ADR — to be
+  tape-checked) are the negative years; 2014-2026 all PF > 1.5 except 2024 (1.51 with an AGFY
+  −181%); 2017-2026 at 22-71 trades/yr.
+- ⚠⚠ **THE TAIL IS THE SYSTEM'S RISK, AND IT IS THE SQUEEZE**: p95 of the 5-day high is +98%
+  against the entry; the ten worst trades are −70% to −222% in 5 days (MRIN +222% / +130% on day
+  one, AGFY +181%, NBG +196%, WKHS +144%). These are not data errors — they are the mania names
+  going parabolic after the spec fires. A −200% trade at full size is ruin; the book's PF exists
+  only because there are 490 others. **Sizing and a hard stop are not optional here**: the S2/S3
+  reading (the extreme close mean-reverts one night) says the first-morning gap is where the
+  squeeze declares itself — `r_open1` on the ten worst is +2,440 / +1,211 / +631 for the three
+  biggest. Borrow on these names is the other half of the question.
+- **What the names are**: median prior close $7.9 (p10 $2.5), median dollar volume $28M/day
+  (p10 $7M), median rvol 3.6 on the signal day, median 20-day change +290% (p10 +190%): the
+  low-priced mania runner, MaxFlyerV2's population, at a 20-day frequency instead of intraday.
+
+⏭ **Open before it is tradeable**: (1) a tail rule — hard stop at the next open / +X% / the
+ShortSnoozer gap × volatility disqualifier, measured on this book; (2) the NBG/MRIN/AGFY worst
+trades tape-checked; (3) borrow/locate reality on 20-70 names a year at $2-10 (the
+`lowflyer_short_productionization_research.md` question); (4) the exact-session mc=1 (this one
+approximates the hold in calendar days); (5) the intraday version when Massive is back.
