@@ -3046,3 +3046,195 @@ market showed up this morning" is worth ~3× the day-rate where every chart feat
 ~1.2×. It is ALSO the seventh sequentially-chosen feature on this cell, at 51 tkd/yr, with one
 negative year in the last two — a lead for a future selection-first system (catalyst → shape),
 not a spec. 💀 v7 remains CLOSED (S37); this is the note it closes on.
+
+
+## ⭐⭐ S39 — the SHAKEOUT family (user, 2026-09-06): break below the range, then new highs
+
+> USER: *"it's rare that in the indices the market just breaks out from a consolidation and goes
+> higher. Very often it breaks below the consolidation to shake out the weak hands and then reverses
+> and promptly makes new highs. I've seen those patterns intraday as well. So what we could try is
+> making new session high leg reset counters from last {20m,30m,40m,60m} low. And what we'd need to
+> measure is the distance and the time from the reset low. If the reversal is quick then that could
+> make for good momentum trades."*
+
+**Engine** (branch `longhiker-shakeout`, commit 24c0303): anchored on the last new N-m LOW
+(present-bar channels 1200/1800/2400/3600) — `sess_hi_since_lo_{20,30,40,60}m` (new SESSION highs
+since that low, k), `secs_since_lo_*` / `bars_since_lo_*` (t), `lo_px_*` (the low; `dist` =
+signal/lo − 1) and `sess_hi_at_lo_*` (the session high standing when the low printed; `depth` =
+lo/that − 1, the pullback depth; `reclaim` = signal/that − 1). `is_sess_hi`. New sampler flag
+`--signal-on-session-high-only`: fire only on STRICT new session highs (long side; a subset of the
+v7 20m-high rung). Smoke week invariants all clean; `secs_since_lo_20m ≡ secs_since_lo_1200`.
+
+**Corpus** `data/longhiker_trips_shake/`: 2020-01-02 → 2026-09-04, 1,173,620 tkd, **44,088,183
+trips / 23 GB / 51 min**, 37.6 trips/tkd. Study slice `data/longhiker_study_shake.parquet` (long
+side, 741,002 tkd with a session high). Script `scripts/equity/longhiker_shake_study.py`, log
+`data/longhiker_shake_study.log`. Every cell = **mc=1 greedy replay INSIDE the gate** on
+`entry_sec`/`exit_sec` (exact this time — `exit_sec` is in the slice), equal-weighted by tkd;
+`trim-top5` = eqw with the BEST 5% of days removed (the tail-dependence check for a long-momentum
+book); `mc0` = trip-weighted-per-tkd mean without the replay. FRAME = S33's dense rung:
+`gap_60 < 30 ∧ volat_20m ≥ 20bp ∧ signal_sec ≥ 35100`. Exit = ts30 unless stated.
+
+### §1 The rung itself is negative; the shakeout STATE is 7/7
+
+### T0 — the session-high rung  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| all session highs (no frame) | 105,857 | 44,088,183 | -1.32 | -0.05 | 49.3 | 0/7 | -3.47 | -3.72 | -1.18 | -33.3 |
+| FRAME | 20,080 | 4,338,839 | -3.65 | -0.18 | 49.2 | 0/7 | -9.02 | -10.27 | -4.24 | -33.3 |
+| FRAME × reseat 1-4 (S3e ref) | 3,290 | 71,144 | +7.98 | +4.41 | 54.8 | 7/7 | -3.86 | +2.32 | +5.41 | -19.4 |
+
+### T1 — session highs since the last N-m low (k)  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 20m: no low yet this session | 1,629 | 287,817 | -5.28 | -0.59 | 48.3 | 0/7 | -10.53 | -12.18 | -5.98 | -17.1 |
+| 20m: k=1 (FIRST sess high after the low) | 4,993 | 40,706 | +8.30 | +3.51 | 53.7 | 7/7 | -7.16 | +8.30 | +4.58 | -32.6 |
+| 20m: k=2-4 | 5,779 | 123,100 | +10.43 | +4.77 | 55.2 | 7/7 | -3.60 | +5.12 | +8.36 | -31.0 |
+| 20m: k>=5 | 19,406 | 4,175,033 | -3.92 | -0.26 | 49.1 | 0/7 | -9.10 | -10.59 | -4.63 | -33.3 |
+| 30m: no low yet this session | 1,659 | 311,483 | -5.33 | -0.56 | 48.4 | 0/7 | -10.53 | -12.05 | -5.72 | -17.1 |
+| 30m: k=1 (FIRST sess high after the low) | 4,516 | 34,622 | +9.04 | +3.64 | 53.8 | 7/7 | -7.09 | +9.04 | +5.56 | -32.6 |
+| 30m: k=2-4 | 5,273 | 105,380 | +11.19 | +4.84 | 55.1 | 7/7 | -3.40 | +5.69 | +8.95 | -31.0 |
+| 30m: k>=5 | 19,423 | 4,198,837 | -3.91 | -0.25 | 49.1 | 0/7 | -9.09 | -10.54 | -4.66 | -33.3 |
+| 40m: no low yet this session | 1,668 | 322,115 | -5.26 | -0.55 | 48.4 | 0/7 | -10.43 | -11.91 | -5.69 | -17.1 |
+| 40m: k=1 (FIRST sess high after the low) | 4,306 | 31,986 | +9.34 | +3.64 | 53.7 | 7/7 | -7.03 | +9.34 | +5.43 | -32.6 |
+| 40m: k=2-4 | 5,053 | 97,667 | +11.51 | +4.90 | 55.1 | 7/7 | -3.32 | +5.88 | +9.23 | -31.0 |
+| 40m: k>=5 | 19,428 | 4,209,186 | -3.91 | -0.24 | 49.1 | 0/7 | -9.08 | -10.52 | -4.66 | -33.3 |
+| 60m: no low yet this session | 1,675 | 333,564 | -5.40 | -0.56 | 48.3 | 0/7 | -10.32 | -11.88 | -5.70 | -17.1 |
+| 60m: k=1 (FIRST sess high after the low) | 4,112 | 29,709 | +9.35 | +3.62 | 53.7 | 7/7 | -7.07 | +9.35 | +5.35 | -32.6 |
+| 60m: k=2-4 | 4,850 | 90,931 | +11.67 | +4.91 | 55.2 | 7/7 | -3.27 | +5.97 | +9.50 | -31.0 |
+| 60m: k>=5 | 19,432 | 4,218,199 | -3.90 | -0.24 | 49.1 | 0/7 | -9.07 | -10.51 | -4.63 | -33.3 |
+
+⭐ **The state works, and the anchor horizon barely matters**: 20m/30m/40m/60m give the same
+numbers (a 60m low is also a 20m low, and k=1 events coincide). k=1 (the FIRST session high after
+the low) +8.3 · k=2-4 +10.4 · **k≥5 −3.9, 0/7** · no low yet −5.3, 0/7. This is S3e's reseat result
+(`highs_20m_since_lo 1-4` = +8.0 here) re-derived on session highs, with a cleaner state definition.
+⚠ `trim-top5` is negative in every k cell: the mean is carried by the top 5% of days (median +3.5
+to +4.8, up 54-55% — a mildly positive bulk under a fat right tail).
+
+### §2 ⚠⚠ The thesis INVERTS: the SLOW reversal wins, and the DEEP pullback wins
+
+### T2 — 20m low, k=1: time from the low to this new high  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 20m k=1, t <2m | 32 | 227 | -7.09 | +13.23 | 58.4 | 2/7 | -37.04 | -7.09 | -70.86 | -14.6 |
+| 20m k=1, t 2-5m | 179 | 1,257 | +7.16 | +2.75 | 53.2 | 6/7 | -9.67 | +7.16 | +15.33 | -12.5 |
+| 20m k=1, t 5-10m | 778 | 5,544 | +6.09 | +3.11 | 52.8 | 6/7 | -9.53 | +6.09 | -0.94 | -17.0 |
+| 20m k=1, t 10-20m | 1,815 | 13,159 | +5.43 | +2.56 | 52.8 | 6/7 | -9.39 | +5.43 | +3.81 | -19.4 |
+| 20m k=1, t 20-40m | 1,498 | 11,123 | +6.83 | +2.77 | 52.9 | 6/7 | -9.06 | +6.83 | -0.77 | -32.6 |
+| 20m k=1, t 40m+ | 1,259 | 9,396 | +16.55 | +5.28 | 54.4 | 7/7 | -4.39 | +16.55 | +15.42 | -20.3 |
+
+### T3 — 20m low, k=1: depth of the break below the standing high  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 20m k=1, depth 0 to -30bp | 0 | | | | | | | | | |
+| 20m k=1, depth -30 to -60 | 0 | | | | | | | | | |
+| 20m k=1, depth -60 to -100 | 2 | 8 | +5.71 | +4.86 | 62.5 | 2/4 | +1.92 | +5.71 | +nan | -0.1 |
+| 20m k=1, depth -1 to -2% | 323 | 2,262 | +2.62 | +0.42 | 50.9 | 7/7 | -1.24 | +2.62 | +2.65 | -1.3 |
+| 20m k=1, depth -2 to -4% | 2,081 | 15,130 | +4.74 | +2.66 | 53.6 | 7/7 | -0.35 | +4.74 | +0.85 | -2.4 |
+| 20m k=1, depth <-4% | 2,766 | 23,306 | +11.48 | +4.71 | 53.8 | 7/7 | -9.81 | +11.48 | +8.69 | -32.6 |
+
+### T4 — 20m low, k=1: time × depth, eqw (tkd/yr)
+| depth \ t | <5m | 5-10m | 10-20m | 20-40m | 40m+ |
+|---|---|---|---|---|---|
+| 0 to -30bp | — | — | — | — | — |
+| -30 to -60 | — | — | — | — | — |
+| -60 to -100 | — | +9.7 (1) 2/3 | +1.7 (1) 1/3 | — | — |
+| -1 to -2% | +4.5 (39) 6/7 | +1.4 (108) 6/7 | +2.5 (149) 6/7 | +5.7 (25) 4/7 | +8.6 (2) 2/6 |
+| -2 to -4% | +12.8 (110) 6/7 | +5.0 (425) 7/7 | +3.7 (927) 7/7 | +4.5 (538) 7/7 | +4.6 (139) 6/7 |
+| <-4% | -7.6 (63) 2/7 | +10.1 (248) 5/7 | +8.1 (756) 5/7 | +8.1 (956) 5/7 | +18.0 (1,126) 7/7 |
+
+**"Quick" is not the good cell.** Time from the low to the first new session high: 2-40 min all
+read +5 to +7 (6/7); **40m+ reads +16.6, 7/7, and is the only band with a survivable trim**; the
+<2m cell is 32 tkd/yr and 2/7. Depth is monotone the other way from "shallow shake": **<−4%
+pullbacks +11.5 (7/7)** vs −1..−2% +2.6. The cross puts the edge in the corner the thesis did not
+predict: **deep × slow = +18.0 at 1,126 tkd/yr, 7/7**; deep × quick (<5m) = **−7.6, 2/7**. Quick
+works only at moderate depth (−2..−4% × <5m: +12.8, 110/yr, 6/7). The pre-declared thesis cell
+(k=1, t<10m, depth<−60bp) reads +5.9 at 980/yr, 6/7, 2023 negative, 2026 +1.3 — alive but the weak
+member of the family. ⚠ `depth` is bounded below by the session range so far (no cell shallower
+than −1% on a ≥20bp tape): it is a PULLBACK depth, not the break-below-the-floor magnitude. A
+second stamp (the prior 20m low at the FIRST break of the leg) would measure the shake itself —
+queued, not built.
+
+### §3 The deep×slow cell through the three controls
+
+### T6a — deep×slow across exits  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| exit ts30 | 1,126 | 8,410 | +17.95 | +5.96 | 54.6 | 7/7 | -4.25 | +17.95 | +18.07 | -20.3 |
+| exit ts60 | 1,126 | 8,409 | +25.42 | +7.85 | 54.4 | 7/7 | -3.45 | +25.42 | +27.29 | -18.7 |
+| exit ts120 | 1,126 | 8,408 | +29.91 | +9.72 | 53.9 | 7/7 | -7.48 | +29.91 | +32.20 | -32.0 |
+| exit fwd300 | 1,126 | 8,410 | +30.37 | +4.64 | 51.4 | 7/7 | -13.93 | +30.37 | +16.65 | -21.1 |
+| exit fwd600 | 1,125 | 8,405 | +35.37 | +1.53 | 50.3 | 7/7 | -25.03 | +35.37 | +25.02 | -32.3 |
+| exit fwd1200 | 1,099 | 8,179 | +33.56 | -2.64 | 49.4 | 7/7 | -44.54 | +33.56 | +7.40 | -52.0 |
+| exit lo60 | 1,126 | 8,407 | +22.53 | -11.84 | 44.0 | 7/7 | -17.01 | +22.53 | +32.81 | -23.3 |
+
+### T6b — deep×slow by year  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2020 | 1,623 | 1,729 | +16.28 | +8.38 | 58.0 | 1/1 | +0.99 | +16.28 | +nan | -5.1 |
+| 2021 | 1,744 | 1,858 | +21.54 | +10.02 | 57.0 | 1/1 | +4.56 | +21.54 | +nan | -9.2 |
+| 2022 | 1,033 | 1,099 | +18.61 | +4.04 | 53.4 | 1/1 | -4.49 | +18.61 | +nan | -16.4 |
+| 2023 | 623 | 679 | +23.70 | +0.96 | 50.7 | 1/1 | -12.17 | +23.70 | +nan | -11.9 |
+| 2024 | 774 | 834 | +11.18 | +0.58 | 50.4 | 1/1 | -22.83 | +11.18 | +nan | -13.2 |
+| 2025 | 1,170 | 1,245 | +15.67 | +6.35 | 54.4 | 1/1 | -5.38 | +15.67 | +nan | -20.3 |
+| 2026 | 916 | 966 | +18.07 | +1.77 | 52.0 | 1/1 | -7.24 | +18.07 | +18.07 | -6.3 |
+
+### T6c — deep×slow by clock  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 09:45-10:00 | 0 | | | | | | | | | |
+| 10:00-11:00 | 267 | 1,869 | +8.62 | +2.83 | 52.9 | 6/7 | -8.57 | +8.62 | +4.19 | -15.5 |
+| 11:00-13:00 | 502 | 3,550 | +17.79 | +5.99 | 54.3 | 7/7 | -3.77 | +17.79 | +16.70 | -20.3 |
+| 13:00-15:00 | 292 | 2,062 | +24.35 | +7.80 | 54.6 | 7/7 | -1.94 | +24.35 | +34.95 | -11.9 |
+| 15:00-16:00 | 133 | 929 | +20.40 | +7.73 | 56.2 | 5/7 | -4.15 | +20.40 | +51.03 | -12.9 |
+
+**Exits**: ts60 +25.4 / ts120 +29.9 (7/7 both) with the median still rising (+6.0 → +9.7); beyond
+2m the mean keeps climbing but the median and trim collapse (fwd1200 med −2.6, trim −44.5) — the
+S25/S33 lesson again, the edge horizon is 1-2 minutes. **The 1m-low trail loses the median (−11.8)**.
+**Years**: 7/7 at ts30, eqw +11 to +24 every year, **2026 +18.1 (its best-or-second-best year)**.
+**Clock**: the cell cannot exist before 10:00 by construction (40m+ from a 20m low); it rises into
+the afternoon (+8.6 → +17.8 → +24.4) while the FRAME control is negative in every bucket — the
+opposite of the S-series "morning pattern", and consistent with the pattern needing a session's
+worth of structure to form.
+
+### §4 Widening, and the volatility band
+
+### T6d — widening the cell  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| k=2-4 × deep × slow | 1,328 | 26,048 | +19.52 | +8.42 | 56.8 | 7/7 | -0.43 | +11.73 | +20.23 | -22.3 |
+| k=1-4 × deep × slow | 1,384 | 34,458 | +22.21 | +9.03 | 57.3 | 7/7 | +1.57 | +11.41 | +19.93 | -22.3 |
+| k=1-4 × deep (any t) | 3,147 | 92,509 | +17.17 | +7.86 | 56.5 | 7/7 | -2.91 | +6.68 | +14.87 | -32.6 |
+| k=1-4 × slow (any depth) | 1,605 | 38,884 | +19.70 | +7.71 | 56.8 | 7/7 | +0.57 | +10.07 | +16.57 | -22.3 |
+| k=1-4 (the state alone) | 6,054 | 163,806 | +11.62 | +5.43 | 55.9 | 7/7 | -2.52 | +4.54 | +8.21 | -32.6 |
+
+### T7 — the state by volatility band  [exit=ts30, mc=1 replay-inside-gate, eqw = per-tkd mean bp]
+| cell | tkd/yr | trips | eqw | med | up% | yrs | trim-top5 | mc0 | 2026 | worst day % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| k=1-4 × volat 20-40bp | 4,434 | 111,265 | +7.51 | +4.62 | 55.9 | 7/7 | +1.53 | +3.40 | +3.87 | -8.4 |
+| k=1-4 × volat 40-80bp | 1,426 | 37,710 | +19.32 | +10.39 | 56.4 | 7/7 | +1.89 | +7.63 | +12.04 | -16.4 |
+| k=1-4 × volat 80bp+ | 517 | 14,831 | +26.68 | +9.05 | 52.8 | 7/7 | -15.93 | +2.76 | +40.99 | -32.6 |
+| k>=5 × volat 20-40bp | 15,405 | 2,865,809 | -1.55 | -0.13 | 49.3 | 0/7 | -4.89 | -6.22 | -2.99 | -6.6 |
+| k>=5 × volat 40-80bp | 5,334 | 962,408 | -2.87 | -0.05 | 49.6 | 1/7 | -10.00 | -13.69 | -4.32 | -10.5 |
+| k>=5 × volat 80bp+ | 1,584 | 346,816 | -27.22 | -12.46 | 44.2 | 0/7 | -45.53 | -51.91 | -26.46 | -33.3 |
+
+**k=1-4 × deep × slow: +22.2 eqw, med +9.0, 57.3% up, 7/7, trim-top5 POSITIVE (+1.6), 1,384
+tkd/yr, worst day −22%.** The first LongHiker cell whose mean survives removing its best 5% of days.
+Dropping either leg costs the trim (deep-only −2.9, slow-only +0.6); the state alone is +11.6 at
+6,054/yr. Volatility: the state's eqw rises with volat (+7.5 / +19.3 / +26.7) but the 80bp+ band is
+tail-only (trim −15.9, 52.8% up) while 20-80bp is trim-positive; and **k≥5 × 80bp+ is −27.2 / 0/7**
+— the S6b flip (extension collapses on volatile tape) at full size. Read: the shakeout state
+selects the reclaim; extension on a violent tape is the fade.
+
+### Verdict
+
+- ⭐⭐ **The shakeout state is real and 7/7**: first 1-4 session highs after a 20m+ low, dense tape.
+  Best cell **deep (>4% pullback) × slow (40m+ from the low)**: +22 bp/day eqw, median +9, 57% up,
+  7/7 years, trim-positive, ~1,400 tkd/yr; ts60/ts120 lift it to +25/+30 with 7/7 intact.
+- ⚠⚠ **The user's mechanism inverts**: the "prompt" reversal is the WEAK member (<5m × deep −7.6,
+  2/7); the good pattern is a deep pullback that takes most of an hour to reclaim and then prints
+  its first new session high — a travelled range being re-taken, S33 §3's shape once more.
+- **Magnitude**: +22-30 bp is 5× anything the program produced before (S33 best +10.6 at 128/yr) and
+  is the first cell to clear a quarter of the 50 bp bar with the tail trimmed; spreads on this
+  universe are still unmeasured (S31's open gap), so it is not yet "tradeable", it is "worth costing".
+- ⏭ Queued: the break-below-floor stamp (§2); the 30m-60m anchors as a k-agreement filter; the
+  short mirror (session LOW after a 20m+ high); a spread measurement on the deep×slow book.
