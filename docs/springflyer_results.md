@@ -1385,3 +1385,14 @@ run and does nothing about the losers** — the squeeze tail is in exactly the t
 a new low. So: a reasonable exit (take it over the 10-day timestop if you like the higher median
 and the earlier average exit), but NOT the risk control. The tail rule is still the open item and
 it has to be on the ADVERSE side (a stop), not on the profit side.
+
+### S9 decisions (user, 2026-09-07 close of session)
+
+- **Exit = the 10-day timestop** (PF 3.17, 74% win, median +2,107, 17/21). The 10-day-low exit is
+  a take-profit variant, not adopted.
+- **Borrow is the known blocker**: *"These are the exact patterns that I couldn't get borrows for at
+  IBKR back in 2013-2014."* Short availability for this population ($2-10, mania runners) to be
+  evaluated at **TradeZero, Lightspeed and IBKR** before anything goes live
+  (`docs/lowflyer_short_productionization_research.md` is the prior work on locates).
+- The tail rule (an adverse-side stop) remains open. User: *"I like this system a lot."*
+- Next up: LongHiker revisited with a consolidation feature (user's idea, to be explained).
