@@ -1063,3 +1063,26 @@ reads as: the ratio says the move was ONE-WAY (nobody sold on the way up — no 
 every holder is in profit and untested); the first red day is when they start testing; shorting
 the day BEFORE catches the gap-up-and-reverse. At 13-17/yr it is a low-frequency A+ cell, the same
 frequency class as LowFader's grade A.
+
+### S7 addendum — the retrace condition tightened to < 0.1 (user, 2026-09-07): it INVERTS the horizon
+
+Log `data/springflyer_retrace.log`; fine bands under the stacked spec, both retrace definitions.
+
+| spec | band | n/yr | r1 / PF | r5 / PF | r10 / PF | win5 | yrs5 | med r5 |
+|---|---|---|---|---|---|---|---|---|
+| 3-day ≥ 50% × rvol ≥ 5 × er10 ≥ 0.8 | **< 0.1** | 25 | +127 / 1.49 | +139 / 1.25 | +103 / 1.14 | 51% | 15/22 | +13 |
+| | < 0.3 (current) | 58 | +148 / 1.36 | +210 / 1.26 | +422 / 1.48 | 59% | 16/22 | +227 |
+| | **0.1-0.3** | 33 | +163 / 1.31 | +262 / 1.26 | **+665 / 1.67** | 64% | 16/22 | +668 |
+| same, er10 ≥ 0.9 | < 0.1 | 10 | +182 / 1.71 | +291 / 1.59 | +258 / 1.37 | 50% | 12/21 | +6 |
+| | 0.1-0.3 | 15 | +320 / 1.65 | +661 / 1.74 | **+1,059 / 2.18** | 67% | 15/22 | +1,048 |
+| S6 run-based, streak ≥ 3 × run ≥ 50% × er10 ≥ 0.8 | < 0.1 | 46 | +68 / 1.26 | +153 / 1.29 | +43 / 1.05 | 54% | 13/22 | +62 |
+| | 0.1-0.3 | 51 | +140 / 1.37 | +310 / 1.45 | +546 / 1.65 | 62% | 18/22 | +411 |
+
+**Read**: the barely-red day (< 0.1) is the best ONE-DAY short and the worst TEN-DAY one — its
+median 5-day return is ~0 in every spec (+13 / +6 / +62) and its r10 PF is 1.05-1.37 against
+1.65-2.18 for 0.1-0.3. Tightening to < 0.1 keeps the first-day pop and loses the unwind: a
+day that closed down 1-2% after a 50-150% run has not yet told the holders anything; 0.1-0.3 is
+the day that did. The 0.3-0.5 band bounces for 1-3 days (negative r1/r3) and catches up by 10;
+0.5+ (the deep red) is the best 10-day cell of all (+1,011 / 2.12 base) but through a −100 bp
+first day. **Ruling: the cut stays at 0.3; the cell is 0.1-0.3; < 0.1 is a different (1-day) trade.**
+The same holds under the S6 run-based retrace (< 0.1: r10 1.05; 0.1-0.3: 1.65).
