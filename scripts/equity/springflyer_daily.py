@@ -89,6 +89,8 @@ if args.rebuild or not os.path.exists(args.feat):
         -- per-row twins for LAGGING (the climax spec, 2026-09-07)
         volume / NULLIF(AVG(volume / n) OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) * n, 0) AS rvol_t,
         (cn - LAG(cn,10) OVER e) / NULLIF(SUM(dcn) OVER (e ROWS BETWEEN 9 PRECEDING AND CURRENT ROW), 0) AS er10s_t,
+        (cn - LAG(cn,20) OVER e) / NULLIF(SUM(dcn) OVER (e ROWS BETWEEN 19 PRECEDING AND CURRENT ROW), 0) AS er20s_t,
+        MAX(cn) OVER (e ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) / MIN(cn) OVER (e ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) - 1 AS rng20c_t,  -- 20-session CLOSE range incl. today
         MAX(cn) OVER (e ROWS BETWEEN 252 PRECEDING AND 1 PRECEDING) AS hi252c_prior,   -- 52w CLOSING high before D
         cn
       FROM b0
@@ -96,6 +98,8 @@ if args.rebuild or not os.path.exists(args.feat):
     ), c AS (
       SELECT *,
         LAG(er10s_t,1) OVER e                               AS prev_er10s,     -- efficiency at D-1's close
+        LAG(er20s_t,1) OVER e                               AS prev_er20s,
+        LAG(rng20c_t,1) OVER e                              AS prev_rng20c,    -- 20-session close range as of D-1
         GREATEST(LAG(rvol_t,1) OVER e, LAG(rvol_t,2) OVER e, LAG(rvol_t,3) OVER e) AS run_rvol_max3,  -- loudest of D-1..D-3
         LAG(cn,1) OVER e / LAG(cn,4) OVER e - 1             AS chg3_prev,      -- the 3-day move ending D-1
         CASE WHEN LAG(cn,1) OVER e >= LAG(hi252c_prior,1) OVER e THEN 1 ELSE 0 END AS at52_prev,  -- D-1 closed at a 52w closing high
@@ -112,6 +116,8 @@ if args.rebuild or not os.path.exists(args.feat):
       high / low - 1                    AS rng,           -- the day's range
       prev_streak, prev_run_gain, prev_run_maxday, up_streak_d, run_base,
       prev_er10s, run_rvol_max3, chg3_prev, at52_prev, chg3_d, at52_d, rvol_t AS rvol_d,
+      prev_er20s, prev_rng20c, rng20c_t AS rng20c_d,
+      high20_prior / low20_prior - 1 AS prev_rng20,   -- 20-session HIGH/LOW range as of D-1
       CASE WHEN prev_close > close_m4 THEN (prev_close - close) / (prev_close - close_m4) END AS retrace3,  -- D's give-back of the 3-day move
       CASE WHEN prev_close > run_base THEN (prev_close - close) / (prev_close - run_base) END AS retrace,  -- D's give-back of the run (1 = all of it)
       (high / low - 1) / NULLIF(atr20_prior, 0) AS rng_atr,  -- in units of the stock's own prior average range

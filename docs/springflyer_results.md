@@ -1086,3 +1086,87 @@ the day that did. The 0.3-0.5 band bounces for 1-3 days (negative r1/r3) and cat
 0.5+ (the deep red) is the best 10-day cell of all (+1,011 / 2.12 base) but through a −100 bp
 first day. **Ruling: the cut stays at 0.3; the cell is 0.1-0.3; < 0.1 is a different (1-day) trade.**
 The same holds under the S6 run-based retrace (< 0.1: r10 1.05; 0.1-0.3: 1.65).
+
+## S8 — the SIMPLIFIED spec (user, 2026-09-07): er10 > 0.9 ∧ er20 > 0.9 ∧ new 52w CLOSING high ∧ 20-session range > 200%
+
+> USER: *"Ok, let's simplify things. We'll look at patterns where both er20 and er10 are > 0.9, the
+> previous day made a new 52w closing high, and the 20d range is >200%. How well does that do?"*
+
+Log `data/springflyer_simple.log`. New features: `prev_er20s`, `prev_rng20c` / `rng20c_d` (the
+20-session CLOSE range, max close / min close − 1, as of D−1 / including D), `prev_rng20` (the
+high/low twin). All four conditions are values of ONE close; T1 shorts AT that close, T2 at the
+next close (the user's "previous day" phrasing), split by what the next day did.
+
+### T1 — SHORT AT THE SETUP CLOSE ITSELF (conditions on D: er10 > 0.9, er20 > 0.9, D a new 52w closing high, 20-session range)
+| cell | n/yr | yrs | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | p95 mfe5 | tail>50% | trips on 5+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| no range condition | 57 | 22 | +1 / 1.00 | +100 / 1.59 | +217 / 2.00 | +224 / 1.80 | +218 / 1.55 | 53% | 20/22 | +26 | +3139 | 3% | 4% |
+| + 20-session CLOSE range > 100% | 14 | 21 | +51 / 1.13 | +415 / 1.99 | +813 / 2.85 | +909 / 2.61 | +973 / 2.34 | 65% | 19/21 | +371 | +8628 | 9% | 0% |
+| + 20-session CLOSE range > 200% | 10 | 21 | +77 / 1.15 | +581 / 2.15 | +1122 / 3.39 | +1298 / 3.23 | +1477 / 3.01 | 71% | 18/21 | +702 | +9803 | 11% | 0% |
+| + 20-session CLOSE range > 300% | 7 | 21 | +102 / 1.16 | +691 / 2.20 | +1314 / 3.62 | +1608 / 3.90 | +1903 / 4.00 | 74% | 18/21 | +1049 | +9887 | 13% | 0% |
+| + 20-session HIGH/LOW range > 200% | 11 | 21 | +63 / 1.13 | +518 / 2.04 | +1030 / 3.17 | +1177 / 2.95 | +1369 / 2.93 | 70% | 18/21 | +624 | +9771 | 11% | 0% |
+| CONTROL: er10,er20 > 0.9, 52w high, close range 30-100% | 18 | 21 | -41 / 0.51 | -13 / 0.90 | +69 / 1.35 | +25 / 1.09 | +17 / 1.04 | 50% | 13/21 | +0 | +1851 | 1% | 0% |
+| CONTROL: close range > 200%, 52w high, but er20 < 0.7 | 47 | 22 | -61 / 0.83 | -77 / 0.90 | +15 / 1.01 | +112 / 1.09 | +668 / 1.58 | 60% | 15/22 | +713 | +12034 | 19% | 10% |
+
+### T2 — SHORT AT THE NEXT CLOSE (conditions as of D-1; D = the day after the setup)
+| cell | n/yr | yrs | r_open1 | r1 | r3 | r5 | r10 | win5 | yrs5 | med r5 | p95 mfe5 | tail>50% | trips on 5+ days |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| D any, close range > 200% | 14 | 21 | +122 / 1.44 | +295 / 1.64 | +636 / 2.09 | +831 / 2.26 | +979 / 2.22 | 67% | 16/21 | +522 | +11392 | 12% | 2% |
+| D RED (close < prev) | 9 | 21 | +22 / 1.07 | +149 / 1.26 | +434 / 1.61 | +617 / 1.74 | +882 / 2.00 | 65% | 16/21 | +538 | +13829 | 16% | 3% |
+| D RED, retrace of the 20d close range < 0.3 | 6 | 21 | +102 / 1.63 | +385 / 2.16 | +447 / 1.78 | +448 / 1.62 | +575 / 1.61 | 61% | 15/21 | +282 | +6589 | 9% | 0% |
+| D GREEN (close > prev; the climax continues) | 5 | 21 | +320 / 2.75 | +582 / 3.27 | +1027 / 3.83 | +1241 / 4.53 | +1173 / 2.80 | 72% | 15/21 | +483 | +4060 | 5% | 0% |
+| D any, HIGH/LOW range > 200% | 15 | 21 | +111 / 1.41 | +299 / 1.68 | +613 / 2.05 | +813 / 2.28 | +962 / 2.25 | 67% | 16/21 | +482 | +10984 | 12% | 2% |
+
+### T3 — year table, SHORT at the setup close: er10_signed > 0.9 AND er20_signed > 0.9 AND at52_d = 1 AND rng20c_d > 2.0
+| year | n | r_open1 | r1 | r5 | r10 | win5 | p95 mfe5 |
+|---|---|---|---|---|---|---|---|
+| 2005 | 4 | +66 / 4.81 | -54 / 0.68 | +240 / 3.33 | -1328 / 0.00 | 75% | +748 |
+| 2006 | 3 | -36 / 0.07 | +45 / 2.01 | -143 / 0.00 | -149 / 0.15 | 0% | +348 |
+| 2007 | 11 | +1368 / 8.95 | +1484 / 13.60 | +1238 / 4.00 | +1064 / 3.56 | 73% | +3774 |
+| 2008 | 4 | +86 / 2.45 | -166 / 0.17 | -355 / 0.07 | +452 / 5.45 | 25% | +1205 |
+| 2009 | 20 | -200 / 0.29 | -484 / 0.30 | -1133 / 0.24 | -1579 / 0.23 | 40% | +17454 |
+| 2010 | 1 | -18 / 0.00 | +345 / inf | +203 / inf | +1754 / inf | 100% | +966 |
+| 2011 | 4 | -69 / 0.39 | -172 / 0.46 | +234 / 1.48 | +1478 / inf | 50% | +1787 |
+| 2013 | 6 | -2 / 0.99 | +660 / 14.15 | +1540 / inf | +1902 / inf | 100% | +2456 |
+| 2014 | 9 | -115 / 0.71 | -512 / 0.29 | +330 / 4.61 | +150 / 1.58 | 44% | +4969 |
+| 2015 | 8 | -565 / 0.21 | +302 / 2.57 | +814 / 7.75 | +1123 / 71.66 | 88% | +5033 |
+| 2016 | 8 | -285 / 0.27 | +517 / 3.22 | +939 / 87.35 | +937 / 10.95 | 88% | +3447 |
+| 2017 | 18 | +106 / 1.29 | +805 / 3.20 | +2116 / 14.78 | +2254 / 7.65 | 89% | +4365 |
+| 2018 | 7 | -1176 / 0.25 | +1977 / 13.05 | +2605 / 9.40 | +2102 / 5.31 | 86% | +7840 |
+| 2019 | 13 | +128 / 6.15 | +216 / 2.48 | +481 / 3.49 | -118 / 0.87 | 54% | +2025 |
+| 2020 | 15 | -231 / 0.75 | +636 / 1.67 | +2067 / 6.17 | +1606 / 2.30 | 87% | +10995 |
+| 2021 | 18 | -114 / 0.89 | +1259 / 2.30 | +1800 / 2.39 | +2837 / 5.29 | 89% | +14130 |
+| 2022 | 5 | +496 / 12.23 | +40 / 1.05 | +583 / 2.26 | +99 / 1.11 | 60% | +4297 |
+| 2023 | 3 | +920 / 4.96 | +1986 / 405.65 | +4960 / inf | +8952 / inf | 100% | +1548 |
+| 2024 | 22 | +600 / 2.12 | +1023 / 4.11 | +1688 / 2.46 | +2770 / 4.06 | 68% | +13494 |
+| 2025 | 18 | +863 / 3.33 | +1155 / 3.63 | +3132 / 13.93 | +2408 / 4.06 | 78% | +5792 |
+| 2026 | 15 | -727 / 0.46 | -67 / 0.95 | +1361 / 2.43 | +2723 / 4.89 | 64% | +18708 |
+
+### Verdict — this is the cell. PF 3.2 at 5 days, 3.0 at 10, 18/21 years, ~10/yr, and it is the range that does it on top of the ratios
+
+- **T1, at the setup close**: the two ratios × 52w closing high alone are a modest short
+  (r5 +224 / 1.80, 20/22 years but median +26 at 57/yr). The 20-session close range is the
+  multiplier: > 100% → r5 +909 / 2.61; **> 200% → r1 +581 / 2.15, r3 +1,122 / 3.39, r5 +1,298 /
+  3.23, r10 +1,477 / 3.01, 71% win, median r5 +702, 18/21 years, 10/yr**; > 300% → r5 +1,608 / 3.90,
+  r10 +1,903 / 4.00 at 7/yr. The high/low range reads the same (2.95). Both controls fail the way
+  they should: the same ratios and 52w high with a 30-100% range are nothing (+25 / 1.09, median 0)
+  and a 200% range at a 52w high with er20 < 0.7 is a 1-day LOSER (−77 / 0.90) that only pays at
+  10 days (1.58) with a 19% tail — the ratios are what make it a next-day short.
+- **T2, at the next close**: unconditional next-day entry r5 +831 / 2.26 (14/yr); if the next day
+  was GREEN (the climax ran one more day) **r5 +1,241 / 4.53, 72% win, 15/21, p95 tail only +41%**
+  — the extra day of climax is the best entry on the page; if RED, +617 / 1.74 with the fattest tail
+  (p95 +138%). The red-day confirmation costs edge here too (S6, S7, S8 — three for three).
+- **T3 — years**: 2009 is the one real loser (20 trades, r5 −1,133 — the March-2009 rebound names
+  reaching 52w closing highs off crash lows; the only year where "a 200% 20-day range at a new high"
+  was the MARKET and not a name); 2005/2006/2008 are 3-4 trades each. 2013-2026 positive at r5 in
+  every year, most of them at PF > 2.3. Not clustered (0% of trips on 5+-signal days).
+- ⚠ The tail: p95 mfe5 +98%, 11% of trades see a 5-day high 50%+ above the entry; the next-open
+  gap is only +77 / 1.15 (it does not gap against you on average, but the 2018/2026 rows show
+  −1,176 / −727 first-morning years). Borrow on these names is the practical question.
+
+**Where this leaves the short side**: four studies converged on one object — a name that has gone
+up in a straight line (both ratios > 0.9) far enough (a 3× range in 20 sessions) to a new high, is
+a 5-10 day short at PF ~3 with a 70% win rate, at ~10 signals a year over 2005-2026 and ~15/yr
+since 2017. This is SpringFlyer's spec candidate. Next: (1) the mc=1 book with one position per
+name and the tail rule (ShortSnoozer's gap × volatility disqualifier), (2) borrow / locate reality
+on the 10-20 names a year, (3) the intraday version on the 1s tape when Massive returns.
