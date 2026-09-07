@@ -1343,3 +1343,45 @@ ShortSnoozer gap × volatility disqualifier, measured on this book; (2) the NBG/
 trades tape-checked; (3) borrow/locate reality on 20-70 names a year at $2-10 (the
 `lowflyer_short_productionization_research.md` question); (4) the exact-session mc=1 (this one
 approximates the hold in calendar days); (5) the intraday version when Massive is back.
+
+### S9 addendum — cover at the first 10-day CLOSING LOW instead of the timestop (user, 2026-09-07)
+
+Log `data/springflyer_exit_10dlow.log`. Forward path walked on `daily_episodes_causal` (keyed on
+ticker × episode × row; the first attempt joined on ticker only and pulled other episodes' rows
+for recycled symbols — caught by a mean of −943,501 bp; the fixed walk reproduces the feature
+table's `r5` to 0.0 bp). Exit = the first close BELOW the lowest close of the trailing N sessions,
+with a session cap; mc=1 per name as in S9.
+
+| exit rule | trades | win% | mean bp | median | PF | PF ex best 5% | worst | mean hold (sessions) | exits by rule % | yrs PF>1 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 5-day timestop | 491 | 70% | +1281 | +1217 | **2.95** | 2.36 | -22187 | 5.0 | 0% | 17/21 |
+| 10-day timestop | 480 | 74% | +1736 | +2107 | **3.17** | 2.64 | -19094 | 10.0 | 0% | 17/21 |
+| 20-day timestop | 467 | 73% | +2100 | +2804 | **3.30** | 2.80 | -32202 | 20.0 | 0% | 19/21 |
+| first 10-day CLOSING LOW, cap 20 | 481 | 74% | +1925 | +2584 | **3.23** | 2.74 | -32202 | 13.5 | 73% | 18/21 |
+| first 10-day closing low, cap 30 | 481 | 74% | +1913 | +2644 | **3.10** | 2.63 | -40552 | 15.1 | 87% | 17/21 |
+| first 10-day closing low, cap 40 | 479 | 75% | +1909 | +2651 | **3.01** | 2.57 | -36512 | 15.8 | 94% | 17/21 |
+| first 5-day closing low, cap 20 | 481 | 77% | +1548 | +1894 | **3.17** | 2.61 | -32202 | 7.8 | 94% | 18/21 |
+| first 20-day closing low, cap 40 | 478 | 74% | +2196 | +3255 | **3.03** | 2.63 | -50040 | 27.0 | 74% | 19/21 |
+| first 10-day closing low after >= 5 sessions, cap 30 | 481 | 74% | +1919 | +2644 | **3.10** | 2.63 | -40552 | 15.4 | 87% | 17/21 |
+
+### the 10-day-closing-low exit (cap 30): when it fires, and what each bucket returns
+| exit session | trades | win% | mean | median | PF |
+|---|---|---|---|---|---|
+| 1-2 | 5 | 60% | +2917 | +7508 | 2.33 |
+| 3-5 | 14 | 100% | +5755 | +6118 | inf |
+| 6-10 | 167 | 100% | +4188 | +4260 | inf |
+| 11-20 | 174 | 76% | +2029 | +2258 | 5.27 |
+| 21-30 (incl. the cap) | 121 | 34% | -1880 | -1078 | 0.34 |
+
+**Read**: the 10-day-closing-low exit with a 20-session cap is **PF 3.23, mean +1,925, median
++2,584, 74% win, 18/21 years, 13.5 sessions average** — a hair above the 10-day timestop (3.17 /
++1,736 / +2,107) and a hair below the 20-day timestop (3.30 / +2,100 / +2,804, 19/21) at a shorter
+hold. The 5-day-low version is the same thing faster (3.17 at 7.8 sessions). The bucket table says
+what it is: **a take-profit.** Trades where the new 10-day low prints in sessions 3-10 are 100%
+winners at +4,188 bp (by construction — undercutting the pre-run closes within two weeks of a
+climax IS the unwind); the 25% that never print it by the cap are the losers (34% win, −1,880) and
+they carry the same worst trade as the timestops (−322%; −405% at cap 30). **It lets the winners
+run and does nothing about the losers** — the squeeze tail is in exactly the trades that never make
+a new low. So: a reasonable exit (take it over the 10-day timestop if you like the higher median
+and the earlier average exit), but NOT the risk control. The tail rule is still the open item and
+it has to be on the ADVERSE side (a stop), not on the profit side.
