@@ -3389,3 +3389,339 @@ eqw, PF ~1.5, below 1 without its top 5% of trades, at ~1,700 trades/yr — the 
 
 Corpus `data/longhiker_trips_shake/` (23 GB) and slice `data/longhiker_study_shake.parquet` stay on
 disk until space is needed. Branch `longhiker-shakeout`, unmerged.
+
+# ⭐ S40 — THE CONSOLIDATION SLOT-VARIANCE RATIO (user, 2026-09-07; branch `longhiker-consol`)
+
+> USER: *"We'll split the last 10m into 30s slots and calculate the average variance of individual
+> slots and divide them by the variance of the entire 10m period. That should give us a high score
+> for tight consolidation unlike eff. It should be bounded in [0,1]. We might also want to divide
+> the standard deviations instead... I don't recall calculating the variances of 30s slots and
+> dividing those by the {3m,5m,10,20m} variances."*
+
+Not done before. The two neighbours in this doc are different objects: v7's `tight = std/volat`
+(S32) is level std over the mean |30s slot move| — unbounded, random walk ≈ 6, coil = the LEFT
+tail; S13/S14's variance ratio is Lo-MacKinlay on the slot RETURN stream. This one is the law of
+total variance on the LEVEL stream.
+
+## The feature
+
+    consol_Nm = mean within-slot variance / whole-window variance
+                over the last k = {6,10,20,40} completed 30-present-bar slots (3/5/10/20m),
+                on ln(1s vwap), population moments
+
+`total = mean(within) + var(slot means)` exactly on equal slots, so **consol ∈ [0,1]**:
+1 = the slot means never move (noise around one level — the coil), 0 = every move is between
+slots (a trend). `SlotVarRatioMa` (RollingMa.fs; per-slot (n, Σy, Σy²) ring, origin-shifted).
+Oracle `SlotVarRatio_Test.fsx`: direct computation at every completed slot, worst relerr 2e-13;
+shift invariance at 1e6; every reading in [0,1] over 20k random-walk bars; limits below.
+
+**std vs variance (user's question):** √ of the ratio is a monotone transform, so any gate on one
+is the same gate on the other — the variance form is recorded (it carries the exact bound), √ in
+SQL when the low end needs spreading. Averaging the stds FIRST is bounded too (Jensen) but breaks
+the exact decomposition; not used.
+
+⚠ **The reference is window-dependent.** A random walk reads ≈ 1.6/k (mean of the ratio; 1/k is
+the ratio of the means), so the windows are NOT on one scale:
+
+| window | slots k | i.i.d. noise | straight line | random walk (oracle §3) |
+|---|---|---|---|---|
+| 3m | 6 | | | 0.263 |
+| 5m | 10 | | | 0.176 |
+| 10m | 20 | 0.967 | 0.003 | 0.083 |
+| 20m | 40 | | | 0.043 |
+
+The coil is the band ABOVE the reference; a trend is below it.
+
+⚠ **Contamination, same as v7:** the breakout slot inflates the window variance and makes the coil
+read LOOSE on the signal bar. Every window ships a `_lag1m` twin ending 2 completed slots ago.
+Warmth: nan until k(+2) slots have completed — the 20m twin needs 42 slots (~21 min of present
+bars), 8% of signal rows on the smoke week.
+
+## Smoke week (2026-08-24..28, v7 sampler, 702k trips / 4,613 tkd)
+
+Bounds hold (min 0.003, max 0.999). Distribution on signal rows (new 20m extremes):
+
+| col | q10 | q25 | med | q75 | q90 | mean |
+|---|---|---|---|---|---|---|
+| consol_3m | .113 | .174 | .281 | .444 | .623 | .329 |
+| consol_5m | .069 | .108 | .175 | .285 | .419 | .216 |
+| consol_10m | .036 | .056 | .095 | .158 | .240 | .121 |
+| consol_20m | .019 | .032 | .058 | .098 | .149 | .074 |
+| consol_20m_lag1m | .021 | .035 | .063 | .107 | .161 | .080 |
+
+The medians land ON the random-walk reference (.28/.18/.10/.06 vs .26/.18/.08/.04) — a new 20m
+extreme is, at the median, a random walk that just touched its edge; the coil is the top quartile.
+The lag twin reads slightly higher than the signal-bar value (.080 vs .074): the breakout slot
+does deflate the score, as expected.
+
+⭐ **Not a transform of `tight`:** corr(consol_20m_lag1m, tight_lag) = −0.14/−0.15 (log-log −0.24/
+−0.26), corr with vr4_ewma −0.20, with eff_ewma_20m ±0.37 (sign by side — a trend into the
+extreme reads low, as it should). Under a pure random walk the two would be ≈ c/tight²; the
+divergence is the 1s microstructure noise inside the slots, which `tight` cannot see.
+
+Base pass: `scripts/equity/longhiker_run_consol.sh` → `data/longhiker_trips_consol/` (v7 sampler,
+2020-01-02 → 2026-09-04); study `scripts/equity/longhiker_consol_study.py` (mc=1 replay inside
+each gate, both sides in TRADE convention, tables T0-T6).
+
+⏭ **Queued (user):** a 30s-slot version of the breakout study — "maybe 1s bars are noisy and that
+is skewing the results". Note that the within-slot 1s noise IS this ratio's numerator; a slot-vwap
+sampler (fire on new slot-vwap extremes instead of 1s-vwap extremes) is the variant that removes
+single-print breakouts from the rung, and the two are different features, not one cleaner than the
+other.
+
+## S40 results — base pass 2020-01-02 → 2026-09-04 (v7 sampler, 201.7M trips / 1.17M tkd / 105 GB / 77 min)
+
+Full tables: `data/longhiker_consol_study_T0-6.log`, `_T7.log`, `_T8.log`. FRAME = S33's dense rung
+(`gap_60 < 30 ∧ volat_20m ≥ 20bp ∧ signal_sec ≥ 09:45`); every cell mc=1 replayed inside the gate,
+eqw = per-tkd mean bp in TRADE convention, 7 years.
+
+### ⭐ §1 The feature GRADES the long rung, monotone, and the coil is the GOOD end (T1, ts30)
+
+| consol_5m_lag1m | tkd/yr | eqw | med | up% | yrs | trim-top5 | 2026 |
+|---|---|---|---|---|---|---|---|
+| <.10 (trend into the high) | 17,933 | −4.13 | −0.74 | 48.2 | 0/7 | −9.05 | −5.23 |
+| .10-.20 | 18,122 | −0.56 | +0.18 | 50.4 | 3/7 | −6.21 | −1.72 |
+| .20-.30 | 13,167 | +0.66 | +0.62 | 51.1 | 3/7 | −6.02 | −0.09 |
+| .30-.45 | 9,380 | +1.16 | +0.84 | 51.3 | 5/7 | −6.61 | +1.54 |
+| .45-.60 | 3,700 | +1.09 | +0.66 | 50.9 | 5/7 | −9.37 | −0.23 |
+| .60+ (the coil) | 1,259 | +4.33 | +2.88 | 53.6 | 5/7 | −7.55 | +3.95 |
+
+3m reads the same (.75+: **+4.30, med +2.12, 7/7**, 2,699 tkd/yr; <.15: −3.61, 0/7). 10m is flat
+until .40+ (+1.98, 568 tkd/yr); **20m is flat/negative in every band** (.25+ +0.77 at 327 tkd/yr).
+⭐ **The v7 inversion was `tight`'s, not the thesis's**: on this measure the coil break IS the good
+long and the trend-into-the-extreme the bad one, exactly as the user wrote it 2026-08-26. The
+SHORT side is a weaker mirror: <.10 is −4.34/0/7 (a downtrend into the low does not continue at
+30 bars), the coil +0.60 (5m) / +1.83 (3m, 5/7) — flat.
+
+### §2 UNLAGGED beats lagged (T2, ts30, long, 5m)
+
+| consol_5m (unlagged) | tkd/yr | eqw | med | up% | yrs | trim-top5 |
+|---|---|---|---|---|---|---|
+| <.10 | 20,059 | −4.31 | −0.76 | 48.1 | 0/7 | −8.97 |
+| .10-.20 | 18,189 | +0.78 | +0.80 | 51.4 | 4/7 | −5.05 |
+| .20-.30 | 11,989 | **+2.74** | +1.56 | 52.3 | **7/7** | −4.53 |
+| .30-.45 | 7,974 | +2.67 | +1.54 | 52.0 | 6/7 | −5.77 |
+| .45-.60 | 2,928 | +3.69 | +2.07 | 52.3 | 5/7 | −7.98 |
+| .60+ | 991 | +6.08 | +2.42 | 52.7 | 6/7 | −7.92 |
+
+Both are causal (the ratio updates only on COMPLETED slots). The unlagged read adds "the coil was
+still intact as of the last completed slot, ≤30 bars ago" — a FRESH break — and that is worth
++2 bp and two years over the twin. The lag was built to stop the breakout DEFLATING the score;
+here the deflation is itself informative (a score already broken = a move already travelled).
+Keep both; the unlagged one is the feature.
+
+### §3 It is NOT eff (T7, ts30, long, inside |eff_20m| < 0.2)
+
+| consol_5m_lag1m, |eff_20m|<.2 | tkd/yr | eqw | med | yrs | 2026 |
+|---|---|---|---|---|---|
+| <.10 | 8,117 | −1.42 | −0.02 | 1/7 | −1.61 |
+| .10-.20 | 8,804 | +0.86 | +0.23 | 4/7 | +0.58 |
+| .20-.30 | 6,190 | +1.98 | +0.49 | 7/7 | +2.63 |
+| .30-.45 | 4,322 | +2.26 | +0.49 | 6/7 | +5.22 |
+| .45-.60 | 1,600 | +0.96 | +0.24 | 5/7 | +2.73 |
+| .60+ | 601 | **+7.31** | +2.85 | **7/7** | +9.46 |
+
+The 5m gradient SURVIVES the eff control at full size. The 20m gradient does NOT (all bands −0.3
+to +0.5 inside |eff|<.2; .25+ +2.5 at 291 tkd/yr) — matched-window corr(log consol_20m, |eff_20m|)
+is −0.70, and the 20m ratio is mostly a re-reading of eff. **5m is the window.**
+
+### §4 The volatility flip, again (T6, ts30, long)
+
+| consol_5m_lag1m × volat_20m | tkd/yr | eqw | med | up% | yrs | trim-top5 | worst day |
+|---|---|---|---|---|---|---|---|
+| .60+ × 20-40bp | 926 | **+5.18** | +3.24 | 54.7 | **7/7** | **−0.68** | −3.0% |
+| .60+ × 40-80bp | 285 | +6.46 | +2.41 | 52.2 | 6/7 | −10.28 | −9.7% |
+| .60+ × 80bp+ | 89 | −6.14 | −8.44 | 47.3 | 3/7 | −45.24 | −18.6% |
+| .30-.45 × 20-40bp | 7,157 | +1.30 | +0.73 | 51.3 | 6/7 | −3.07 | −5.1% |
+| .10-.20 × 80bp+ | 1,518 | −10.06 | −6.64 | 46.9 | 1/7 | −28.64 | −15.8% |
+
+S6b's rule holds: the coil pays on CALM tape and flips on violent tape. The calm coil is the
+cleanest cell on the page — trim-top5 −0.7 (near neutral, the first LongHiker long cell to get
+there at ts30 besides S39's deep×slow), worst day −3%.
+
+### §5 Exits (T5/T8) — the coil's horizon is MINUTES, not 30 s
+
+| cell (long) | tkd/yr | ts30 | ts60 | ts120 | fwd300 | fwd600 |
+|---|---|---|---|---|---|---|
+| consol_5m_lag1m ≥ .60 × calm | 926 | +5.18 | +7.61 (7/7, trim −0.3) | **+11.40** (6/7, med +6.5, trim −0.4) | +12.65 | +11.12 (med +0.1) |
+| consol_5m_lag1m ≥ .45 × calm | 3,129 | +2.07 | +4.63 | +7.67 | +8.95 | +6.52 |
+| consol_5m UNLAGGED ≥ .45 × calm | 2,535 | +4.85 (7/7) | +6.80 (7/7) | +8.50 | +8.93 | +7.40 |
+| consol_5m UNLAGGED ≥ .20 × calm | 11,720 | +2.03 (7/7) | +3.66 (7/7) | +4.06 | +2.71 | −0.17 |
+| consol_20m_lag1m ≥ .15 (any volat) | 2,061 | −1.71 | +1.77 | +10.99 (7/7) | +11.64 (7/7) | +5.16 |
+
+Unlike v6 (edge horizon ~30 s, ts30 optimal) the coil break keeps paying to 2-5 min: ts120
+doubles ts30 in every cell with the median intact (+6.5 on the best cell). Beyond 5 min the median
+goes to zero and the trim collapses — same wall as S39. ⭐ **The SHORT coil is a 20-MINUTE trade**:
+`consol_20m_lag1m ≥ .15` short reads −3.2 at ts30, +2.0 at ts120, **+16.6 at fwd1200 (7/7, med +3.8)**
+— the collapse out of a 20m coil is slow, and every short-side ts30 read above understates it.
+
+### §6 The v7 HIGH-VOLUME frame is still a graveyard (T4, ts30)
+
+`px>1 ∧ vol_ratio>2 ∧ gap_60<4 ∧ volat>20bp` (S33 §5's frame): long −20.3 eqw / 0/7, short −20.6 /
+0/7; `tight_lag<3.5` on top −31 / −30 (the v7 spec, reconfirmed 0/7). consol does not rescue it:
+best cell consol_20m .25+ +2.6 at 24 tkd/yr; every 5m band −3 to −13. A volume burst INTO a new
+extreme is S28's inversion (low 1m/20m volume ratio is what you want) — "high volume breakout"
+is the wrong frame on this tape regardless of how the consolidation is measured.
+
+### §7 consol × tight (T3, 20m, long, ts30) — the two are complementary
+
+| consol_20m .25+ × tight_lag | tkd/yr | eqw | med | up% | yrs | trim-top5 |
+|---|---|---|---|---|---|---|
+| tight <4 (v7's coil) | 116 | −1.74 | +0.00 | 49.0 | 3/7 | −11.61 |
+| tight 4-8 | 179 | −2.25 | +0.59 | 51.0 | 2/7 | −12.99 |
+| tight 8-11 | 43 | +5.50 | +4.47 | 55.5 | 5/7 | −4.81 |
+| tight 11+ | 18 | **+19.75** | +11.75 | 58.9 | 5/7 | **+2.78** |
+
+High consol (stationary slot means) × HIGH tight (a range wide in units of its 30s move) = a wide
+range being churned inside without drifting — the only trim-POSITIVE cell in the table, at 18
+tkd/yr. v7's coil (tight<4) × consol .25+ is −1.7. Consistent with S33: tight's "loose" and this
+ratio's "coil" are different axes, and the good cell is the intersection.
+
+## S40 verdict (Claude, pending the user)
+
+- ⭐ **The feature works as written**: bounded, monotone on the long rung, the coil is the good end
+  (the user's 2026-08-26 thesis, which `tight` had inverted), survives the eff control at 5m, 7/7
+  in the coil band, cleanest on calm tape, and the unlagged read is the sharper one.
+- **5m is the window; 20m is eff by another name; 3m ≈ 5m.**
+- **Exit horizon 1-2 min (ts60/ts120), not 30 s**; the short coil is a 20 min trade.
+- 💀 **Magnitude**: +5 to +11 bp eqw on the best cells (926 tkd/yr), +2 to +4 at 12k tkd/yr;
+  trim-top5 negative or ~0 everywhere; the 100 bp bar is 10× away. Same wall as S31/S37/S39.
+- The high-volume-breakout frame (vol_ratio>2) remains 0/7 with or without this feature.
+
+## S40 §8 — the trend cell split (user: "does the counter-trend edge become stronger?") — NO, it is an inverted U
+
+`data/longhiker_consol_trendcell.log`. ts30, mc=1 inside each band:
+
+| consol_5m_lag1m | LONG tkd/yr | LONG eqw | med | yrs | SHORT eqw | med | yrs | LONG $50+ eqw (med, up%) |
+|---|---|---|---|---|---|---|---|---|
+| <.02 (a straight line) | 579 | +0.03 | +1.73 | 4/7 | −0.20 | +0.56 | 4/7 | **+4.23** (+3.89, 55.7%) |
+| .02-.04 | 6,716 | −2.84 | +0.00 | 1/7 | −3.37 | −1.17 | 0/7 | −1.22 |
+| .04-.06 | 10,640 | −2.38 | −0.06 | 1/7 | −2.72 | −1.26 | 0/7 | −0.43 |
+| .06-.08 | 11,191 | −0.96 | +0.03 | 2/7 | −1.59 | −0.75 | 1/7 | −0.13 |
+| .08-.10 | 10,667 | +0.12 | +0.53 | 3/7 | −0.54 | −0.26 | 3/7 | +0.94 |
+
+The fade edge peaks at .02-.06 (~3 bp both sides) and the PERFECT line (<.02) does not revert — on
+$50+ names it CONTINUES (SurgeRider's ignition reading: the pure line is a different animal from
+the merely efficient move). ⚠ Reading caveat for every wide cell in this program: the sub-bands
+average ≈ −1.4, not the whole cell's −4.1 — the mc=1 replay inside a WIDE gate admits the first
+trip of each burst (the worst), finer gates admit later trips of the same bursts
+(`feedback_three_mc_questions`). A wide cell's eqw is always more extreme than its parts.
+
+Why <.10 is common and the coil rare: the sampler fires on new 20m extremes, and the usual way to
+reach one is to trend into it; a coil break needs a flat 5m AND a 20m range narrow enough for the
+flat 5m to reach its edge — the intersection of two coils.
+
+# S41 — THE SPREAD, and the harvesting question (user, 2026-09-07)
+
+> USER: *"Instead of trying to make the signal more powerful, I wonder if we should be looking for
+> ways of harvesting these slight edges instead? ... A part of our edge could come from momentum or
+> counter momentum, and a part of it from rebates and providing liquidity."* Research framing: *"it
+> would be too hard for us to take advantage of currently"* — is it POSSIBLE with the right setup.
+
+## §1 The bounce test — is the fade edge real or half a spread? (`longhiker_consol_bounce.log`)
+
+A new 20m high on 1s vwaps is an ask-biased bar; 30 bars later the vwap is unbiased. Bounce
+scales with tick/price; a real edge is flat in price. ts30, mc=1:
+
+| price | LONG trend cell (<.10) | SHORT trend cell | LONG coil (unlagged ≥.45) yrs / trim |
+|---|---|---|---|
+| $2-5 | −7.53 | −6.45 | +1.03 6/7 / −14.9 |
+| $5-10 | −5.78 | −5.26 | +1.00 5/7 / −13.9 |
+| $10-20 | −4.70 | −3.98 | +0.84 3/7 / −9.7 |
+| $20-50 | −3.21 | −3.76 | +3.77 6/7 / −3.6 |
+| $50-100 | −2.64 | −3.16 | +5.29 6/7 / −1.7 |
+| $100+ | −2.30 | −3.16 | +4.74 7/7 / −0.6 |
+
+Tick/price falls 40× across the table, the fade edge only to a third: **above $50 the −2.5 to −3 bp
+is genuine mean reversion on both sides**; below $10 roughly half the number is spread. The coil
+edge runs the OTHER way (strongest and trim-cleanest on $100+) — the opposite of bounce.
+
+## §2 The effective spread on the FRAME universe (`scripts/equity/longhiker_spread_study.py`)
+
+Lit prints (`trf_id = 0`, the 1s-builder's condition exclude set), 09:45-16:00, tickers = the
+study slice's FRAME ticker-days, 7 sample days (one per year, 2020-06 … 2026-08), Roll (1984)
+estimator + tick-rule reversal rate. ⭐ **First spread measurement on this universe** (S31's open gap).
+
+| price | tkd | med px | tick bp | Roll bp med | Roll bp mean | rev rate | mean abs dp bp | prints/tkd |
+|---|---|---|---|---|---|---|---|---|
+| $2-5 | 134 | 3.5 | 28.63 | 7.27 | 8.52 | 0.859 | 17.53 | 19,600 |
+| $5-10 | 194 | 7.4 | 13.45 | 3.64 | 4.97 | 0.815 | 9.01 | 24,762 |
+| $10-20 | 238 | 14.8 | 6.74 | 2.17 | 3.07 | 0.770 | 5.39 | 33,638 |
+| $20-50 | 255 | 30.2 | 3.31 | 2.05 | 2.72 | 0.699 | 4.04 | 31,527 |
+| $50-100 | 125 | 67.2 | 1.49 | 1.97 | 2.17 | 0.646 | 2.80 | 34,811 |
+| $100+ | 126 | 181.9 | 0.55 | 2.27 | 2.64 | 0.605 | 2.25 | 25,476 |
+
+⚠ **Roll caveat**: under $20 the Roll estimate is BELOW one tick, which cannot be the quoted
+spread (≥ 1 tick = 28.6 bp on a $3.50 stock). Roll measures the EFFECTIVE spread of the prints
+that happen — sub-penny midpoint executions on lit venues and trending prints (positive
+autocorrelation cancels the bounce covariance) both pull it down. Read Roll as a floor on the
+effective spread and one tick as the floor on the quoted one; the reversal rate (0.86 at $2-5 vs
+0.61 at $100+, 0.5 = random walk) shows the bounce is very much there.
+
+## §3 Economics per round trip (bp) — three execution models
+
+Measured edges are vwap-to-vwap at ts30. Rebate $0.002/sh and take fee $0.003/sh are GENERIC
+ECN assumptions (no broker schedule in hand; Cobra is out, Lightspeed likely — the user).
+`e` = fade edge, `spr` = Roll median.
+
+| price | fade edge | spread | quoted floor (1 tick) | rebate/fill | fee/fill | FADE taker in+out: e−spr−2fee | FADE passive in, timestop out: e+reb−fee | FADE passive in+out (if filled): e+spr+2reb | COIL taker in+out |
+|---|---|---|---|---|---|---|---|---|---|
+| $2-5 | +6.99 | 7.27 | 28.6 | 5.71 | 8.57 | -17.42 | **+4.13** | +25.69 | -23.38 |
+| $5-10 | +5.52 | 3.64 | 13.4 | 2.70 | 4.05 | -6.23 | **+4.17** | +14.57 | -10.75 |
+| $10-20 | +4.34 | 2.17 | 6.7 | 1.35 | 2.03 | -1.88 | **+3.66** | +9.21 | -5.38 |
+| $20-50 | +3.48 | 2.05 | 3.3 | 0.66 | 0.99 | -0.56 | **+3.15** | +6.85 | -0.27 |
+| $50-100 | +2.90 | 1.97 | 1.5 | 0.30 | 0.45 | +0.04 | **+2.75** | +5.47 | +2.43 |
+| $100+ | +2.73 | 2.27 | 0.6 | 0.11 | 0.16 | +0.13 | **+2.68** | +5.22 | +2.14 |
+
+**Read:**
+1. 💀 **Taker on both legs is dead below $50** and ~zero above it, for the fade AND the coil: the
+   signal edge is the spread. This is the number every S31-S40 cell was implicitly quoting.
+2. **Passive entry + timestop exit is +2.7 to +4.2 bp everywhere** — the edge survives because the
+   rebate on the entry fill roughly cancels the fee on the exit, and the fade is NATURALLY passive
+   (post where the trend is heading; the fill is the trade you wanted, no fill is a missed trade).
+   Statistically real (48% win rate, ~30 bp per-trade std, per-trade Sharpe ~0.1, ~2×18k
+   ticker-days/yr to feed it) — a pure volume game, and every number is CONDITIONAL on the fill,
+   which is the adverse-selection question no trades-only backtest can answer.
+3. ⭐ **Passive on both legs: below $10 the REBATE is 2-4× the signal.** $0.002/sh is 5.7 bp per
+   fill on a $3.50 stock — 11.4 bp per round trip before any edge. That is the "rebate farming"
+   business the user suspects prop traders live on, and it is structural, not a signal. It needs
+   queue position: at a 1-tick spread on a low-priced stock the queue is long and the fill is the
+   whole game. ⚠ The "+25.7" small-cap line double-counts: the measured small-cap edge already
+   contains part of the bounce (§1), so the true passive-both-legs number there is the $50+
+   residual (~2.7) + spread + 2 rebates ≈ +21, still rebate-dominated.
+4. The coil break as a taker survives only on $50+ names (+2.1 to +2.4 net) — a 1-2 min hold at
+   ~600 ticker-days/yr; on small caps it is −5 to −23.
+
+## §4 Verdict (research framing — not tradeable for us now, the user's premise)
+
+- **Possible in principle, as a MAKER business with a directional skew, not as a signal system.**
+  The fade edge is real above $50 (~2.5-3 bp at 30 s, both sides); with passive entries it is
+  +2.7-4 bp per round trip on every bucket; with passive exits the rebate dominates on sub-$10.
+- **What it needs that we do not have**: NBBO quotes (at least) for the fill/queue model —
+  `TakerFillSim` exists, a MakerFillSim cannot be built honestly from trades alone; a per-share
+  fee/rebate schedule (Lightspeed); and the answer to adverse selection, which is the whole
+  difference between "+4 bp if filled" and money.
+- ⭐ The niche is where the colocated makers are thin: the sparse / just-woke-up tape (S39's best
+  PF) and the sub-$10 tick-constrained names where the rebate is the edge. On $100+ names the
+  queue is owned by Virtu/Citadel-class quoting; a retail limit sits at the back.
+- ⏭ If revisited: (a) one month of NBBO from Massive on the FRAME universe → quoted spread by
+  bucket (replaces the Roll floor) and a queue-position fill model; (b) restate §3 with
+  Lightspeed's schedule; (c) the passive-fade book on the S39 woke-up tape.
+
+Files: `data/longhiker_spread_sample.parquet` (per-tkd Roll/rev/tick), logs
+`longhiker_spread_study.log`, `longhiker_spread_econ.log`, `longhiker_consol_bounce.log`,
+`longhiker_consol_trendcell.log`.
+
+## S41 CLOSED (user, 2026-09-07, 20:50)
+
+> USER: *"I am convinced, if we want to get into the short-term momentum game, we have to
+> fundamentally change our mindset. It's a game that could potentially be played, but not in the
+> same way that we want to do the longer-term trades. Our whole focus has been on how to be more
+> selective and make our edges bigger, but the high frequency trading game should be about how
+> could we harvest these small edges more frequently. It's not a game we're currently equipped to
+> play. We have other systems that we should put into production."*
+
+Program state: LongHiker stays closed as a SYSTEM; S39-S41 stand as findings (slow reclaims, the
+coil grader, the passive-fade economics, the first spread table). Branch `longhiker-consol`
+(7 commits on `longhiker-shakeout`), corpus 105 GB + slice on disk. ⏭ The `consol` coil feature
+is to be ported into FlushFader as a TEST during tomorrow's FlushFader feature review.

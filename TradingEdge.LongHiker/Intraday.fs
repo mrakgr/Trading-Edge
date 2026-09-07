@@ -260,6 +260,19 @@ type LhPosition =
       Std10mLag1m: float
       Volat20mLag1m: float       // ew40 as of 2 slots ago — the lagged denominator
       Volat10mLag1m: float
+      // ----- ⭐⭐ CONSOLIDATION SLOT-VARIANCE RATIO (user, 2026-09-07). The last
+      // {3,5,10,20}m of ln(1s vwap) cut into 30-present-bar slots: mean within-
+      // slot variance / whole-window variance (SlotVarRatioMa, law of total
+      // variance → EXACTLY [0,1]). 1 = the slot means never move (a coil around
+      // one level), 0 = a trend. ⚠ A random walk reads ≈ 1.6/k for k slots (the
+      // oracle's §3), so the windows are NOT on one scale (3m ≈ .26, 5m ≈ .18,
+      // 10m ≈ .08, 20m ≈ .04); the coil is the band ABOVE that reference.
+      // Unlike tight = std/volat this is bounded and HIGH means tight. The
+      // *_lag1m twins end 2 completed slots ago — the breakout slot inflates the
+      // window variance and would read the coil as loose on the signal bar.
+      // Indexed by CONSOL_SLOTS. nan until k(+2) slots completed. -----
+      Consol: float[]
+      ConsolLag1m: float[]
       /// ⭐ Session max of volat_20m over completed slots after 09:15 ET — the
       /// reference for intraday volatility-CONTRACTION reads (volat_now / max).
       /// ⚠ Bars start at 09:30 today, so the 09:15 guard is vacuous; it is kept
@@ -563,6 +576,9 @@ let GAP_SECS = [| 10; 30; 60; 120; 300; 600; 1200 |]
 /// LOW. Order is load-bearing — the Shake* arrays on the record are indexed by it.
 let SHAKE_CHANS = [| 1200; 1800; 2400; 3600 |]
 let SHAKE_NAMES = [| "20m"; "30m"; "40m"; "60m" |]
+/// ⭐ the consolidation windows in completed 30-present-bar SLOTS (3/5/10/20m)
+let CONSOL_SLOTS = [| 6; 10; 20; 40 |]
+let CONSOL_NAMES = [| "3m"; "5m"; "10m"; "20m" |]
 
 /// Forward-mark horizons, in WALL-CLOCK seconds after the fill. Order is
 /// load-bearing: `fwdCur` and the dispatch in step 4 are indexed by it.
@@ -652,6 +668,10 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     // clock as volat so std/volat is dimensionless (see the LhPosition comment)
     let stdEw40 = EwmaVarMa 40.0                 // std_20m
     let stdEw20 = EwmaVarMa 20.0                 // std_10m
+    // ⭐⭐ the consolidation ratio — SAME 30-bar slot clock as SlotVwapMa (both
+    // are pushed on every bar below, so their slot boundaries coincide); 42 =
+    // the 20m window + the 2-slot lag
+    let consol = SlotVarRatioMa(cfg.SlotBars, CONSOL_SLOTS.[CONSOL_SLOTS.Length - 1] + 2)
     // 1m ≈ 2 slots: each Lag2 is pushed the CURRENT reading once per completed
     // slot, so .Lagged is the reading as of 2 slots ago — breakout-free
     let stdLag40 = LagMa<float> 2
@@ -809,6 +829,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
             shakeMin.[i].Push bar.vwap
 
         // ----- the slot chain: one |r| per completed 30-bar slot -----
+        consol.Push (log bar.vwap)
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
             (match prevSlotVwap with
@@ -1034,6 +1055,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                           Std10mLag1m = vv stdLag20.Lagged
                           Volat20mLag1m = vv volatLag40.Lagged
                           Volat10mLag1m = vv volatLag20.Lagged
+                          Consol = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 0)))
+                          ConsolLag1m = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 2)))
                           Volat20mSessMax = vv volatSessMax.State
                           DvEwma1m = vv dvEw60.State
                           DvEwma20m = vv dvEw1200.State

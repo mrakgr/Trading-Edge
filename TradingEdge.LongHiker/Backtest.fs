@@ -189,6 +189,13 @@ let private shakeCols =
         sprintf "    sess_hi_since_lo_%s INTEGER, secs_since_lo_%s INTEGER, bars_since_lo_%s INTEGER, lo_px_%s DOUBLE, sess_hi_at_lo_%s DOUBLE," n n n n n)
     |> String.concat "\n"
 
+/// ⭐ the consolidation ratio, one pair per CONSOL_SLOTS entry (lockstep with
+/// the record's Consol/ConsolLag1m arrays — the appender walks the same order).
+let private consolCols =
+    CONSOL_NAMES
+    |> Array.map (fun n -> sprintf "    consol_%s DOUBLE, consol_%s_lag1m DOUBLE," n n)
+    |> String.concat "\n"
+
 let private exitCols =
     EX_SPECS
     |> Array.map (fun (nm, _) -> sprintf "    ex_%s_px DOUBLE, ex_%s_sec INTEGER," nm nm)
@@ -202,6 +209,7 @@ CREATE TABLE trips (
     volat_20m DOUBLE, volat_10m DOUBLE, volat_open DOUBLE, slot_count INTEGER,
     std_20m DOUBLE, std_20m_lag1m DOUBLE, std_10m DOUBLE, std_10m_lag1m DOUBLE,
     volat_20m_lag1m DOUBLE, volat_10m_lag1m DOUBLE, volat_20m_sessmax DOUBLE,
+@CONSOL_COLS@
     dv_ewma_1m DOUBLE, dv_ewma_20m DOUBLE, vol_ratio_max5m DOUBLE,
     eff_20m DOUBLE, eff_10m DOUBLE, eff_open DOUBLE, eff_open_slots INTEGER,
     eff_ewma_20m DOUBLE, eff_ewma_10m DOUBLE,
@@ -257,7 +265,7 @@ CREATE TABLE trips (
 // line sits at column 0 cannot be followed by `.Replace` on the same line — F#'s
 // offside rule reads the continuation as a new top-level declaration.
 let private tripTableSql =
-    tripTableTemplate.Replace("@EXIT_COLS@", exitCols).Replace("@HIRATE_COLS@", hiRateCols).Replace("@SHAKE_COLS@", shakeCols)
+    tripTableTemplate.Replace("@EXIT_COLS@", exitCols).Replace("@HIRATE_COLS@", hiRateCols).Replace("@SHAKE_COLS@", shakeCols).Replace("@CONSOL_COLS@", consolCols)
 
 type TripSink(outDir: string) =
     let conn = new DuckDBConnection("Data Source=:memory:")
@@ -313,6 +321,8 @@ type TripSink(outDir: string) =
             f p.Volat20m; f p.Volat10m; f p.VolatOpen; i p.SlotCount
             f p.Std20m; f p.Std20mLag1m; f p.Std10m; f p.Std10mLag1m
             f p.Volat20mLag1m; f p.Volat10mLag1m; f p.Volat20mSessMax
+            for k in 0 .. CONSOL_SLOTS.Length - 1 do
+                f p.Consol.[k]; f p.ConsolLag1m.[k]
             f p.DvEwma1m; f p.DvEwma20m; f p.VolRatioMax5m
             f p.Eff20m; f p.Eff10m; f p.EffOpen; i p.EffOpenSlots
             f p.EffEwma20m; f p.EffEwma10m
