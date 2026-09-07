@@ -322,3 +322,157 @@ reading "the failed reversal is the buy" stands only in its shallower bands (−
 > low = close = 0.01 is a defect of the vendor's DAILY flat file, not of the tape — the daily and
 > minute files disagree. A bad-print guard on the signal day (or a daily-vs-minute close
 > cross-check) is the fix; the minute files exist back to 2003-09 so the check is cheap.
+
+## S3 — the MIRROR: a big intraday RISE that closes below the open — is it a LONG? (user, 2026-09-07)
+
+> USER: *"if this pattern is a good short, would the opposite of it be a good long? For example, a
+> stock that goes up a lot during the day and then closes below the open and/or the close."*
+
+Script `scripts/equity/springflyer_mirror.py`, log `data/springflyer_mirror.log`. LONG at the close
+after a rise from the open (high vs open) that closed BELOW the open / the previous close. Same
+FRAME plus a minimal signal-day guard `close > 0.1 × prev_close` (the WB class).
+
+### T1 — LONG the failed rally: RISE from the OPEN (high vs open) x closed BELOW the open; prev-close reference; BOTH; and the S2 short's own cells for reference (negated = what the mirror must beat)
+| cell | n/yr | r_open1: long mean bp / PF | r1: long mean bp / PF | r3: long mean bp / PF | r5: long mean bp / PF | r10: long mean bp / PF | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| open ref: rise_open +3..+5%, close < open | 7,185 | +16 / 1.20 | +24 / 1.12 | +39 / 1.12 | +44 / 1.11 | +48 / 1.08 | 50% | 18/22 | +7 | -601 |
+| open ref: rise_open +5..+7%, close < open | 1,556 | +27 / 1.26 | +33 / 1.13 | +49 / 1.12 | +49 / 1.09 | +31 / 1.04 | 48% | 14/22 | -38 | -784 |
+| open ref: rise_open +7..+10%, close < open | 616 | +39 / 1.31 | +27 / 1.08 | +55 / 1.10 | +19 / 1.03 | -48 / 0.95 | 46% | 10/22 | -134 | -977 |
+| open ref: rise_open +10..+15%, close < open | 230 | +46 / 1.26 | -17 / 0.96 | -24 / 0.97 | -37 / 0.96 | -160 / 0.86 | 44% | 11/22 | -225 | -1268 |
+| open ref: rise_open +15..+25%, close < open | 79 | +54 / 1.20 | -81 / 0.87 | -202 / 0.80 | -433 / 0.66 | -727 / 0.56 | 35% | 7/22 | -739 | -1756 |
+| open ref: rise_open +25%+, close < open | 24 | +127 / 1.38 | -311 / 0.62 | -477 / 0.64 | -822 / 0.52 | -1395 / 0.36 | 28% | 2/20 | -1195 | -2308 |
+| prev ref: rise_prev +3..+5%, close < prev | 7,758 | +9 / 1.12 | +18 / 1.10 | +42 / 1.14 | +52 / 1.14 | +60 / 1.11 | 51% | 17/22 | +20 | -561 |
+| prev ref: rise_prev +5..+7%, close < prev | 1,753 | +12 / 1.13 | +25 / 1.10 | +69 / 1.18 | +62 / 1.12 | +52 / 1.08 | 50% | 12/22 | +0 | -725 |
+| prev ref: rise_prev +7..+10%, close < prev | 708 | +11 / 1.09 | -4 / 0.99 | +85 / 1.18 | +67 / 1.11 | +15 / 1.02 | 47% | 12/22 | -64 | -876 |
+| prev ref: rise_prev +10..+15%, close < prev | 252 | -5 / 0.97 | -73 / 0.82 | -19 / 0.97 | -37 / 0.95 | -180 / 0.83 | 44% | 7/22 | -195 | -1115 |
+| prev ref: rise_prev +15..+25%, close < prev | 84 | +9 / 1.04 | -98 / 0.81 | -127 / 0.84 | -284 / 0.74 | -447 / 0.69 | 38% | 5/22 | -499 | -1518 |
+| prev ref: rise_prev +25%+, close < prev | 27 | +87 / 1.24 | -289 / 0.66 | -655 / 0.52 | -805 / 0.52 | -1446 / 0.35 | 30% | 7/21 | -1197 | -2226 |
+| BOTH: rise_open +3..+5%, close < open AND < prev | 5,709 | +16 / 1.19 | +26 / 1.14 | +44 / 1.13 | +51 / 1.12 | +52 / 1.09 | 50% | 19/22 | +12 | -617 |
+| BOTH: rise_open +5..+7%, close < open AND < prev | 1,205 | +29 / 1.29 | +42 / 1.16 | +66 / 1.16 | +68 / 1.12 | +37 / 1.05 | 49% | 14/22 | -31 | -811 |
+| BOTH: rise_open +7..+10%, close < open AND < prev | 462 | +45 / 1.35 | +42 / 1.13 | +74 / 1.14 | +35 / 1.05 | -30 / 0.97 | 46% | 11/22 | -125 | -1006 |
+| BOTH: rise_open +10..+15%, close < open AND < prev | 168 | +55 / 1.32 | -3 / 0.99 | -12 / 0.98 | -1 / 1.00 | -127 / 0.89 | 45% | 11/22 | -174 | -1291 |
+| BOTH: rise_open +15..+25%, close < open AND < prev | 55 | +88 / 1.37 | -79 / 0.87 | -176 / 0.82 | -356 / 0.72 | -620 / 0.62 | 36% | 6/22 | -684 | -1759 |
+| BOTH: rise_open +25%+, close < open AND < prev | 15 | +237 / 1.82 | -270 / 0.68 | -744 / 0.49 | -1170 / 0.37 | -1625 / 0.30 | 28% | 3/20 | -1278 | -2463 |
+| CONTROL: rise_open +3..+5%, close >= open (rally held) | 42,666 | +6 / 1.13 | +3 / 1.03 | +8 / 1.04 | +13 / 1.05 | +35 / 1.09 | 51% | 16/22 | +10 | -379 |
+| CONTROL: rise_open +5..+7%, close >= open (rally held) | 14,479 | +11 / 1.17 | +3 / 1.02 | +13 / 1.05 | +11 / 1.03 | +36 / 1.08 | 50% | 14/22 | -4 | -488 |
+| CONTROL: rise_open +7..+10%, close >= open (rally held) | 7,603 | +18 / 1.23 | +7 / 1.04 | +18 / 1.06 | +7 / 1.02 | +42 / 1.08 | 49% | 13/22 | -27 | -601 |
+| CONTROL: rise_open +10..+15%, close >= open (rally held) | 3,490 | +25 / 1.25 | +8 / 1.03 | +14 / 1.03 | -19 / 0.96 | +9 / 1.01 | 46% | 9/22 | -91 | -758 |
+| CONTROL: rise_open +15..+25%, close >= open (rally held) | 1,284 | +48 / 1.35 | +8 / 1.02 | -2 / 1.00 | -59 / 0.92 | -67 / 0.93 | 44% | 4/22 | -207 | -1011 |
+| CONTROL: rise_open +25%+, close >= open (rally held) | 394 | +99 / 1.34 | -4 / 0.99 | -118 / 0.88 | -208 / 0.82 | -514 / 0.67 | 38% | 5/22 | -616 | -1616 |
+
+### T2 — how far BELOW the open did it close? (rise from open >= +7%)
+| cell | n/yr | r_open1: long mean bp / PF | r1: long mean bp / PF | r3: long mean bp / PF | r5: long mean bp / PF | r10: long mean bp / PF | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| rev_open 0..-1% | 198 | +49 / 1.47 | +24 / 1.08 | +21 / 1.04 | -15 / 0.98 | -30 / 0.96 | 46% | 9/22 | -122 | -876 |
+| rev_open -1..-3% | 278 | +47 / 1.38 | -3 / 0.99 | +5 / 1.01 | -27 / 0.96 | -36 / 0.96 | 45% | 13/22 | -136 | -996 |
+| rev_open -3..-6% | 221 | +52 / 1.37 | +12 / 1.03 | +57 / 1.09 | +16 / 1.02 | -118 / 0.89 | 45% | 10/22 | -175 | -1098 |
+| rev_open -6..-10% | 130 | +32 / 1.18 | -31 / 0.93 | -25 / 0.97 | -68 / 0.93 | -248 / 0.80 | 43% | 8/22 | -300 | -1355 |
+| rev_open -10%+ | 121 | +32 / 1.10 | -29 / 0.96 | -117 / 0.89 | -285 / 0.79 | -677 / 0.61 | 38% | 7/22 | -739 | -1877 |
+
+### T3 — the close's position in the range (rise from open >= +7%, close < open)
+| cell | n/yr | r_open1: long mean bp / PF | r1: long mean bp / PF | r3: long mean bp / PF | r5: long mean bp / PF | r10: long mean bp / PF | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| clpos 0-0.05 (closed at the low) | 194 | +94 / 1.77 | +47 / 1.14 | +56 / 1.10 | -15 / 0.98 | -65 / 0.93 | 46% | 11/22 | -120 | -971 |
+| clpos 0.05-0.15 | 339 | +46 / 1.33 | -2 / 0.99 | +27 / 1.05 | -62 / 0.92 | -146 / 0.86 | 44% | 8/22 | -193 | -1054 |
+| clpos 0.15-0.3 | 283 | +34 / 1.20 | -12 / 0.97 | -4 / 0.99 | -41 / 0.95 | -181 / 0.83 | 44% | 9/22 | -221 | -1143 |
+| clpos 0.3-0.5 | 116 | -10 / 0.96 | -42 / 0.92 | -130 / 0.83 | -88 / 0.91 | -275 / 0.79 | 42% | 8/22 | -337 | -1344 |
+
+### T4 — the gap that set it up (rise from open >= +7%, close < open)
+| cell | n/yr | r_open1: long mean bp / PF | r1: long mean bp / PF | r3: long mean bp / PF | r5: long mean bp / PF | r10: long mean bp / PF | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gap <-15% | 49 | +97 / 1.33 | +73 / 1.13 | -128 / 0.86 | -331 / 0.72 | -408 / 0.71 | 38% | 7/22 | -505 | -1549 |
+| gap -15..-5% | 126 | +142 / 1.97 | +178 / 1.49 | +22 / 1.03 | +18 / 1.02 | -79 / 0.93 | 46% | 13/22 | -158 | -1269 |
+| gap -5..-1% | 195 | +60 / 1.49 | +32 / 1.09 | +89 / 1.15 | +49 / 1.06 | -51 / 0.95 | 45% | 9/22 | -157 | -1102 |
+| gap -1..+1% | 208 | +27 / 1.25 | -27 / 0.92 | +30 / 1.06 | +8 / 1.01 | -81 / 0.91 | 46% | 11/22 | -92 | -909 |
+| gap +1..+5% | 198 | +3 / 1.02 | -75 / 0.79 | +15 / 1.03 | -24 / 0.97 | -82 / 0.91 | 45% | 9/22 | -149 | -1025 |
+| gap +5%+ | 172 | +9 / 1.04 | -75 / 0.85 | -129 / 0.84 | -250 / 0.75 | -480 / 0.64 | 39% | 5/22 | -432 | -1289 |
+
+### T5 — 20-day context, 20d-high break, rvol, liquidity (rise from open >= +7%, close < open)
+| cell | n/yr | r_open1: long mean bp / PF | r1: long mean bp / PF | r3: long mean bp / PF | r5: long mean bp / PF | r10: long mean bp / PF | win5 | yrs5 | med r5 | med mae5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| broke the 20d HIGH intraday | 220 | +16 / 1.10 | -29 / 0.92 | -52 / 0.91 | -77 / 0.89 | -202 / 0.79 | 43% | 7/22 | -177 | -918 |
+| did NOT break the 20d high | 728 | +53 / 1.34 | +7 / 1.02 | +17 / 1.03 | -46 / 0.94 | -152 / 0.86 | 44% | 10/22 | -221 | -1169 |
+| chg20 < -30% | 200 | +87 / 1.54 | +121 / 1.30 | +280 / 1.44 | +278 / 1.35 | +189 / 1.20 | 51% | 13/22 | +57 | -1240 |
+| chg20 -30..-10% | 166 | +51 / 1.47 | +17 / 1.06 | +22 / 1.04 | -19 / 0.97 | -29 / 0.97 | 47% | 11/22 | -94 | -922 |
+| chg20 -10..+10% | 159 | +26 / 1.26 | -13 / 0.95 | +0 / 1.00 | -37 / 0.93 | -133 / 0.83 | 45% | 11/22 | -105 | -761 |
+| chg20 +10..+50% | 189 | +50 / 1.38 | -11 / 0.97 | -43 / 0.92 | -101 / 0.85 | -155 / 0.84 | 43% | 6/22 | -224 | -985 |
+| chg20 +50%+ | 234 | +12 / 1.05 | -102 / 0.82 | -216 / 0.77 | -332 / 0.73 | -593 / 0.64 | 36% | 6/22 | -712 | -1695 |
+| rvol <1 | 368 | +35 / 1.24 | -29 / 0.93 | -85 / 0.88 | -150 / 0.84 | -311 / 0.75 | 41% | 10/22 | -345 | -1280 |
+| rvol 1-2 | 313 | +66 / 1.50 | +59 / 1.17 | +122 / 1.22 | +91 / 1.13 | +67 / 1.08 | 48% | 10/22 | -43 | -1010 |
+| rvol 2-4 | 165 | +72 / 1.47 | +14 / 1.04 | +35 / 1.06 | +6 / 1.01 | -157 / 0.84 | 45% | 9/22 | -157 | -937 |
+| rvol 4+ | 103 | -30 / 0.89 | -107 / 0.80 | -114 / 0.85 | -242 / 0.74 | -357 / 0.69 | 41% | 6/22 | -313 | -1123 |
+| dv20 $5-20M | 476 | +32 / 1.23 | -7 / 0.98 | +6 / 1.01 | -36 / 0.95 | -121 / 0.88 | 45% | 10/22 | -159 | -1030 |
+| dv20 $20-100M | 325 | +43 / 1.26 | -11 / 0.97 | -34 / 0.95 | -89 / 0.90 | -211 / 0.81 | 43% | 8/22 | -280 | -1190 |
+| dv20 $100M+ | 147 | +89 / 1.47 | +41 / 1.10 | +64 / 1.09 | -29 / 0.97 | -200 / 0.83 | 44% | 12/22 | -231 | -1213 |
+
+### T6 — year table, LONG, cell = rise from open >= +10% AND close < open
+(high/open - 1) >= 0.10 AND rev_open < 0
+| year | n | r_open1 | r1 | r3 | r5 | r10 | med mae5 |
+|---|---|---|---|---|---|---|---|
+| 2005 | 21 | +481 / 11.62 | +249 / 1.94 | +19 / 1.04 | +405 / 1.73 | +511 / 1.73 | -1011 |
+| 2006 | 29 | +231 / 5.66 | +209 / 2.11 | +436 / 2.45 | +154 / 1.28 | +130 / 1.22 | -366 |
+| 2007 | 125 | +54 / 1.80 | -32 / 0.86 | -9 / 0.98 | +84 / 1.19 | -29 / 0.94 | -597 |
+| 2008 | 786 | +88 / 1.49 | +46 / 1.11 | +155 / 1.22 | +169 / 1.21 | -232 / 0.81 | -1405 |
+| 2009 | 168 | +60 / 1.44 | +14 / 1.04 | +4 / 1.01 | +79 / 1.12 | +656 / 2.02 | -1067 |
+| 2010 | 35 | +169 / 6.68 | -43 / 0.83 | +157 / 1.76 | +397 / 3.00 | -107 / 0.81 | -389 |
+| 2011 | 50 | +97 / 2.04 | +183 / 1.86 | +405 / 2.19 | +386 / 1.92 | -36 / 0.95 | -356 |
+| 2012 | 37 | +125 / 2.27 | -45 / 0.88 | +142 / 1.47 | +82 / 1.19 | -188 / 0.77 | -605 |
+| 2013 | 45 | +26 / 1.18 | -184 / 0.59 | -184 / 0.72 | -503 / 0.41 | -539 / 0.53 | -1193 |
+| 2014 | 86 | +55 / 1.27 | -174 / 0.66 | -126 / 0.84 | -681 / 0.41 | -828 / 0.36 | -1470 |
+| 2015 | 113 | +95 / 1.91 | +26 / 1.08 | -6 / 0.99 | -90 / 0.89 | +89 / 1.09 | -1107 |
+| 2016 | 129 | +113 / 1.89 | -133 / 0.73 | -339 / 0.53 | -349 / 0.60 | -395 / 0.65 | -1206 |
+| 2017 | 126 | +32 / 1.10 | -102 / 0.81 | -526 / 0.54 | -601 / 0.54 | -874 / 0.46 | -1687 |
+| 2018 | 150 | -71 / 0.74 | -266 / 0.54 | -403 / 0.57 | -528 / 0.53 | -896 / 0.40 | -1391 |
+| 2019 | 158 | -9 / 0.95 | -145 / 0.68 | +173 / 1.27 | -121 / 0.87 | -523 / 0.59 | -1236 |
+| 2020 | 1,110 | +127 / 1.73 | +62 / 1.15 | +157 / 1.23 | +265 / 1.32 | +420 / 1.54 | -1271 |
+| 2021 | 972 | +109 / 1.53 | +44 / 1.09 | +11 / 1.01 | -127 / 0.87 | -233 / 0.81 | -1418 |
+| 2022 | 534 | -107 / 0.60 | -196 / 0.67 | -303 / 0.68 | -430 / 0.64 | -930 / 0.43 | -1557 |
+| 2023 | 430 | -4 / 0.98 | -117 / 0.80 | -196 / 0.77 | -255 / 0.76 | -799 / 0.50 | -1599 |
+| 2024 | 677 | +7 / 1.03 | -202 / 0.67 | -280 / 0.72 | -368 / 0.71 | -541 / 0.69 | -1656 |
+| 2025 | 916 | +17 / 1.07 | -129 / 0.80 | -347 / 0.66 | -539 / 0.60 | -645 / 0.64 | -1654 |
+| 2026 | 622 | +70 / 1.27 | -51 / 0.92 | -253 / 0.76 | -566 / 0.62 | -1144 / 0.45 | -1896 |
+
+### T7 — the mirror read as a SHORT (spike from the open, closed below the open), short returns, with the S2 short beside it; all years and 2016+
+| cell | era | n/yr | r1 short / PF | r5 short / PF | r10 short / PF | win5 | yrs5 | p95 mfe5 (5d high) |
+|---|---|---|---|---|---|---|---|---|
+| SPIKE-FAIL: rise_open +10..+15%, close < open | all | 230 | +17 / 1.04 | +37 / 1.04 | +160 / 1.16 | 55% | 11/22 | +6978 |
+| SPIKE-FAIL: rise_open +10..+15%, close < open | 2016+ | 358 | +34 / 1.08 | +94 / 1.11 | +212 / 1.20 | 56% | 8/11 | +7299 |
+| SPIKE-FAIL: rise_open +15..+25%, close < open | all | 79 | +81 / 1.15 | +433 / 1.52 | +727 / 1.77 | 65% | 15/22 | +9278 |
+| SPIKE-FAIL: rise_open +15..+25%, close < open | 2016+ | 132 | +102 / 1.19 | +493 / 1.59 | +782 / 1.81 | 67% | 9/11 | +9716 |
+| SPIKE-FAIL: rise_open +25%+, close < open | all | 24 | +314 / 1.61 | +821 / 1.93 | +1398 / 2.77 | 72% | 18/20 | +13024 |
+| SPIKE-FAIL: rise_open +25%+, close < open | 2016+ | 39 | +323 / 1.58 | +921 / 1.95 | +1573 / 2.89 | 73% | 11/11 | +13705 |
+| SPIKE-HELD: rise_open +15%+, close >= open (control) | all | 1,678 | -5 / 0.99 | +94 / 1.13 | +172 / 1.19 | 57% | 19/22 | +5909 |
+| SPIKE-HELD: rise_open +15%+, close >= open (control) | 2016+ | 2,496 | +5 / 1.01 | +109 / 1.14 | +183 / 1.19 | 58% | 10/11 | +6518 |
+| S2 SPRING: decl_open -10..-15%, close > open | all | 194 | +56 / 1.13 | +220 / 1.30 | +260 / 1.29 | 58% | 16/22 | +6074 |
+| S2 SPRING: decl_open -10..-15%, close > open | 2016+ | 251 | +119 / 1.27 | +224 / 1.27 | +297 / 1.30 | 60% | 9/11 | +7004 |
+| S2 SPRING: decl_open <-15%, close > open | all | 52 | +204 / 1.42 | +297 / 1.32 | +358 / 1.31 | 57% | 17/22 | +8564 |
+| S2 SPRING: decl_open <-15%, close > open | 2016+ | 64 | +398 / 1.80 | +535 / 1.51 | +423 / 1.28 | 62% | 10/11 | +10673 |
+
+### Verdict — NO. The failed spike is a SHORT too, and at depth the STRONGER one
+
+- **T1**: as a long the mirror is negative at every hold past the next open once the rise exceeds
+  +10% from the open (r5 −37 / −433 / −822 as the rise deepens; win 44 → 28%; +25%+: 2/20 years).
+  The only positive column is the OVERNIGHT (`r_open1` +46..+127, PF 1.2-1.4) — a one-night bounce,
+  then down. The "rally held" control is negative at the same depths (−59 / −208), so a large
+  intraday spike is a sell whichever way the day closed.
+- **T2/T3**: the further below the open it closed, the worse (−10%+: r5 −285, r10 −677); closing AT
+  the low is the least bad (the overnight bounce is biggest there, +94 / 1.77) — the S1/S2 gradient
+  mirrored: the extreme close mean-reverts one night, then the day's direction resumes.
+- **T5**: the runner again — `chg20 +50%+` r5 −332 / 0.73 (36% win); `rvol 4+` −242 / 0.74. The one
+  positive long cell is the already-crushed name (`chg20 < −30%`: +278 / 1.35, 13/22) — MR, not this.
+- **T6 — era**: 2005-2012 positive as a long, **2013-2026 negative in 12 of 14 years**, 2022-2026
+  at PF 0.6-0.76 (r10 PF 0.43-0.69). The failed spike has been a reliable short for a decade.
+- **T7 — read as a SHORT, beside the S2 spring short**: rise +15..25% from the open and closed
+  below it: **r5 +433 / 1.52, r10 +727 / 1.77, 65% win, 15/22 (2016+: 9/11)**; +25%+: r5 +821 /
+  1.93, r10 +1,398 / 2.77, 72% win, **18/20 (2016+: 11/11)** at 24-39/yr. Deeper and more
+  consistent than the S2 spring (−15%+ from the open: +297 / 1.32). ⚠ The same tail: p95 of the
+  5-day high +70-137% against the entry. Borrow unmodelled.
+
+**What the two sides say together**: the common factor is not the reversal, it is the RANGE. A
+name that travels 10-25%+ inside one session — whether it fell and reclaimed (S2) or spiked and
+failed (S3) — is lower 5-10 days later, and the failed spike is the cleaner signal (the spring's
+close-above-open is a weaker distribution print than the spike's close-below-open). Both are the
+small-cap intraday-range fade, and both carry the squeeze tail. A single "big-range day, short at
+the close" spec with the close's position as the grade is the natural next rung; the tail
+disqualifier (ShortSnoozer's gap × volatility) and borrow are the two things standing between it
+and a book.
