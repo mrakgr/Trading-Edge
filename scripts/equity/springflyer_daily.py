@@ -27,7 +27,12 @@ if args.rebuild or not os.path.exists(args.feat):
     con.execute("SET memory_limit='8GB'; SET threads=8")
     con.execute(f"""
     COPY (
-    WITH b AS (
+    WITH b0 AS (
+      SELECT *, close*n AS cn, ABS(close*n - LAG(close*n,1) OVER e) AS dcn
+      FROM daily_episodes_causal
+      WHERE date >= '2004-06-01'
+      WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
+    ), b AS (
       SELECT ticker, date, episode, open, high, low, close, volume, n, cum_div,
         ROW_NUMBER() OVER e AS barnum,
         LAG(close,1) OVER e * LAG(n,1) OVER e / n           AS prev_close,     -- D-1 close, D's scale
@@ -37,6 +42,13 @@ if args.rebuild or not os.path.exists(args.feat):
         MAX(high*n) OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) / n  AS high20_prior,
         LAG(close,20) OVER e * LAG(n,20) OVER e / n         AS close_m20,
         n * AVG(volume / n) OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS avgvol20_prior,
+        AVG((high - low) / close) OVER (e ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS atr20_prior,  -- avg daily range, fraction of close, PRIOR 20 days
+        -- ⭐ efficiency ratio on CLOSES (user, 2026-09-07), share-consistent (close*n), INCLUDING day D:
+        --   er_N = |cn(D) - cn(D-N)| / sum over t=D-N+1..D of |cn(t) - cn(t-1)|   (Kaufman); signed twin carries the direction
+        LAG(close*n, 10) OVER e                                                 AS cn_m10,
+        LAG(close*n, 20) OVER e                                                 AS cn_m20,
+        SUM(dcn) OVER (e ROWS BETWEEN 9 PRECEDING AND CURRENT ROW)  AS path10,
+        SUM(dcn) OVER (e ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) AS path20,
         -- outcomes (lookahead BY DESIGN — never gate)
         LEAD(open,1)  OVER e * LEAD(n,1)  OVER e / n        AS open_p1,
         LEAD(close,1) OVER e * LEAD(n,1)  OVER e / n        AS close_p1,
@@ -55,14 +67,20 @@ if args.rebuild or not os.path.exists(args.feat):
         (LEAD(cum_div,5) OVER e - cum_div) / n              AS div_p5,
         (LEAD(cum_div,7) OVER e - cum_div) / n              AS div_p7,
         (LEAD(cum_div,10) OVER e - cum_div) / n             AS div_p10
-      FROM daily_episodes_causal
-      WHERE date >= '2004-06-01'
+      FROM b0
       WINDOW e AS (PARTITION BY ticker, episode ORDER BY date)
     )
     SELECT ticker, date, year(date) AS yr, barnum, open, high, low, close, volume,
       prev_close, prev_close_raw, low7_prior, low20_prior, high20_prior, close_m20,
       avgvol20_prior, avgvol20_prior * prev_close AS dv20_prior,
       volume / NULLIF(avgvol20_prior,0) AS rvol,
+      high / low - 1                    AS rng,           -- the day's range
+      (high / low - 1) / NULLIF(atr20_prior, 0) AS rng_atr,  -- in units of the stock's own prior average range
+      atr20_prior,
+      ABS(close*n - cn_m10) / NULLIF(path10, 0)  AS er10,
+      ABS(close*n - cn_m20) / NULLIF(path20, 0)  AS er20,
+      (close*n - cn_m10) / NULLIF(path10, 0)     AS er10_signed,
+      (close*n - cn_m20) / NULLIF(path20, 0)     AS er20_signed,
       -- the day's shape, all at the close
       low / prev_close - 1              AS decl_prev,    -- worst point vs yesterday's close
       low / open - 1                    AS decl_open,    -- worst point vs the open
