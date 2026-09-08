@@ -17247,3 +17247,50 @@ Inside every production tier the ≥ 10 cell is worse than its complement (A 0.5
 empty. **Verdict: no seat, no tier. The loud-leg count that is LowFader's A voice INVERTS on FlushFader** — same side (long MR),
 different entry depth: urgency on the current bar pays when the leg is 40 lows deep and the run has extended (crf), and hurts
 on an early-leg entry where a loud low is the flush still going. (rate_600 inert, above.) The feature stays recorded.
+
+# §S49 (2026-09-08) — THE GATE REVIEW: every gate of SPEC v3.1 × ROSTER v3.3 vs chance, before production
+
+**Why (user):** "It's very quality focused and we could afford to significantly broaden it… for every feature in the
+base spec we'll want to run controls to make sure they work better than random or that other features don't give
+more benefit for the same trip loss… the amount of price-related features is crazy; if somebody showed me this
+system I'd have a hard time believing it's not overfit."
+
+**Corpus = `base_v19`** (`scripts/equity/flushfader_run_base_v19.sh`): the S43cr engine (time-clock floors) + the
+`consol` slot-variance-ratio columns (LongHiker S40 port, RECORD-ONLY — `v51_consol` on the v49 whitelist is
+bit-identical to `v49_spec20` on all 312 old columns, book 1,369 @ 4.128), every spec gate OFF (`--base-run`),
+the 235,916-tkd `flushfader_v17tkd_cand` whitelist, 2020-01-02..2026-08-21, volat ≥ 20bp, window to 16:00.
+**8,273,415 trips / 221,892 tkd in 20.6 min** (the 2026-09-05 mutable-record engine; base_v18 took 2h03m).
+Strict subset of base_v18: −0.02% inside gap_60 < 4 (249 trips), −22.0% at gap_60 ≥ 4, 0 new trips.
+⚠ `v49_spec20` CANNOT be a control corpus — its whitelist is the set of tkds that already pass the full spec.
+
+**Tool = `scripts/equity/flushfader_gate_review.py`** (slice `data/flushfader_review_slice.parquet`, 11 s to build,
+10 s per gate). 33 named predicates: 6 frame (dv0945 ≥ $3M, volat ≥ 40bp, ≤ 15:00, gap_60 < 4, px ≥ $1,
+lows180 ≥ 3), 17 engine gates, 10 roster voices. **VALIDATED: the predicate dictionary reproduces the engine's own
+v49 spec run EXACTLY (39,769 = 39,769, 0 either way) and the reference book 1,369 @ 4.128 / trimPF 9.860.**
+Two clock traps found on the way: on the S43cr engine `z_20m` and `vol10rate` must read the `_bar` twins
+(`dlv*_1200` are per-bar sums; the vol10 gate is bar-clock by spec) — with time-clock `vol_1200` the z gate
+passed 13% of the engine's own trips. Every book number = construction 3 (mc=1 replayed INSIDE the set).
+
+**Per AND-gate G**: (1) S vs S∖G (leave-one-out) + the CUT slice + year table with n + worst-trip-removed year PF;
+(2) the null = 2,000 ticker-day resamples of S∖G at S's tkd count → where S sits; (3) substitution = all 126
+(input × direction) rival thresholds on S∖G at the SAME trip count, replayed; (4) time control; (5) octile band
+table of G's input, one replay per band. Per OR-voice: drop-the-voice, the ADDED set, null from the unvoted pool.
+
+## S49a — gate 1: `dv_0945_tape ≥ $3M` (user: "relax to $2M, the candidate table's floor")
+
+| set | n | tkd | PF | trimPF−1 | win% | avg% | worst% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| S (full spec) | 1,369 | 1,222 | 4.128 | 8.860 | 78.2 | 1.96 | −30.6 | 8.86 (218) | 3.56 (276) | 3.25 (77) | 3.31 (113) | 3.60 (220) | 3.56 (298) | 4.69 (167) |
+| S ∖ dv0945 (= $2M corpus floor) | 1,411 | 1,262 | 4.016 | 8.498 | 78.0 | 1.95 | −30.6 | 7.26 (223) | 3.55 (283) | 3.30 (78) | 2.94 (118) | 3.73 (227) | 3.51 (306) | 4.72 (176) |
+| CUT ($2M–3M names) | 42 | 40 | 2.187 | 3.726 | 71.4 | 1.49 | −10.9 | 0.50 (5) | 3.46 (7) | inf (1) | 0.72 (5) | inf (7) | 2.43 (8) | 5.59 (9) |
+
+Null (2,000 tkd-resamples of S∖g at 1,222 tkd): PF median 4.007 [3.908, 4.166], **S = 94.2th pct**; trimPF−1
+8.506 [8.147, 8.951], S = 94.0th; avg% 79.5th. **Inside the band** — the floor's lift is what a random 40-tkd
+removal gives 6% of the time. Substitution: **20 of 126 rivals beat it at the same n** (sslu ≥ 2: 4.337 /
+9.862; k20 ≥ 27: 4.261 / 9.317). Time control clean (corr +0.07 / +0.10). Band table: NO gradient — octiles read
+4.03 / 5.78 / 3.30 / 4.72 / 2.55 / 2.83 / 8.37 / 4.23; the lowest octile [$2M, $8.4M) is an average band.
+
+**Reading:** the $3M floor is not a liquidity gradient (none exists across three decades of dv_0945) and its
+removal is indistinguishable from chance. The 42 trades it cuts are profitable (+1.49%/trade, 71% win, worst
+−10.9%) though thin per year. Recommendation: **retire the floor to the corpus's $2M** (+42 trades, PF 4.128 →
+4.016, trimPF−1 8.86 → 8.50 — the broadening the user asked for, at the cost of ~3% PF). Ruling: pending.
