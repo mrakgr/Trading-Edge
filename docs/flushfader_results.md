@@ -17463,3 +17463,16 @@ puts them last because they cost the most net. Both are right about different th
 them (trade the K/eff20/VOTE-fail slices at reduced size). ⚠ Net here is unsized and cost-free: at ~10 bp/trade
 round trip the curve reads 8,380 (pt 1) / 9,037 (pt 7) / 6,847 (pt 13) / 4,085 (pt 15) / 2,243 (pt 18) — the
 broad book still nets ~4× the spec at equal weight; the worst trade at the broad end is −84.8% (an overnight hold).
+
+## S49e — the coil on the MR side: LAGGED is the sharper read (the reverse of LongHiker); a sizing axis, not a gate
+
+Octile band tables on the 9-gate E book (`--bands`, one replay per band). `consol_5m_lag1m`: top octile [.304, .72]
+= 214 @ **2.45** / trimPF−1 3.6 / +1.35%; the rest 3.0–7.0 (middle [.09,.16] 6.9–7.0). `consol_5m` UNLAGGED: top
+octile [.25, .63] = 228 @ 3.18 / 5.6 / +1.63%; the rest 3.6–5.1. 3m/10m/20m: no usable end (10m is an inverted U,
+20m flat). As gates on E: lag < .304 → 1,287 @ 4.165 / 9.57 (cut 180 @ 2.58, null 99/100, 2 rivals); lag ≤ .22
+→ 1,141 @ 4.323 / 10.11; unlagged < .2545 → 1,282 @ 4.076 / 9.29 (cut 195 @ 3.14, null 97/99, 7 rivals);
+unlagged ≤ .22 → 1,238 @ 4.237. Both weaken 2022 (2.9 → 2.4–2.6) and 2024 (3.1 → 2.7–3.1) slightly.
+**Why lagged wins here**: the signal bar IS the flush, so the unlagged window's variance is dominated by the move
+that just happened and reads "trend" for everyone; the lagged window asks what the tape was doing BEFORE the flush
+— a chop (coil ≥ .3) into a new low is the weak setup. Verdict: the coil's cut slices are PF 2.5–3.1 material
+(not junk) and its holdout support was one half only (S49c) → **sizing ledger / tier axis, not a spec gate**.

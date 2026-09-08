@@ -38,6 +38,7 @@ ap.add_argument("--mem", default="4GB")
 ap.add_argument("--summary", default=None, help="write the one-row-per-gate overview here")
 ap.add_argument("--add", default="", help="layer-9 candidate gates promoted INTO the spec (comma list)")
 ap.add_argument("--no-vote", action="store_true", help="drop the ROSTER vote entirely (frame + engine gates only)")
+ap.add_argument("--bands", default=None, help="octile band tables (one replay per band) of these columns on the current spec S")
 ap.add_argument("--eval", default=None, help="print the full-spec book line under the current --drop/--add, labelled")
 ap.add_argument("--rebuild-eff", action="store_true", help="greedy by EDGE EFFICIENCY: max d(PF-1) per net point given up; VOTE is a candidate; full curve")
 ap.add_argument("--rebuild", action="store_true", help="forward greedy rebuild from frame+vote over all layer-2 + layer-9 candidates")
@@ -163,6 +164,9 @@ gate("s5",      2, "and", lambda: c("s5") >= -400,                        "s5", 
 gate("sslu2",   9, "and", lambda: c("sslu") >= 2,                         "sslu",   ">= 2 s since the last uptick (S49b rival)")
 gate("crf",     9, "and", lambda: c("crf") <= -0.002,                     "crf",    "chg_since_run_first_low <= -0.2% (LowFader §L15 which-bar gate)")
 gate("coil5lo", 9, "and", lambda: c("consol_5m_lag1m") <= 0.22,           "consol_5m_lag1m", "<= .22 (S49b rival; MR side = low end good)")
+gate("coil5lo30", 9, "and", lambda: c("consol_5m_lag1m") < 0.304,        "consol_5m_lag1m", "< .304 (top octile of S out)")
+gate("coil5u25",  9, "and", lambda: c("consol_5m") < 0.2545,             "consol_5m", "UNLAGGED < .2545 (top octile of S out)")
+gate("coil5u22",  9, "and", lambda: c("consol_5m") <= 0.22,              "consol_5m", "UNLAGGED <= .22")
 gate("v20",     3, "or",  lambda: c("volat") >= 140,                      "volat",  ">= 140 bp")
 gate("d20a",    3, "or",  lambda: c("d20a") < -0.28,                      "d20a",   "< -28%")
 gate("dslo",    3, "or",  lambda: c("dslo") >= 0.08,                      "dslo",   ">= +8%")
@@ -489,6 +493,11 @@ def rebuild_eff(rowmask, label, draws=300):
 if args.rebuild_eff:
     txt = "# Edge-efficiency rebuild — frame only at step 0; VOTE (the roster OR) is a candidate like any gate.\n\n" + rebuild_eff(np.ones(N, bool), "all years")
     path = os.path.join(args.out, "rebuild_eff.md"); open(path, "w").write(txt); print(txt); log(f"wrote {path}"); sys.exit(0)
+
+if args.bands:
+    for c_ in args.bands.split(","):
+        print(f"\n### `{c_}` on S (n={SF['n']:,} @ {f(SF['pf'])}), octiles, replay inside each band\n"); print(band_table(FULL, col(c_)))
+    sys.exit(0)
 
 if args.eval:
     print(HDR); print(line(args.eval, KFULL)); sys.exit(0)
