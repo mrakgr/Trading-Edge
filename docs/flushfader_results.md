@@ -17742,3 +17742,19 @@ positive. The user's rule (≥ 140 bp only at gap < 4) removes 507 trades at zer
 fills only when price trades through it (better price on the flushes that continue, MISSED on the ones that bounce
 at once) — the fill model (S41: adverse selection conditional on fill) is the open question for this book, not
 the commission tier.
+
+## S49m — monthly share volume at $10k notional per position (user, end of day 2026-09-08)
+
+79.6 months, 2020-01-02..2026-08-21, both legs counted, shares = $10,000 / entry px:
+
+| book | trades/mo | median px | shares/trade | executions/mo | **shares/mo** | 2× rebate @$0.002 | commission @$0.001/sh/side |
+|---|---|---|---|---|---|---|---|
+| tight (step 7, gap < 4) | 170 | $5.41 | 2,576 | 339 | **874k** | $1,747 | $874 |
+| broad gap < 13 | 260 | $5.15 | 2,645 | 521 | **1.38M** | $2,754 | $1,377 |
+| broad gap < 40 | 476 | $5.65 | 2,486 | 951 | **2.36M** | $4,730 | $2,365 |
+| **broad gap < 40 + rule140** | **469** | $5.69 | 2,472 | 938 | **2.32M** | $4,639 | $2,319 |
+
+By year (broad + rule140): 2020 590 trades / 2.70M sh · 2021 724 / 2.85M · 2022 307 / 1.66M · 2023 241 / 1.45M ·
+2024 404 / 2.24M · 2025 542 / 2.94M · 2026 477 / 2.45M per month. Price mix: $1–2 = 13.7% of trades but 38% of
+shares; $2–5 = 32% / 42%; $5–10 = 23% / 13%; ≥ $10 = 32% of trades, 6.6% of shares. **80% of the share volume is
+in sub-$5 names** — the tier where the per-share rebate is 4–8 bp of notional and the S41 Roll spread 4–7 bp.
