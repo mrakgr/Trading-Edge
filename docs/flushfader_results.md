@@ -17345,3 +17345,64 @@ candidate gate, not a substitute for any one of them. (b) `consol_5m_lag1m ≤ ~
 (earlier maps) and ssf — on the MR side the LOW end (trend into the low) is the good end, the INVERSE of LongHiker
 S40 (the side-flip inversion, #8). (c) K, eff20 and d1m have no rival at all; their cut slices (1.6–1.9 PF,
 +0.5–1.1%/trade) are the four-tier material.
+
+## S49c — the JOINT test: forward greedy rebuild + year-block holdout (the overfit question)
+
+`--rebuild`: from frame + vote (every layer-2 gate OFF; 22,879 trades @ 1.27), add at each step the candidate whose
+replayed book has the best trimPF−1 AMONG those beating the 95th pct of the random-cut null of the same tkd size
+(300 draws); stop when none does. Candidates = the 18 layer-2 gates at spec thresholds + three layer-9 candidates:
+**`crf ≤ −0.2%`** (`chg_since_run_first_low`, LowFader §L15's which-bar gate — user's question), **`sslu ≥ 2`**
+(the S49b rival), **`coil5lo` = consol_5m_lag1m ≤ .22** (the S49b rival, MR-side low end).
+
+| step | gate added | n | PF | trimPF−1 | null pct | years 2020..2026 |
+|---|---|---|---|---|---|---|
+| 1 | K [26,50] | 6,623 | 1.73 | 2.74 | 100 | 2.3 1.7 1.4 1.7 1.8 1.7 1.5 |
+| 2 | eff20 [.30,.50) | 3,651 | 2.08 | 3.63 | 100 | 3.7 2.0 1.3 1.6 2.0 2.1 1.9 |
+| 3 | **crf ≤ −0.2%** | 2,568 | 2.35 | 4.53 | 100 | 4.6 2.3 1.4 1.7 2.1 2.5 2.2 |
+| 4 | **coil5lo ≤ .22** | 2,099 | 2.50 | 5.05 | 100 | 6.0 2.4 1.3 1.5 1.9 3.2 2.4 |
+| 5 | d1m < −2% | 1,768 | 2.74 | 5.77 | 99 | 6.1 2.9 1.4 1.4 1.9 3.5 2.9 |
+| 6 | rngf < .80 | 1,649 | 3.01 | 6.49 | 100 | 6.2 3.1 1.6 2.2 2.0 3.3 3.3 |
+| 7 | cascade | 1,577 | 3.21 | 7.17 | 100 | 6.9 3.0 1.8 2.2 2.1 4.0 3.2 |
+| 8 | accel ≥ −80 | 1,442 | 3.77 | 8.06 | 100 | 9.0 3.6 2.5 2.4 2.9 3.9 3.4 |
+| 9 | ssf [−375,−25) | 1,179 | 4.00 | 9.10 | 98 | 16.3 3.5 2.6 2.9 2.7 3.7 4.2 |
+| 10 | lows300 ≥ 6 | 1,141 | 4.32 | 10.11 | 100 | 18.2 4.2 2.6 2.9 2.7 4.0 4.8 |
+| 11–12 | s5, sslu2 | 1,137 | 4.43 | 10.55 | 100 | (no-ops: 4 and 0 trades) |
+
+NEVER picked (in any split): lows180, e9, v10r, speed, dlv, z20, rflow, eff10, s20. **The two new candidates are
+picks 3 and 4** — at the point they enter they beat every remaining spec gate. `sslu2` is redundant once the rest
+is in (it was a rival of five gates, not a gate).
+
+**Holdout (fit ≤ 2023 → test 2024–26)**: fitted order eff20, K, crf, ssf, dlv, accel, coil5lo, rngf, d1m, lows300,
+cascade, s5, s20; on the TEST years the fitted spec = 520 @ 3.72 / 7.30 vs the all-years spec on the same years
+551 @ 3.69 / 7.32 — **transfers forward exactly**. **Mirror (fit 2024–26 → test 2020–23)**: fitted order K, eff20,
+crf, e9, d1m, cascade, rngf, rflow, lows300; on 2020–23 = 913 @ 3.12 / 7.17 (years 4.95 / 3.06 / 1.81 / 2.12) vs
+the all-years spec (in-sample there) 586 @ 5.56. Profitable every year on the unseen half with a spec fitted on
+2.6 years. **The STABLE CORE = picked in all three fits: K, eff20, crf, d1m, cascade, rngf, lows300 (7).**
+ssf + accel are supported by 2020–23 (not picked by the 2024+ fit); e9/rflow by 2024+ only; coil5lo by ≤ 2023 only.
+
+**Candidate specs side by side (`--eval`, all years, mc=1 inside; frame = S49a layer 1 + ROSTER v3.3):**
+
+| spec | gates | n | tkd | PF | trimPF−1 | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| H. SPEC v3.1 reference ($2M floor) | 18 | 1,411 | 1,262 | 4.016 | 8.50 | 1.95 | −30.6 | 7.26 | 3.55 | 3.30 | 2.94 | 3.73 | 3.51 | 4.72 |
+| A. S49b survivors | 11 | 1,728 | 1,539 | 3.648 | 7.55 | 1.75 | −30.6 | 7.48 | 3.07 | 2.66 | 2.84 | 3.58 | 3.08 | 4.26 |
+| B. A + crf | 12 | 1,308 | 1,192 | 4.101 | 9.19 | 1.98 | −28.1 | 9.11 | 3.97 | 2.64 | 2.81 | 3.43 | 3.76 | 4.46 |
+| C. B + coil5lo | 13 | 1,058 | 979 | 4.556 | 11.06 | 2.08 | −28.1 | 17.86 | 4.70 | 2.25 | 2.67 | 2.89 | 4.24 | 6.24 |
+| D. CORE-7 | 7 | 1,886 | 1,644 | 3.081 | 6.53 | 1.69 | −41.2 | 5.19 | 3.06 | 1.89 | 2.27 | 2.43 | 3.52 | 2.98 |
+| **E. CORE-7 + ssf + accel** | **9** | **1,423** | **1,285** | **3.861** | **8.38** | **1.91** | **−28.1** | **8.78** | **3.74** | **2.92** | **3.07** | **3.09** | **3.48** | **3.74** |
+| F. E + coil5lo (greedy top-10) | 10 | 1,141 | 1,052 | 4.323 | 10.11 | 2.01 | −28.1 | 18.17 | 4.24 | 2.61 | 2.94 | 2.69 | 4.00 | 4.77 |
+| G. CORE-7 + lows180 + e9 + v10r | 10 | 1,733 | 1,528 | 3.197 | 6.97 | 1.76 | −41.2 | 4.92 | 3.14 | 1.76 | 2.35 | 2.62 | 3.82 | 3.21 |
+
+**E's own map (every gate 100/100 on the null; rivals of 130):** d1m cut 380 @ 1.51 (1 rival) · ssf 391 @ 2.31 (4) ·
+cascade 65 @ 0.99 (0) · K 1,970 @ 2.04 (0) · eff20 1,110 @ 1.86 (0) · lows300 125 @ 2.06 (0) · rngf 46 @ 0.70 (0) ·
+accel 147 @ 1.41 (3) · crf 1,336 @ 3.26 (6). crf's band table on S∖crf: the run's FIRST low (crf ≈ 0, 1,665 trades)
+is PF 3.39 / +1.71%, the extended bands 4.1–4.8 / +1.8–2.6% — a which-bar gate exactly as on LowFader (§L15):
+profitable first-low trips are traded LATER and better, not discarded as junk. The three gates crf displaces
+(lows180, e9, v10r) add +0.12 PF on top of the core (G vs D) and are never picked by the greedy.
+
+**Recommendation: SPEC v4 = E (9 gates)** — the same book size and quality as the 18-gate reference (1,423 @ 3.86 vs
+1,411 @ 4.02; trimPF−1 8.38 vs 8.50; better worst −28 vs −31) with HALF the gates, every gate at the 100th
+percentile of its null, and a forward holdout that transfers exactly. The broadening does NOT come from the spec —
+it comes from the TIER pass on the profitable cut slices (K 1,970 @ 2.04, eff20 1,110 @ 1.86, crf 1,336 @ 3.26,
+d1m 380 @ 1.51, ssf 391 @ 2.31) at graded size, with speed/dlv/coil as magnitude inputs in the sizing ledger.
+Ruling: pending.

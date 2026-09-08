@@ -36,7 +36,11 @@ ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--seed", type=int, default=7)
 ap.add_argument("--mem", default="4GB")
 ap.add_argument("--summary", default=None, help="write the one-row-per-gate overview here")
-ap.add_argument("--drop", default="eff10,s20,s5", help="gates RULED OUT of the spec (S49b, user 2026-09-08); they leave S and are not reported")
+ap.add_argument("--add", default="", help="layer-9 candidate gates promoted INTO the spec (comma list)")
+ap.add_argument("--eval", default=None, help="print the full-spec book line under the current --drop/--add, labelled")
+ap.add_argument("--rebuild", action="store_true", help="forward greedy rebuild from frame+vote over all layer-2 + layer-9 candidates")
+ap.add_argument("--holdout", default="2023", help="rebuild fit on years <= this, test on the rest, and the mirror")
+ap.add_argument("--drop", default="eff10,s20,s5,speed,z20,rflow,dlv", help="gates RULED OUT of the spec (S49b, user 2026-09-08); they leave S and are not reported")
 args = ap.parse_args()
 os.makedirs(args.out, exist_ok=True)
 con = duckdb.connect(); con.execute(f"SET memory_limit='{args.mem}'"); con.execute("SET threads=6")
@@ -98,7 +102,8 @@ def build():
              (volat_10m/volat_20m)::FLOAT AS vratio, volat_eslope_10m::FLOAT AS ves10, volat_eslope_5m::FLOAT AS ves5,
              n_eff_shannon_600::FLOAT AS shan600, eff_since_flow::FLOAT AS effflow, z_since_flow::FLOAT AS zflow,
              (vol_60/vol_0945_tape)::FLOAT AS rr60, tc_60::FLOAT AS tc60, (vol_60*signal_vwap)::FLOAT AS dv60,
-             bars_since_high::INTEGER AS bsh, secs_since_last_uptick::INTEGER AS sslu, lows_since_uptick::SMALLINT AS lsu
+             bars_since_high::INTEGER AS bsh, secs_since_last_uptick::INTEGER AS sslu, lows_since_uptick::SMALLINT AS lsu,
+             chg_since_run_first_low::DOUBLE AS crf, chg_since_last_uptick::DOUBLE AS cslu
              {optsql}
       FROM read_parquet('{args.trips}')
       WHERE ret_exit IS NOT NULL AND NOT isnan(ret_exit)
@@ -153,6 +158,9 @@ gate("rngf",    2, "and", lambda: c("rngf") < 0.80,                       "rngf"
 gate("accel",   2, "and", lambda: c("accel") >= -80,                      "accel",  ">= -80 bp/m")
 gate("s20",     2, "and", lambda: c("s20") < -10,                         "s20",    "< -10 bp/m")
 gate("s5",      2, "and", lambda: c("s5") >= -400,                        "s5",     ">= -400 bp/m")
+gate("sslu2",   9, "and", lambda: c("sslu") >= 2,                         "sslu",   ">= 2 s since the last uptick (S49b rival)")
+gate("crf",     9, "and", lambda: c("crf") <= -0.002,                     "crf",    "chg_since_run_first_low <= -0.2% (LowFader §L15 which-bar gate)")
+gate("coil5lo", 9, "and", lambda: c("consol_5m_lag1m") <= 0.22,           "consol_5m_lag1m", "<= .22 (S49b rival; MR side = low end good)")
 gate("v20",     3, "or",  lambda: c("volat") >= 140,                      "volat",  ">= 140 bp")
 gate("d20a",    3, "or",  lambda: c("d20a") < -0.28,                      "d20a",   "< -28%")
 gate("dslo",    3, "or",  lambda: c("dslo") >= 0.08,                      "dslo",   ">= +8%")
@@ -166,11 +174,12 @@ gate("stier",   3, "or",  lambda: (c("ht") >= 1) & (c("ssh") >= 120) & (c("ssh")
 for k, v in G.items():   # NaN -> False, materialised once
     m = v["fn"](); v["mask"] = np.where(np.isnan(m.astype(float)), False, m).astype(bool) if m.dtype != bool else m
 DROPPED = [x for x in args.drop.split(",") if x]
-AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED]; OR = [k for k, v in G.items() if v["kind"] == "or" and k not in DROPPED]
+ADDED = [x for x in args.add.split(",") if x]
+AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED and (v["layer"] != 9 or k in ADDED)]; OR = [k for k, v in G.items() if v["kind"] == "or" and k not in DROPPED]
 log(f"spec = {len(AND)} AND gates + {len(OR)} voices; DROPPED by ruling: {DROPPED}")
 
 # The substitute candidate inputs (continuous columns tried in BOTH directions).
-SUBS = ["dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
+SUBS = ["crf", "cslu", "dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
         "k20", "eff20a", "eff10a", "e9", "v10r", "l300", "rngf", "accel", "s20", "s5", "d20a", "dslo", "vexp",
         "vcrush", "ac1", "esf", "dsu", "gadj1200", "s1", "eff20s", "e9_20", "l120", "l600", "rng20", "rngf600",
         "vratio", "ves10", "ves5", "shan600", "effflow", "zflow", "rr60", "tc60", "dv60", "bsh", "sslu", "lsu"]
@@ -239,12 +248,12 @@ HDR = ("| set | n | tkd | PF | trimPF-1 | win% | avg% | worst% | " + " | ".join(
 def null_draws(keep_pool, n_tkd, draws, rng):
     """PF / trimPF-1 / avg distribution of random TICKER-DAY subsets of a book (keep_pool) at n_tkd tkds."""
     idx = np.flatnonzero(keep_pool); t = TKD[idx]; r = RET[idx]
-    u, start = np.unique(t, return_index=True); end = np.append(start[1:], len(t))
+    u, inv = np.unique(t, return_inverse=True)
     if n_tkd >= len(u) or n_tkd <= 0: return None
     pfs, tps, avs = np.empty(draws), np.empty(draws), np.empty(draws)
     for d in range(draws):
-        pick = rng.choice(len(u), n_tkd, replace=False)
-        rr = np.concatenate([r[start[p]:end[p]] for p in pick])
+        m = np.zeros(len(u), bool); m[rng.choice(len(u), n_tkd, replace=False)] = True
+        rr = r[m[inv]]
         pfs[d] = pf(rr); tps[d] = tpf1(rr); avs[d] = rr.mean() * 100
     return pfs, tps, avs
 def pct(dist, x):
@@ -408,6 +417,64 @@ def report(g):
                 band_table(spec_mask(no_vote=True), x), ""]
     txt = "\n".join(out); path = os.path.join(args.out, f"{g}.md")
     open(path, "w").write(txt); print(txt); log(f"wrote {path}")
+
+# ---------------------------------------------------------------- 6. forward greedy rebuild + year-block holdout
+def rebuild(rowmask, label, draws=300, min_pct=95.0, cands=None):
+    """From frame+vote (all layer-2 gates OFF), add at each step the candidate whose book has the best trimPF-1
+    AMONG those beating the min_pct-th percentile of the random-cut null of the same tkd size. Stop when none does."""
+    base = np.ones(N, bool)
+    for k in G:
+        if G[k]["kind"] == "and" and G[k]["layer"] == 1: base &= G[k]["mask"]
+    v = np.zeros(N, bool)
+    for k in OR: v |= G[k]["mask"]
+    cur = base & v & rowmask
+    cands = list(cands) if cands else [k for k in G if G[k]["kind"] == "and" and G[k]["layer"] in (2, 9)]
+    chosen = []; kcur = book(cur); sc = S(kcur)
+    rows = [f"| 0 | (frame + vote) | {sc['n']:,} | {sc['tkd']:,} | {f(sc['pf'])} | {f(sc['tpf1'])} | {f(sc['avg'],2)} | — | — |"]
+    log(f"REBUILD [{label}] start: {sc['n']:,} @ {f(sc['pf'])} tpf1 {f(sc['tpf1'])}; {len(cands)} candidates")
+    step = 0
+    while cands:
+        best = None; tried = []
+        for g in cands:
+            k = book(cur & G[g]["mask"]); s = S(k)
+            if s["n"] < 200: tried.append((g, s, None)); continue
+            nd = null_draws(kcur, s["tkd"], draws, rng)
+            p = pct(nd[1], s["tpf1"]) if nd else 100.0
+            tried.append((g, s, p))
+            if p >= min_pct and (best is None or s["tpf1"] > best[1]["tpf1"]): best = (g, s, p, k)
+        tried.sort(key=lambda x: -(x[1]["tpf1"] if not np.isnan(x[1]["tpf1"]) else -9))
+        log(f"  step {step+1}: " + "  ".join(f"{g}:{f(s['tpf1'],2)}@{s['n']}({'-' if p is None else f'{p:.0f}'})" for g, s, p in tried[:8]))
+        if best is None: break
+        g, s, p, k = best; step += 1; chosen.append(g); cands.remove(g); cur = cur & G[g]["mask"]; kcur = k
+        rows.append(f"| {step} | {g} {G[g]['thr']} | {s['n']:,} | {s['tkd']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | {p:.0f} | " + " ".join(f"{f(pp,1)}" for n, pp in yrow(k)) + " |")
+    hdr = "| step | gate added | n | tkd | PF | trimPF-1 | avg% | null pct | years |\n|---|---|---|---|---|---|---|---|---|"
+    return chosen, cur, hdr + "\n" + "\n".join(rows)
+
+if args.eval:
+    print(HDR); print(line(args.eval, KFULL)); sys.exit(0)
+
+if args.rebuild:
+    out = [f"# Forward greedy rebuild — corpus {args.trips}, candidates = layer-2 gates (spec thresholds) + layer-9 (sslu2, crf, coil5lo); "
+           f"eligibility = beats the {95}th pct of the random-cut null (300 draws) at each step; stop when nothing does.\n"]
+    allmask = np.ones(N, bool)
+    ch, cur, tab = rebuild(allmask, "all years"); out += ["## All years\n", tab, "", f"chosen order: {ch}", ""]
+    Y = int(args.holdout)
+    for lab, fit, test in [(f"fit <= {Y}, test > {Y}", YR <= Y, YR > Y), (f"fit > {Y}, test <= {Y}", YR > Y, YR <= Y)]:
+        chf, curf, tabf = rebuild(fit, lab)
+        # the fitted spec evaluated on the test years vs the all-years spec on the same test years
+        base = np.ones(N, bool)
+        for k in G:
+            if G[k]["kind"] == "and" and G[k]["layer"] == 1: base &= G[k]["mask"]
+        v = np.zeros(N, bool)
+        for k in OR: v |= G[k]["mask"]
+        mf = base & v & test
+        for g in chf: mf &= G[g]["mask"]
+        ma = base & v & test
+        for g in ch: ma &= G[g]["mask"]
+        out += [f"## Holdout: {lab}\n", tabf, "", f"chosen order (fit): {chf}", "", HDR,
+                line(f"FIT spec on TEST years", book(mf)), line(f"ALL-YEARS spec on the same TEST years", book(ma)), ""]
+    txt = "\n".join(out); path = os.path.join(args.out, "rebuild.md"); open(path, "w").write(txt); print(txt); log(f"wrote {path}")
+    sys.exit(0)
 
 if args.gate:
     sel = list(G) if args.gate == "all" else [k for k in G if G[k]["layer"] == int(args.gate[5:])] if args.gate.startswith("layer") else args.gate.split(",")
