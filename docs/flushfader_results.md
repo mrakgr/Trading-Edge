@@ -17545,3 +17545,38 @@ ssh bands on the halted trips (E, no halt gates): [0,30) 13 @ 0.68, [30,60) 4 @ 
 the two-case rule (3.861): serial breakers (ht ≥ 3) need the 20 m, ordinary halts do not. **Verdict: the gap
 column choice is moot under the cascade gate (either is fine; raw stays); the S42n/S42t two-case cascade rule
 stands as written.**
+
+## S49i — the far gap tail: where NOT to trade at all (user), and gap count vs trade count as the liquidity measure
+
+Spec for every gap table = E (9 gates) + ROSTER vote, door removed (2,882 @ 2.55). Fine tail bins (replay inside):
+
+| gap_60 | n | PF | avg% | win% | worst | years < 1 |
+|---|---|---|---|---|---|---|
+| 4–5 | 292 | 2.55 | 1.35 | 73.6 | −23.4 | 1 of 7 (2022 0.96) |
+| 6–7 | 227 | 1.87 | 1.01 | 69.2 | −34.3 | 2 |
+| 8–9 | 169 | 2.18 | 1.26 | 71.6 | −17.6 | 0 |
+| 10–12 | 239 | 1.88 | 1.10 | 72.0 | −26.4 | 1 |
+| 13–15 | 199 | 1.56 | 0.84 | 73.4 | −34.2 | 2 |
+| 16–19 | 212 | 2.49 | 1.33 | 75.9 | −25.9 | 1 |
+| 20–24 | 203 | 1.76 | 0.93 | 72.4 | −34.6 | 3 |
+| 25–29 | 186 | 2.00 | 1.17 | 69.4 | −28.3 | 1 |
+| 30–34 | 159 | 2.53 | 1.59 | 74.2 | −16.9 | 0 |
+| 35–39 | 146 | 1.81 | 0.99 | 70.5 | −28.7 | 1 |
+| **40–44** | 97 | **1.42** | 0.56 | 67.0 | −27.3 | 3 |
+| **45–49** | 65 | **1.26** | 0.50 | 66.2 | −26.2 | 4 |
+| 50–59 | 20 | 7.4 | 3.50 | 75.0 | −4.3 | (20 trades) |
+
+No vote (engine only): [40,60] = 711 @ 1.40 / +0.47% / win 64.4%, 2023–26 = 0.73 / 1.16 / 0.90 / 0.67. **The
+no-trade line is gap_60 ≥ 40** (≥ 2/3 of the last minute empty): PF 1.3–1.4, +0.5%/trade, most years ≤ 1 — under
+water after ~10 bp costs. Between 6 and 39 the tail is FLAT at ~1.9 / +1.0% — tier material at small size, no
+further threshold inside it.
+
+**Trade count does NOT rescue the sparse tail, and gaps kill busy tape too.** tc_60 bands inside gap ≥ 8: 60–150
+2.13 · 150–300 1.94 · 300–500 1.93 · 500–800 1.53 · 800–1200 1.79 — flat. gap bands inside tc_60 ≥ 800 (busy
+tape): 0 → 3.83 · 1 → 3.11 · 2–3 → 3.86 · 4–5 → 3.40 · **6–7 → 1.06 (75 trades, +0.08%)** · 8–12 → 1.63. Inside
+the door tc_60 is a mild gradient (500–800: 4.19 · 800–1200: 3.65 · 1200–2000: 3.99 · 2000–3000: 4.17 · 3000+:
+5.62). dv_60 bands on the doorless book: < $200k 1.87 · 200–400k 2.45 · 400–800k 2.02 · 800k–1.6M 3.39 · 1.6–3.2M
+3.06 · 3.2–6.4M 4.07 · > 6.4M 4.65 — the same sparse-vs-dense split the gap count makes, not an independent floor.
+**Reading:** the gap count measures INTERMITTENCY (is the tape printing every second), which is what the 1s-bar
+signal needs; trade count and dollars measure size, which the floors already cover. gap_60 stays the door and the
+tier axis; the floors stay floors.

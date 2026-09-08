@@ -141,6 +141,9 @@ gate("dv0945",  1, "and", lambda: c("dv0945") >= 2e6,                    "dv0945
 gate("volat40", 1, "and", lambda: c("volat") >= 40,                       "volat",  ">= 40 bp (engine band floor 20)")
 gate("win1500", 1, "and", lambda: c("signal_sec") <= 54000,               "signal_sec", "<= 15:00")
 gate("g60",     1, "and", lambda: c("gap60") < 4,                         "gap60",  "< 4")
+gate("tc800",   9, "and", lambda: c("tc60") >= 800,                       "tc60",   ">= 800 trades / 60 tradeable s")
+gate("g60tail", 9, "and", lambda: c("gap60") >= 8,                       "gap60",  ">= 8 (the sparse tail, for splitting)")
+gate("g60mid",  9, "and", lambda: (c("gap60") >= 4) & (c("gap60") < 8),  "gap60",  "in [4,8)")
 gate("gadj60_4", 9, "and", lambda: c("gadj60") < 4,                      "gadj60", "< 4 (halt-ADJUSTED door)")
 gate("reopen",   9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 120),   "ssh",    "ht=0 or ssh>=120 (the S42t reopen block alone)")
 gate("wait600",  9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 600),   "ssh",    "ht=0 or ssh>=600 (ONE wait for any halt count)")
@@ -330,13 +333,13 @@ def band_table(base_mask, vals, nb=8):
     v = vals[base_mask]; v = v[~np.isnan(v)]
     if len(v) < 100: return "(too few values)"
     qs = np.array([float(x) for x in args.bins.split(",")]) if args.bins else np.unique(np.quantile(v, np.linspace(0, 1, nb + 1)))
-    out = ["| band (replay inside) | n | tkd | PF | trimPF-1 | avg% | " + " | ".join(str(y) for y in YEARS) + " |",
-           "|---|---|---|---|---|---|" + "---|" * len(YEARS)]
+    out = ["| band (replay inside) | n | tkd | PF | trimPF-1 | avg% | win% | worst% | " + " | ".join(str(y) for y in YEARS) + " |",
+           "|---|---|---|---|---|---|---|---|" + "---|" * len(YEARS)]
     for i in range(len(qs) - 1):
         lo, hi = qs[i], qs[i + 1]
         m = base_mask & (vals >= lo) & ((vals < hi) if i < len(qs) - 2 else (vals <= hi))
         k = book(m); s = S(k); ys = yrow(k)
-        out.append(f"| [{lo:.4g}, {hi:.4g}{')' if i < len(qs)-2 else ']'} | {s['n']:,} | {s['tkd']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | "
+        out.append(f"| [{lo:.4g}, {hi:.4g}{')' if i < len(qs)-2 else ']'} | {s['n']:,} | {s['tkd']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | {f(s['win'],1)} | {f(s['worst'],1)} | "
                    + " | ".join(f"{f(p,2)} ({n})" for n, p in ys) + " |")
     return "\n".join(out)
 
