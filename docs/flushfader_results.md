@@ -17708,3 +17708,37 @@ coil: <.05 0.90, .05-.10 0.98, .10-.15 1.13, .15-.22 0.94
 gap: 0 1.50, 1-3 1.13, 4-7 0.99, 8-12 0.87, 13-19 1.00, 20-29 0.80, 30-39 0.77
 
 **Reading.** (1) **volat_20m is a clean sizing axis**: avg%/trade +0.19 → +0.43 → +0.73 → +1.02 across 40–60 / 60–90 / 90–140 / 140–250 bp (volatility IS the edge — the no-1/√vol rule confirmed again); multipliers 0.75 / 0.96 / 1.21 / 1.11. (2) **gap_60 is the strongest axis** (trimPF−1 2.51 at gap 0 → 1.29 at 30–39; multipliers 1.50 → 0.77) and the only one that LOWERS the drawdown. (3) **the coil does NOT size**: an inverted U (.10–.15 best at 1.90, < .05 weakest at 1.50), sizing on it alone is flat in-sample (1.672 → 1.688) and slightly negative on one holdout — it is a GATE feature (≤ .22), not a dial. (4) **gap × volat × coil** lifts trimPF−1 1.67 → 2.29 in-sample and holds out both ways (1.47 → 2.18 fit-early/apply-late; 1.83 → 2.47 mirror) at +38% net for the same average exposure; the coil's contribution inside it is the .10–.15 bump only.
+
+## S49l — the broad book under REBATE economics (user: "we should be paid to provide liquidity"), + the 140 bp rule
+
+All S49k grids were NET OF 10 bp/trade. Re-run with the cost expressed PER SHARE (scales 1/price, as rebates do):
+`--credit` = net $ per share per SIDE (rebate − commission); trade cost = −2·credit/px. Median px on this book $5.65
+(gap 0: $6.54 · 4–12: $5.1–5.2 · 30–39: $8.65).
+
+| scenario | cost/trade | n | PF | trimPF−1 | avg% | net% |
+|---|---|---|---|---|---|---|
+| A. 10 bp taker-ish (S49k) | +0.100% | 37,855 | 1.354 | 1.67 | +0.39 | 14,761 |
+| B. zero | 0 | 37,855 | 1.459 | 1.94 | +0.49 | 18,547 |
+| C. credit $0.0005/sh/side (rebate .002 − comm .0015) | −0.025% mean | 37,855 | 1.485 | 2.01 | +0.51 | 19,488 |
+| D. credit $0.001/sh/side (rebate .002 − comm .001) | −0.050% mean | 37,855 | 1.513 | 2.08 | +0.54 | 20,429 |
+| **E. D + RULE volat ≥ 140 only if gap < 4 (user)** | −0.049% | **37,348** | **1.533** | **2.10** | **+0.55** | **20,390** |
+
+gap × volat avg%/trade under D (credit $0.001/sh/side):
+
+| gap \ volat | 40–60 | 60–90 | 90–140 | 140–250 |
+|---|---|---|---|---|
+| 0 | +0.48 | +0.78 | +1.06 | +1.76 |
+| 1–3 | +0.47 | +0.39 | +1.06 | +1.47 |
+| 4–7 | +0.40 | +0.63 | +0.77 | +0.12 |
+| 8–12 | +0.28 | +0.66 | +0.49 | +0.04 |
+| 13–19 | +0.31 | +0.61 | +1.15 | +0.83 |
+| 20–29 | +0.31 | +0.56 | +0.61 | −0.12 |
+| 30–39 | +0.23 | +0.52 | +0.76 | +0.28 |
+
+**Reading:** under rebate economics the "worthless" corner (gap 30–39 × 40–60 bp, 5,762 trades) reads +0.23%/trade
+and the 40–60 column below gap 8 +0.23–0.31% — thin but real, and every cell except the sparse × ≥ 140 bp ones is
+positive. The user's rule (≥ 140 bp only at gap < 4) removes 507 trades at zero net cost and lifts PF 1.513 →
+1.533. ⚠ The rebate scenarios assume BOTH legs fill passively at the backtest's next-bar-vwap price; a resting bid
+fills only when price trades through it (better price on the flushes that continue, MISSED on the ones that bounce
+at once) — the fill model (S41: adverse selection conditional on fill) is the open question for this book, not
+the commission tier.

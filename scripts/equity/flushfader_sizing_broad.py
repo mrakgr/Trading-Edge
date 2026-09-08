@@ -13,7 +13,9 @@ from numba import njit
 ap = argparse.ArgumentParser()
 ap.add_argument("--slice", default="data/flushfader_review_slice.parquet")
 ap.add_argument("--door", type=int, default=40)
-ap.add_argument("--cost", type=float, default=0.10, help="round-trip cost, % of notional per trade")
+ap.add_argument("--cost", type=float, default=0.10, help="round-trip cost, % of notional per trade (fixed bp)")
+ap.add_argument("--credit", type=float, default=None, help="NET credit per share per SIDE in $ (rebate minus commission); overrides --cost, scales 1/price: trade cost = -2*credit/px")
+ap.add_argument("--rule140", action="store_true", help="user rule: volat >= 140 bp only if gap_60 < 4")
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--base", type=float, default=0.10, help="fraction of equity per trade at multiplier 1 (compounded sim)")
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_broad.md")
@@ -29,6 +31,7 @@ def nz(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 M = (nz(D.volat.values >= 40) & nz(D.signal_sec.values <= 54000) & nz(D.gap60.values < args.door) & nz(D.px.values >= 1)
      & nz(D.l300.values >= 6) & nz(D.eff10a.values >= 0.15) & nz(D.v10r.values >= 0.75) & nz(D.z20.values < -1.5)
      & nz(D.l180.values >= 3) & nz(D.crf.values <= -0.002) & nz(D.consol_5m_lag1m.values <= 0.22))
+if args.rule140: M &= ~(nz(D.volat.values >= 140) & nz(D.gap60.values >= 4))
 
 @njit(cache=True)
 def greedy_keep(tkd, ent, ext, mask, keep):
@@ -40,9 +43,11 @@ def greedy_keep(tkd, ent, ext, mask, keep):
             keep[i] = True; last_ext = ext[i]
 keep = np.zeros(N, bool); greedy_keep(D.tkd.values.astype(np.int64), D.ent.values.astype(np.int64), D.ext.values.astype(np.int64), M, keep)
 B = D[keep].sort_values(["yr", "tkd", "ent"]).reset_index(drop=True)
-R = B.ret.values * 100 - args.cost          # % per trade, net of cost
+COST = (-2 * args.credit / B.px.values * 100) if args.credit is not None else np.full(len(B), args.cost)
+R = B.ret.values * 100 - COST               # % per trade, net of cost (or plus the rebate credit)
+COSTLAB = f"credit ${args.credit}/sh/side (mean {COST.mean():+.3f}%/trade, median px ${np.median(B.px.values):.2f})" if args.credit is not None else f"cost {args.cost}%/trade"
 YR = B.yr.values; YEARS = sorted(set(YR))
-log(f"broad book: {len(B):,} trades, door < {args.door}, cost {args.cost}%/trade")
+log(f"broad book: {len(B):,} trades, door < {args.door}, {COSTLAB}{' , rule140' if args.rule140 else ''}")
 
 def pf(r):
     g, l = r[r > 0].sum(), -r[r < 0].sum(); return np.inf if l == 0 else g / l
@@ -57,7 +62,7 @@ CB = [-1, 0.05, 0.10, 0.15, 0.221]; CL = ["<.05", ".05-.10", ".10-.15", ".15-.22
 GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20-29", "30-39"]
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
 
-out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; returns NET of {args.cost}%/trade\n",
+out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
        f"Book flat: PF {f(pf(R),3)}  trimPF-1 {f(tpf1(R),3)}  avg {R.mean():+.2f}%  net {R.sum():,.0f}%\n"]
 
 def grid(name, ai, al, bi, bl, stat):
