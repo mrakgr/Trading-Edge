@@ -17786,3 +17786,30 @@ gap 20–29: 2.26 / 1.64 / 1.54 / 1.35) — the rate tells which sparse trips ar
 140–250 bp row is 3.52 / 4.54 / 2.82 / 1.84 — fast legs on volatile names are the weak cell.
 **Verdict: rate600 is a THIRD sizing axis, modest (+8% net in-sample, +7% / +0.3% on the holdouts, trimPF−1 +0.2–0.3
 out of sample), not a gate; rate300 is its twin; rate1200 and the rr-qualified counts add nothing.**
+
+## S49o — the cascade gate on the efficiency variant + the S-tier question (user, 2026-09-08 close): STARTING NUMBERS for tomorrow
+
+User: "The halt-resumption trades were never meant to go inside the voice feature; they should be handled separately
+as S-tier trades. Add the cascade gate and handle the trades it excludes in a special manner. The S tier may have a
+different form under the efficiency variant (it was studied under the K/eff gates)."
+
+broad (no cascade) 37,348 @ 1.478 / net 18,674 → **broad + cascade 37,023 @ 1.474 / net 18,141** (the gate removes
+325 trades; the halted population on this book is ~5,300 trades / 2,370 tkd). Post-resume `ssh` bands on the broad
+book (replay inside, gross):
+
+| ssh (s since resume) | n | PF | trimPF−1 | avg% | worst | 2022 | 2023 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| [0, 60) | 102 | 1.05 | 1.23 | +0.26 | −63 | 0.10 | 0.51 | 0.91 | 0.59 |
+| [60, 120) | 168 | 1.37 | 2.05 | +1.35 | −73 | 1.59 | 0.67 | 0.80 | 0.78 |
+| [120, 300) | 201 | 1.05 | 1.57 | +0.16 | −72 | 0.81 | 0.63 | 0.90 | 1.10 |
+| **[300, 600)** | 176 | **2.74** | 6.32 | **+2.43** | −42 | 0.80 | 1.94 | 1.47 | 5.13 |
+| [600, 1200) | 311 | 1.79 | 3.51 | +1.47 | −41 | 2.39 | 3.60 | 1.44 | 5.51 |
+| [1200, 2400) | 863 | 2.09 | 3.28 | +1.37 | −36 | 1.73 | 1.11 | 1.80 | 1.68 |
+| [2400, 4800) | 1,217 | 1.49 | 2.27 | +0.70 | −84 | 1.29 | 2.58 | 1.31 | 1.52 |
+| ≥ 4800 | 2,721 | 1.53 | 2.18 | +0.69 | −43 | 1.22 | 1.42 | 1.70 | 1.50 |
+
+By halt count: ht 1 → 2,580 @ 1.69 · 2 → 1,045 @ 1.56 · 3 → 573 @ 1.63 · 4–5 → 552 @ 1.23 · 6+ → 543 @ 1.55.
+**The form differs from the tight system's S-tier (ht ≥ 1 ∧ ssh ∈ [120,1200))**: here the first 5 minutes after a
+resume are junk (1.05–1.37, worst −63…−73) and the premium sits at [300, 1200) (+1.5–2.4%/trade) and [1200, 2400).
+TODO tomorrow: cascade IN as a gate; the S tier re-derived on the efficiency variant (ssh × ht × gap × volat), with
+the null and the year table; then sized separately.
