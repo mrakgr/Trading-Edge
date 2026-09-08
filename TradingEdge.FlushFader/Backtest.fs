@@ -296,6 +296,7 @@ CREATE TABLE trips (
     symbol VARCHAR, trade_date VARCHAR, n DOUBLE,
     signal_sec INTEGER, signal_vwap DOUBLE, entry_sec INTEGER, entry_px DOUBLE,
     volat_20m DOUBLE, volat_10m DOUBLE, rng_20m DOUBLE, eff_20m DOUBLE, eff_10m DOUBLE, slot_count INTEGER,
+    consol_3m DOUBLE, consol_3m_lag1m DOUBLE, consol_5m DOUBLE, consol_5m_lag1m DOUBLE, consol_10m DOUBLE, consol_10m_lag1m DOUBLE, consol_20m DOUBLE, consol_20m_lag1m DOUBLE,
     rng_sess DOUBLE, rng_600 DOUBLE, rng_300 DOUBLE, rng_120 DOUBLE, rng_60 DOUBLE, rng_30 DOUBLE,
     breach_sess INTEGER, breach_1200 INTEGER, breach_600 INTEGER, breach_300 INTEGER,
     breach_120 INTEGER, breach_60 INTEGER, breach_30 INTEGER,
@@ -493,6 +494,8 @@ type TripSink(outDir: string) =
             f c.N
             i p.SignalSec; f p.SignalVwap; i p.EntrySec; f p.EntryPx
             f p.Volat20m; f p.Volat10m; f p.Rng20m; f p.Eff20m; f p.Eff10m; i p.SlotCount
+            for k in 0 .. CONSOL_SLOTS.Length - 1 do   // consol_{3m,5m,10m,20m}(+_lag1m), CONSOL_NAMES order
+                f p.Consol.[k]; f p.ConsolLag1m.[k]
             f p.RngSess; f p.Rng600; f p.Rng300; f p.Rng120; f p.Rng60; f p.Rng30
             i p.BreachSess; i p.Breach1200; i p.Breach600; i p.Breach300
             i p.Breach120; i p.Breach60; i p.Breach30

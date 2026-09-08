@@ -297,6 +297,7 @@ let main argv =
         (if ic.MinVolat20m <= 0.0 then "0=off" else sprintf "%.0f" (ic.MinVolat20m * 1e4))
         (if Double.IsPositiveInfinity ic.MaxVolat20m then "inf" else sprintf "%.0f" (ic.MaxVolat20m * 1e4))
     (if parsed.Contains Base_Run then printfn "  mode        = ⭐ BASE RUN — every spec gate OFF (signal definition only)")
+    printfn "  consol      = RECORDED consol_{3m,5m,10m,20m}(+_lag1m) — SlotVarRatioMa slot-variance ratio (LongHiker S40 port, 2026-09-08), NOT gated"
     printfn "  SPEC v3.1   = speed %s | d1m %s | ssf ∈ [%s, %s) bp/m | dlv %s | rflow >= %s | z20 < %s | cascade %s | K ∈ [%s, %s] | |eff20| ∈ [%s, %s) | |eff10| >= %s | eff9ema10 >= %s | vol10rate >= %s (bar-clock) | lows300 >= %s | lows180 >= %s | rngfront < %s | accel1020 >= %s | slope20 < %s | slope5 >= %s"
         (if ic.MaxSpeed1m >= 0.0 then "off" else sprintf "< %.0f%%/1m" (ic.MaxSpeed1m * 100.0))
         (if ic.MaxDist1mHi >= 0.0 then "off" else sprintf "< %.0f%%" (ic.MaxDist1mHi * 100.0))

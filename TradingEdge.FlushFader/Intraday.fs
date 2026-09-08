@@ -120,6 +120,18 @@ type FlushPosition =
                                  // entry channel; cold-at-signal now FAILS the spec (v1.6).
       Eff10m: float              // 20-slot twin (the 10m drift t-stat)
       SlotCount: int             // slot returns folded so far (volat/eff warmth)
+      // ----- ⭐ CONSOLIDATION SLOT-VARIANCE RATIO (LongHiker S40 port, user 2026-09-08).
+      // The last {3,5,10,20}m of ln(1s vwap) cut into 30-present-bar slots (the
+      // eff_20m slot clock): mean within-slot variance / whole-window variance
+      // (SlotVarRatioMa, law of total variance → EXACTLY [0,1]). 1 = the slot
+      // means never move (a coil around one level), 0 = a trend. A random walk
+      // reads ≈ 1.6/k for k slots (3m ≈ .26, 5m ≈ .18, 10m ≈ .08, 20m ≈ .04), so
+      // the windows are NOT on one scale. On LongHiker the coil (5m ≥ .60) was
+      // the good LONG end and <.10 (trend into the extreme) the bad one; the sign
+      // is RE-DERIVED on the MR side here. *_lag1m twins end 2 completed slots
+      // before the signal. Indexed by CONSOL_SLOTS. nan until k(+2) slots. RECORD-ONLY.
+      Consol: float[]
+      ConsolLag1m: float[]
       // ----- S40 (user 2026-08-01): slot-vwap RANGE twins of the eff pair.
       // Numerator = ln(hi/lo) over the SAME 41/21-slot-vwap span the eff returns
       // cover; eff_rng = that range over the SAME Σ|r| denominator. Direction-
@@ -794,6 +806,11 @@ type IntradayConfig =
       MocSecShort: int }
 
 /// The FlushFader engine. One instance per (ticker, day).
+/// ⭐ the consolidation windows in completed 30-present-bar SLOTS (3/5/10/20m) —
+/// order is load-bearing: the record's Consol arrays and the Backtest appender walk it.
+let CONSOL_SLOTS = [| 6; 10; 20; 40 |]
+let CONSOL_NAMES = [| "3m"; "5m"; "10m"; "20m" |]
+
 /// ⭐ 2026-09-06 (port from LowFader §L16, user): rr-qualified event counts for ONE leg. Reset with the leg's LegCounters;
 /// OnEvent on every leg event (new 20m low / high) with that bar's rr = vol_60 (time-clock) / (vol_0945_tape / 15);
 /// nan (cold) counts for nothing. RECORD-ONLY.
@@ -1063,6 +1080,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let pxDecayB120 = DecaySumMa(120.0, GapValue.Empty)
     // ----- the locked volatility block -----
     let slots = SlotVwapMa cfg.SlotBars
+    // ⭐ the consolidation ratio — SAME 30-bar slot clock as SlotVwapMa (both are
+    // pushed on every bar, so slot boundaries coincide); 42 = 20m window + 2-slot lag
+    let consol = SlotVarRatioMa(cfg.SlotBars, CONSOL_SLOTS.[CONSOL_SLOTS.Length - 1] + 2)
     let ew40 = EmaHlMa 40.0                      // volat_20m — THE driver (F7 lock)
     let ew20 = EmaHlMa 20.0                      // volat_10m — the trajectory twin
     // ⭐ S43cf (user): the shorter volat twins for the EWMA ratio study (10 slots
@@ -1715,6 +1735,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         entryMinLag.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         entryMinLag120.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         entryMinLag180.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
+        consol.Push (log bar.vwap)   // ⭐ consol: every bar, same slot clock as `slots`
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -2259,6 +2280,8 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                              log (cur / old) / s
                          | _ -> nan)
                       SlotCount = slotReturns
+                      Consol = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 0)))
+                      ConsolLag1m = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 2)))
                       RngSlots20m =
                         (match slotMax41.State, slotMin41.State with
                          | ValueSome h, ValueSome l
