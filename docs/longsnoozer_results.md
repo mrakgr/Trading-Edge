@@ -1723,3 +1723,14 @@ re-running the baseline.**
 
 See `data/intraday_1s_slim/PRECISION.txt` and the matching note at the end of
 `flushfader_results.md`.
+
+## §S49 (2026-09-08) — the $1 floor question + the registry
+
+`scripts/equity/snoozer_production_books.py` reproduces §4 exactly (A++ 476 @ 3.452, A+ 211 @ 4.152; exact quantiles
+inten q50 0.498393, pers q50 0.652937 / q75 0.925649 — the rounded 0.50/0.65/0.93 give 480/208). Registry entry:
+`docs/production_specs.md` §3. **$1 floor on p1559** (the 15:59 decision price, RAW): A++ 453 @ 3.044 (+2.85%),
+A+ 195 @ 3.426 (+6.96%) — the 39 sub-$1 trades read PF 33.8 / +18.6%/trade, i.e. the floor COSTS on this side
+(vs FlushFader/SpikeFader where it is free). Broker reality: no rebates and 30 bp take fees under $1 (Lightspeed),
+no free limits under $1 (TradeZero) — trivial against +18.6%, but 39 trades in 10 years is an anecdote and sub-$1
+overnight holds carry halt/delisting/reverse-split risk the sample cannot show. User ruling pending. Volume at
+$10k/position: 7.6 trades/mo, ~27k shares/mo (both legs).

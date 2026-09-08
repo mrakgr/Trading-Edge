@@ -2110,3 +2110,9 @@ merit). ⚠ The dollar floor, the density filter and shape all fail to protect �
 blind by construction, the other two actively favour the trade.
 
 ⏭ **Open item:** a last-hour staleness / halt guard (`nb60k59` floor), which no spec carries.
+
+## §S49 (2026-09-08) — the $1 floor + the registry
+
+`scripts/equity/snoozer_production_books.py` reproduces §S43cw exactly (S 142 @ 6.884, A 108 @ 3.244, B 378 @
+2.775). Registry: `docs/production_specs.md` §4. **$1 floor on p1559 is FREE here**: S 141 @ 6.848, A 103 @ 4.135
+(improves), B 357 @ 2.735; the sub-$1 slice is 27 @ 2.12. Volume at $10k/position: 6.7 trades/mo, ~28k shares/mo.
