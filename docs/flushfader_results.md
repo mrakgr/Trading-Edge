@@ -17476,3 +17476,58 @@ unlagged ≤ .22 → 1,238 @ 4.237. Both weaken 2022 (2.9 → 2.4–2.6) and 202
 that just happened and reads "trend" for everyone; the lagged window asks what the tape was doing BEFORE the flush
 — a chop (coil ≥ .3) into a new low is the weak setup. Verdict: the coil's cut slices are PF 2.5–3.1 material
 (not junk) and its holdout support was one half only (S49c) → **sizing ledger / tier axis, not a spec gate**.
+
+## S49f — the gap door (`gap_60 < 4`; user: "can we loosen it?") — a clean monotone gradient with the bend AT 4
+
+On the 9-gate E book with the door removed (2,882 @ 2.55), `gap_60` ≡ `gap_adj_60` on every trip (no halts inside
+the window on this book). Fine bins, one replay per bin:
+
+| gap_60 | n | PF | trimPF−1 | avg% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 925 | 3.82 | 8.25 | 2.01 | 9.04 | 4.29 | 2.00 | 2.35 | 2.82 | 3.68 | 4.02 |
+| 1 | 342 | 3.38 | 7.70 | 1.67 | 8.42 | 2.95 | 1.57 | 3.33 | 3.54 | 2.97 | 3.42 |
+| 2 | 226 | 3.32 | 6.81 | 1.72 | 13.64 | 1.51 | 5.26 | 19.79 | 2.10 | 2.37 | 2.81 |
+| 3 | 185 | 3.76 | 9.03 | 1.88 | 6.67 | 2.50 | 18.75 | 1.76 | 3.79 | 4.11 | 3.11 |
+| 4 | 157 | 2.60 | 4.81 | 1.40 | 8.10 | 3.58 | **0.70** | 6.74 | 2.51 | 1.77 | 7.49 |
+| 5 | 170 | 2.44 | 5.37 | 1.33 | 4.21 | 2.27 | **0.57** | 5.06 | 4.56 | 1.17 | 4.24 |
+| 6–7 | 227 | 1.87 | 3.52 | 1.01 | 9.43 | 2.33 | 1.01 | 0.80 | 4.79 | 0.90 | 3.26 |
+| 8–9 | 169 | 2.18 | 3.77 | 1.26 | 4.42 | 1.34 | 2.07 | 1.82 | 1.67 | 1.29 | 4.30 |
+| 10–12 | 239 | 1.88 | 3.57 | 1.10 | 6.25 | 3.24 | 0.91 | 1.83 | 1.56 | 1.26 | 2.89 |
+| 13–19 | 361 | 1.93 | 4.10 | 1.07 | 8.03 | 3.58 | 1.60 | 1.42 | 3.41 | 0.92 | 1.36 |
+| 20–29 | 355 | 1.78 | 2.87 | 0.98 | 2.67 | 3.01 | 0.68 | 1.53 | 2.45 | 1.03 | 3.02 |
+| 30–59 | 408 | 2.04 | 3.30 | 1.21 | 2.38 | 4.26 | 1.24 | 1.33 | 1.91 | 1.97 | 0.78 |
+
+The book at each door (E + vote; net = n × avg%):
+
+| door | n | PF | trimPF−1 | avg% | worst | net% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| < 4 (today) | 1,423 | 3.861 | 8.38 | 1.91 | −28.1 | 2,718 | 8.78 | 3.74 | 2.92 | 3.07 | 3.09 | 3.48 | 3.74 |
+| < 6 | 1,619 | 3.549 | 7.44 | 1.80 | −28.1 | 2,914 | 7.26 | 3.75 | **1.99** | 3.17 | 2.94 | 3.00 | 4.05 |
+| < 8 | 1,761 | 3.214 | 6.72 | 1.71 | −34.3 | 3,011 | 7.29 | 3.58 | 1.74 | 2.16 | 3.04 | 2.54 | 3.95 |
+| < 13 | 2,023 | 3.004 | 6.31 | 1.65 | −34.3 | 3,338 | 6.60 | 3.44 | 1.67 | 2.08 | 2.82 | 2.35 | 3.71 |
+| < 20 | 2,293 | 2.850 | 5.97 | 1.58 | −34.3 | 3,623 | 6.59 | 3.39 | 1.77 | 2.05 | 2.89 | 2.03 | 3.15 |
+| none | 2,882 | 2.548 | 4.92 | 1.46 | −34.6 | 4,208 | 4.42 | 3.36 | 1.42 | 1.96 | 2.55 | 1.88 | 2.89 |
+
+LOO of the door on E: null 100/100, cut slice 1,567 @ 1.93 / +1.09%. **Reading:** the door is not a knife with an
+arbitrary number — it is a gradient (3.8 → 3.4 → 2.5 → 1.9) with its bend exactly at 4. Gaps 4–5 are PF 2.5 material
+(+200 trades, +200 net) whose weakness is concentrated in 2022 (0.70 / 0.57 on 27 trades — the year the door was
+built for); gap ≥ 6 is PF 1.9 material with the worse tail (−34%). **Recommendation: keep < 4 as the full-size
+door; gap 4–5 = a half-size tier; ≥ 6 = the B tier** — i.e. the loosening happens in the tier pass, not in the spec.
+
+## S49g — barnum ≥ 22 (the S40e early-episode cut) re-measured on the current spec: STAYS
+
+Side corpus `base_v20_early` (`flushfader_early_cand` = mr_candidate_1s_v2 WHERE barnum < 22: 8,720 tkds, 6,884 with
+a 1s tape; same flags as base_v19 + `--min-barnum 0`; 211,191 trips in 55 s). The early days signal 2.3× as often
+per tkd (E: 1.5% of tkds vs 0.64%) and are uniformly WEAKER at every point on the curve:
+
+| spec | EARLY (barnum 1–21) | MAIN (base_v19) |
+|---|---|---|
+| frame only, no vote | 1,266 @ 1.17 / +0.26% | 28,396 @ 1.23 / +0.29% |
+| curve step 1 (lows300) | 1,052 @ 1.36 (2022 1.01, 2026 0.93) | 22,773 @ 1.41 |
+| curve step 7 | 637 @ 1.62 (2022 1.16, 2026 1.07), worst −36.9 | 13,498 @ 1.71 |
+| E (9 gates + vote) | **65 @ 2.11**, trimPF−1 3.8, +1.28%; years 1.08 (7) / 0.87 (12) / 3.27 (20) / 0.96 (3) / inf (2) / 25.3 (14) / 0.44 (7) | 1,423 @ 3.86 |
+| SPEC v3.1 (18 + vote) | 65 @ 1.85 | 1,411 @ 4.02 |
+
+Consistent with S40e (1,476 @ 1.425 mc=0 under v1.8): fresh listings do not mean-revert like seasoned tape. 65 trades
+in 6.6 years with four of seven years at or below 1.1 do not earn a seat. Ruling recommended: barnum ≥ 22 STAYS
+(a capacity question for the tier pass at most — the step-7 slice is 637 @ 1.62).

@@ -38,6 +38,7 @@ ap.add_argument("--mem", default="4GB")
 ap.add_argument("--summary", default=None, help="write the one-row-per-gate overview here")
 ap.add_argument("--add", default="", help="layer-9 candidate gates promoted INTO the spec (comma list)")
 ap.add_argument("--no-vote", action="store_true", help="drop the ROSTER vote entirely (frame + engine gates only)")
+ap.add_argument("--bins", default=None, help="explicit bin edges for --bands, e.g. 0,1,2,3,4,5,6,9,13,25,60")
 ap.add_argument("--bands", default=None, help="octile band tables (one replay per band) of these columns on the current spec S")
 ap.add_argument("--eval", default=None, help="print the full-spec book line under the current --drop/--add, labelled")
 ap.add_argument("--rebuild-eff", action="store_true", help="greedy by EDGE EFFICIENCY: max d(PF-1) per net point given up; VOTE is a candidate; full curve")
@@ -106,7 +107,8 @@ def build():
              n_eff_shannon_600::FLOAT AS shan600, eff_since_flow::FLOAT AS effflow, z_since_flow::FLOAT AS zflow,
              (vol_60/vol_0945_tape)::FLOAT AS rr60, tc_60::FLOAT AS tc60, (vol_60*signal_vwap)::FLOAT AS dv60,
              bars_since_high::INTEGER AS bsh, secs_since_last_uptick::INTEGER AS sslu, lows_since_uptick::SMALLINT AS lsu,
-             chg_since_run_first_low::DOUBLE AS crf, chg_since_last_uptick::DOUBLE AS cslu
+             chg_since_run_first_low::DOUBLE AS crf, chg_since_last_uptick::DOUBLE AS cslu,
+             gap_adj_60::SMALLINT AS gadj60, gap_adj_300::SMALLINT AS gadj300, gap_300::SMALLINT AS gap300, tc_60_bar::FLOAT AS tc60bar
              {optsql}
       FROM read_parquet('{args.trips}')
       WHERE ret_exit IS NOT NULL AND NOT isnan(ret_exit)
@@ -139,6 +141,8 @@ gate("dv0945",  1, "and", lambda: c("dv0945") >= 2e6,                    "dv0945
 gate("volat40", 1, "and", lambda: c("volat") >= 40,                       "volat",  ">= 40 bp (engine band floor 20)")
 gate("win1500", 1, "and", lambda: c("signal_sec") <= 54000,               "signal_sec", "<= 15:00")
 gate("g60",     1, "and", lambda: c("gap60") < 4,                         "gap60",  "< 4")
+for _k in (6, 8, 10, 13, 20):
+    gate(f"g60_{_k}", 9, "and", (lambda k: lambda: c("gap60") < k)(_k),   "gap60",  f"< {_k} (loosened door)")
 gate("px1",     1, "and", lambda: c("px") >= 1,                           "px",     ">= $1 raw")
 gate("lows180", 2, "and", lambda: c("l180") >= 3,                         "l180",   ">= 3 (SPEC v3.0; a spec gate, layer 2 — user)")
 gate("speed",   2, "and", lambda: c("speed") < -0.02,                     "speed",  "< -2%/1m")
@@ -185,7 +189,7 @@ AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED and (v
 log(f"spec = {len(AND)} AND gates + {len(OR)} voices; DROPPED by ruling: {DROPPED}")
 
 # The substitute candidate inputs (continuous columns tried in BOTH directions).
-SUBS = ["crf", "cslu", "dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
+SUBS = ["crf", "cslu", "gadj60", "gadj300", "gap300", "dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
         "k20", "eff20a", "eff10a", "e9", "v10r", "l300", "rngf", "accel", "s20", "s5", "d20a", "dslo", "vexp",
         "vcrush", "ac1", "esf", "dsu", "gadj1200", "s1", "eff20s", "e9_20", "l120", "l600", "rng20", "rngf600",
         "vratio", "ves10", "ves5", "shan600", "effflow", "zflow", "rr60", "tc60", "dv60", "bsh", "sslu", "lsu"]
@@ -320,7 +324,7 @@ def hour_table(keeps, labels):
 def band_table(base_mask, vals, nb=8):
     v = vals[base_mask]; v = v[~np.isnan(v)]
     if len(v) < 100: return "(too few values)"
-    qs = np.unique(np.quantile(v, np.linspace(0, 1, nb + 1)))
+    qs = np.array([float(x) for x in args.bins.split(",")]) if args.bins else np.unique(np.quantile(v, np.linspace(0, 1, nb + 1)))
     out = ["| band (replay inside) | n | tkd | PF | trimPF-1 | avg% | " + " | ".join(str(y) for y in YEARS) + " |",
            "|---|---|---|---|---|---|" + "---|" * len(YEARS)]
     for i in range(len(qs) - 1):
