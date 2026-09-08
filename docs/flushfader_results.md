@@ -17580,3 +17580,29 @@ the door tc_60 is a mild gradient (500–800: 4.19 · 800–1200: 3.65 · 1200�
 **Reading:** the gap count measures INTERMITTENCY (is the tape printing every second), which is what the 1s-bar
 signal needs; trade count and dollars measure size, which the floors already cover. gap_60 stays the door and the
 tier axis; the floors stay floors.
+
+## S49j — the gap door on the BROAD book (efficiency-curve step 7, no vote): gap < 4 → < 40 = +78% net gross, +63% at 10 bp
+
+Step 7 = frame + lows300 + eff10 + v10r + z20 + lows180 + crf + coil5lo (S49d), no vote. net = n × avg%;
+net@10bp subtracts 0.10%/trade (a generic round trip — optimistic for sparse sub-$5 tape, S41 Roll 7 bp + fees).
+
+| door | n | tkd | PF | trimPF−1 | avg% | win% | net% | net @10bp | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| < 4 | 13,498 | 8,138 | 1.708 | 2.61 | 0.77 | 69.0 | 10,393 | 9,044 | 2.54 | 1.80 | 1.39 | 1.38 | 1.60 | 1.56 | 1.61 |
+| < 6 | 15,494 | 9,222 | 1.664 | 2.51 | 0.73 | 68.7 | 11,311 | 9,761 | 2.38 | 1.80 | 1.28 | 1.32 | 1.64 | 1.53 | 1.53 |
+| < 8 | 17,188 | 10,159 | 1.636 | 2.44 | 0.70 | 68.6 | 12,032 | 10,313 | 2.29 | 1.82 | 1.32 | 1.31 | 1.54 | 1.52 | 1.51 |
+| < 13 | 20,724 | 12,162 | 1.584 | 2.33 | 0.64 | 68.2 | 13,263 | 11,191 | 2.20 | 1.78 | 1.40 | 1.26 | 1.50 | 1.44 | 1.41 |
+| < 20 | 25,171 | 14,800 | 1.557 | 2.22 | 0.61 | 67.9 | 15,354 | 12,837 | 2.13 | 1.74 | 1.40 | 1.31 | 1.44 | 1.43 | 1.39 |
+| < 30 | 31,370 | 18,855 | 1.492 | 2.04 | 0.53 | 67.3 | 16,626 | 13,489 | 1.89 | 1.68 | 1.30 | 1.28 | 1.40 | 1.39 | 1.34 |
+| **< 40** | **37,855** | 23,521 | **1.459** | 1.94 | **0.49** | 66.8 | **18,549** | **14,763** | 1.75 | 1.64 | 1.32 | 1.26 | 1.36 | 1.37 | 1.31 |
+| < 50 | 42,862 | 27,450 | 1.429 | 1.85 | 0.45 | 66.4 | 19,288 | 15,002 | 1.69 | 1.65 | 1.28 | 1.19 | 1.34 | 1.33 | 1.29 |
+| none | 43,639 | 28,101 | 1.421 | 1.83 | 0.44 | 66.3 | 19,201 | 14,837 | 1.67 | 1.63 | 1.26 | 1.18 | 1.33 | 1.34 | 1.29 |
+
+Gap bins on the doorless step-7 book (replay inside each): 0 → 1.83 / +0.90% · 1 → 1.63 / +0.72 · 2–3 → 1.60 /
++0.67 · 4–5 → 1.51 / +0.61 · 6–7 → 1.43 / +0.53 · 8–12 → 1.42 / +0.51 · 13–19 → 1.48 / +0.54 · 20–29 → 1.32 /
++0.36 · 30–39 → 1.26 / +0.28 · 40–49 → 1.21 / +0.22 · 50+ → 1.21 / +0.33. Every band is positive gross; after
+10 bp the 30–39 band nets +0.18%/trade and 40–49 +0.12% — on the cost line for sparse names (2022–23 ≈ 1.0 there).
+**Reading:** on the broad book the door is a pure net-vs-quality dial with no cliff until ~40: < 40 gives +78% net
+gross (+63% at 10 bp) for 2.8× the trades (23/day) at PF 1.46 / +0.49%. The 20–39 bands (19,500 trades, +0.3%)
+are where the cost model decides; the S41 spread study (Roll 7 bp on $2–5, 2 bp above $20) says they are only
+tradeable passively. Worst trade −84.8% at every door ≥ 8 (an overnight hold in the sparse fringe).

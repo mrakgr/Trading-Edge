@@ -149,7 +149,7 @@ gate("reopen",   9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 120),   "ssh", 
 gate("wait600",  9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 600),   "ssh",    "ht=0 or ssh>=600 (ONE wait for any halt count)")
 gate("wait1200", 9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 1200),  "ssh",    "ht=0 or ssh>=1200 (ONE wait for any halt count)")
 gate("serial",   9, "and", lambda: (c("ht") < 3) | (c("ssh") >= 1200),   "ssh",    "ht<3 or ssh>=1200 (the S42n serial-breaker wait alone)")
-for _k in (6, 8, 10, 13, 20):
+for _k in (6, 8, 10, 13, 20, 30, 40, 50):
     gate(f"g60_{_k}", 9, "and", (lambda k: lambda: c("gap60") < k)(_k),   "gap60",  f"< {_k} (loosened door)")
 gate("px1",     1, "and", lambda: c("px") >= 1,                           "px",     ">= $1 raw")
 gate("lows180", 2, "and", lambda: c("l180") >= 3,                         "l180",   ">= 3 (SPEC v3.0; a spec gate, layer 2 — user)")
