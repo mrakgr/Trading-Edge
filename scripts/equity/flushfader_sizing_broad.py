@@ -79,6 +79,9 @@ out += ["## 1. volat_20m (rows) × lagged coil (cols) — n", grid("volat \\ coi
         "## 3. avg % per trade (net)", grid("volat \\ coil", vi, VL, ci, CL, st_a), "",
         "## 4. PF per cell", grid("volat \\ coil", vi, VL, ci, CL, st_pf), "",
         "## 5. gap_60 (rows) × volat (cols) — trimPF-1", grid("gap \\ volat", gi, GL, vi, VL, st_t), "",
+        "## 5b. gap_60 × volat — n", grid("gap \\ volat", gi, GL, vi, VL, st_n), "",
+        "## 5c. gap_60 × volat — avg % per trade (net)", grid("gap \\ volat", gi, GL, vi, VL, st_a), "",
+        "## 5d. gap_60 × volat — PF", grid("gap \\ volat", gi, GL, vi, VL, st_pf), "",
         "## 6. gap_60 (rows) × coil (cols) — trimPF-1", grid("gap \\ coil", gi, GL, ci, CL, st_t), ""]
 
 # ---- multipliers: m(cell) = tpf1(cell) / tpf1(book), derived on a FIT set, normalised to mean 1 on the APPLY set
