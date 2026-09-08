@@ -44,8 +44,16 @@ ap.add_argument("--eval", default=None, help="print the full-spec book line unde
 ap.add_argument("--rebuild-eff", action="store_true", help="greedy by EDGE EFFICIENCY: max d(PF-1) per net point given up; VOTE is a candidate; full curve")
 ap.add_argument("--rebuild", action="store_true", help="forward greedy rebuild from frame+vote over all layer-2 + layer-9 candidates")
 ap.add_argument("--holdout", default="2023", help="rebuild fit on years <= this, test on the rest, and the mirror")
+ap.add_argument("--preset", default=None, choices=["broad", "E"], help="broad = THE EFFICIENCY VARIANT (S49d step 7 + gap<40 + rule140, no vote); E = SPEC v4 candidate (9 gates + vote)")
 ap.add_argument("--drop", default="eff10,s20,s5,speed,z20,rflow,dlv", help="gates RULED OUT of the spec (S49b, user 2026-09-08); they leave S and are not reported")
 args = ap.parse_args()
+L2_ALL = "lows180,speed,d1m,ssf,dlv,rflow,z20,cascade,K,eff20,eff10,e9,v10r,lows300,rngf,accel,s20,s5"
+if args.preset == "broad":
+    keep = {"lows300", "eff10", "v10r", "z20", "lows180"}
+    args.drop = ",".join(g for g in L2_ALL.split(",") if g not in keep) + ",g60"
+    args.add = ",".join(x for x in ["crf", "coil5lo", "g60_40", "rule140", args.add] if x); args.no_vote = True
+elif args.preset == "E":
+    args.drop = "lows180,speed,dlv,rflow,z20,eff10,e9,v10r,s20,s5"; args.add = ",".join(x for x in ["crf", args.add] if x)
 os.makedirs(args.out, exist_ok=True)
 con = duckdb.connect(); con.execute(f"SET memory_limit='{args.mem}'"); con.execute("SET threads=6")
 T0 = time.time()
@@ -108,7 +116,12 @@ def build():
              (vol_60/vol_0945_tape)::FLOAT AS rr60, tc_60::FLOAT AS tc60, (vol_60*signal_vwap)::FLOAT AS dv60,
              bars_since_high::INTEGER AS bsh, secs_since_last_uptick::INTEGER AS sslu, lows_since_uptick::SMALLINT AS lsu,
              chg_since_run_first_low::DOUBLE AS crf, chg_since_last_uptick::DOUBLE AS cslu,
-             gap_adj_60::SMALLINT AS gadj60, gap_adj_300::SMALLINT AS gadj300, gap_300::SMALLINT AS gap300, tc_60_bar::FLOAT AS tc60bar
+             gap_adj_60::SMALLINT AS gadj60, gap_adj_300::SMALLINT AS gadj300, gap_300::SMALLINT AS gap300, tc_60_bar::FLOAT AS tc60bar,
+             -- the LowFader leg-RATE family (§S48 port): new lows per PRESENT bar since the leg's first low
+             (lows_since_first_low_300::DOUBLE / NULLIF(bars_since_first_low_300, 0))::FLOAT AS rate300,
+             (lows_since_first_low_600::DOUBLE / NULLIF(bars_since_first_low_600, 0))::FLOAT AS rate600,
+             (lows_since_first_low::DOUBLE / NULLIF(bars_since_first_low, 0))::FLOAT AS rate1200,
+             bars_since_first_low_600::INTEGER AS bsfl600
              {optsql}
       FROM read_parquet('{args.trips}')
       WHERE ret_exit IS NOT NULL AND NOT isnan(ret_exit)
@@ -133,6 +146,7 @@ def col(c): return D[c].values.astype(np.float64)
 
 # ---------------------------------------------------------------- 2. the gates
 # (name, layer, kind, predicate-fn, input col or None, human threshold)
+def nz_(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 G = {}
 def gate(name, layer, kind, fn, inp, thr):
     G[name] = dict(layer=layer, kind=kind, fn=fn, inp=inp, thr=thr)
@@ -144,6 +158,7 @@ gate("g60",     1, "and", lambda: c("gap60") < 4,                         "gap60
 gate("tc800",   9, "and", lambda: c("tc60") >= 800,                       "tc60",   ">= 800 trades / 60 tradeable s")
 gate("g60tail", 9, "and", lambda: c("gap60") >= 8,                       "gap60",  ">= 8 (the sparse tail, for splitting)")
 gate("g60mid",  9, "and", lambda: (c("gap60") >= 4) & (c("gap60") < 8),  "gap60",  "in [4,8)")
+gate("rule140", 9, "and", lambda: ~(nz_(c("volat") >= 140) & nz_(c("gap60") >= 4)), "volat", "volat >= 140 bp only if gap_60 < 4 (user, S49l)")
 gate("gadj60_4", 9, "and", lambda: c("gadj60") < 4,                      "gadj60", "< 4 (halt-ADJUSTED door)")
 gate("reopen",   9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 120),   "ssh",    "ht=0 or ssh>=120 (the S42t reopen block alone)")
 gate("wait600",  9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 600),   "ssh",    "ht=0 or ssh>=600 (ONE wait for any halt count)")
@@ -197,7 +212,7 @@ AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED and (v
 log(f"spec = {len(AND)} AND gates + {len(OR)} voices; DROPPED by ruling: {DROPPED}")
 
 # The substitute candidate inputs (continuous columns tried in BOTH directions).
-SUBS = ["crf", "cslu", "gadj60", "gadj300", "gap300", "dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
+SUBS = ["crf", "cslu", "gadj60", "gadj300", "gap300", "rate300", "rate600", "rate1200", "bsfl600", "dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
         "k20", "eff20a", "eff10a", "e9", "v10r", "l300", "rngf", "accel", "s20", "s5", "d20a", "dslo", "vexp",
         "vcrush", "ac1", "esf", "dsu", "gadj1200", "s1", "eff20s", "e9_20", "l120", "l600", "rng20", "rngf600",
         "vratio", "ves10", "ves5", "shan600", "effflow", "zflow", "rr60", "tc60", "dv60", "bsh", "sslu", "lsu"]

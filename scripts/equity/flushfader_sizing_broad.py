@@ -24,7 +24,7 @@ T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:6.1f}s]", *a, flush=True)
 
 D = pd.read_parquet(args.slice, columns=["tkd", "yr", "signal_sec", "ent", "ext", "ret", "dv0945", "volat", "px", "gap60",
-                                        "l180", "l300", "eff10a", "z20", "v10r", "crf", "consol_5m_lag1m"])
+                                        "l180", "l300", "eff10a", "z20", "v10r", "crf", "consol_5m_lag1m", "rate600", "lows_rr1_300"])
 N = len(D); log(f"{N:,} sampler trips")
 def nz(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 # the S49d step-7 spec: frame (S49a) + lows300 + eff10 + v10r + z20 + lows180 + crf + coil5lo, door < args.door, NO vote
@@ -61,6 +61,8 @@ VB = [40, 60, 90, 140, 250, 1e9]; VL = ["40-60", "60-90", "90-140", "140-250", "
 CB = [-1, 0.05, 0.10, 0.15, 0.221]; CL = ["<.05", ".05-.10", ".10-.15", ".15-.22"]
 GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20-29", "30-39"]
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
+RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125+"]   # rate600 quartile-ish bands (S49n)
+ri = np.digitize(np.nan_to_num(B.rate600.values, nan=0.0), RB[1:-1])
 
 out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
        f"Book flat: PF {f(pf(R),3)}  trimPF-1 {f(tpf1(R),3)}  avg {R.mean():+.2f}%  net {R.sum():,.0f}%\n"]
@@ -121,8 +123,16 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
     rows.append(sim(apply(mults(fit, gi, len(GL)), gi), app, "gap only"))
     gvc = (gi * len(VL) + vi) * len(CL) + ci
     rows.append(sim(apply(mults(fit, gvc, len(GL) * len(VL) * len(CL)), gvc), app, "gap × volat × coil"))
+    gv = gi * len(VL) + vi
+    rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv), app, "gap × volat"))
+    rows.append(sim(apply(mults(fit, ri, len(RL)), ri), app, "rate600 only"))
+    gvr = gv * len(RL) + ri
+    rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr), app, "gap × volat × rate600"))
 out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "volat: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(VL, mults(all_m, vi, len(VL)))),
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),
-               "gap: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(GL, mults(all_m, gi, len(GL))))]
+               "gap: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(GL, mults(all_m, gi, len(GL)))),
+               "rate600: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(RL, mults(all_m, ri, len(RL))))]
+out += ["", "## 9. gap_60 (rows) × rate600 (cols) — trimPF-1", grid("gap \\ rate600", gi, GL, ri, RL, st_t),
+        "", "## 9b. volat (rows) × rate600 (cols) — trimPF-1", grid("volat \\ rate600", vi, VL, ri, RL, st_t)]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")

@@ -17758,3 +17758,31 @@ By year (broad + rule140): 2020 590 trades / 2.70M sh · 2021 724 / 2.85M · 202
 2024 404 / 2.24M · 2025 542 / 2.94M · 2026 477 / 2.45M per month. Price mix: $1–2 = 13.7% of trades but 38% of
 shares; $2–5 = 32% / 42%; $5–10 = 23% / 13%; ≥ $10 = 32% of trades, 6.6% of shares. **80% of the share volume is
 in sub-$5 names** — the tier where the per-share rebate is 4–8 bp of notional and the S41 Roll spread 4–7 bp.
+
+## S49n — the LowFader leg-RATE family on the EFFICIENCY VARIANT (user, 2026-09-08 evening)
+
+The broad book is now a preset: `flushfader_gate_review.py --preset broad` = S49d step 7 + gap < 40 + rule140, no vote
+(37,348 @ 1.478 gross). §S48 found `rate_600` INERT on the tight spec book; re-asked here. rate_N = lows since the
+leg's first low / PRESENT bars since it (300/600/1200); `lows_rr{k}_N` = rr-qualified lows (LowFader §L16).
+
+Octile band tables (replay inside), avg%/trade gross: **rate300** 0.65 · 0.69 · 0.60 · 0.60 · 0.55 · 0.53 · 0.53 ·
+0.51 (PF 1.66 → 1.45); **rate600** 0.68 · 0.67 · 0.64 · 0.57 · 0.54 · 0.51 · 0.53 · 0.51 (PF 1.67 → 1.46); **rate1200**
+no clean gradient (1.49 / 1.69 / 1.59 / 1.63 / 1.56 / 1.53 / 1.57 / 1.50). `lows_rr3_120/180` are ZERO on the whole
+book (the broad book is low-rr); `lows_rr3_300` ≥ 1 = 4,672 @ 1.375 with 2022–23 < 1 vs 33,607 @ 1.505 — the
+rr-qualified lows are the BAD end (LowFader's A voice inverts, as §S48 said); `lows_rr1_300` a weak hump ([7,26) best).
+**Sign is the INVERSE of LowFader's rate_600 ≥ 0.15 floor: here SLOW legs (few new lows per bar) are the good end.**
+
+As a SIZING axis (`flushfader_sizing_broad.py --credit 0.001 --rule140`, multipliers = cell trimPF−1 ratio, mean-1,
+year holdout both ways; rate600 bands < .044 / .044–.07 / .07–.125 / .125+ → multipliers 1.17 / 1.04 / 0.87 / 0.87):
+
+| map | in-sample trimPF−1 flat → sized (net) | fit ≤ 2023 → 2024–26 | fit 2024–26 → 2020–23 |
+|---|---|---|---|
+| gap × volat | 2.10 → 2.45 (20,390 → 23,354) | 1.86 → 2.32 (7,580 → 9,238) | 2.28 → 2.61 (12,810 → 14,169) |
+| rate600 only | 2.10 → 2.15 | 1.86 → 1.93 | 2.28 → 2.31 |
+| **gap × volat × rate600** | **2.10 → 2.69 (→ 25,303)** | **1.86 → 2.65 (→ 9,844)** | 2.28 → 2.79 (→ 14,210) |
+
+gap × rate600 (trimPF−1): the slow-leg column holds up INSIDE the sparse tail (gap 30–39: 2.17 / 1.51 / 1.33 / 1.41;
+gap 20–29: 2.26 / 1.64 / 1.54 / 1.35) — the rate tells which sparse trips are worth full size. volat × rate600: the
+140–250 bp row is 3.52 / 4.54 / 2.82 / 1.84 — fast legs on volatile names are the weak cell.
+**Verdict: rate600 is a THIRD sizing axis, modest (+8% net in-sample, +7% / +0.3% on the holdouts, trimPF−1 +0.2–0.3
+out of sample), not a gate; rate300 is its twin; rate1200 and the rr-qualified counts add nothing.**
