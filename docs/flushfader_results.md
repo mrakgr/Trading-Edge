@@ -17606,3 +17606,105 @@ Gap bins on the doorless step-7 book (replay inside each): 0 → 1.83 / +0.90% �
 gross (+63% at 10 bp) for 2.8× the trades (23/day) at PF 1.46 / +0.49%. The 20–39 bands (19,500 trades, +0.3%)
 are where the cost model decides; the S41 spread study (Roll 7 bp on $2–5, 2 bp above $20) says they are only
 tradeable passively. Worst trade −84.8% at every door ≥ 8 (an overnight hold in the sparse fringe).
+
+## S49k — SIZING the broad book (user: 'use volat_20m and the coil to size'): volat and gap grade, the coil does not
+
+`scripts/equity/flushfader_sizing_broad.py` — step-7 spec (S49d), gap < 40, no vote, 37,855 trades, returns NET of 0.10%/trade.
+Multiplier per cell = cell trimPF−1 / book trimPF−1 (clipped [0.25, 4]), normalised to MEAN 1 on the apply set so sized and flat
+deploy the same average dollars; derived on a fit set, applied to a holdout (both directions). Never Kelly, never 1/√vol.
+
+
+Book flat: PF 1.354  trimPF-1 1.672  avg +0.39%  net 14,761%
+
+## 1. volat_20m (rows) × lagged coil (cols) — n
+| volat \ coil | <.05 | .05-.10 | .10-.15 | .15-.22 | all |
+|---|---|---|---|---|---|
+| 40-60 | 2,483 | 6,308 | 5,015 | 5,081 | 18,887 |
+| 60-90 | 1,121 | 3,512 | 3,129 | 3,230 | 10,992 |
+| 90-140 | 557 | 1,929 | 1,624 | 1,800 | 5,910 |
+| 140-250 | 198 | 585 | 533 | 591 | 1,907 |
+| 250+ | 19 | 54 | 42 | 44 | 159 |
+| all | 4,378 | 12,388 | 10,343 | 10,746 | 37,855 |
+
+## 2. trimPF-1 per cell (the sizing metric)
+| volat \ coil | <.05 | .05-.10 | .10-.15 | .15-.22 | all |
+|---|---|---|---|---|---|
+| 40-60 | 1.03 | 1.22 | 1.43 | 1.24 | 1.25 |
+| 60-90 | 1.13 | 1.55 | 1.89 | 1.60 | 1.61 |
+| 90-140 | 2.65 | 2.22 | 2.47 | 1.42 | 2.03 |
+| 140-250 | 3.38 | 2.00 | 1.40 | 1.88 | 1.86 |
+| 250+ | nan | 0.86 | 6.18 | 2.31 | 1.66 |
+| all | 1.50 | 1.65 | 1.90 | 1.57 | 1.67 |
+
+## 3. avg % per trade (net)
+| volat \ coil | <.05 | .05-.10 | .10-.15 | .15-.22 | all |
+|---|---|---|---|---|---|
+| 40-60 | +0.10 | +0.19 | +0.23 | +0.18 | +0.19 |
+| 60-90 | +0.19 | +0.39 | +0.53 | +0.46 | +0.43 |
+| 90-140 | +0.92 | +0.71 | +0.95 | +0.49 | +0.73 |
+| 140-250 | +1.48 | +1.07 | +0.58 | +1.22 | +1.02 |
+| 250+ | -0.27 | -0.47 | +3.74 | +2.65 | +1.53 |
+| all | +0.29 | +0.37 | +0.47 | +0.38 | +0.39 |
+
+## 4. PF per cell
+| volat \ coil | <.05 | .05-.10 | .10-.15 | .15-.22 | all |
+|---|---|---|---|---|---|
+| 40-60 | 1.11 | 1.23 | 1.28 | 1.21 | 1.22 |
+| 60-90 | 1.16 | 1.36 | 1.48 | 1.40 | 1.38 |
+| 90-140 | 1.66 | 1.48 | 1.71 | 1.30 | 1.49 |
+| 140-250 | 1.85 | 1.56 | 1.25 | 1.58 | 1.49 |
+| 250+ | 0.96 | 0.89 | 3.00 | 1.80 | 1.42 |
+| all | 1.26 | 1.34 | 1.43 | 1.33 | 1.35 |
+
+## 5. gap_60 (rows) × volat (cols) — trimPF-1
+| gap \ volat | 40-60 | 60-90 | 90-140 | 140-250 | 250+ | all |
+|---|---|---|---|---|---|---|
+| 0 | 1.84 | 2.06 | 2.52 | 2.92 | 3.57 | 2.51 |
+| 1-3 | 1.65 | 1.47 | 2.42 | 2.00 | 1.16 | 1.89 |
+| 4-7 | 1.50 | 1.84 | 1.57 | 1.29 | nan | 1.66 |
+| 8-12 | 1.09 | 1.71 | 1.59 | 0.59 | nan | 1.46 |
+| 13-19 | 1.30 | 1.40 | 2.78 | 1.91 | nan | 1.68 |
+| 20-29 | 1.11 | 1.55 | 1.35 | 0.42 | nan | 1.34 |
+| 30-39 | 1.03 | 1.41 | 1.57 | 0.78 | nan | 1.29 |
+| all | 1.25 | 1.61 | 2.03 | 1.86 | 1.66 | 1.67 |
+
+## 6. gap_60 (rows) × coil (cols) — trimPF-1
+| gap \ coil | <.05 | .05-.10 | .10-.15 | .15-.22 | all |
+|---|---|---|---|---|---|
+| 0 | 2.65 | 2.30 | 2.96 | 2.30 | 2.51 |
+| 1-3 | 2.47 | 2.16 | 1.52 | 1.85 | 1.89 |
+| 4-7 | 0.85 | 1.57 | 2.54 | 1.47 | 1.66 |
+| 8-12 | 2.20 | 1.12 | 2.11 | 1.24 | 1.46 |
+| 13-19 | 1.57 | 1.58 | 1.78 | 1.76 | 1.68 |
+| 20-29 | 1.13 | 1.43 | 1.55 | 1.16 | 1.34 |
+| 30-39 | 0.74 | 1.39 | 1.43 | 1.30 | 1.29 |
+| all | 1.50 | 1.65 | 1.90 | 1.57 | 1.67 |
+
+## 7. Sized vs flat at EQUAL average exposure (multipliers = cell trimPF-1 / book trimPF-1, clipped [0.25, 4])
+| multiplier map | n | PF flat / sized | trimPF-1 flat / sized | avg% flat / sized | net flat / sized | maxDD (position-% units) flat / sized | worst trade flat / sized | sized PF by year |
+|---|---|---|---|---|---|---|---|---|
+| **in-sample (fit all, apply all)** | | | | | | | | |
+| volat only | 37,855 | 1.354 / 1.375 | 1.672 / 1.901 | +0.39 / +0.43 | 14,761 / 16,438 | 281 / 328 | -84.9 / -104.8 | 1.68 1.52 1.23 1.21 1.29 1.29 1.24 |
+| coil only | 37,855 | 1.354 / 1.358 | 1.672 / 1.688 | +0.39 / +0.39 | 14,761 / 14,923 | 281 / 277 | -84.9 / -85.1 | 1.63 1.51 1.22 1.18 1.27 1.29 1.23 |
+| volat × coil | 37,855 | 1.354 / 1.397 | 1.672 / 1.975 | +0.39 / +0.46 | 14,761 / 17,251 | 281 / 326 | -84.9 / -122.5 | 1.70 1.53 1.25 1.24 1.30 1.33 1.28 |
+| gap only | 37,855 | 1.354 / 1.400 | 1.672 / 1.858 | +0.39 / +0.44 | 14,761 / 16,676 | 281 / 276 | -84.9 / -83.7 | 1.70 1.53 1.25 1.21 1.32 1.32 1.30 |
+| gap × volat × coil | 37,855 | 1.354 / 1.484 | 1.672 / 2.288 | +0.39 / +0.54 | 14,761 / 20,375 | 281 / 272 | -84.9 / -101.3 | 1.81 1.61 1.32 1.31 1.39 1.40 1.42 |
+| **holdout: fit 2020-23 → apply 2024-26** | | | | | | | | |
+| volat only | 15,216 | 1.262 / 1.262 | 1.466 / 1.781 | +0.33 / +0.36 | 5,023 / 5,530 | 281 / 326 | -84.9 / -185.3 | inf inf inf inf 1.27 1.27 1.24 |
+| coil only | 15,216 | 1.262 / 1.263 | 1.466 / 1.483 | +0.33 / +0.33 | 5,023 / 5,042 | 281 / 288 | -84.9 / -83.5 | inf inf inf inf 1.26 1.28 1.23 |
+| volat × coil | 15,216 | 1.262 / 1.292 | 1.466 / 1.743 | +0.33 / +0.39 | 5,023 / 5,921 | 281 / 321 | -84.9 / -112.9 | inf inf inf inf 1.28 1.32 1.26 |
+| gap only | 15,216 | 1.262 / 1.306 | 1.466 / 1.648 | +0.33 / +0.39 | 5,023 / 5,927 | 281 / 275 | -84.9 / -78.8 | inf inf inf inf 1.31 1.31 1.29 |
+| gap × volat × coil | 15,216 | 1.262 / 1.345 | 1.466 / 2.179 | +0.33 / +0.46 | 5,023 / 7,035 | 281 / 312 | -84.9 / -109.4 | inf inf inf inf 1.31 1.38 1.35 |
+| **holdout: fit 2024-26 → apply 2020-23** | | | | | | | | |
+| volat only | 22,639 | 1.432 / 1.458 | 1.825 / 2.079 | +0.43 / +0.48 | 9,738 / 10,776 | 206 / 241 | -75.2 / -77.5 | 1.68 1.51 1.23 1.21 inf inf inf |
+| coil only | 22,639 | 1.432 / 1.422 | 1.825 / 1.829 | +0.43 / +0.42 | 9,738 / 9,561 | 206 / 250 | -75.2 / -80.4 | 1.61 1.49 1.20 1.18 inf inf inf |
+| volat × coil | 22,639 | 1.432 / 1.469 | 1.825 / 2.198 | +0.43 / +0.49 | 9,738 / 11,108 | 206 / 312 | -75.2 / -140.6 | 1.69 1.52 1.24 1.24 inf inf inf |
+| gap only | 22,639 | 1.432 / 1.481 | 1.825 / 2.026 | +0.43 / +0.47 | 9,738 / 10,742 | 206 / 194 | -75.2 / -78.1 | 1.71 1.53 1.25 1.21 inf inf inf |
+| gap × volat × coil | 22,639 | 1.432 / 1.507 | 1.825 / 2.465 | +0.43 / +0.52 | 9,738 / 11,821 | 206 / 211 | -75.2 / -120.3 | 1.74 1.57 1.28 1.23 inf inf inf |
+
+## 8. The multiplier maps (fit on all years)
+volat: 40-60 0.75, 60-90 0.96, 90-140 1.21, 140-250 1.11, 250+ 1.00
+coil: <.05 0.90, .05-.10 0.98, .10-.15 1.13, .15-.22 0.94
+gap: 0 1.50, 1-3 1.13, 4-7 0.99, 8-12 0.87, 13-19 1.00, 20-29 0.80, 30-39 0.77
+
+**Reading.** (1) **volat_20m is a clean sizing axis**: avg%/trade +0.19 → +0.43 → +0.73 → +1.02 across 40–60 / 60–90 / 90–140 / 140–250 bp (volatility IS the edge — the no-1/√vol rule confirmed again); multipliers 0.75 / 0.96 / 1.21 / 1.11. (2) **gap_60 is the strongest axis** (trimPF−1 2.51 at gap 0 → 1.29 at 30–39; multipliers 1.50 → 0.77) and the only one that LOWERS the drawdown. (3) **the coil does NOT size**: an inverted U (.10–.15 best at 1.90, < .05 weakest at 1.50), sizing on it alone is flat in-sample (1.672 → 1.688) and slightly negative on one holdout — it is a GATE feature (≤ .22), not a dial. (4) **gap × volat × coil** lifts trimPF−1 1.67 → 2.29 in-sample and holds out both ways (1.47 → 2.18 fit-early/apply-late; 1.83 → 2.47 mirror) at +38% net for the same average exposure; the coil's contribution inside it is the .10–.15 bump only.
