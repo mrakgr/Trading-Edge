@@ -37,7 +37,9 @@ ap.add_argument("--seed", type=int, default=7)
 ap.add_argument("--mem", default="4GB")
 ap.add_argument("--summary", default=None, help="write the one-row-per-gate overview here")
 ap.add_argument("--add", default="", help="layer-9 candidate gates promoted INTO the spec (comma list)")
+ap.add_argument("--no-vote", action="store_true", help="drop the ROSTER vote entirely (frame + engine gates only)")
 ap.add_argument("--eval", default=None, help="print the full-spec book line under the current --drop/--add, labelled")
+ap.add_argument("--rebuild-eff", action="store_true", help="greedy by EDGE EFFICIENCY: max d(PF-1) per net point given up; VOTE is a candidate; full curve")
 ap.add_argument("--rebuild", action="store_true", help="forward greedy rebuild from frame+vote over all layer-2 + layer-9 candidates")
 ap.add_argument("--holdout", default="2023", help="rebuild fit on years <= this, test on the rest, and the mirror")
 ap.add_argument("--drop", default="eff10,s20,s5,speed,z20,rflow,dlv", help="gates RULED OUT of the spec (S49b, user 2026-09-08); they leave S and are not reported")
@@ -175,7 +177,7 @@ for k, v in G.items():   # NaN -> False, materialised once
     m = v["fn"](); v["mask"] = np.where(np.isnan(m.astype(float)), False, m).astype(bool) if m.dtype != bool else m
 DROPPED = [x for x in args.drop.split(",") if x]
 ADDED = [x for x in args.add.split(",") if x]
-AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED and (v["layer"] != 9 or k in ADDED)]; OR = [k for k, v in G.items() if v["kind"] == "or" and k not in DROPPED]
+AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED and (v["layer"] != 9 or k in ADDED)]; OR = [] if args.no_vote else [k for k, v in G.items() if v["kind"] == "or" and k not in DROPPED]
 log(f"spec = {len(AND)} AND gates + {len(OR)} voices; DROPPED by ruling: {DROPPED}")
 
 # The substitute candidate inputs (continuous columns tried in BOTH directions).
@@ -191,7 +193,7 @@ def spec_mask(drop=None, no_vote=False):
     m = np.ones(N, bool)
     for k in AND:
         if k != drop: m &= G[k]["mask"]
-    if not no_vote:
+    if not no_vote and OR:
         v = np.zeros(N, bool)
         for k in OR:
             if k != drop: v |= G[k]["mask"]
@@ -219,9 +221,9 @@ def tpf1(r):
     return pf(r[r >= np.quantile(r, args.trim)]) - 1
 def S(keep):
     r = RET[keep]; n = len(r)
-    if n == 0: return dict(n=0, tkd=0, pf=np.nan, tpf1=np.nan, win=np.nan, avg=np.nan, worst=np.nan)
+    if n == 0: return dict(n=0, tkd=0, pf=np.nan, tpf1=np.nan, win=np.nan, avg=np.nan, worst=np.nan, net=np.nan)
     return dict(n=n, tkd=len(np.unique(TKD[keep])), pf=pf(r), tpf1=tpf1(r), win=(r > 0).mean() * 100,
-                avg=r.mean() * 100, worst=r.min() * 100)
+                avg=r.mean() * 100, worst=r.min() * 100, net=r.sum() * 100)
 def yrow(keep):
     out = []
     for y in YEARS:
@@ -425,12 +427,12 @@ def rebuild(rowmask, label, draws=300, min_pct=95.0, cands=None):
     base = np.ones(N, bool)
     for k in G:
         if G[k]["kind"] == "and" and G[k]["layer"] == 1: base &= G[k]["mask"]
-    v = np.zeros(N, bool)
+    v = np.ones(N, bool) if not OR else np.zeros(N, bool)
     for k in OR: v |= G[k]["mask"]
     cur = base & v & rowmask
     cands = list(cands) if cands else [k for k in G if G[k]["kind"] == "and" and G[k]["layer"] in (2, 9)]
     chosen = []; kcur = book(cur); sc = S(kcur)
-    rows = [f"| 0 | (frame + vote) | {sc['n']:,} | {sc['tkd']:,} | {f(sc['pf'])} | {f(sc['tpf1'])} | {f(sc['avg'],2)} | — | — |"]
+    rows = [f"| 0 | (frame + vote) | {sc['n']:,} | {sc['tkd']:,} | {f(sc['pf'])} | {f(sc['tpf1'])} | {f(sc['avg'],2)} | {sc['net']:,.0f} | — | — |"]
     log(f"REBUILD [{label}] start: {sc['n']:,} @ {f(sc['pf'])} tpf1 {f(sc['tpf1'])}; {len(cands)} candidates")
     step = 0
     while cands:
@@ -446,9 +448,47 @@ def rebuild(rowmask, label, draws=300, min_pct=95.0, cands=None):
         log(f"  step {step+1}: " + "  ".join(f"{g}:{f(s['tpf1'],2)}@{s['n']}({'-' if p is None else f'{p:.0f}'})" for g, s, p in tried[:8]))
         if best is None: break
         g, s, p, k = best; step += 1; chosen.append(g); cands.remove(g); cur = cur & G[g]["mask"]; kcur = k
-        rows.append(f"| {step} | {g} {G[g]['thr']} | {s['n']:,} | {s['tkd']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | {p:.0f} | " + " ".join(f"{f(pp,1)}" for n, pp in yrow(k)) + " |")
-    hdr = "| step | gate added | n | tkd | PF | trimPF-1 | avg% | null pct | years |\n|---|---|---|---|---|---|---|---|---|"
+        rows.append(f"| {step} | {g} {G[g]['thr']} | {s['n']:,} | {s['tkd']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | {s['net']:,.0f} | {p:.0f} | " + " ".join(f"{f(pp,1)}" for n, pp in yrow(k)) + " |")
+    hdr = "| step | gate added | n | tkd | PF | trimPF-1 | avg% | net% | null pct | years |\n|---|---|---|---|---|---|---|---|---|---|"
     return chosen, cur, hdr + "\n" + "\n".join(rows)
+
+def rebuild_eff(rowmask, label, draws=300):
+    base = np.ones(N, bool)
+    for k in G:
+        if G[k]["kind"] == "and" and G[k]["layer"] == 1: base &= G[k]["mask"]
+    vote = np.zeros(N, bool)
+    for k in G:
+        if G[k]["kind"] == "or": vote |= G[k]["mask"]
+    masks = {k: G[k]["mask"] for k in G if G[k]["kind"] == "and" and G[k]["layer"] in (2, 9)}
+    masks["VOTE"] = vote
+    cur = base & rowmask; kcur = book(cur); sc = S(kcur)
+    rows = [f"| 0 | (frame only) | {sc['n']:,} | {f(sc['pf'])} | {f(sc['tpf1'])} | {f(sc['avg'],2)} | {sc['net']:,.0f} | — | — | — | — |"]
+    log(f"REBUILD-EFF [{label}] start: {sc['n']:,} @ {f(sc['pf'])} net {sc['net']:,.0f}")
+    step = 0; cands = list(masks)
+    while cands:
+        best = None; tried = []
+        for g in cands:
+            k = book(cur & masks[g]); s = S(k)
+            if s["n"] < 100 or s["n"] >= sc["n"]: continue
+            dpf = (s["pf"] - 1) - (sc["pf"] - 1); dnet = sc["net"] - s["net"]
+            cut = kcur & ~masks[g]; scut = S(cut)
+            eff = np.inf if dnet <= 0 else dpf / dnet * 1000
+            tried.append((g, s, dpf, dnet, eff, scut, k))
+        if not tried: break
+        tried.sort(key=lambda x: (-(x[4] if np.isfinite(x[4]) else 1e9), -x[2]))
+        g, s, dpf, dnet, eff, scut, k = tried[0]
+        nd = null_draws(kcur, s["tkd"], draws, rng); p = pct(nd[1], s["tpf1"]) if nd else 100.0
+        step += 1; cands.remove(g); cur = cur & masks[g]; kcur = k; sc = s
+        rows.append(f"| {step} | {g} | {s['n']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | {s['net']:,.0f} | {dnet:,.0f} | "
+                    f"{'free' if not np.isfinite(eff) else f'{eff:.2f}'} | {scut['n']} @ {f(scut['pf'],2)} / {f(scut['avg'],2)} | {p:.0f} |")
+        log(f"  step {step}: {g}  eff={eff:.2f}  next: " + "  ".join(f"{t[0]}:{t[4]:.2f}" for t in tried[1:5]))
+    hdr = ("| step | gate added | n | PF | trimPF-1 | avg% | net% | net given up | d(PF-1) per 1,000 net | cut slice n @ PF / avg% | null pct |\n"
+           "|---|---|---|---|---|---|---|---|---|---|---|")
+    return hdr + "\n" + "\n".join(rows)
+
+if args.rebuild_eff:
+    txt = "# Edge-efficiency rebuild — frame only at step 0; VOTE (the roster OR) is a candidate like any gate.\n\n" + rebuild_eff(np.ones(N, bool), "all years")
+    path = os.path.join(args.out, "rebuild_eff.md"); open(path, "w").write(txt); print(txt); log(f"wrote {path}"); sys.exit(0)
 
 if args.eval:
     print(HDR); print(line(args.eval, KFULL)); sys.exit(0)
@@ -465,7 +505,7 @@ if args.rebuild:
         base = np.ones(N, bool)
         for k in G:
             if G[k]["kind"] == "and" and G[k]["layer"] == 1: base &= G[k]["mask"]
-        v = np.zeros(N, bool)
+        v = np.ones(N, bool) if not OR else np.zeros(N, bool)
         for k in OR: v |= G[k]["mask"]
         mf = base & v & test
         for g in chf: mf &= G[g]["mask"]

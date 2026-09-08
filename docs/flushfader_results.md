@@ -17406,3 +17406,60 @@ percentile of its null, and a forward holdout that transfers exactly. The broade
 it comes from the TIER pass on the profitable cut slices (K 1,970 @ 2.04, eff20 1,110 @ 1.86, crf 1,336 @ 3.26,
 d1m 380 @ 1.51, ssf 391 @ 2.31) at graded size, with speed/dlv/coil as magnitude inputs in the sizing ledger.
 Ruling: pending.
+
+## S49d — the EDGE-EFFICIENCY rebuild (user, 2026-09-08): PF−1 gained per net given up — the freshness gates are FREE
+
+User: "we go from PF 1.23 to 1.58 in step 1 but only 8,223 → 7,235 net — a hugely beneficial tradeoff; K improves
+PF marginally but cuts the net in half. Rebuild on the PF−1 vs net tradeoff." `--rebuild-eff`: from the FRAME ONLY
+(no vote), at each step add the candidate with the largest d(PF−1) per 1,000 net points given up (a candidate that
+RAISES net is "free" and goes first); the roster VOTE is a candidate like any gate. Net = equal-weight Σ ret_exit
+in %, mc=1 per ticker-day, NO costs.
+
+| step | gate added | n | PF | trimPF−1 | avg% | net% | net given up | d(PF−1)/1,000 net | cut slice n @ PF / avg% | null |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | frame only | 28,396 | 1.227 | 1.27 | 0.29 | 8,223 | — | — | — | — |
+| 1 | lows300 ≥ 6 | 22,773 | 1.409 | 1.77 | 0.47 | **10,657** | −2,435 | free | 19,792 @ 1.15 / 0.21 | 100 |
+| 2 | eff10 ≥ .15 | 22,082 | 1.432 | 1.84 | 0.49 | 10,770 | −113 | free | 2,795 @ 1.16 | 100 |
+| 3 | v10r ≥ .75 | 21,088 | 1.456 | 1.91 | 0.51 | 10,803 | −33 | free | 4,308 @ 1.35 | 100 |
+| 4 | z20 < −1.5 | 20,984 | 1.462 | 1.92 | 0.52 | 10,865 | −61 | free | 410 @ 0.96 | 98 |
+| 5 | lows180 ≥ 3 | 20,877 | 1.467 | 1.93 | 0.52 | 10,917 | −53 | free | 674 @ 1.19 | 100 |
+| 6 | crf ≤ −.2% | 16,016 | 1.590 | 2.25 | 0.67 | 10,723 | 195 | 0.63 | 15,935 @ 1.44 | 100 |
+| 7 | coil5lo ≤ .22 | 13,498 | 1.708 | 2.61 | 0.77 | 10,387 | 336 | 0.35 | 4,523 @ 1.36 | 100 |
+| 8 | s20 < −10 | 11,880 | 1.781 | 2.85 | 0.84 | 10,006 | 381 | 0.19 | 2,768 @ 1.39 | 100 |
+| 9 | speed < −2% | 9,578 | 1.874 | 3.11 | 1.01 | 9,626 | 380 | 0.24 | 4,068 @ 1.53 | 100 |
+| 10 | accel ≥ −80 | 8,748 | 1.950 | 3.24 | 1.01 | 8,863 | 763 | 0.10 | 1,048 @ 1.63 | 99 |
+| 11 | rngf < .80 | 8,200 | 2.017 | 3.40 | 1.05 | 8,598 | 265 | 0.25 | 714 @ 1.32 | 100 |
+| 12 | rflow ≥ −.95 | 7,915 | 2.048 | 3.47 | 1.07 | 8,430 | 168 | 0.18 | 332 @ 1.48 | 99 |
+| 13 | **VOTE** | 6,059 | 2.207 | 3.95 | 1.23 | 7,453 | 977 | 0.16 | 2,349 @ 1.73 | 100 |
+| 14 | d1m < −2% | 5,758 | 2.247 | 4.10 | 1.28 | 7,350 | 103 | 0.39 | 575 @ 1.46 | 99 |
+| 15 | **eff20** | 2,658 | 2.771 | 5.78 | 1.64 | 4,351 | 2,999 | 0.17 | 3,820 @ 2.07 / 1.15 | 100 |
+| 16 | s5 | 2,643 | 2.792 | 5.89 | 1.64 | 4,342 | 9 | 2.43 | 17 @ 1.89 | 97 |
+| 17 | cascade | 2,555 | 2.943 | 6.21 | 1.67 | 4,259 | 83 | 1.81 | 91 @ 1.39 | 100 |
+| 18 | **K** | 1,155 | 4.283 | 9.76 | 2.04 | 2,359 | 1,900 | 0.70 | 1,615 @ 2.47 / 1.49 | 100 |
+| 19 | dlv | 1,067 | 4.478 | 10.68 | 2.15 | 2,289 | 70 | 2.81 | 119 @ 2.81 | 93 |
+| 20 | ssf | 882 | 5.038 | 13.61 | 2.30 | 2,025 | 264 | 2.12 | 206 @ 2.81 | 100 |
+| 21 | e9 | 865 | 5.178 | 14.16 | 2.32 | 2,009 | 16 | 8.69 | 21 @ 2.04 | 89 |
+
+**Year rows along the curve (every point profitable every year):**
+
+| point | n | PF | trimPF−1 | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1: lows300 only | 22,773 | 1.41 | 1.77 | 0.47 | −84.8 | 1.83 (3,472) | 1.41 (5,732) | 1.30 (1,973) | 1.29 (1,698) | 1.34 (3,073) | 1.34 (4,092) | 1.35 (2,733) |
+| 7: + eff10 v10r z20 lows180 crf coil | 13,498 | 1.71 | 2.61 | 0.77 | −84.3 | 2.54 (2,141) | 1.80 (3,441) | 1.39 (1,033) | 1.38 (997) | 1.60 (1,906) | 1.56 (2,457) | 1.61 (1,523) |
+| 12: + s20 speed accel rngf rflow | 7,915 | 2.05 | 3.47 | 1.07 | −84.3 | 3.00 (1,348) | 2.04 (1,909) | 1.67 (537) | 1.70 (598) | 1.92 (1,154) | 1.91 (1,453) | 1.98 (916) |
+| 13: + VOTE | 6,059 | 2.21 | 3.95 | 1.23 | −84.3 | 3.47 (1,000) | 2.04 (1,403) | 2.09 (394) | 1.90 (461) | 1.95 (939) | 2.06 (1,142) | 2.24 (720) |
+| 15: + d1m eff20 | 2,658 | 2.77 | 5.78 | 1.64 | −55.3 | 5.64 (439) | 3.11 (591) | 2.32 (161) | 2.04 (206) | 1.87 (401) | 2.64 (559) | 2.79 (301) |
+| 18: + s5 cascade K | 1,155 | 4.28 | 9.76 | 2.04 | −28.1 | 8.77 (197) | 5.30 (239) | 2.34 (61) | 2.30 (93) | 2.95 (182) | 4.69 (253) | 4.59 (130) |
+
+**Reading.** (1) **The freshness / which-bar gates are FREE** — lows300 ≥ 6 alone cuts 19,792 sampler trips and
+RAISES net 8,223 → 10,657: under mc=1 they do not remove ticker-days, they move the slot from the early flush
+bar to a later, better one (the S43bk mechanism: dsu picked later trips). eff10, v10r, z20, lows180 are free for
+the same reason at smaller scale. (2) **crf and coil** are the cheapest real cuts (0.63 / 0.35 per 1,000 net).
+(3) **The three big "quality" gates are the EXPENSIVE ones**: VOTE 977 net for +0.16 PF−1 (0.16/1,000), eff20
+2,999 net for +0.52 (0.17/1,000), K 1,900 net for +1.34 (0.70/1,000). They ARE the PF — 2.2 → 4.3 — but they buy
+it by discarding slices at PF 1.7 / 2.07 / 2.47 that are profitable in every year. (4) The efficiency ordering is
+NOT the PF ordering: the S49c greedy (max trimPF−1) picked K/eff20 first because they buy the most PF; this one
+puts them last because they cost the most net. Both are right about different things; the tier pass reconciles
+them (trade the K/eff20/VOTE-fail slices at reduced size). ⚠ Net here is unsized and cost-free: at ~10 bp/trade
+round trip the curve reads 8,380 (pt 1) / 9,037 (pt 7) / 6,847 (pt 13) / 4,085 (pt 15) / 2,243 (pt 18) — the
+broad book still nets ~4× the spec at equal weight; the worst trade at the broad end is −84.8% (an overnight hold).
