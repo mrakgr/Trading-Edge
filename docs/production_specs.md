@@ -86,6 +86,41 @@ trades/mo, 28k sh/mo. **Status: NOT ADOPTED** (borrow, fees, spreads unmodelled)
 
 ---
 
-## 5. LowFader — (to be filled from docs/lowfader_results.md SPEC v4)
+## 5. LowFader — 1s LONG session-low fade, hold to MOC — `docs/lowfader_results.md` §L23 (SPEC v4 RATIFIED 2026-09-06)
 
-## 6. SpringFlyer — (to be filled from docs/springflyer_results.md SPEC v2)
+**Engine** `TradingEdge.LowFader` — the config DEFAULTS ARE the spec (`Backtest.fs:73-87`); a trip with `spec_ord > 0`
+in the corpus passed every gate. Signal = new SESSION vwap low (EntryChannelBars 0), fill next bar vwap; **exit MOC**
+(16:00 / 13:00 early; 10m cover REJECTED §L24; next-open OFF). Window 09:45–15:00. Universe mr_candidate_1s_v2 ∧
+barnum ≥ 22. Floors: dollar_vol_60 ≥ $100k ∧ trade_count_60 ≥ 60 (present bars) ∧ volat_20m ≥ 30 bp.
+**Ord gates (SPEC v4 = WIDE-VG)**: volat_20m ∈ (0.003, 0.010] · eff_ewma_10m < −0.7 · lows_since_first_low_600 ≥ 40 ·
+rate_600 ≥ 0.15 · rr = vol_60 / (vol_0945_tape/15) ≥ 2.0 (TIME clock) · vwap/(close_m1+div_m1) − 1 ≤ −4% ·
+gap_adj_60 ≤ 60 · dollar_vol_60 ≥ $1M (TIME clock) · lows_since_first_low_120 ≥ 30 · **crf ≤ −0.2%** (the
+which-bar gate; the run's first low fails) · dv_0945_tape < $20M. Cold features FAIL.
+**mc = 1** = the FIRST qualifying bar per ticker-day, NO averaging down. **Sizing**: A = STRICT ∧ X → 1.00, rest 0.3,
+where STRICT = volat_20m > 0.005 ∧ gap_adj_60 ≤ 30 and X = rr ≥ 5 ∨ lows_rr3_120 ≥ 20 (`scripts/analysis/lowfader_wide_grades.py:16`).
+**Corpus** `data/lowfader_wl_wide/` (whitelist `lowfader_wide_whitelist`, 360 tkd, 2020-01-01..2026-08-31; banner
+`data/lowfader_wl_wide.log`); rebuild `scripts/equity/lowfader_run_wl.sh 2020-01-01 2026-08-31 wide lowfader_wide_whitelist "--min-volat-20m 0.003"`.
+**Reference**: SPEC v4 = **221 trades / 33.3 per yr / PF 5.17** (PF22 4.57, worst −12.8); grade A 36 @ 21.6; years
+2020 8.60 (49) · 2021 4.06 (33) · 2022 12.8 (37) · 2023 1.88 (30) · 2024 6.00 (27) · 2025 6.60 (33) · 2026 1.71 (12).
+Reproduce = `WHERE spec_ord > 0` on the corpus (verified 221). ⚠ GAP: the committed replay scripts
+`lowfader_wide_book.py` / `lowfader_wide_grades.py` hardcode crf ≤ −0.001 (the REJECTED wide variant, 275 trades) —
+change to −0.002 or use `spec_ord`. **Price floor: NONE** (`MinPrevClose` 0; 7 of the 221 book trades enter under $1,
+min $0.05) — the $1 decision is pending (SpikeFader/FlushFader carry $1; SpringFlyer $2).
+**Status**: ratified; Scanner port pending; live sizing per the A/rest ladder.
+
+## 6. SpringFlyer — DAILY-bar SHORT of the straight-line climax — `docs/springflyer_results.md` §S9 (SPEC v2 RATIFIED 2026-09-07)
+
+**Rules** (one close, day D, on share-consistent closes cn = close·n from `daily_episodes_causal`): er10 > 0.9 ·
+er20 > 0.6 (Kaufman efficiency ratio over 10/20 sessions) · cn(D) ≥ max cn over the 20 sessions INCLUDING D (new 20d
+closing high) · rng20c_d = max/min − 1 over the same 20 sessions > 2.0 (> 200%). FRAME: dv20_prior ≥ $5M ∧
+**prev_close_raw ≥ $2** ∧ barnum ≥ 22 ∧ CS/ADRC. Feature table `data/springflyer_daily.parquet`
+(`python3 scripts/equity/springflyer_daily.py --rebuild`); the 20d-high term is computed at query time (SQL in the
+S9 section / the registry agent's note). **Entry** SHORT at D's own close (15:59 limit / MOC live); **exit** cover at the
+close 10 sessions later (the 10d timestop; low-exit variants NOT adopted); returns dividend-inclusive, bp.
+**mc = 1 per NAME** (repeats inside the hold dropped; hold approximated as 10 × 1.45 calendar days — open item).
+**Reference**: 827 signals (2005..2026-09-04, 439 names, 37.6/yr, 66/yr since 2017; reproduced exactly); mc=1 book
+**480 trades / 22 per yr / PF 3.17 / win 74% / mean +1,731 bp / median +2,107 / worst −19,094 bp / 17 of 21 years**.
+**Sizing: NONE yet** — a −200% trade at full size is ruin (open blocker with the adverse-side stop). ⚠ GAP: **the
+script that produced `data/springflyer_spec_v2.log` was never committed** — the signal SQL reproduces, the mc=1
+collapse must be re-implemented. **Status**: ratified; **BORROW is the blocker** (TradeZero / Lightspeed / IBKR
+availability for $2–10 mania runners to be evaluated); squeeze tail p95 5d-high +98%.
