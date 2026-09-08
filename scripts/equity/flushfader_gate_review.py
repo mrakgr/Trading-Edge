@@ -35,6 +35,8 @@ ap.add_argument("--draws", type=int, default=2000)
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--seed", type=int, default=7)
 ap.add_argument("--mem", default="4GB")
+ap.add_argument("--summary", default=None, help="write the one-row-per-gate overview here")
+ap.add_argument("--drop", default="eff10,s20,s5", help="gates RULED OUT of the spec (S49b, user 2026-09-08); they leave S and are not reported")
 args = ap.parse_args()
 os.makedirs(args.out, exist_ok=True)
 con = duckdb.connect(); con.execute(f"SET memory_limit='{args.mem}'"); con.execute("SET threads=6")
@@ -125,12 +127,12 @@ G = {}
 def gate(name, layer, kind, fn, inp, thr):
     G[name] = dict(layer=layer, kind=kind, fn=fn, inp=inp, thr=thr)
 c = col
-gate("dv0945",  1, "and", lambda: c("dv0945") >= 3e6,                    "dv0945", ">= $3.0M (corpus floor $2M)")
+gate("dv0945",  1, "and", lambda: c("dv0945") >= 2e6,                    "dv0945", ">= $2M = the corpus floor (S49a: $3M RETIRED, user 2026-09-08)")
 gate("volat40", 1, "and", lambda: c("volat") >= 40,                       "volat",  ">= 40 bp (engine band floor 20)")
 gate("win1500", 1, "and", lambda: c("signal_sec") <= 54000,               "signal_sec", "<= 15:00")
 gate("g60",     1, "and", lambda: c("gap60") < 4,                         "gap60",  "< 4")
 gate("px1",     1, "and", lambda: c("px") >= 1,                           "px",     ">= $1 raw")
-gate("lows180", 1, "and", lambda: c("l180") >= 3,                         "l180",   ">= 3")
+gate("lows180", 2, "and", lambda: c("l180") >= 3,                         "l180",   ">= 3 (SPEC v3.0; a spec gate, layer 2 — user)")
 gate("speed",   2, "and", lambda: c("speed") < -0.02,                     "speed",  "< -2%/1m")
 gate("d1m",     2, "and", lambda: c("d1m") < -0.02,                       "d1m",    "< -2%")
 gate("ssf",     2, "and", lambda: (c("ssf") >= -375) & (c("ssf") < -25),  "ssf",    "in [-375,-25) bp/m")
@@ -163,7 +165,9 @@ gate("haltband",3, "or",  lambda: (c("ssh") >= 1200) & (c("ssh") < 4800), "ssh",
 gate("stier",   3, "or",  lambda: (c("ht") >= 1) & (c("ssh") >= 120) & (c("ssh") < 1200), "ssh", "ht>=1 & ssh in [120,1200)")
 for k, v in G.items():   # NaN -> False, materialised once
     m = v["fn"](); v["mask"] = np.where(np.isnan(m.astype(float)), False, m).astype(bool) if m.dtype != bool else m
-AND = [k for k, v in G.items() if v["kind"] == "and"]; OR = [k for k, v in G.items() if v["kind"] == "or"]
+DROPPED = [x for x in args.drop.split(",") if x]
+AND = [k for k, v in G.items() if v["kind"] == "and" and k not in DROPPED]; OR = [k for k, v in G.items() if v["kind"] == "or" and k not in DROPPED]
+log(f"spec = {len(AND)} AND gates + {len(OR)} voices; DROPPED by ruling: {DROPPED}")
 
 # The substitute candidate inputs (continuous columns tried in BOTH directions).
 SUBS = ["dv0945", "volat", "signal_sec", "gap60", "px", "l180", "speed", "d1m", "ssf", "dlv", "rflow", "z20", "ssh",
@@ -312,6 +316,7 @@ def band_table(base_mask, vals, nb=8):
                    + " | ".join(f"{f(p,2)} ({n})" for n, p in ys) + " |")
     return "\n".join(out)
 
+SUMMARY = []
 def report(g):
     v = G[g]; out = [f"# Gate `{g}` (layer {v['layer']}, {v['kind'].upper()}): {v['thr']}\n",
                      f"Corpus `{args.trips}` — {N:,} sampler trips, {len(np.unique(TKD)):,} tkd. All books = mc=1 replay INSIDE the set.\n"]
@@ -344,6 +349,10 @@ def report(g):
                 rows.append((s["tpf1"], f"| {h} {'>=' if keep_high else '<='} {thr:.4g} | {s['n']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | "
                              + " | ".join(f"{f(p,2)}" for n, p in ys) + " |"))
         rows.sort(key=lambda x: (-(x[0] if not np.isnan(x[0]) else -9)))
+        sl, sc = S(kloo), S(cut)
+        SUMMARY.append(f"| {g} | {v['thr']} | {sl['n']:,} | {f(sl['pf'])} | {f(sl['tpf1'])} | {sc['n']} | {f(sc['pf'],2)} | {f(sc['avg'],2)} | "
+                       f"{pct(nd[0], SF['pf']):.0f} / {pct(nd[1], SF['tpf1']):.0f} | {sum(1 for r in rows if r[0] > SF['tpf1'])} / {len(rows)} | "
+                       f"{rows[0][1].split('|')[1].strip()} {rows[0][1].split('|')[3].strip()} / {rows[0][1].split('|')[4].strip()} |" if nd and rows else f"| {g} | {v['thr']} | (no cut) |")
         out += ["## 3. Substitution — every other input thresholded on S\\g to the SAME trip count (replayed), top 12 by trimPF-1\n",
                 "| substitute | n | PF | trimPF-1 | avg% | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|" + "---|" * len(YEARS),
                 f"| **{g} itself (S)** | {SF['n']:,} | {f(SF['pf'])} | {f(SF['tpf1'])} | {f(SF['avg'],2)} | " + " | ".join(f"{f(p,2)}" for n, p in yrow(KFULL)) + " |"]
@@ -401,5 +410,12 @@ def report(g):
     open(path, "w").write(txt); print(txt); log(f"wrote {path}")
 
 if args.gate:
-    for g in (list(G) if args.gate == "all" else args.gate.split(",")):
+    sel = list(G) if args.gate == "all" else [k for k in G if G[k]["layer"] == int(args.gate[5:])] if args.gate.startswith("layer") else args.gate.split(",")
+    for g in sel:
+        if g in DROPPED: continue
         report(g)
+    if args.summary:
+        hdr = (f"S (full spec) = {SF['n']:,} @ {f(SF['pf'])} trimPF-1 {f(SF['tpf1'])}\n\n"
+               "| gate | threshold | S\\g n | S\\g PF | S\\g trimPF-1 | cut n | cut PF | cut avg% | S pct of null (PF / trimPF-1) | rivals better | best rival PF / trimPF-1 |\n"
+               "|---|---|---|---|---|---|---|---|---|---|---|\n")
+        open(args.summary, "w").write(hdr + "\n".join(SUMMARY) + "\n"); print(hdr + "\n".join(SUMMARY))

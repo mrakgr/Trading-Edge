@@ -17294,3 +17294,54 @@ removal gives 6% of the time. Substitution: **20 of 126 rivals beat it at the sa
 removal is indistinguishable from chance. The 42 trades it cuts are profitable (+1.49%/trade, 71% win, worst
 −10.9%) though thin per year. Recommendation: **retire the floor to the corpus's $2M** (+42 trades, PF 4.128 →
 4.016, trimPF−1 8.86 → 8.50 — the broadening the user asked for, at the cost of ~3% PF). Ruling: pending.
+
+**S49a RULING (user): the $3M floor is RETIRED — the universe floor is the candidate table's $2M.** Layer 1 otherwise
+CLOSED by the user: dv60/tc60 stay ("there for liquidity, not performance"), volat ≥ 40bp / ≤ 15:00 / gap_60 < 4 /
+px ≥ $1 stay. `lows180` is a spec gate and is reviewed with layer 2.
+
+## S49b — layer 2, BACKWARD ELIMINATION (one gate per step; the map is recomputed after every removal)
+
+The null: for gate G, the book WITHOUT G is replayed; S has fewer ticker-days than S∖G; 2,000 random subsets of
+S∖G at S's tkd count give the distribution of "a random cut of this size"; the percentile is where S's actual
+PF / trimPF−1 lands. Ticker-days, not trades, are resampled (a cascade is one event). "Rivals" = of the 126
+(input × direction) single thresholds on S∖G at the SAME trip count, how many beat G's trimPF−1.
+
+The starting map (18 gates, S = 1,411 @ 4.016 after S49a) and the rulings, in order:
+
+| step | gate | book without it | cut slice n / PF / avg% | S pct of null (PF / trimPF−1) | rivals | ruling (user) |
+|---|---|---|---|---|---|---|
+| 1 | eff10 ≥ .15 | 1,425 @ 4.036 | 26 / 12.06 / +2.82 | 26 / 46 | 100 | **DROP** — removes winners; the book improves without it |
+| 1 | s20 < −10 bp/m | 1,412 @ 4.021 | 1 / inf / +4.28 | 24 / 24 | 91 | **DROP** — vacuous (one trade in 6.6 years) |
+| 1 | s5 ≥ −400 bp/m | 1,413 @ 3.953 | 3 / 0.28 / −3.39 | 99 / 100 | 13 | **DROP** — vacuous (three trades) |
+| 2 | speed < −2%/1m | 1,530 @ 3.887 | 239 / 3.95 / +1.57 | 83 / 73 | 60 | **DROP** — a magnitude dial given d1m: avg% monotone 2.89→1.79 across octiles, PF flat 4.0–5.7; the cut wins 7/7 years at the book's own PF. → SIZING ledger |
+| 3 | z20 < −1.5σ | 1,545 @ 3.863 | 27 / 3.28 / +1.56 | 78 / 80 | 56 | **DROP** — the S41r weak-dip slice is already removed by d1m/ssf; mildest octile PF 4.50 |
+| 4 | rflow ≥ −0.95 | 1,562 @ 3.796 | 22 / 1.35 / +0.38 | 94 / 88 | 33 | **DROP** — 22 trades; band table flat 4.1–4.7, the straightest legs bounce like the rest |
+| 5 | dlv < −3% | 1,728 @ 3.648 | 282 / 2.76 / +1.10 | 92 / 95 | 34 | **DROP** — speed's twin: avg% monotone 2.88→1.27, shallowest octile PF 3.3 profitable every year. → SIZING ledger. The largest broadening (+166) |
+
+⚠ S43cm ("the pair is unbeaten") tested whether other SPEED CELLS replace the pair; this tests whether speed adds
+anything given d1m — it does not. **d1m carries the pair**: with speed and dlv gone its cut slice is 761 @ 1.63,
+100/100, ZERO rivals (its best rival is dlv itself at 3.47 vs 3.65).
+
+**The map after step 5 — S = 1,728 @ 3.648, trimPF−1 7.546 (was 1,369 @ 4.128 / 8.860): +26% trades, −12% PF.
+Every remaining gate beats the null:**
+
+| gate | book without it | cut slice n / PF / avg% | S pct of null | rivals | best rival |
+|---|---|---|---|---|---|
+| K [26,50] | 3,623 @ 2.25 | 2,412 / 1.93 / +1.09 | 100 / 100 | 0 | — |
+| eff20 [.30,.50) | 2,710 @ 2.53 | 1,352 / 1.79 / +0.91 | 100 / 100 | 0 | — |
+| d1m < −2% | 2,191 @ 2.89 | 761 / 1.63 / +0.52 | 100 / 100 | 0 | — |
+| ssf [−375,−25) | 2,119 @ 3.17 | 486 / 2.02 / +0.99 | 100 / 100 | 2 | consol_5m_lag1m ≤ .22 → 3.84 |
+| cascade | 1,788 @ 3.23 | 67 / 0.87 / −0.40 | 100 / 100 | 2 | sslu ≥ 2 → 3.41 |
+| rngf < .80 | 1,776 @ 3.41 | 59 / 0.94 / −0.11 | 100 / 100 | 2 | sslu ≥ 2 → 3.60 |
+| accel ≥ −80 | 1,879 @ 3.12 | 190 / 1.56 / +1.01 | 100 / 100 | 8 | lsu ≥ 2 → 3.42 |
+| lows300 ≥ 6 | 1,760 @ 3.56 | 107 / 2.65 / +1.31 | 99 / 100 | 6 | k20 ≥ 27 → 3.73 |
+| lows180 ≥ 3 | 1,751 @ 3.56 | 98 / 2.68 / +1.39 | 99 / 99 | 5 | vcrush ≤ 51 → 3.69 |
+| e9 ≥ −.10 | 1,784 @ 3.53 | 83 / 1.74 / +0.87 | 98 / 99 | 9 | sslu ≥ 2 → 3.76 |
+| v10r ≥ .75 | 1,822 @ 3.48 | 254 / 2.41 / +1.29 | 99 / 89 | 44 | sslu ≥ 2 → 3.71 |
+
+Observations for phase 2: (a) `sslu ≥ 2` (secs since last uptick — the tape is still falling at the signal) is the
+top rival of five gates and beats the current S at every one of those trip counts (3.4–3.8 vs 3.65); it is a
+candidate gate, not a substitute for any one of them. (b) `consol_5m_lag1m ≤ ~.1–.3` is the top rival of K, eff20
+(earlier maps) and ssf — on the MR side the LOW end (trend into the low) is the good end, the INVERSE of LongHiker
+S40 (the side-flip inversion, #8). (c) K, eff20 and d1m have no rival at all; their cut slices (1.6–1.9 PF,
++0.5–1.1%/trade) are the four-tier material.
