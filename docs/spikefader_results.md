@@ -4324,10 +4324,10 @@ book — +2.2%/trade vs +0.5% — but it is also the hardest borrow, and we are 
 | book | n | PF | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | SPEC (no floor) | 3,573 | 2.213 | +2.00 | −83.4 | 2.48 (688) | 2.28 (810) | 1.34 (405) | 1.86 (298) | 2.38 (471) | 2.43 (641) | 2.70 (260) |
-| **SPEC + signal_vwap ≥ $1 (replay inside)** | **3,067** | **2.325** | +2.02 | −83.4 | 2.45 (610) | 2.38 (763) | 1.32 (353) | 1.78 (215) | 3.12 (384) | 2.52 (536) | 3.04 (206) |
+| **SPEC + signal_vwap ≥ $1 (replay inside)** | **3,067** | **2.327** | +2.03 | −83.4 | 2.45 (610) | 2.38 (763) | 1.32 (353) | 1.78 (215) | 3.12 (384) | 2.52 (536) | 3.04 (206) |
 | SPEC + prev close ≥ $1 (`--min-prev-close 1`) | 2,879 | 2.185 | +1.80 | −83.4 | 2.28 (567) | 2.39 (743) | 1.30 (337) | 1.57 (194) | 2.69 (356) | 2.26 (499) | 3.18 (183) |
 
-**Adopted: the SIGNAL-price floor** (knowable at the signal bar; identical trip set to `entry_px >= 1`). The
+**Adopted: the SIGNAL-price floor** (knowable at the signal bar; `entry_px >= 1` gives 3,067 @ 2.325 — a handful of trips differ at the $1 boundary). The
 prior-close variant is worse because it also drops the sub-$1 names that spike THROUGH $1 on day D — among the
 best shorts. `spikefader_zq.SPEC` carries the clause; the Scanner port must gate on the signal bar's raw vwap, not
 `close_m1`. Volume at $10k/position: 46 trades/mo, ~150k shares/mo above $1 (606k with the sub-$1 names).

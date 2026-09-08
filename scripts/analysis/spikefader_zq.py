@@ -43,7 +43,7 @@ SPEC = """
 """
 # ⭐ §S49 (user, 2026-09-08): the $1 floor — signal vwap (RAW, causal `n` schema) >= $1 at the signal bar.
 # Sub-$1 stock: no rebates and 30 bp take fees at Lightspeed, no free limit orders at TradeZero. The floor
-# IMPROVES the book (3,573 @ 2.213 → 3,067 @ 2.325; sub-$1 slice was 544 @ 1.93). The prior-close variant
+# IMPROVES the book (3,573 @ 2.213 → 3,067 @ 2.327; sub-$1 slice was 544 @ 1.93). The prior-close variant
 # (`--min-prev-close 1`, 2,879 @ 2.185) is WORSE: it also drops the sub-$1 names that spike THROUGH $1 on
 # day D, which are among the best shorts. Gate on the signal price, not the prior close.
 
