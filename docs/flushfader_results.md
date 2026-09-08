@@ -17531,3 +17531,17 @@ per tkd (E: 1.5% of tkds vs 0.64%) and are uniformly WEAKER at every point on th
 Consistent with S40e (1,476 @ 1.425 mc=0 under v1.8): fresh listings do not mean-revert like seasoned tape. 65 trades
 in 6.6 years with four of seven years at or below 1.1 do not earn a seat. Ruling recommended: barnum ≥ 22 STAYS
 (a capacity question for the tier pass at most — the step-7 slice is 637 @ 1.62).
+
+## S49h — raw vs halt-ADJUSTED gap door, and the cascade rule re-checked (user question, 2026-09-08)
+
+The production frame reads the RAW `gap_60`; `gap_adj_60` (classified-halt seconds excluded) differs on 6,274 of
+8.27M sampler trips — all inside the first 60 s after a resume (6,096 admitted by adjusted, rejected by raw; mc=0
+sampler net +9,461% ≈ +1.55%/trip, a cascade-attribution mirage). On E the two doors give the IDENTICAL book
+(1,423 @ 3.861) because the cascade gate's 120 s reopen block already excludes every trip where they differ.
+Replays: reopen block OFF (serial wait only) → +2 trades, 3.852; NO halt gates → 1,490 @ 3.335, worst **−65.7**.
+ssh bands on the halted trips (E, no halt gates): [0,30) 13 @ 0.68, [30,60) 4 @ 0.19, [60,120) 3 @ 1.6,
+[120,300) 5 @ 0.50, [300,600) 31 @ 1.39, [600,1200) 80 @ 2.5, [1200,2400) 124 @ 3.6, [2400,4800) 160 @ 4.0,
+≥ 4800 215 @ 4.3. ONE wait for any halt count: 600 s → 1,454 @ 3.590; 1,200 s → 1,381 @ 3.723 — both WORSE than
+the two-case rule (3.861): serial breakers (ht ≥ 3) need the 20 m, ordinary halts do not. **Verdict: the gap
+column choice is moot under the cascade gate (either is fine; raw stays); the S42n/S42t two-case cascade rule
+stands as written.**

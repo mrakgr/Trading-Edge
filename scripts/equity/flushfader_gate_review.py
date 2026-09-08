@@ -141,6 +141,11 @@ gate("dv0945",  1, "and", lambda: c("dv0945") >= 2e6,                    "dv0945
 gate("volat40", 1, "and", lambda: c("volat") >= 40,                       "volat",  ">= 40 bp (engine band floor 20)")
 gate("win1500", 1, "and", lambda: c("signal_sec") <= 54000,               "signal_sec", "<= 15:00")
 gate("g60",     1, "and", lambda: c("gap60") < 4,                         "gap60",  "< 4")
+gate("gadj60_4", 9, "and", lambda: c("gadj60") < 4,                      "gadj60", "< 4 (halt-ADJUSTED door)")
+gate("reopen",   9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 120),   "ssh",    "ht=0 or ssh>=120 (the S42t reopen block alone)")
+gate("wait600",  9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 600),   "ssh",    "ht=0 or ssh>=600 (ONE wait for any halt count)")
+gate("wait1200", 9, "and", lambda: (c("ht") == 0) | (c("ssh") >= 1200),  "ssh",    "ht=0 or ssh>=1200 (ONE wait for any halt count)")
+gate("serial",   9, "and", lambda: (c("ht") < 3) | (c("ssh") >= 1200),   "ssh",    "ht<3 or ssh>=1200 (the S42n serial-breaker wait alone)")
 for _k in (6, 8, 10, 13, 20):
     gate(f"g60_{_k}", 9, "and", (lambda k: lambda: c("gap60") < k)(_k),   "gap60",  f"< {_k} (loosened door)")
 gate("px1",     1, "and", lambda: c("px") >= 1,                           "px",     ">= $1 raw")
