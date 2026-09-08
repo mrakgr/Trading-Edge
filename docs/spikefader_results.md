@@ -4312,3 +4312,22 @@ nothing left (47 trades, then 30 at weight 0.18) and the roster is unchanged or 
 **Verdict: a +0.7% that is X's sub-tier, not a voice** — the same finding as addenda 2–5 with its most favourable threshold. If X
 is ever re-sized this is the split to use (weight X-with-leg ≈ 1.0, X-without ≈ 0.45); as a seat it does not clear the S46 bar
 (rr ≥ 12 got in on a fold-by-fold win with 69 solo trips; this has 30 solo trips at 0.68).
+
+## §S49 — the $1 floor (user, 2026-09-08): `signal_vwap >= $1` joins the SPEC; the book IMPROVES
+
+Broker reality (verified 2026-09-08): sub-$1 stock is "not rebate eligible" and costs 30 bp of trade value to take
+at Lightspeed; TradeZero's free limit orders are ≥ $1 only. The s47 book (SPEC, mc=1, 9m exit) by entry price:
+< $1 = 544 trades (15.2%) @ 1.93 / +2.18% · $1–2 261 @ 3.09 · $2–5 727 @ 2.56 · $5–10 821 @ 1.98 · $10–20 611 @
+2.33 · $20–50 435 @ 2.24 · $50+ 174 @ 1.61. (The sub-$1 slice is far less fee-sensitive than FlushFader's broad
+book — +2.2%/trade vs +0.5% — but it is also the hardest borrow, and we are starting out.)
+
+| book | n | PF | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| SPEC (no floor) | 3,573 | 2.213 | +2.00 | −83.4 | 2.48 (688) | 2.28 (810) | 1.34 (405) | 1.86 (298) | 2.38 (471) | 2.43 (641) | 2.70 (260) |
+| **SPEC + signal_vwap ≥ $1 (replay inside)** | **3,067** | **2.325** | +2.02 | −83.4 | 2.45 (610) | 2.38 (763) | 1.32 (353) | 1.78 (215) | 3.12 (384) | 2.52 (536) | 3.04 (206) |
+| SPEC + prev close ≥ $1 (`--min-prev-close 1`) | 2,879 | 2.185 | +1.80 | −83.4 | 2.28 (567) | 2.39 (743) | 1.30 (337) | 1.57 (194) | 2.69 (356) | 2.26 (499) | 3.18 (183) |
+
+**Adopted: the SIGNAL-price floor** (knowable at the signal bar; identical trip set to `entry_px >= 1`). The
+prior-close variant is worse because it also drops the sub-$1 names that spike THROUGH $1 on day D — among the
+best shorts. `spikefader_zq.SPEC` carries the clause; the Scanner port must gate on the signal bar's raw vwap, not
+`close_m1`. Volume at $10k/position: 46 trades/mo, ~150k shares/mo above $1 (606k with the sub-$1 names).
