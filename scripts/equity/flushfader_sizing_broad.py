@@ -368,6 +368,26 @@ for g, gl in enumerate(GL):
         if m.sum() < 50: cells.append("–"); continue
         cells.append(f"{(R[m]>0).mean()*100:.0f} · {(R[m & early]>0).mean()*100:.0f} · {(R[m & late]>0).mean()*100:.0f}")
     out.append(f"| {gl} | " + " | ".join(cells) + " |")
+# 8f. the DECOMPOSITION: mean = p*W - (1-p)*L ; W = mean win, L = mean |loss|, lambda = L/W
+out += ["", "## 8f. gap × volat — decomposition: win% · mean WIN % · mean |LOSS| % · λ = L/W   (all years; n ≥ 50)", "| gap \\ volat | " + " | ".join(VL) + " | ROW (pooled) |", "|---|" + "---|" * (len(VL) + 1)]
+def dec(r):
+    p_ = (r > 0).mean(); W = r[r > 0].mean(); L = -r[r < 0].mean(); return p_, W, L, L / W
+for g, gl in enumerate(GL):
+    cells = []
+    for v in range(len(VL)):
+        m = (gi == g) & (vi == v)
+        if m.sum() < 50: cells.append("–"); continue
+        p_, W, L, lam = dec(R[m]); cells.append(f"{p_*100:.0f} · {W:.2f} · {L:.2f} · λ {lam:.2f}")
+    p_, W, L, lam = dec(R[gi == g]); cells.append(f"{p_*100:.0f} · {W:.2f} · {L:.2f} · **λ {lam:.2f}**")
+    out.append(f"| {gl} | " + " | ".join(cells) + " |")
+cells = []
+for v in range(len(VL)):
+    p_, W, L, lam = dec(R[vi == v]); cells.append(f"{p_*100:.0f} · **{W:.2f}** · {L:.2f} · λ {lam:.2f}")
+out.append("| COL (pooled) | " + " | ".join(cells) + " | |")
+out += ["", "λ = L/W by gap row on each half (20–23 · 24–26): " + " · ".join(f"{gl} {dec(R[(gi==g)&early])[3]:.2f}/{dec(R[(gi==g)&late])[3]:.2f}" for g, gl in enumerate(GL)),
+        "W by volat column on each half: " + " · ".join(f"{vl} {dec(R[(vi==v)&early])[1]:.2f}/{dec(R[(vi==v)&late])[1]:.2f}" for v, vl in enumerate(VL)),
+        "W by gap row (pooled over volat): " + " · ".join(f"{gl} {dec(R[gi==g])[1]:.2f}" for g, gl in enumerate(GL)),
+        "λ by volat column (pooled over gap): " + " · ".join(f"{vl} {dec(R[vi==v])[3]:.2f}" for v, vl in enumerate(VL))]
 out += ["", "## 9. gap_60 (rows) × rate600 (cols) — trimPF-1", grid("gap \\ rate600", gi, GL, ri, RL, st_t),
         "", "## 9b. volat (rows) × rate600 (cols) — trimPF-1", grid("volat \\ rate600", vi, VL, ri, RL, st_t)]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
