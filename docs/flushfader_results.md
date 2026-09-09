@@ -18242,3 +18242,47 @@ Net and PF rise monotonically with p on both holdouts; DD in position units bare
 sized trade grows (−101 → −143). Flattening to p = 0.75 gives back 8% of the sized net for a 2% smaller DD; p = 1.25 adds
 4–5% net for +0–5% DD but puts 35% of the forward book below half size. **Ruling: p = 1** — the PF−1 rule as stated; no
 power. The clip at 4 binds on < 1% of trades at p = 1.
+
+## S49ad — the STRUCTURED sizing model (user, 2026-09-09: "estimate the combination, don't assume it")
+
+`scripts/equity/flushfader_sizing_model.py --credit 0.001 --rule140` → `data/flushfader_gate_review/sizing_model.md`.
+Three additive models on the COMPONENTS of the edge, fitted by IRLS on every trade of the fit set (no per-cell estimates):
+logit p (win rate), log W (mean win), log L (mean |loss|); each band of each feature is a 0/1 dummy (gap 3 + volat 4 +
+rate600 1 + tier 1 + intercept = 10 per model). multiplier ∝ PF−1 = p / ((1−p)·L/W) − 1 from the fitted components.
+
+**What the fit says (model A, all years; ratios vs the base cell gap 0 · volat 40–60 · slow · no halt):**
+
+| term | p odds | W × | L × | λ = L/W × |
+|---|---|---|---|---|
+| gap 1–3 / 4–12 / 13–39 | 0.91 / 0.90 / 0.86 | 0.98 / 1.02 / 1.02 | 1.07 / 1.14 / 1.14 | **1.09 / 1.12 / 1.11** |
+| volat 60–90 / 90–140 / 140–250 / 250+ | 1.04 / 1.04 / 1.08 / 1.18 | **1.45 / 2.01 / 2.77 / 4.36** | **1.41 / 1.93 / 2.70 / 4.29** | 0.97 / 0.96 / 0.97 / 0.99 |
+| rate600 fast | **0.87** | 1.00 | 0.99 | 0.99 |
+| S tier | 1.02 | 1.05 | 0.91 | **0.87** |
+
+- **volat scales wins and losses TOGETHER** (W ×4.4, L ×4.3 at 250+): it is a magnitude axis; its PF−1 effect is only the
+  win-rate odds (1.04–1.18). The empirical marginal PF−1 volat ladder (0.76 → 2.22) is CONFOUNDED: volat ≥ 140 exists only
+  at gap < 4 (rule140), so the marginal carries the gap effect.
+- **gap acts on λ** (losses 9–12% larger relative to wins) and on p (odds 0.86–0.91). **rate600 acts on p only** (odds 0.87,
+  nothing on W or L). **The S tier acts on λ only** (losses 13% smaller relative to wins).
+- A dense × volatile interaction exists but is modest (model A+D: gap 0 × 90–140 fitted 2.15 vs 1.96 additive).
+
+**As a sizing rule it holds out WORSE than the ladder product** — sized PF / net / DD (fwd · mirror):
+
+| map | fit 20–23 → 24–26 | fit 24–26 → 20–23 | share > 2× |
+|---|---|---|---|
+| S49ab all-marginal product | 1.585 / 11,053 / 252 | 1.794 / 17,367 / 242 | 7–8% |
+| model A ∝ PF−1 | 1.525 / 9,713 / 237 | 1.727 / 15,253 / 179 | 2–6% |
+| model A+D ∝ PF−1 | 1.530 / 9,807 / 236 | 1.727 / 15,247 / 176 | 4% |
+| model B (slopes) ∝ PF−1 | 1.532 / 9,776 / 240 | 1.731 / 15,250 / 173 | 2% |
+| model A+D ∝ PF−1 ^ 1.5 | 1.571 / 10,770 / 222 | 1.786 / 16,555 / 213 | 8–12% |
+| model A+D ∝ PF−1 ^ 2.0 | 1.603 / 11,496 / 241 | 1.826 / 17,391 / 216 | 12–14% |
+
+The model's PF−1 grid is FLATTER than the product (gap 0 row: 1.65 → 2.36 across volat vs the product's 1.27 → 3.74; the
+actual joint cells were 1.20 → 2.18). The product overshoots the measured cells at the top and the overshoot pays because
+steeper pays on these holdouts (S49ac). At matched steepness (model ^ 1.5–2.0) the model equals or beats the product at
+LOWER drawdown (222 / 213 vs 252 / 242) — so the product's extra net is steepness, not information.
+
+**Conclusion:** the honest estimate of "size ∝ PF−1" is the model at power 1: flatter, ~12% less net than the product,
+robust, no clip binding, no hand-picked cells. The product is that same shape at roughly power 1.7. The decision is now
+one number, the exponent, and it belongs to the user. The mechanism is settled: volat = magnitude, gap = loss ratio,
+rate600 = win rate, halt tier = loss ratio.
