@@ -18352,3 +18352,32 @@ gap > 0 is optional and worth nothing — C stands as the sizing model.**
 Holdouts ∝ PF−1: A3 1.527 / 9,744 / 238 · 1.728 / 15,266 / 180 — identical to A (9,713 / 15,253) and 1% behind C forward
 (9,872 / 221). The merged band reproduces A's two bands exactly (λ 1.12 vs 1.12 / 1.11). Nine parameters per component.
 Same conclusion as C2–C5: beyond gap = 0 the loss ratio has one level; C stands.
+
+
+## S49ae — RULING: model A3 is the production sizing model (user, 2026-09-09: "they are very similar; buckets for volatility are our usual process and make the number of sizes finite")
+
+Model A3 = three log-linear component models (logit p · log W · log L), each with an intercept + gap 1–3 + gap 4–39 +
+volat 60–90 / 90–140 / 140–250 / 250+ + rate600 fast (≥ .07) + S tier (ht ≥ 1 ∧ ssh ∈ [300,2400)) = 9 parameters; fitted by
+IRLS on the broad book net of the $0.001/sh/side credit, all years. **multiplier = fitted PF−1 / 0.519 (the book's mean
+fitted PF−1), power 1 (ruled), clip [0.25, 4] (never binds: range 0.52–3.12).** WAIT ht ≥ 4 ∧ ssh < 300 stays in the spec.
+`scripts/equity/flushfader_sizing_model.py --credit 0.001 --rule140` → `data/flushfader_gate_review/sizing_model.md`
+(PRODUCTION TABLE: p, W, L, λ, PF−1, multiplier and n for every populated cell). The finite grid (multiplier (n)):
+
+| gap | volat | slow · no halt | fast · no halt | slow · S tier | fast · S tier |
+|---|---|---|---|---|---|
+| 0 | 40-60 | 1.64 (944) | 1.20 (1,253) | 2.28 (9) | 1.76 (13) |
+| 0 | 60-90 | 1.91 (798) | 1.43 (863) | 2.60 (37) | 2.04 (37) |
+| 0 | 90-140 | 1.96 (756) | 1.48 (759) | 2.66 (98) | 2.09 (103) |
+| 0 | 140-250 | 2.02 (270) | 1.52 (355) | 2.72 (179) | 2.14 (152) |
+| 0 | 250+ | 2.35 (13) | 1.82 (15) | 3.12 (17) | 2.49 (35) |
+| 1-3 | 40-60 | 1.07 (854) | 0.69 (920) | 1.61 (3) | 1.17 (8) |
+| 1-3 | 60-90 | 1.30 (792) | 0.89 (618) | 1.88 (10) | 1.40 (18) |
+| 1-3 | 90-140 | 1.34 (521) | 0.93 (393) | 1.92 (62) | 1.44 (49) |
+| 1-3 | 140-250 | 1.38 (152) | 0.97 (121) | 1.97 (77) | 1.49 (49) |
+| 1-3 | 250+ | 1.67 (1) | 1.22 (4) | 2.31 (11) | 1.78 (12) |
+| 4-39 | 40-60 | 0.87 (8,057) | 0.52 (6,816) | 1.37 (3) | 0.96 (7) |
+| 4-39 | 60-90 | 1.08 (4,706) | 0.70 (3,071) | 1.62 (25) | 1.18 (16) |
+| 4-39 | 90-140 | 1.12 (1,862) | 0.74 (1,184) | 1.66 (108) | 1.22 (43) |
+
+Holdouts (∝ PF−1, equal exposure): fit 20–23 → 24–26 **1.527 / 9,744 / DD 238** (flat 1.442 / 7,624 / 214); fit 24–26 →
+20–23 **1.728 / 15,266 / 180** (flat 1.615 / 12,768 / 149). Supersedes S49aa/ab (the product of marginal ladders).

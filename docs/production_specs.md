@@ -34,15 +34,21 @@ dictionary reproduces v49 EXACTLY, 39,769 = 39,769):
 - **SPEC v4 candidate "E"** (9 gates): K · eff20 · d1m · **crf ≤ −0.2%** (`chg_since_run_first_low`) · cascade · rngf ·
   lows300 · ssf · accel + ROSTER vote, $2M floor → **1,423 @ 3.861, trimPF−1 8.38**.
   `python scripts/equity/flushfader_gate_review.py --drop lows180,speed,dlv,rflow,z20,eff10,e9,v10r,s20,s5 --add crf --eval E`
-- **THE BROAD BOOK** (user 2026-09-08, "maximise trades for a small account"): efficiency-curve step 7 = frame +
-  lows300 + eff10 + v10r + z20 + lows180 + crf + **coil5lo** (consol_5m_lag1m ≤ .22) , NO vote, **gap_60 < 40**,
-  RULE volat ≥ 140 bp only if gap < 4 → **37,348 @ 1.46 gross, +0.55%/trade at a $0.001/sh/side rebate credit**;
-  sized on gap × volat (`scripts/equity/flushfader_sizing_broad.py --door 40 --credit 0.001 --rule140`).
-  Volume at $10k: 469 trades/mo, 2.3M sh/mo (80% sub-$5). OPEN: the passive fill model (S49l).
+- **THE BROAD BOOK — PRODUCTION (user rulings 2026-09-08/09)**: efficiency-curve step 7 = frame ($2M floor, volat ≥ 40 bp,
+  09:45–15:00, raw px ≥ $1, barnum ≥ 22, dv60/tc60) + lows300 ≥ 6 + |eff10| ≥ .15 + vol10rate ≥ .75 + z20 < −1.5σ +
+  lows180 ≥ 3 + crf ≤ −0.2% + **coil5lo** (consol_5m_lag1m ≤ .22), NO vote, **gap_60 < 40**, RULE volat ≥ 140 bp only if
+  gap < 4, **WAIT: ht ≥ 4 ∧ ssh < 300 → no trade** (S49p) → **37,279 trades @ 1.536 net of a $0.001/sh/side credit,
+  +0.55%/trade** (`flushfader_gate_review.py --preset broad`; sizing scripts rebuild the same book from the slice).
+  **SIZING = model A3 (S49ae)**: multiplier = fitted PF−1 / 0.519, power 1, clip [0.25, 4]; PF−1 = p/((1−p)·L/W) − 1 from
+  three log-linear component fits (logit p, log W, log L) on gap {0, 1–3, 4–39} × volat {40–60, 60–90, 90–140,
+  140–250, 250+} × rate600 {< .07, ≥ .07} × S tier {ht ≥ 1 ∧ ssh ∈ [300,2400)}; the finite table (0.52 – 3.12) is in
+  `data/flushfader_gate_review/sizing_model.md` (PRODUCTION TABLE) and §S49ae. Holdouts 1.527 / 9,744 fwd · 1.728 /
+  15,266 mirror vs flat 1.442 / 7,624 · 1.615 / 12,768. `python scripts/equity/flushfader_sizing_model.py --credit 0.001 --rule140`.
+  Volume at $10k: 469 trades/mo, 2.3M sh/mo (80% sub-$5). OPEN: the passive fill model (S49l); consistency study.
 - Ruled OUT of the spec (S49b): eff10, s20, s5, speed, dlv (magnitude dials → sizing), z20, rflow.
 
 **Status**: Scanner (`TradingEdge.Scanner`, private repo) is at SPEC v3.1, sealed zero-diff; the production frame
-(E vs broad) is the user's pending decision; consol columns not yet in the Scanner.
+is THE BROAD BOOK (user 2026-09-08); consol columns, the wait rule and the A3 sizing table not yet in the Scanner.
 
 ---
 

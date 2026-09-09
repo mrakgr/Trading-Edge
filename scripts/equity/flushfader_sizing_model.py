@@ -205,4 +205,28 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
             for pw in (1.5, 2.0):
                 out.append(sim(np.clip((pf1x / base) ** pw, 0.25, 4.0), app, f"{mlab}: ∝ PF-1 ^ {pw} (steepness control)"))
         out.append(sim(np.clip(er / er[fit].mean(), 0.25, 4.0), app, f"{mlab}: ∝ E[r] (diagnostic, NOT the rule)"))
+# ---- PRODUCTION TABLE for the ruled model (A3): the finite multiplier grid, fit on all years, PF-1 relative to the book's mean fitted PF-1
+bA3 = fit_model(XA3, all_m); pA3, WA3, LA3, lamA3, pf1A3, erA3 = predict(XA3, bA3); baseA3 = pf1A3.mean()
+GL3 = ["0", "1-3", "4-39"]
+out += ["", f"## PRODUCTION TABLE — model A3 (gap 0 / 1–3 / 4–39 dummies, volat 5 bands, rate600 fast flag, S-tier flag), fit on all years",
+        f"multiplier = fitted PF−1 / mean fitted PF−1 over the book ({baseA3:.3f}); clip [0.25, 4] (never binds: range below). Cells with n = 0 are outside the spec (volat ≥ 140 only at gap < 4).",
+        "", "| gap | volat | rate600 | S tier | p | W % | L % | λ | PF−1 | multiplier | n |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+def rowvec(g3, v, r_, t_):
+    x = np.zeros(XA3.shape[1]); x[0] = 1
+    if g3 == 1: x[1] = 1
+    if g3 == 2: x[2] = 1
+    if v: x[2 + v] = 1
+    x[7] = r_; x[8] = t_; return x
+g3i = np.where(gi == 0, 0, np.where(gi == 1, 1, 2))
+mn, mx = 9, 0
+for g3, gl in enumerate(GL3):
+    for v, vl in enumerate(VL):
+        for r_ in (0, 1):
+            for t_ in (0, 1):
+                cnt = int(((g3i == g3) & (vi == v) & (ri == r_) & (ti == t_)).sum())
+                if cnt == 0: continue
+                x = rowvec(g3, v, r_, t_)[None, :]; p_, W_, L_, lam_, pf1_, _ = predict(x, bA3); m_ = pf1_[0] / baseA3
+                mn, mx = min(mn, m_), max(mx, m_)
+                out.append(f"| {gl} | {vl} | {'fast' if r_ else 'slow'} | {'yes' if t_ else 'no'} | {p_[0]:.3f} | {W_[0]:.2f} | {L_[0]:.2f} | {lam_[0]:.3f} | {pf1_[0]:.3f} | **{m_:.2f}** | {cnt:,} |")
+out += ["", f"multiplier range over populated cells: {mn:.2f} – {mx:.2f}; trade-weighted mean = 1.000 by construction."]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
