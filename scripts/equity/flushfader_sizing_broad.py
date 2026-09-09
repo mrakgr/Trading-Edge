@@ -20,6 +20,7 @@ ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--base", type=float, default=0.10, help="fraction of equity per trade at multiplier 1 (compounded sim)")
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_broad.md")
 ap.add_argument("--measure", default="tpf1", choices=["tpf1", "pf1"], help="edge measure the multipliers are derived from: trimPF-1 (bottom 5% trimmed) or raw PF-1")
+ap.add_argument("--gap-bands", default="0,1,4,13,40", help="gap_60 band edges (upper edge = the door); S49k default 0,1,4,8,13,20,30,40")
 ap.add_argument("--rate-bands", type=int, default=2, choices=[2, 3, 4], help="rate600 bands: 4 (S49n quartiles) or 3 (the two fast bands folded, S49v)")
 ap.add_argument("--halts", action="store_true", help="S49p: WAIT (ht>=4 & ssh<300 excluded) + S TIER (ht>=1 & ssh in [300,2400)) as a sizing axis")
 args = ap.parse_args()
@@ -67,7 +68,7 @@ def f(x, d=2):
 
 VB = [40, 60, 90, 140, 250, 1e9]; VL = ["40-60", "60-90", "90-140", "140-250", "250+"]
 CB = [-1, 0.05, 0.10, 0.15, 0.221]; CL = ["<.05", ".05-.10", ".10-.15", ".15-.22"]
-GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20-29", "30-39"]
+GB = [int(x) for x in args.gap_bands.split(",")]; GL = [f"{a}" if b == a + 1 else f"{a}-{b-1}" for a, b in zip(GB[:-1], GB[1:])]
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
 RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125+"]   # rate600 quartile-ish bands (S49n)
 if args.rate_bands == 3: RB = [0, 0.044, 0.07, 1.01]; RL = ["<.044", ".044-.07", ".07+"]
@@ -309,6 +310,10 @@ out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),
                "gap: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(GL, mults(all_m, gi, len(GL)))),
                "rate600: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(RL, mults(all_m, ri, len(RL))))]
+gvm = mults(all_m, gv, len(GL) * len(VL))
+out += ["", f"## 8b. THE gap × volat multiplier grid ({args.measure}, fit all, clip [0.25, 4]; cell multiplier (n); 1.00 = < 50 trades)", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+for g, gl in enumerate(GL):
+    out.append(f"| {gl} | " + " | ".join(f"{gvm[g * len(VL) + v]:.2f} ({((gi==g)&(vi==v)).sum():,})" for v in range(len(VL))) + " |")
 out += ["", "## 9. gap_60 (rows) × rate600 (cols) — trimPF-1", grid("gap \\ rate600", gi, GL, ri, RL, st_t),
         "", "## 9b. volat (rows) × rate600 (cols) — trimPF-1", grid("volat \\ rate600", vi, VL, ri, RL, st_t)]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")

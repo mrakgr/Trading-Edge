@@ -18152,3 +18152,30 @@ Same result as three bands within noise, one parameter fewer, and no cell sized 
 rate600 = two bands, < .07 → 1.51, ≥ .07 → 0.69 (conditional, PF−1).** Residual mis-sizing: the premium cell's true
 within-cell ratio is ~1.05 / 0.93, so the factor still over-states rate600 there — the sign is right, the magnitude is not;
 acceptable at 11% of the book, and the 12-cell joint remains the fix if it ever matters.
+
+## S49z — the gap ladder COARSENED (user, 2026-09-09): 0 / 1–3 / 4–12 / 13–39
+
+Three coarser ladders vs the S49k 7-band ladder, PF−1 maps, full map = gap × volat × rate600 2-band × tier 2.06, clip 4.
+Sized PF / net / DD on the holdouts:
+
+| gap ladder | marginal gap mults | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|---|
+| 7 bands (S49k) | 1.68 / 1.06 / 1.01 / 0.76 / 0.96 / 0.79 / 0.67 | 1.565 / 10,378 / 248 | 1.769 / 16,066 / 206 |
+| **0 / 1–3 / 4–12 / 13–39** | **1.68 / 1.06 / 0.89 / 0.78** | **1.579 / 10,551 / 216** | 1.772 / 16,063 / 198 |
+| 0 / 1–3 / 4–19 / 20–39 | 1.68 / 1.06 / 0.91 / 0.72 | 1.577 / 10,540 / 219 | 1.773 / 16,052 / 203 |
+| 0 / 1–3 / 4–39 | 1.68 / 1.06 / 0.81 | 1.579 / 10,559 / 216 | 1.769 / 16,023 / 200 |
+
+Every coarser ladder beats the 7-band on the forward holdout (+1.7% net, DD 248 → 216) and ties on the mirror at lower
+DD — the 7-band's extra cells were noise. **Ruling: gap bands 0 / 1–3 / 4–12 / 13–39** (`--gap-bands 0,1,4,13,40`, default).
+The grid:
+
+| gap \ volat | 40–60 | 60–90 | 90–140 | 140–250 | 250+ |
+|---|---|---|---|---|---|
+| 0 | 1.20 (2,219) | 1.59 (1,735) | 1.65 (1,716) | 2.35 (956) | 2.18 (80) |
+| 1–3 | 1.25 (1,785) | **0.62** (1,438) | 1.69 (1,025) | **0.69** (399) | 1.00 (28) |
+| 4–12 | 0.77 (3,071) | 1.18 (2,297) | 0.70 (1,271) | – | – |
+| 13–39 | 0.61 (11,812) | 0.92 (5,521) | 1.01 (1,926) | – | – |
+
+Still non-monotone: the gap 1–3 row (0.62 at volat 60–90, 0.69 at 140–250, between 1.25 / 1.69) and the 60–90 column bump in
+the 4–12 row. The 1–3 row's marginal is 1.06 with a clean ladder on either side; the cells are what disagree. Next question:
+coarsen volat too (fold 60–90 into a neighbour) or go separable (gap ladder × volat ladder).
