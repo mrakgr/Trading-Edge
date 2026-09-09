@@ -17813,3 +17813,51 @@ By halt count: ht 1 → 2,580 @ 1.69 · 2 → 1,045 @ 1.56 · 3 → 573 @ 1.63 �
 resume are junk (1.05–1.37, worst −63…−73) and the premium sits at [300, 1200) (+1.5–2.4%/trade) and [1200, 2400).
 TODO tomorrow: cascade IN as a gate; the S tier re-derived on the efficiency variant (ssh × ht × gap × volat), with
 the null and the year table; then sized separately.
+
+## S49p — the S tier under the efficiency variant: ssh × ht + CONTROLS (2026-09-09)
+
+Tool: `flushfader_gate_review.py --preset broad --stier` (ssh bands × halt-count groups, replay inside each cell),
+`--stier-controls` (nulls, hour buckets, substitution, year-block holdout, early-window ban), `--stier-cross`.
+Outputs `data/flushfader_gate_review/stier_ht.md`, `stier_controls_300_2400.md`, `stier_cross.md`. Broad book, cascade OFF.
+
+**Cells (n @ PF, avg%/trade):**
+
+| ssh | ht=1 | ht=2 | ht=3 | ht=4–5 | ht≥6 |
+|---|---|---|---|---|---|
+| [0,60) | 40 @ 1.47 (+1.4) | 28 @ 0.92 (−0.5) | 16 @ 7.30 (+10.5) | 16 @ 0.47 (−3.3) | 15 @ 0.62 (−3.2) |
+| [60,120) | 50 @ 1.36 (+1.1) | 29 @ 2.37 (+4.6) | 22 @ 1.28 (+1.3) | 36 @ 0.62 (−2.1) | 46 @ 1.22 (+0.9) |
+| [120,300) | 58 @ 1.31 (+0.6) | 25 @ 1.87 (+2.2) | 30 @ 1.34 (+0.8) | 41 @ 0.78 (−1.1) | 58 @ 0.69 (−1.5) |
+| [300,600) | 53 @ 2.83 (+2.4) | 18 @ 2.04 (+2.4) | 26 @ 1.71 (+1.3) | 29 @ 2.03 (+1.3) | 51 @ 3.50 (+3.2) |
+| [600,1200) | 105 @ 1.71 (+1.1) | 57 @ 2.83 (+2.0) | 44 @ 1.92 (+2.1) | 55 @ 1.26 (+0.7) | 50 @ 1.91 (+1.8) |
+| [1200,2400) | 399 @ 2.53 (+1.5) | 186 @ 1.60 (+0.9) | 86 @ 2.13 (+1.5) | 92 @ 1.80 (+1.4) | 100 @ 2.03 (+1.5) |
+| [2400,4800) | 593 @ 1.52 (+0.7) | 237 @ 1.89 (+1.0) | 132 @ 1.43 (+0.7) | 137 @ 1.59 (+0.8) | 118 @ 1.05 (+0.1) |
+| ≥4800 | 1,469 @ 1.65 (+0.8) | 537 @ 1.32 (+0.5) | 274 @ 1.40 (+0.6) | 230 @ 1.26 (+0.4) | 211 @ 2.06 (+1.2) |
+
+Collapsed: ht 1–3 · ssh<300 = 273 @ 1.57 (+1.7; 2022/2023 <1 in every band, 2024 carries) · ht≥4 · ssh<300 = 203 @ 0.79
+(−1.1%, worst −73) · ht 1–3 · [300,2400) = 973 @ 2.0–2.6 · ht≥4 · [300,2400) = 377 @ 1.5–3.0. **The first 5 minutes are
+junk only for ht ≥ 4; the premium for every halt count runs from 5 to 40 minutes.** The tight system's S tier (ht≥1 ∧
+[120,1200)) shifts later and widens here because K/eff no longer demand a mature flush.
+
+**Candidate TIER = ht ≥ 1 ∧ ssh ∈ [300, 2400)**, replayed inside as one set: **1,243 @ 2.029 / trimPF−1 3.41 / +1.46%/trade**
+(vs book +0.50%, halted book H 5,204 @ 1.594 / +0.86%), 7/7 years ≥ 1.40, worst-trip-removed years 1.54–3.53.
+
+| control | result |
+|---|---|
+| null vs H (2,000 tkd resamples at 1,035 tkd) | PF 100.0 pct (null 97.5% = 1.76 vs 2.03) · trimPF−1 100.0 · avg 100.0 |
+| null vs S (whole book) | 100.0 / 100.0 / 100.0 |
+| EARLY ht≥4 ∧ ssh<300 (147 @ 0.846, −0.67%) vs H null | PF **0.0** pct, avg 0.0 — a real loss; the ban stands |
+| EARLY ht 1–3 ∧ ssh<300 (191 @ 1.497, +1.37%) vs H null | PF 34 pct, trimPF−1 54, avg 98 — indistinguishable from H; book weight, no wait |
+| time control | corr(ssh, signal_sec) on H = +0.66 (mechanical); inside hour buckets TIER vs H∖TIER = 2.13/1.47, 1.67/1.46, 3.42/1.62, 1.26/1.29 (n=74) — not a clock artifact |
+| substitution (144 rivals on H at 1,243 trips) | 3 beat trimPF−1: gap300 ≤ 2 (2.26 / 4.11), gadj1200 ≤ 7 (2.05 / 3.86), consol_20m ≤ .019 (1.60 / 3.64) — the density axis, see cross |
+| holdout fit ≤2023 → test 2024–26 | [300,2400) 645 @ 1.98 / +1.53% vs all-H 1.60 / +0.94%; the fitted [300,1200) 265 @ 1.73 |
+| holdout fit >2023 → test 2020–23 | [300,2400) 598 @ 2.10 / +1.39% vs all-H 1.59 / +0.77%; fitted [300,600) 66 @ 2.86 |
+| ht 1–3 mirror | fitted [0,600) on 2024–26 FLOPS on 2020–23 (124 @ 1.17) — the early window is not robust; [300,2400) 476 @ 2.20 |
+
+**Cross with density (inside H):** tier ∧ gap300≤2 = 591 @ 2.51 (+1.94) · tier ∧ gap300>2 = 715 @ 1.71 (+1.08) · not-tier ∧
+gap300≤2 = 747 @ 2.07 (+1.28) · not-tier ∧ gap300>2 = 3,598 @ 1.40 (+0.61). gadj1200≤7 the same shape (2.69 / 1.65 / 1.79 /
+1.39). The window and the density read are INDEPENDENT axes that stack; the density axis is the gap sizing already in the
+book (every non-halted gap300≤2 trip has gap60<4), so the S tier sits on top of gap × volat sizing rather than replacing it.
+
+**Rulings:** (1) cascade on this book = **one wait: ht ≥ 4 ∧ ssh < 300 → no trade** (ht 1–3 early trips stay at book
+weight); (2) **S tier = ht ≥ 1 ∧ ssh ∈ [300, 2400)**, sized separately (multiplier from its trimPF−1 vs the book's, on top
+of gap × volat). Next: the tier's sizing multiplier and the combined sized book.

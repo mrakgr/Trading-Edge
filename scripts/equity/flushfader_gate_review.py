@@ -40,6 +40,11 @@ ap.add_argument("--add", default="", help="layer-9 candidate gates promoted INTO
 ap.add_argument("--no-vote", action="store_true", help="drop the ROSTER vote entirely (frame + engine gates only)")
 ap.add_argument("--bins", default=None, help="explicit bin edges for --bands, e.g. 0,1,2,3,4,5,6,9,13,25,60")
 ap.add_argument("--bands", default=None, help="octile band tables (one replay per band) of these columns on the current spec S")
+ap.add_argument("--stier", action="store_true", help="S-tier study: ssh bands x halt-count groups on the current spec S (replay inside each cell)")
+ap.add_argument("--stier-controls", action="store_true", help="controls on the S-tier candidate (halt & ssh in [--tier-lo, --tier-hi)): nulls, hour buckets, substitution, holdout, early-window ban")
+ap.add_argument("--tier-lo", type=int, default=300)
+ap.add_argument("--tier-hi", type=int, default=2400)
+ap.add_argument("--stier-cross", default=None, help="2x2 of the tier vs COL<=THR (comma list COL:THR) within H and within S, replay inside")
 ap.add_argument("--eval", default=None, help="print the full-spec book line under the current --drop/--add, labelled")
 ap.add_argument("--rebuild-eff", action="store_true", help="greedy by EDGE EFFICIENCY: max d(PF-1) per net point given up; VOTE is a candidate; full curve")
 ap.add_argument("--rebuild", action="store_true", help="forward greedy rebuild from frame+vote over all layer-2 + layer-9 candidates")
@@ -524,6 +529,110 @@ if args.rebuild_eff:
 if args.bands:
     for c_ in args.bands.split(","):
         print(f"\n### `{c_}` on S (n={SF['n']:,} @ {f(SF['pf'])}), octiles, replay inside each band\n"); print(band_table(FULL, col(c_)))
+    sys.exit(0)
+
+if args.stier:
+    SSH_EDGES = [0, 60, 120, 300, 600, 1200, 2400, 4800, 10**9]
+    HT_GROUPS = [("ht=1", 1, 1), ("ht=2", 2, 2), ("ht=3", 3, 3), ("ht=4-5", 4, 5), ("ht>=6", 6, 999), ("ht 1-3", 1, 3), ("ht>=4", 4, 999), ("ht>=1", 1, 999)]
+    ht, ssh = col("ht"), col("ssh")
+    print(f"# S-tier study on S (n={SF['n']:,} @ {f(SF['pf'])}, tkd {SF['tkd']:,}); cascade {'IN' if 'cascade' not in DROPPED else 'OFF'}; replay inside each cell\n")
+    for lab, lo_h, hi_h in HT_GROUPS:
+        hm = FULL & (ht >= lo_h) & (ht <= hi_h)
+        print(f"\n## {lab}  (halted trips in S-mask: {int(hm.sum()):,})\n"); print(HDR)
+        for i in range(len(SSH_EDGES) - 1):
+            lo, hi = SSH_EDGES[i], SSH_EDGES[i + 1]
+            m = hm & (ssh >= lo) & (ssh < hi)
+            print(line(f"ssh [{lo}, {hi if hi < 10**9 else 'inf'})", book(m)))
+        print(line("all ssh", book(hm)))
+    sys.exit(0)
+
+if args.stier_controls:
+    ht, ssh, ss = col("ht"), col("ssh"), col("signal_sec")
+    LO, HI = args.tier_lo, args.tier_hi
+    H = FULL & (ht >= 1); KH = book(H); SH = S(KH)
+    TIER = H & (ssh >= LO) & (ssh < HI); KT = book(TIER); ST = S(KT)
+    T13 = TIER & (ht <= 3); KT13 = book(T13)
+    KNH = book(FULL & (ht == 0))
+    out = [f"# S-tier controls — tier = halt & ssh in [{LO},{HI}) on the current spec S (n={SF['n']:,} @ {f(SF['pf'])}); all books replayed inside\n", HDR,
+           line("S (whole book)", KFULL), line("S & ht=0 (never halted)", KNH), line("H = S & ht>=1 (halted)", KH),
+           line(f"TIER = H & ssh in [{LO},{HI})", KT), line("TIER & ht 1-3", KT13), line("TIER & ht>=4", book(TIER & (ht >= 4))),
+           line("H \\ TIER (halted, outside the window)", book(H & ~((ssh >= LO) & (ssh < HI)))), "",
+           "worst-trip-removed year PF: TIER = " + ", ".join(f"{y} {f(p,2)}" for y, p in zip(YEARS, worst_removed(KT)))
+           + " ; H = " + ", ".join(f"{y} {f(p,2)}" for y, p in zip(YEARS, worst_removed(KH))), ""]
+    # 1. nulls
+    out += ["## 1. Null — random ticker-day subsets at the tier's tkd count\n",
+            "| pool | stat | actual (TIER) | null median | null 2.5% | null 97.5% | percentile of actual |", "|---|---|---|---|---|---|---|"]
+    for plab, pool in [("H (halted book)", KH), ("S (whole book)", KFULL)]:
+        nd = null_draws(pool, ST["tkd"], args.draws, rng)
+        if nd:
+            pfs, tps, avs = nd
+            for nm, dist, x, d in [("PF", pfs, ST["pf"], 3), ("trimPF-1", tps, ST["tpf1"], 3), ("avg%", avs, ST["avg"], 2)]:
+                out.append(f"| {plab} | {nm} | {f(x,d)} | {f(np.nanmedian(dist),d)} | {f(np.nanquantile(dist,.025),d)} | {f(np.nanquantile(dist,.975),d)} | {pct(dist, x):.1f} |")
+    # early window ban
+    for elab, em in [("EARLY ht>=4 & ssh<300", H & (ht >= 4) & (ssh < 300)), ("EARLY ht 1-3 & ssh<300", H & (ht <= 3) & (ssh < 300))]:
+        ke = book(em); se = S(ke); nd = null_draws(KH, se["tkd"], args.draws, rng)
+        out += ["", f"### {elab}: {se['n']:,} trades @ {f(se['pf'])} / trimPF-1 {f(se['tpf1'])} / avg {f(se['avg'],2)}% / worst {f(se['worst'],1)} — null from H at {se['tkd']} tkd"]
+        if nd:
+            pfs, tps, avs = nd
+            out.append(f"percentile of actual: PF {pct(pfs, se['pf']):.1f} · trimPF-1 {pct(tps, se['tpf1']):.1f} · avg {pct(avs, se['avg']):.1f}   (null median PF {f(np.nanmedian(pfs))}, 2.5% {f(np.nanquantile(pfs,.025))})")
+    # 2. time control
+    cs = np.corrcoef(ssh[H], ss[H])[0, 1]
+    out += ["", "## 2. Time control — hour buckets\n", f"corr(ssh, signal_sec) on H = {cs:+.3f}\n",
+            hour_table([KFULL, KNH, KH, KT, book(H & ~((ssh >= LO) & (ssh < HI)))], ["S", "ht=0", "H", "TIER", "H\\TIER"]), ""]
+    # 3. substitution within H
+    rows = []
+    for h in SUBS:
+        if h == "ssh": continue
+        vals = col(h)
+        for keep_high in (True, False):
+            thr, k = match_threshold(H, vals, ST["n"], keep_high)
+            if k is None: continue
+            s = S(k); ys = yrow(k)
+            rows.append((s["tpf1"], f"| {h} {'>=' if keep_high else '<='} {thr:.4g} | {s['n']:,} | {f(s['pf'])} | {f(s['tpf1'])} | {f(s['avg'],2)} | " + " | ".join(f"{f(p,2)}" for n, p in ys) + " |"))
+    rows.sort(key=lambda x: (-(x[0] if not np.isnan(x[0]) else -9)))
+    out += [f"## 3. Substitution — every other input thresholded on H to the tier's trip count ({ST['n']:,}), top 12 by trimPF-1\n",
+            "| substitute | n | PF | trimPF-1 | avg% | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|" + "---|" * len(YEARS),
+            f"| **TIER itself** | {ST['n']:,} | {f(ST['pf'])} | {f(ST['tpf1'])} | {f(ST['avg'],2)} | " + " | ".join(f"{f(p,2)}" for n, p in yrow(KT)) + " |"]
+    out += [r[1] for r in rows[:12]]
+    out += [f"\n(all {len(rows)} substitutes: better trimPF-1 than the tier = {sum(1 for r in rows if r[0] > ST['tpf1'])})", ""]
+    # 4. year-block holdout of the window edges
+    LOS = [0, 60, 120, 300, 600]; HIS = [600, 1200, 2400, 4800, 10**9]
+    def best_window(fit, pop):
+        best = None
+        for lo in LOS:
+            for hi in HIS:
+                if hi <= lo: continue
+                k = book(pop & (ssh >= lo) & (ssh < hi) & fit); s = S(k)
+                if s["n"] < 100 or np.isnan(s["tpf1"]): continue
+                if best is None or s["tpf1"] > best[0]: best = (s["tpf1"], lo, hi, s)
+        return best
+    Y = int(args.holdout)
+    out += ["## 4. Year-block holdout — window edges [lo,hi) fitted (max trimPF-1, n>=100) on the fit years, scored on the test years\n", HDR]
+    for plab, pop in [("H (ht>=1)", H), ("H & ht 1-3", H & (ht <= 3))]:
+        for lab, fit, test in [(f"fit <= {Y}, test > {Y}", YR <= Y, YR > Y), (f"fit > {Y}, test <= {Y}", YR > Y, YR <= Y)]:
+            b = best_window(fit, pop)
+            if b is None: continue
+            _, lo, hi, sfit = b
+            out.append(line(f"{plab} · {lab}: FIT window [{lo},{hi if hi < 10**9 else 'inf'}) n_fit={sfit['n']} @ {f(sfit['pf'])} → TEST", book(pop & (ssh >= lo) & (ssh < hi) & test)))
+            out.append(line(f"{plab} · {lab}: the [{LO},{HI}) window on the same TEST years", book(pop & (ssh >= LO) & (ssh < HI) & test)))
+            out.append(line(f"{plab} · {lab}: ALL of {plab} on the same TEST years", book(pop & test)))
+    txt = "\n".join(out); path = os.path.join(args.out, f"stier_controls_{LO}_{HI}.md"); open(path, "w").write(txt); print(txt); log(f"wrote {path}")
+    sys.exit(0)
+
+if args.stier_cross:
+    ht, ssh = col("ht"), col("ssh"); LO, HI = args.tier_lo, args.tier_hi
+    H = FULL & (ht >= 1); W = (ssh >= LO) & (ssh < HI)
+    for item in args.stier_cross.split(","):
+        c_, thr = item.split(":"); thr = float(thr); x = col(c_); X = ~np.isnan(x) & (x <= thr)
+        print(f"\n## tier [{LO},{HI}) x `{c_} <= {thr:g}`\n"); print(HDR)
+        print(line(f"H: tier & {c_}<={thr:g}", book(H & W & X)))
+        print(line(f"H: tier & {c_}>{thr:g}", book(H & W & ~X)))
+        print(line(f"H: not tier & {c_}<={thr:g}", book(H & ~W & X)))
+        print(line(f"H: not tier & {c_}>{thr:g}", book(H & ~W & ~X)))
+        print(line(f"S & ht=0 & {c_}<={thr:g}", book(FULL & (ht == 0) & X)))
+        print(line(f"S & ht=0 & {c_}>{thr:g}", book(FULL & (ht == 0) & ~X)))
+        print(line(f"S & ht=0 & {c_}<={thr:g} & gap60<4", book(FULL & (ht == 0) & X & (col("gap60") < 4))))
+        print(line(f"S & ht=0 & {c_}<={thr:g} & gap60>=4", book(FULL & (ht == 0) & X & (col("gap60") >= 4))))
     sys.exit(0)
 
 if args.eval:
