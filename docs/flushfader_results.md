@@ -17897,3 +17897,23 @@ the worst sized trade inside the 4× envelope (the −84.3% trade is an S-tier t
 
 **Ruling: production sizing = gap × volat × rate600 multipliers (S49k/S49n) × S-tier factor 1.64, total capped at 4.**
 Year holdouts: sized trimPF−1 2.77 / 2.92 vs flat 1.86 / 2.28; net +36% / +15% at equal exposure. The WAIT is in the spec.
+
+### S49q addendum — sizing the tier SEPARATELY (user, 2026-09-09: "why not size the tier separately instead of a product + cap?")
+
+Three separate-map forms, all on one scale (cell trimPF−1 / BOOK trimPF−1 on the fit years), rest of the book on its own
+map fitted on the rest only; the tier on (a) its own gap3 × volat4 cells, (b) its own volat4 cells, (c) one flat cell:
+
+| tier map (rest = gap × volat × rate600) | in-sample trimPF−1 / net | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|---|
+| flat (no tier) — gvr on all | 2.715 / 25,551 | 2.634 / 9,877 | 2.814 / 14,307 |
+| (a) tier's own gap3 × volat4 | 2.741 / 25,738 | 2.592 / 9,270 | 2.811 / 14,216 |
+| (b) tier's own volat4 | 2.692 / 25,274 | 2.547 / 9,161 | 2.821 / 14,254 |
+| (c) tier flat one cell | 2.670 / 25,037 | 2.517 / 9,137 | 2.789 / 14,141 |
+| book map × 1.64, clipped at 4 (S49q) | 2.850 / 26,573 | **2.770 / 10,357** | **2.921 / 14,704** |
+
+The tier's own cells DO NOT HOLD OUT: gap 4+ × volat 90–140 fits at 4.00 (151 trades) on 2020–23 and at 0.55 on 2024–26;
+gap 0 × 250+ (52) and gap 1–3 × <90 (39) never reach the 50-trade floor. A flat separate tier holds out but loses to the
+product because it throws away the gradient INSIDE the tier — and that gradient (dense + volatile = better) is the book's
+own gradient, estimated on 36k trades instead of 1.2k. So the production form IS a separate tier map: **tier cells = the
+book's gap × volat × rate600 cells × 1.64**, clipped to [0.25, 4] like every other map (the "cap" is that clip; it binds on
+0.2% of trades). Ruling unchanged.

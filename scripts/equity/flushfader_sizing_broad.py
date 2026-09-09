@@ -65,6 +65,8 @@ GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
 RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125+"]   # rate600 quartile-ish bands (S49n)
 ri = np.digitize(np.nan_to_num(B.rate600.values, nan=0.0), RB[1:-1])
+TGB = [0, 1, 4]; TGL = ["0", "1-3", "4+"]; TVB = [40, 90, 140, 250]; TVL = ["<90", "90-140", "140-250", "250+"]   # the tier's coarse grid
+tgi = np.digitize(B.gap60.values, TGB[1:]); tvi = np.digitize(B.volat.values, TVB[1:]); tgv = tgi * len(TVL) + tvi
 TL = ["book", "S tier"]; ti = (nz(B.ht.values >= 1) & nz(B.ssh.values >= 300) & nz(B.ssh.values < 2400)).astype(int)
 
 out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
@@ -95,8 +97,9 @@ out += ["## 1. volat_20m (rows) × lagged coil (cols) — n", grid("volat \\ coi
         "## 6. gap_60 (rows) × coil (cols) — trimPF-1", grid("gap \\ coil", gi, GL, ci, CL, st_t), ""]
 
 # ---- multipliers: m(cell) = tpf1(cell) / tpf1(book), derived on a FIT set, normalised to mean 1 on the APPLY set
-def mults(fit_mask, cells_fn, ncell):
-    m = np.ones(ncell); base = tpf1(R[fit_mask])
+def mults(fit_mask, cells_fn, ncell, base_mask=None):
+    """base = the BOOK's trimPF-1 on the fit years (base_mask), so sub-population maps stay on the book's scale."""
+    m = np.ones(ncell); base = tpf1(R[fit_mask if base_mask is None else base_mask])
     for k in range(ncell):
         r = R[fit_mask & (cells_fn == k)]
         m[k] = (tpf1(r) / base) if len(r) >= 50 and np.isfinite(tpf1(r)) else 1.0
@@ -139,6 +142,11 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rows.append(sim(apply(mults(fit, gvt, len(GL) * len(VL) * 2), gvt), app, "gap × volat × tier (joint cells)"))
         rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor"))
         rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti), app, "gap × volat × rate600, × tier factor"))
+        # SPLIT maps: the tier sized from ITS OWN cells (coarse grid), the rest from its own gvr / gv map; one scale (book trimPF-1), no product
+        for rest_lab, rest_idx, rest_n in [("gap × volat × rate600", gvr, len(GL) * len(VL) * len(RL)), ("gap × volat", gv, len(GL) * len(VL))]:
+            for tier_lab, tier_idx, tier_n in [("gap3 × volat4", tgv, len(TGL) * len(TVL)), ("volat4", tvi, len(TVL)), ("flat 1 cell", np.zeros(len(B), int), 1)]:
+                w = np.where(ti == 1, apply(mults(fit & (ti == 1), tier_idx, tier_n, fit), tier_idx), apply(mults(fit & (ti == 0), rest_idx, rest_n, fit), rest_idx))
+                rows.append(sim(w, app, f"SPLIT: rest = {rest_lab} (fit on rest) · tier = {tier_lab} (fit on tier)"))
         wprod = apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti)
         rows.append(sim(wprod, app, "gap × volat × rate600, × tier factor, product CAPPED at 4", cap=4.0))
         rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor, product CAPPED at 4", cap=4.0))
@@ -151,6 +159,11 @@ if args.halts:
         r = R[m]; out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.sum():,.0f} | {r.min():.1f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
     out += ["", "tier multiplier (fit all): " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(all_m, ti, 2))),
             "tier multiplier fit 2020-23: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(early, ti, 2))) + " ; fit 2024-26: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(late, ti, 2)))]
+    for flab, fm in [("fit all", all_m), ("fit 2020-23", early), ("fit 2024-26", late)]:
+        tm = mults(fm & (ti == 1), tgv, len(TGL) * len(TVL), fm)
+        out += ["", f"tier's own map gap3 × volat4 ({flab}; multiplier = cell trimPF-1 / BOOK trimPF-1; 1.00 = < 50 trades): ", "| gap \\ volat | " + " | ".join(TVL) + " |", "|---|" + "---|" * len(TVL)]
+        for g, gl in enumerate(TGL):
+            out.append(f"| {gl} | " + " | ".join(f"{tm[g * len(TVL) + v]:.2f} ({((tgi==g)&(tvi==v)&(ti==1)).sum()})" for v in range(len(TVL))) + " |")
     gvt_m = mults(all_m, gv * 2 + ti, len(GL) * len(VL) * 2)
     out += ["", "## 6c. gap (rows) × volat (cols) multipliers, S tier cells vs book cells (fit all; 1.00 = fewer than 50 trades)"]
     for t, tl in enumerate(TL):
