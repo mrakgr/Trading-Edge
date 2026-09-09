@@ -18050,3 +18050,19 @@ Same under trimPF−1 (factor form beats gap × volat on both holdouts; the join
 trimming stabilises the cells). **Ruling (amends S49s): production map = gap × volat cells (PF−1) × rate600 band factor ×
 S-tier factor 2.06, clip [0.25, 4]** — three separable axes, one 35-cell grid. The rate600 factor is worth +1.4% net on the
 mirror and nothing forward; it stays because the band gradient is stable in both halves and the axis is cheap.
+
+## S49v — rate600 folded to THREE bands (user, 2026-09-09): .07–.125 and ≥ .125 merged
+
+Their multipliers were the same within noise on every fit (PF−1: 0.77 / 0.86 all, 0.75 / 0.88 on 20–23, 0.80 / 0.82 on
+24–26; trimPF−1: 0.88 / 0.87). Folded (`--rate-bands 3`, now the default), PF−1 multipliers all / 20–23 / 24–26:
+
+| rate600 | n | PF | avg% | mult |
+|---|---|---|---|---|
+| < .044 (slow leg) | 12,298 | 1.669 | +0.67 | 1.25 / 1.33 / 1.16 |
+| .044–.07 | 8,067 | 1.543 | +0.54 | 1.01 / 0.91 / 1.17 |
+| **≥ .07 (fast leg)** | **16,914** | 1.442 | +0.47 | **0.82 / 0.83 / 0.81** |
+
+The merged band is the most stable cell of the three (halves within 0.02). Sized outcome identical to the 4-band factor:
+gap × volat × rate600 factor × tier, clip 4 — forward 1.565 / 10,416 / DD 231 (4-band 1.563 / 10,405 / 229), mirror 1.758 /
+16,058 / 227 (1.758 / 16,063 / 228). **Ruling: 3 bands.** Note: the middle band is the noisy one (0.91 / 1.17, straddling
+1.0); a 2-band form (slow leg 1.25 vs the rest ≈ 0.9) would be the next fold if it ever needs simplifying further.
