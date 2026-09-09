@@ -18406,3 +18406,32 @@ median 18, p90 38, max 331; max concurrent positions median 4, p90 10, p99 32, m
 −75 on 21–145 trades. With a per-position size of 10% of equity (the user's stance), 2020-03-18 flat = −50% of equity in
 a day, and a p99 day holds 32 positions = 320% gross. **A concurrency cap (max open positions / max positions per day) is
 a production parameter that has to be set before go-live; it is not a sizing question and was not studied here.**
+
+## S49ag — the CAPPED replay (user ruling, 2026-09-09: 400% gross = 20 units of size open at once; one position per ticker-date)
+
+`scripts/equity/flushfader_capped_replay.py --credit 0.001 --rule140 --cap 20` → `data/flushfader_gate_review/capped_replay.md`.
+Chronological first-come-first-served replay over the 168,760 spec-passing trips: a trip executes if its ticker is free and
+the open size + its multiplier ≤ cap; otherwise skipped (not queued). Sizes = A3 (fit on the uncapped book; cross-fit twin
+agrees within 1%). P&L in position units.
+
+| replay | trades | PF | net | max DD | worst day | days / weeks / months prof. | peak open size med / p90 / max |
+|---|---|---|---|---|---|---|---|
+| reference: uncapped mc=1, A3 | 37,279 | 1.634 | 24,906 | 508 | −387 | 77% / 88% / 78 of 80 | – |
+| **one per ticker-date, cap 20 units, A3 (RULED)** | 22,952 | 1.629 | **14,508** | 313 | −214 | 74% / 83% / 75 of 80 | 3.9 / 8.5 / 20 |
+| one per ticker-date, NO cap, A3 | 23,263 | 1.634 | 14,732 | 327 | −227 | 74% / 84% / 75 of 80 | 3.9 / 8.5 / 84 |
+| one per ticker-date, cap 10 units, A3 | 22,314 | 1.633 | 14,237 | 293 | −197 | 74% / 83% / 75 of 80 | 3.9 / 8.5 / 10 |
+| re-entries allowed (mc=1), cap 20 units, A3 | 36,477 | 1.626 | 24,282 | 448 | −326 | 77% / 88% / 78 of 80 | 4.4 / 9.4 / 20 |
+| re-entries allowed (mc=1), cap 10 units, A3 | 35,230 | 1.634 | 23,754 | 327 | −211 | 77% / 89% / 78 of 80 | 4.4 / 9.3 / 10 |
+
+Two separate findings:
+1. **The cap is nearly free.** At 20 units it refuses 1.4% of trips and costs 1.5% of net (14,508 vs 14,732); peak open
+   size is 3.9 units on a median day, 8.5 at p90, so the cap binds only on liquidation days. Cap 10 costs 3.4%.
+2. **One-position-per-ticker-date is EXPENSIVE: −41% of net** (14,732 vs 24,906 uncapped; 14,016 re-entry trades, +0.61%/
+   trade — the same quality as first entries, S49af/§8). Re-entries under mc=1 are SEQUENTIAL (the ticker's slot must be
+   free), so they add turnover, not concurrency: with re-entries allowed and the SAME 20-unit cap the book keeps 36,477
+   trades / 24,282 net (97% of the uncapped) at peak open size 4.4 / 9.4 / 20. The worst day is the price: −326 vs −214.
+
+2020-03-18 under the ruled replay: 162 trades, −214 (uncapped 331 / −501); the cap refused 220 trips that day, the
+ticker rule 1,990. Neither rule bounds a liquidation DAY — positions turn over under the cap; that needs a daily loss stop.
+**Open for the user: keep one-per-ticker-date (−41% net, worst day −214) or allow mc=1 re-entries under the cap (−3% net,
+worst day −326).**
