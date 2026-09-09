@@ -164,8 +164,21 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rows.append(sim(np.where(prem, np.minimum(wb * resid, 4.0), wb), app, f"PREMIUM CELL = book gvr map × {resid:.2f} (residual), clip 4 · rest = book map"))
         rows.append(sim(np.where(ti == 1, np.minimum(wb * (mt / mbt), 4.0), wb), app, f"WHOLE TIER = book gvr map × {mt/mbt:.2f} (residual), clip 4 · rest = book map"))
         # CONTROL: is the product's gain tier-specific or just a STEEPER book map? (map^p, no tier information)
-        for pw in (1.25, 1.5, 2.0):
-            rows.append(sim(np.minimum(wb ** pw, 4.0), app, f"CONTROL: book gvr map ^ {pw} (steeper, NO tier), clip 4"))
+        # WITHIN-CELL tier factor on the fit years: trimPF-1 of premium-cell tier trades / trimPF-1 of cell-weighted non-tier trades (same gvr cells)
+        gvr_idx_ = (gi * len(VL) + vi) * len(RL) + ri; wgt = np.zeros(len(B))
+        for c in np.unique(gvr_idx_[fit & prem]):
+            kt = (fit & prem & (gvr_idx_ == c)).sum(); kn = (fit & (ti == 0) & (gvr_idx_ == c)).sum()
+            if kn: wgt[fit & (ti == 0) & (gvr_idx_ == c)] = kt / kn
+        def tpf1w(r, w):   # weighted trimPF-1: trim the bottom 5% of weight
+            o = np.argsort(r); cw = np.cumsum(w[o]) / w.sum(); keep_ = o[cw >= args.trim]; rr, ww = r[keep_] * w[keep_], w[keep_]
+            g_, l_ = rr[rr > 0].sum(), -rr[rr < 0].sum(); return g_ / l_ - 1 if l_ else np.inf
+        fw = tpf1(R[fit & prem]) / tpf1w(R, wgt)
+        rows.append(f"| (within-cell tier factor on the fit years: premium-cell trimPF-1 {tpf1(R[fit & prem]):.2f} / cell-matched non-tier {tpf1w(R, wgt):.2f} = {fw:.2f}) | | | | | | | | |")
+        for pw in (1.0, 1.25, 1.5):
+            base_w = wb ** pw
+            rows.append(sim(np.minimum(base_w, 4.0), app, f"book gvr map ^ {pw} (NO tier), clip 4"))
+            rows.append(sim(np.minimum(np.where(prem, base_w * fw, base_w), 4.0), app, f"book gvr map ^ {pw} × WITHIN-CELL factor {fw:.2f} on the premium cell, clip 4"))
+            rows.append(sim(np.where(prem, np.minimum(base_w, 4.0) * fw, np.minimum(base_w, 4.0)), app, f"book gvr map ^ {pw} (clip 4) × WITHIN-CELL factor {fw:.2f} on the premium cell, NO clip on the product"))
         wprod = apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti)
         rows.append(sim(wprod, app, "gap × volat × rate600, × tier factor, product CAPPED at 4", cap=4.0))
         rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor, product CAPPED at 4", cap=4.0))
@@ -183,6 +196,38 @@ if args.halts:
     for k, lab in enumerate(T2L):
         m = (ti == 1) & (t2i == k); r = R[m]
         out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.sum():,.0f} | {r.min():.1f} | {m_all[k]:.2f} | {m_e[k]:.2f} | {m_l[k]:.2f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
+    # 6e. WITHIN-CELL comparison: tier trades vs non-tier trades in the SAME gap x volat x rate600 cells (premium cell gap<4 & volat>=90)
+    gvr_idx = (gi * len(VL) + vi) * len(RL) + ri
+    prem = (ti == 1) & (t2i == 1); nont = (ti == 0)
+    out += ["", "## 6e. Halt premium WITHIN cells: tier trades (gap<4 & volat>=90) vs non-halt trades in the same gap × volat × rate600 cells",
+            "| cell (gap / volat / rate600) | n tier | n non-tier | trimPF-1 tier | trimPF-1 non-tier | avg% tier | avg% non-tier | PF tier | PF non-tier |", "|---|---|---|---|---|---|---|---|---|"]
+    cells = [c for c in np.unique(gvr_idx[prem]) if (prem & (gvr_idx == c)).sum() >= 30]
+    for c in cells:
+        a, b_ = R[prem & (gvr_idx == c)], R[nont & (gvr_idx == c)]
+        g_, v_, r_ = c // (len(VL) * len(RL)), (c // len(RL)) % len(VL), c % len(RL)
+        out.append(f"| {GL[g_]} / {VL[v_]} / {RL[r_]} | {len(a)} | {len(b_):,} | {f(tpf1(a))} | {f(tpf1(b_))} | {a.mean():+.2f} | {b_.mean():+.2f} | {f(pf(a))} | {f(pf(b_))} |")
+    # stratified null: for each gvr cell draw as many non-tier trades as the tier has there; 2,000 draws
+    rng = np.random.default_rng(7); draws = 2000
+    comp = [(c, (prem & (gvr_idx == c)).sum(), np.flatnonzero(nont & (gvr_idx == c))) for c in np.unique(gvr_idx[prem])]
+    comp = [(c, k, idx) for c, k, idx in comp if len(idx) >= k]
+    a = R[prem]; pfs, tps, avs = np.empty(draws), np.empty(draws), np.empty(draws)
+    for d in range(draws):
+        rr = np.concatenate([R[rng.choice(idx, k, replace=False)] for c, k, idx in comp])
+        pfs[d], tps[d], avs[d] = pf(rr), tpf1(rr), rr.mean()
+    out += ["", f"Stratified null (cell-matched non-halt draws, {draws} draws, {sum(k for _,k,_ in comp)} of {len(a)} tier trades matchable):",
+            "| stat | tier (premium cell) | null median | null 2.5% | null 97.5% | percentile |", "|---|---|---|---|---|---|",
+            f"| PF | {f(pf(a),3)} | {f(np.median(pfs),3)} | {f(np.quantile(pfs,.025),3)} | {f(np.quantile(pfs,.975),3)} | {(pfs < pf(a)).mean()*100:.1f} |",
+            f"| trimPF-1 | {f(tpf1(a),3)} | {f(np.median(tps),3)} | {f(np.quantile(tps,.025),3)} | {f(np.quantile(tps,.975),3)} | {(tps < tpf1(a)).mean()*100:.1f} |",
+            f"| avg% | {a.mean():+.2f} | {np.median(avs):+.2f} | {np.quantile(avs,.025):+.2f} | {np.quantile(avs,.975):+.2f} | {(avs < a.mean()).mean()*100:.1f} |"]
+    # per year: tier PF vs cell-weighted non-tier PF (each non-tier trade weighted n_tier_cell / n_nontier_cell within the year)
+    out += ["", "| year | n tier | PF tier | avg% tier | PF non-tier (cell-weighted) | avg% non-tier (cell-weighted) |", "|---|---|---|---|---|---|"]
+    for y in YEARS:
+        my = YR == y; ta = R[prem & my]; w = np.zeros(len(B))
+        for c in np.unique(gvr_idx[prem & my]):
+            kt = (prem & my & (gvr_idx == c)).sum(); kn = (nont & my & (gvr_idx == c)).sum()
+            if kn: w[nont & my & (gvr_idx == c)] = kt / kn
+        rw = R * w; g_, l_ = rw[rw > 0].sum(), -rw[rw < 0].sum()
+        out.append(f"| {y} | {len(ta)} | {f(pf(ta))} | {ta.mean():+.2f} | {f(g_/l_ if l_ else np.inf)} | {(rw.sum()/w.sum()) if w.sum() else np.nan:+.2f} |")
     for flab, fm in [("fit all", all_m), ("fit 2020-23", early), ("fit 2024-26", late)]:
         tm = mults(fm & (ti == 1), tgv, len(TGL) * len(TVL), fm)
         out += ["", f"tier's own map gap3 × volat4 ({flab}; multiplier = cell trimPF-1 / BOOK trimPF-1; 1.00 = < 50 trades): ", "| gap \\ volat | " + " | ".join(TVL) + " |", "|---|" + "---|" * len(TVL)]

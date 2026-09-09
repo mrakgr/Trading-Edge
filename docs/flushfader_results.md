@@ -17955,3 +17955,21 @@ dense volatile tape are the top of the book, and the gap × volat × rate600 map
 Production sizing stays gap × volat × rate600 (S49k/S49n). The WAIT (ht ≥ 4 ∧ ssh < 300 → no trade) stays in the spec.
 OPEN (user's call, a sizing-policy question not a halt question): the map exponent — ^1.25 lifts every holdout (+0.24)
 at the cost of concentration (max DD in position units 315 → 338 forward); the standing rule is size ∝ trimPF−1 (p = 1).
+
+### S49r addendum — is the premium cell EXPLAINED by gap and volat? (user, 2026-09-09) — NO, but the sizing measure barely sees it
+
+Within the SAME gap × volat × rate600 cells (`sizing_broad_halts.md` §6e), tier trades (gap<4 ∧ volat≥90, 844) vs non-halt
+cell-mates: PF **2.326 vs 1.714** (cell-matched null of 2,000 draws: 97.5% = 2.07 → 100th pct), avg **+1.87 vs +1.15%**
+(100th pct), trimPF−1 3.79 vs null median 2.74 (99th pct). Per year the tier beats its cell-weighted non-halt peers in
+6 of 7 (2023 the exception: 1.50 vs 2.24). Cell by cell the halt premium is largest in gap 0 × volat 140–250 (every rate
+band: 4.13/14.7/6.23/3.23 vs 3.71/4.96/3.40/2.30) and absent at gap 1–3 × volat 90–140 (1.12 vs 2.81, 2.13 vs 3.01).
+
+The SIZING measure sees much less of it: the within-cell trimPF−1 factor (premium-cell trimPF−1 / cell-WEIGHTED non-halt
+trimPF−1) = **1.11** on all years, **0.88** fit 2020–23, **1.38** fit 2024–26 — unstable in sign. Applied on top of the book
+map at p = 1 / 1.25 / 1.5 the factor moves the holdouts by −0.03 / −0.02 / −0.02 (forward, factor 0.88) and +0.05 / +0.04
+/ +0.05 (mirror, factor 1.38). The premium is in the BULK (win% 70 vs 67, avg +0.7%/trade) while the tier's left tail is the
+book's tail (the −84% trade is a tier trade); trimPF−1 rewards a thin tail, so it does not pay the tier more.
+
+**Ruling stands: not a sizing axis. Record the premium as a fact about the book** (halt-resume trades 5–40 min after the
+resume on dense volatile tape earn ~+0.7%/trade over their cell-mates) and revisit only if the sizing rule changes from
+trimPF−1 to an average-return measure.
