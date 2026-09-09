@@ -18019,3 +18019,34 @@ Halt side: the tier's own gap × volat cells are too thin to fit (5 of 35 and 4 
 8 / 6 / 5 of 12 on the coarse grid) — every own-cell form is below "no tier at all" forward. Rest side: rate600 on the rest is
 what pushes the DD to 360–386 and costs PF forward under PF−1. The S49s ruling stands, restated as TWO maps: **rest = gap ×
 volat (PF−1 cells); halts = the same gap × volat cells × 2.06** (borrowed shape, own level), clip [0.25, 4].
+
+## S49u — why rate600 "stopped working" under PF−1: it did not — the 140-cell JOINT grid did (2026-09-09)
+
+User: "I was sure the left side of the table was better than the right." It still is. rate600 bands on the broad book, net
+of the credit, PF−1 multipliers (all / fit 20–23 / fit 24–26):
+
+| rate600 | n | PF | avg% | worst | mult all | 20–23 | 24–26 | years < 1 |
+|---|---|---|---|---|---|---|---|---|
+| < .044 (slow leg) | 12,298 | 1.669 | +0.67 | −51 | 1.25 | 1.33 | 1.16 | none (min 1.43) |
+| .044–.07 | 8,067 | 1.543 | +0.54 | −55 | 1.01 | 0.91 | 1.17 | none |
+| .07–.125 | 6,987 | 1.413 | +0.43 | −84 | 0.77 | 0.75 | 0.80 | none |
+| ≥ .125 (fast leg) | 9,927 | 1.462 | +0.49 | −60 | 0.86 | 0.88 | 0.82 | none |
+
+The gradient is real and the same sign in both halves. It is the SMALLEST axis: span 1.25 → 0.86 (1.45×) vs gap 1.68 →
+0.67 (2.5×) and volat 0.76 → 2.22 (2.9×), i.e. +0.2%/trade between the ends. What failed in S49s was the JOINT gap × volat ×
+rate600 grid (140 cells) under PF−1: raw PF−1 per cell is set by a few big losers, so the joint cells overfit (holdout DD
+342 vs 227, PF flat-to-worse). As a SEPARABLE factor (its own 4 bands multiplied onto the gap × volat cells) it helps on both
+holdouts — sized PF / net / DD:
+
+| map (PF−1) | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|
+| gap × volat | 1.519 / 9,468 / 227 | 1.712 / 15,095 / 163 |
+| gap × volat × rate600 factor | 1.524 / 9,600 / 241 | 1.732 / 15,403 / 189 |
+| gap × volat × rate600 joint grid | 1.519 / 9,617 / 342 | 1.692 / 14,928 / 250 |
+| gap × volat × tier 2.06 (S49s) | 1.564 / 10,398 / 211 | 1.742 / 15,835 / 221 |
+| **gap × volat × rate600 factor × tier 2.06, clip 4** | 1.563 / 10,405 / 229 | **1.758 / 16,063 / 228** |
+
+Same under trimPF−1 (factor form beats gap × volat on both holdouts; the joint grid was the stronger form there because
+trimming stabilises the cells). **Ruling (amends S49s): production map = gap × volat cells (PF−1) × rate600 band factor ×
+S-tier factor 2.06, clip [0.25, 4]** — three separable axes, one 35-cell grid. The rate600 factor is worth +1.4% net on the
+mirror and nothing forward; it stays because the band gradient is stable in both halves and the axis is cheap.

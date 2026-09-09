@@ -141,6 +141,9 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
     gv = gi * len(VL) + vi
     rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv), app, "gap × volat"))
     rows.append(sim(apply(mults(fit, ri, len(RL)), ri), app, "rate600 only"))
+    rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ri, len(RL)), ri), app, "gap × volat × rate600 FACTOR (separable: gv cells × r bands)"))
+    if args.halts:
+        rows.append(sim(np.minimum(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ri, len(RL)), ri) * apply(mults(fit, ti, 2), ti), 4.0), app, "gap × volat × rate600 FACTOR × tier factor, clip 4"))
     gvr = gv * len(RL) + ri
     rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr), app, "gap × volat × rate600"))
     if args.halts:
@@ -254,6 +257,11 @@ if args.halts:
         out += [f"\n{tl}:", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
         for g, gl in enumerate(GL):
             out.append(f"| {gl} | " + " | ".join(f"{gvt_m[(g * len(VL) + v) * 2 + t]:.2f} ({((gi==g)&(vi==v)&(ti==t)).sum()})" for v in range(len(VL))) + " |")
+out += ["", f"## 6f. rate600 bands ({args.measure} multipliers; net of cost)", "| band | n | PF | trimPF-1 | avg% | worst | tail<-20% | mult all | mult 20-23 | mult 24-26 | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|---|---|---|---|---|" + "---|" * len(YEARS)]
+ma, me, ml = mults(all_m, ri, len(RL)), mults(early, ri, len(RL), early), mults(late, ri, len(RL), late)
+for k, lab in enumerate(RL):
+    m = ri == k; r = R[m]
+    out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.min():.1f} | {(r < -20).mean()*100:.2f}% | {ma[k]:.2f} | {me[k]:.2f} | {ml[k]:.2f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)}" for y in YEARS) + " |")
 out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "volat: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(VL, mults(all_m, vi, len(VL)))),
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),
