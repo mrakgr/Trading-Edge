@@ -18339,3 +18339,16 @@ Both slopes find the same thing: NO slope on the loss ratio (1.007 / 1.004), a s
 or −2.8% per 10 gaps, ≈ −10% over the whole 1–39 range) which takes the step's share on p. Holdouts within noise of C
 (forward −0.8% / −1.2%, mirror +0.1%). **User ruling: exponent = 1 (linear models). Gap = the gap = 0 flag; a slope over
 gap > 0 is optional and worth nothing — C stands as the sizing model.**
+
+### S49ad — A3: model A with gap 4–12 and 13–39 merged (user, 2026-09-09)
+
+| term | p odds | W × | L × | λ × |
+|---|---|---|---|---|
+| gap 1–3 | 0.91 | 0.98 | 1.07 | 1.09 |
+| gap 4–39 | 0.87 | 1.02 | 1.14 | 1.12 |
+| volat 60–90 / 90–140 / 140–250 / 250+ | 1.04 / 1.05 / 1.08 / 1.18 | 1.45 / 2.01 / 2.77 / 4.36 | 1.41 / 1.93 / 2.70 / 4.29 | 0.97 / 0.96 / 0.98 / 0.99 |
+| rate600 fast · S tier | 0.87 · 1.02 | 1.00 · 1.04 | 0.99 · 0.91 | 0.99 · 0.87 |
+
+Holdouts ∝ PF−1: A3 1.527 / 9,744 / 238 · 1.728 / 15,266 / 180 — identical to A (9,713 / 15,253) and 1% behind C forward
+(9,872 / 221). The merged band reproduces A's two bands exactly (λ 1.12 vs 1.12 / 1.11). Nine parameters per component.
+Same conclusion as C2–C5: beyond gap = 0 the loss ratio has one level; C stands.
