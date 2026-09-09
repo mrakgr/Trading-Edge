@@ -18306,3 +18306,11 @@ Holdouts ∝ PF−1 (PF / net / DD): A 1.525 / 9,713 / 237 · 1.727 / 15,253 / 1
 parameters in total. **Recommendation: C.** In words: dense tape (gap 0) lifts the win rate 14% and trims losses 12%;
 volat scales wins and losses alike, nudging the win rate 4% per doubling; a fast leg costs 13% of the win-rate odds; a halt
 resume 5–40 min back trims losses 14%. PF−1 per trade follows from p, W, L; size ∝ PF−1 (exponent = user's call).
+
+### S49ad — do the non-zero gap buckets need their own terms? (user, 2026-09-09) NO
+
+C2 = C + log(1+gap) slope · C3 = C + gap ≥ 13 step. Coefficients: the loss ratio λ has NO slope beyond the step (C2:
+gap=0 × 0.92, log(1+gap) × 1.007 per e-fold; C3: gap≥13 × 1.003). The win rate does slide slowly with gap (C2: odds × 0.96
+per e-fold, ≈ × 0.87 from gap 1 to gap 39; C3: gap≥13 × 0.955) and the slope takes the step's share (gap=0 odds 1.14 → 1.04).
+Holdouts ∝ PF−1 (net): C 9,872 / 15,265 · C2 9,793 / 15,283 · C3 9,767 / 15,252 — nothing. **C stands**: gap = 0 is the
+only gap term the sizing needs; the residual win-rate slide over the sparse buckets is worth < 1% of net.
