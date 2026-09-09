@@ -18224,3 +18224,21 @@ $0.001/sh/side credit, fitted on all years:
 - volat_20m (bp): 40–60 → 0.76 · 60–90 → 1.02 · 90–140 → 1.18 · 140–250 → 1.70 · ≥ 250 → 2.22 (≥ 140 only at gap < 4)
 - rate600: < .07 → 1.15 · ≥ .07 → 0.82
 - S tier (ht ≥ 1 ∧ ssh ∈ [300, 2400)) → 2.06; WAIT: ht ≥ 4 ∧ ssh < 300 → no trade
+
+## S49ac — a POWER on the all-marginal map? (user, 2026-09-09: "make it less steep?")
+
+All-marginal product ^ p, clip 4, mean-1 normalised. Sized PF / net / DD / worst sized; concentration = share of trades
+above 2× and below 0.5× the mean multiplier (apply set):
+
+| p | fit 20–23 → 24–26 | mirror | > 2× / < 0.5× (fwd) |
+|---|---|---|---|
+| 0.5 | 1.510 / 9,217 / 239 / −101 | 1.698 / 14,891 / 164 / −151 | 0.7% / 0% |
+| 0.75 | 1.552 / 10,208 / 247 / −107 | 1.748 / 16,198 / 228 / −196 | 3.1% / 0% |
+| **1.0** | **1.585 / 11,053 / 252 / −134** | **1.794 / 17,367 / 242 / −202** | 5.6% / 14.5% |
+| 1.25 | 1.600 / 11,540 / 252 / −143 | 1.829 / 18,260 / 254 / −207 | 7.1% / 35.5% |
+| flat | 1.442 / 7,624 / 214 / −84 | 1.615 / 12,768 / 149 / −75 | – |
+
+Net and PF rise monotonically with p on both holdouts; DD in position units barely moves (239 → 252 forward), the worst
+sized trade grows (−101 → −143). Flattening to p = 0.75 gives back 8% of the sized net for a 2% smaller DD; p = 1.25 adds
+4–5% net for +0–5% DD but puts 35% of the forward book below half size. **Ruling: p = 1** — the PF−1 rule as stated; no
+power. The clip at 4 binds on < 1% of trades at p = 1.

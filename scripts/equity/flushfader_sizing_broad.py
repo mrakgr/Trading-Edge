@@ -168,6 +168,10 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rows.append(f"| (ladders on the fit years — gap marginal {' / '.join(f'{x:.2f}' for x in mults(fit, gi, len(GL)))} vs conditional {' / '.join(f'{x:.2f}' for x in gc)}; volat marginal {' / '.join(f'{x:.2f}' for x in mults(fit, vi, len(VL)))} vs conditional {' / '.join(f'{x:.2f}' for x in vcnd)}; rate600 marginal {' / '.join(f'{x:.2f}' for x in rm)} vs conditional {' / '.join(f'{x:.2f}' for x in rcs)}) | | | | | | | | |")
         rows.append(sim(np.minimum(wsep * rm[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-MARGINAL: gap × volat × rate600 marginal × tier, clip 4"))
         rows.append(sim(np.minimum(gc[gi] * vcnd[vi] * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-CONDITIONAL: gap|volat × volat|gap × rate600|cell × tier, clip 4"))
+        wam = wsep * rm[ri] * apply(mults(fit, ti, 2), ti)   # the all-marginal product before clip
+        for pw in (0.5, 0.75, 1.0, 1.25):
+            wp = np.minimum(wam ** pw, 4.0)
+            rows.append(sim(wp, app, f"ALL-MARGINAL ^ {pw}, clip 4  (max {wp.max()/ (wp[app].mean()):.2f}, share > 2x {(wp/wp[app].mean() > 2).mean()*100:.1f}%, share < 0.5x {(wp/wp[app].mean() < 0.5).mean()*100:.1f}%)"))
         wj = apply(mults(fit, gv, len(GL) * len(VL)), gv)
         for pw in (1.25, 1.5):
             rows.append(sim(np.minimum(wj ** pw * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, f"CONTROL: JOINT grid ^ {pw} × rate600 conditional × tier, clip 4"))
