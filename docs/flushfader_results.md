@@ -18286,3 +18286,23 @@ LOWER drawdown (222 / 213 vs 252 / 242) — so the product's extra net is steepn
 robust, no clip binding, no hand-picked cells. The product is that same shape at roughly power 1.7. The decision is now
 one number, the exponent, and it belongs to the user. The mechanism is settled: volat = magnitude, gap = loss ratio,
 rate600 = win rate, halt tier = loss ratio.
+
+### S49ad addendum — model C, the hybrid (user: "A or B?"), 2026-09-09
+
+A's dummies reveal the SHAPES: gap is a STEP at 0 (λ 1.09 / 1.12 / 1.11 for every non-zero band), volat is a power law on W
+and L, rate600 and tier are flags. Model C uses exactly those: intercept + gap=0 flag + log(volat/100) + fast flag + tier
+flag = 5 parameters per component. Coefficients (all years):
+
+| term | win-rate odds | mean win | mean loss | λ = L/W |
+|---|---|---|---|---|
+| base (gap>0, volat 100 bp, slow, no halt) | p = 0.690 | 3.15% | 4.42% | 1.40 |
+| gap = 0 | × 1.14 | × 0.97 | × 0.88 | **× 0.90** |
+| volat, per doubling | × 1.04 | × 1.78 (∝ volat^0.83) | × 1.74 (∝ volat^0.79) | × 0.97 |
+| rate600 fast | **× 0.87** | 1.00 | 0.99 | 0.99 |
+| S tier | × 1.03 | 0.98 | 0.86 | **× 0.88** |
+
+Holdouts ∝ PF−1 (PF / net / DD): A 1.525 / 9,713 / 237 · 1.727 / 15,253 / 179 — B 1.532 / 9,776 / 240 · 1.731 / 15,250 /
+173 — **C 1.536 / 9,872 / 221 · 1.731 / 15,265 / 163**. C is best or tied on every column at the lowest DD, with 15
+parameters in total. **Recommendation: C.** In words: dense tape (gap 0) lifts the win rate 14% and trims losses 12%;
+volat scales wins and losses alike, nudging the win rate 4% per doubling; a fast leg costs 13% of the win-rate odds; a halt
+resume 5–40 min back trims losses 14%. PF−1 per trade follows from p, W, L; size ∝ PF−1 (exponent = user's call).
