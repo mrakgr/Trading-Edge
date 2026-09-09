@@ -143,6 +143,7 @@ HDR = ("| multiplier map | n | PF flat / sized | trimPF-1 flat / sized | avg% fl
        "maxDD (position-% units) flat / sized | worst trade flat / sized | sized PF by year |\n|---|---|---|---|---|---|---|---|---|")
 all_m = np.ones(len(B), bool); early = YR <= 2023; late = YR > 2023
 vc = vi * len(CL) + ci                                    # joint cell index
+gv = gi * len(VL) + vi
 def apply(m, idx): return m[idx]
 rows = ["## 7. Sized vs flat at EQUAL average exposure (multipliers = cell trimPF-1 / book trimPF-1, clipped [0.25, 4])", HDR]
 for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdout: fit 2020-23 → apply 2024-26", early, late),
@@ -152,6 +153,16 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
     rows.append(sim(apply(mults(fit, ci, len(CL)), ci), app, "coil only"))
     rows.append(sim(apply(mults(fit, vc, len(VL) * len(CL)), vc), app, "volat × coil"))
     rows.append(sim(apply(mults(fit, gi, len(GL)), gi), app, "gap only"))
+    wsep = apply(mults(fit, gi, len(GL)), gi) * apply(mults(fit, vi, len(VL)), vi)
+    rows.append(sim(wsep, app, "SEPARABLE gap ladder × volat ladder (marginal factors)"))
+    if args.halts:
+        rcs = np.array([(lambda o, pe, _: o / pe)(*within_cell(ri == k, fit)) for k in range(len(RL))])
+        rows.append(sim(np.minimum(wsep * rcs[ri], 4.0), app, "SEPARABLE gap × volat × rate600 conditional, clip 4"))
+        rows.append(sim(np.minimum(wsep * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE gap × volat × rate600 conditional × tier, clip 4"))
+        wj = apply(mults(fit, gv, len(GL) * len(VL)), gv)
+        for pw in (1.25, 1.5):
+            rows.append(sim(np.minimum(wj ** pw * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, f"CONTROL: JOINT grid ^ {pw} × rate600 conditional × tier, clip 4"))
+        rows.append(f"| (mean multiplier on gap 0 & volat>=140: separable {wsep[(gi==0)&(vi>=3)].mean():.2f} · joint {wj[(gi==0)&(vi>=3)].mean():.2f}; share of book with multiplier > 2: separable {(wsep>2).mean()*100:.1f}% · joint {(wj>2).mean()*100:.1f}%) | | | | | | | | |")
     gvc = (gi * len(VL) + vi) * len(CL) + ci
     rows.append(sim(apply(mults(fit, gvc, len(GL) * len(VL) * len(CL)), gvc), app, "gap × volat × coil"))
     gv = gi * len(VL) + vi

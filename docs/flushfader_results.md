@@ -18179,3 +18179,24 @@ The grid:
 Still non-monotone: the gap 1–3 row (0.62 at volat 60–90, 0.69 at 140–250, between 1.25 / 1.69) and the 60–90 column bump in
 the 4–12 row. The 1–3 row's marginal is 1.06 with a clean ladder on either side; the cells are what disagree. Next question:
 coarsen volat too (fold 60–90 into a neighbour) or go separable (gap ladder × volat ladder).
+
+## S49aa — SEPARABLE map: marginal gap ladder × marginal volat ladder (user, 2026-09-09: "the joint grid is noisy")
+
+PF−1 marginal ladders: gap 0 / 1–3 / 4–12 / 13–39 = 1.68 / 1.06 / 0.89 / 0.78 · volat 40–60 / 60–90 / 90–140 / 140–250 /
+250+ = 0.76 / 1.02 / 1.18 / 1.70 / 2.22. Full map = gap × volat × rate600 conditional (1.51 / 0.69) × tier 2.06, clip 4.
+Sized PF / net / DD / worst sized on the holdouts, with the STEEPNESS control (joint grid ^ p):
+
+| map | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|
+| JOINT 4×5 grid (S49z) | 1.579 / 10,551 / 216 / −114 | 1.772 / 16,063 / 198 / −159 |
+| **SEPARABLE ladders** | 1.583 / 10,968 / 257 / −140 | **1.806 / 17,260 / 218 / −170** |
+| control: JOINT ^ 1.25 | 1.598 / 10,996 / 209 / −129 | 1.793 / 16,502 / 208 / −161 |
+| control: JOINT ^ 1.5 | 1.618 / 11,446 / 222 / −146 | 1.815 / 16,952 / 216 / −161 |
+
+Mean multiplier on gap 0 ∧ volat ≥ 140: separable 2.4–3.6 vs joint 1.9–2.7; share of the book above 2×: 7% vs 0–3%. So the
+separable map is a STEEPER map, and at matched steepness (joint ^1.25) the two are equal — separable wins the mirror by 4.6%
+net, loses the forward by 0.3%. What the separable form buys is not edge but FORM: monotone by construction (no 0.62 / 0.69
+cells), 9 parameters instead of 20, no exponent to choose; what it costs is concentration (forward DD 257 vs 216).
+
+**Ruling: SEPARABLE.** Production sizing = gap ladder × volat ladder × rate600 (2-band conditional) × S-tier 2.06, clip
+[0.25, 4], multipliers from PF−1. The separable product is the steepness the user accepted (S49s: "endures the bad trades").
