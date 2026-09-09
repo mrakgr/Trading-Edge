@@ -18435,3 +18435,15 @@ Two separate findings:
 ticker rule 1,990. Neither rule bounds a liquidation DAY — positions turn over under the cap; that needs a daily loss stop.
 **Open for the user: keep one-per-ticker-date (−41% net, worst day −214) or allow mc=1 re-entries under the cap (−3% net,
 worst day −326).**
+
+### S49ag addendum — the ticker rule was MEANT as "one CONCURRENT position per ticker-date" (user), i.e. mc=1 re-entries allowed. RULED replay = re-entries allowed + cap 20 units: 36,477 @ 1.626 / 24,282 (in-sample A3), 36,543 @ 1.625 / 24,322 (cross-fit); worst day −326 / −305; peak open size 4.4 / 9.4 / 20. Daily stop: noted as an option, not adopted (user: earlier tests on other systems were poor).
+
+### S49ag — the COVID stress window, 2020-02-14 .. 2020-03-31, ruled replay, sized by the 2024–26 fit (out of sample for 2020)
+
+31 sessions, 1,561 trades: **sized +324 units, flat +265; 24 of 31 days profitable.** Cumulative sized: +289 by Mar 6, +308 by
+Mar 17, **−305 on Mar 18 (cum +3)**, then +20 / +22 / +75 / −3 / +84 / +55 / +42 / +9 / +16 → +324 by Mar 31 (the flat book
+dipped to −134 cum on Mar 18 and recovered to +265). Losing days: Feb 14 −6, Feb 28 −13, Mar 9 −25, Mar 10 −33, Mar 12 −6,
+Mar 18 −305, Mar 24 −3. Trades/day 7–20 before Feb 27, 46–69 on the volatile days, 105–242 in the Mar 17–25 liquidation
+week; the cap (20 units) bound on Mar 13, 18, 19, 20, 23, 25 (peak open 20.0; 615 trips refused on Mar 18 alone).
+The crash was a GOOD period for the book except for one session; the day after the mREIT liquidation (Mar 19) was +20
+sized / +96 flat, and Mar 23–27 (the bottom) +253 sized. The single-day tail is the whole story of this stress test.

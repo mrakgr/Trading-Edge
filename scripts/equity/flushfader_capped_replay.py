@@ -18,6 +18,7 @@ ap.add_argument("--credit", type=float, default=0.001)
 ap.add_argument("--rule140", action="store_true")
 ap.add_argument("--cap", type=float, default=20.0, help="max open size units at any moment")
 ap.add_argument("--out", default="data/flushfader_gate_review/capped_replay.md")
+ap.add_argument("--window", default="2020-02-14:2020-03-31", help="daily table for this date range under the ruled replay")
 args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:6.1f}s]", *a, flush=True)
@@ -154,10 +155,24 @@ for cap in (10.0, 20.0):
     out.append(stats(run(ones, cap, False, f"re-entries allowed (mc=1), cap {cap:g} positions, flat")))
     out.append(stats(run(W_IN, cap, False, f"re-entries allowed (mc=1), cap {cap:g} units, A3 sized (in-sample)")))
     out.append(stats(run(W_X, cap, False, f"re-entries allowed (mc=1), cap {cap:g} units, A3 sized (CROSS-FIT)")))
-main = run(W_IN, args.cap, True, "main")
+main = run(W_X, args.cap, False, "RULED: re-entries allowed (mc=1), cap 20 units, A3 CROSS-FIT")
+flat_main = run(ones, args.cap, False, "flat, same rules")
+a, b = args.window.split(":"); wm = (C.date.values >= np.datetime64(a)) & (C.date.values <= np.datetime64(b))
+out += ["", f"## Daily view {a} .. {b} — ruled replay (re-entries allowed, cap {args.cap:g} units), sized by the 2024-26 fit (out of sample for 2020); flat alongside\n",
+        "| date | trades | tickers | sized P&L | cum sized | flat P&L | cum flat | win% | worst trade | peak open units | trips refused by cap |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+tm = main["t"] & wm; tf = flat_main["t"] & wm
+days = np.unique(C.date.values[wm]); cs = cf = 0.0
+for d in days:
+    ms = tm & (C.date.values == d); mf = tf & (C.date.values == d)
+    ps = (R[ms] * W_X[ms]).sum(); pfl = R[mf].sum(); cs += ps; cf += pfl
+    osz = main["osz"][(C.date.values[main["t"]] == d)] + W_X[main["t"]][(C.date.values[main["t"]] == d)]
+    cap_ref = int(((main["reason"] == 2) & (C.date.values == d)).sum())
+    out.append(f"| {pd.Timestamp(d).date()} | {ms.sum()} | {len(np.unique(C.tkd.values[ms]))} | {ps:+.0f} | {cs:+.0f} | {pfl:+.0f} | {cf:+.0f} | {(R[ms]>0).mean()*100 if ms.sum() else 0:.0f} | {R[ms].min() if ms.sum() else 0:+.0f} | {osz.max() if len(osz) else 0:.1f} | {cap_ref} |")
+out.append(f"\nwindow total: sized {cs:+.0f} · flat {cf:+.0f}; trades {tm.sum():,}; days profitable sized {sum(1 for d in days if (R[tm & (C.date.values == d)] * W_X[tm & (C.date.values == d)]).sum() > 0)} of {len(days)}")
+main = run(W_IN, args.cap, False, "main")
 # per-year for the ruled replay
 pnl, dt, yr_ = main["pnl"], pd.to_datetime(main["dt"]), pd.to_datetime(main["dt"]).year
-out += ["", f"## The ruled replay (cap {args.cap:g} units, one per ticker-date, A3 in-sample) by year\n",
+out += ["", f"## The ruled replay (cap {args.cap:g} units, re-entries allowed, A3 in-sample) by year\n",
         "| year | trades | net | PF | avg | days prof. | weeks prof. | months prof. | worst day | max DD | peak open size med / max |", "|---|---|---|---|---|---|---|---|---|---|---|"]
 for y in sorted(set(yr_)):
     m = yr_ == y; s = pd.Series(pnl[m]); d = s.groupby(dt[m].normalize()).sum(); wk = s.groupby(dt[m].to_period("W-FRI").start_time).sum(); mo = s.groupby(dt[m].to_period("M").start_time).sum()
@@ -165,5 +180,5 @@ for y in sorted(set(yr_)):
     out.append(f"| {y} | {m.sum():,} | {pnl[m].sum():+,.0f} | {pf(pnl[m]):.2f} | {pnl[m].mean():+.2f} | {(d>0).sum()}/{len(d)} ({(d>0).mean()*100:.0f}%) | {(wk>0).sum()}/{len(wk)} ({(wk>0).mean()*100:.0f}%) | {(mo>0).sum()}/{len(mo)} | {d.min():+.0f} | {dd:,.0f} | {g.median():.1f} / {g.max():.1f} |")
 # 2020-03-18 under the cap
 m = dt.normalize() == pd.Timestamp("2020-03-18")
-out += ["", f"2020-03-18 under the ruled replay: {m.sum()} trades, P&L {pnl[m].sum():+.0f} units (uncapped flat: 331 trades, −501); trips skipped that day: ticker-used {int(((main['reason']==1) & (C.date.values == np.datetime64('2020-03-18'))).sum())}, cap {int(((main['reason']==2) & (C.date.values == np.datetime64('2020-03-18'))).sum())}."]
+out += ["", f"2020-03-18 under the ruled replay: {m.sum()} trades, P&L {pnl[m].sum():+.0f} units (uncapped flat: 331 trades, −501); trips skipped that day: ticker busy {int(((main['reason']==1) & (C.date.values == np.datetime64('2020-03-18'))).sum())}, cap {int(((main['reason']==2) & (C.date.values == np.datetime64('2020-03-18'))).sum())}."]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
