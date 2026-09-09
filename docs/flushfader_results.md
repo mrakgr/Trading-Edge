@@ -18514,3 +18514,60 @@ over the empirical daily series (grid step 0.0025) — exact, no distributional 
 (A3 in-sample sizes): drop 1 → f* 0.54 · drop 2 → 0.73 · drop 5 → 0.98 · drop 10 → 1.00 (grid cap); each time f* sits
 2% under 1/|next-worst day|. The Gaussian μ/σ² = 1.66 is quoted only to show how far the variance-implied fraction is
 from the ruin-bound one. **f* is a ruin bound in this book at every depth of the tail, never a variance optimum.**
+
+## S49aj — THE BROAD BOOK IN THE SCANNER (2026-09-09 evening): ported, sealed, the dropped gates deleted
+
+**What was built (private repo `TradingEdge.Scanner`, plan approved by the user).** The Scanner engine (`Engine/Intraday.fs`,
+a debloated fork of the research engine) gained the four features the broad book needs, verbatim from research —
+`chg_since_run_first_low` (crf: `runFirstLowVwap` set on the first 20m low of an uptick-delimited run, S43bq-b),
+`consol_5m_lag1m` (`SlotVarRatioMa(30, 12).Ratio(10, 2)` on ln vwap, pushed every bar on the slot clock),
+`counters600` (the 10m `NewLowCounters` rung, reset on a strictly-prior 600-bar-high breach — `sMax600`, the br300 idiom) —
+and the five broad-book gates as `IntradayConfig` knobs with off-sentinels: `MaxCrf −0.002`, `MaxCoil5mLag1m 0.22`,
+`MaxGap60 40` (RAW gap_60), `Rule140VolatBp 140 / Rule140MaxGap 4`, `HaltWaitCount 4 / HaltWaitSec 300`; `MinDv0945Tape`
+2e6 (the $3M rung was stale). `Engine/Sizing.fs` embeds the A3 raw β vectors (`data/flushfader_gate_review/a3_coefficients.json`,
+written by `flushfader_sizing_model.py --dump-coefficients` and now COMMITTED — the only data file in the repo), the base
+0.5190225, clip [0.25, 4], numpy.digitize's half-open band edges, NaN rate600 → slow; `BookBroad.fs` = raw entry_px ≥ $1 +
+the per-ticker-day mc=1 greedy walk + the multiplier; `Live.fs`'s `LiveSignal` carries the multiplier, the four sizing
+features and the $1 test (the engine stays a sampler, `MaxConcurrent = 0`, so a rejected order never silences the next
+low); `Config.baseConfig` mirrors `flushfader_run_base_v19.sh` (`scan trips --base`). The 13 dropped gates and the ROSTER
+were then DELETED (Book.fs removed; `Intraday.fs` 1,471 → ~880 lines; `SignalSink` 52 → 31 audit columns), config-OFF
+first and code second, with a static dead-binding check on every group.
+
+**Reference artifacts (research).** `scripts/equity/flushfader_broad_reference.py` rebuilds the broad book from `base_v19`
+in FULL DOUBLE precision with the CALENDAR-AWARE entry cutoff (12:00 on NYSE half-days, which the engine enforces and the
+flat `signal_sec <= 54000` of the S49 scripts does not): engine-level trips **209,252 / 26,175 tkd** (no $1 floor, no
+replay), book **37,254 / 23,254 tkd @ 1.480 gross, A3-sized 1.576**, multiplier mean 0.9999, every trade on a table cell
+(max |mult − cell| = 0). vs the S49 scripts' 37,279: the slice-only class is **216 engine-level trips (25 book trades), ALL
+early-close 12:00–13:00 signals** (verified: 216 of 216); the FLOAT32 boundary hazard (consol / rate600 stored as FLOAT in
+the review slice) produced ZERO boundary trips. `scripts/equity/scanner_diff.py` (DuckDB join, NaN==NaN, `--year`) is the
+diff; `scripts/equity/flushfader_run_base_10d.sh` = the research base over the harness window on the FULL universe
+(71,220 trips on 10,753 tkd, 76 s).
+
+**Seals (before deletion — every old column still present).**
+
+| harness | Scanner | reference | result |
+|---|---|---|---|
+| 10d `--from-bars`, defaultConfig, engine-level trips | 1,180 | 1,180 (`broad_reference_trips_10d`) | 0 key-exclusive, 9 shared columns zero-diff |
+| 10d `--from-bars`, BOOK + multiplier | 201 | 201 | zero-diff; max \|Δ multiplier\| 2.2e−15 |
+| 10d `--from-bars --base`, ALL shared columns vs research `base_10d` | 71,220 | 71,220 | 0 key-exclusive, **53 columns zero-diff incl. crf, consol, bars/lows_600** |
+| full period `--from-bars`, defaultConfig, engine-level trips (24 min) | 209,252 | 209,252 | 0 key-exclusive, 9 shared columns zero-diff |
+| full period BOOK + multiplier | 37,254 | 37,254 | zero-diff after ONE fix: the in-stream book had used the last bar's vwap for the 54 overnight holds where the audit trail (and research) apply the next_open rewrite — `SignalSink.resolvedExit` is now shared by both; max \|Δ multiplier\| 3.6e−15 |
+| full period `--base` per year vs `base_v19` (8,273,415) | 1,580,152 · 1,615,372 · 1,287,811 · 630,332 · 805,643 · 1,343,932 · 1,010,173 = **8,273,415** | same, year by year | **0 key-exclusive, 53 shared columns zero-diff in every year** (incl. crf, consol_5m_lag1m, bars/lows_since_first_low_600) |
+| `Sizing_Test.fsx` | 52/52 populated cells | JSON table | max \|Δ\| 2.2e−15; betas digit-identical |
+
+**Seals (after deletion — the deleted code was provably not load-bearing).**
+
+| harness | result |
+|---|---|
+| 10d `--from-bars` broad, trips + book | 1,180 = 1,180 / 201 = 201, zero-diff (and zero-diff vs the pre-deletion run on all 28 remaining columns) |
+| 10d `--from-bars --base`, remaining shared columns vs research `base_10d` | 71,220 = 71,220, 28 columns zero-diff |
+| 10d **trades tape `--gate --ms-precision`** (the live shape: trades → bars → engine, in-stream promotion) | gate exact 10/10 days (gate-only 0, table-only 0); 1,180 = 1,180 trips / 201 = 201 book, zero-diff, \|Δ mult\| 2.2e−15. ⚠ WITHOUT `--ms-precision` the ns filter reads ~23k fewer trades a day than the ms corpus (S43cr, corpus rebuilt at ms 2026-08-22): dv_0945_tape lower on 375 of 1,180 trips, consol shifted on 225, 1 trip in / 1 out (TPL 2026-08-06 37904) — the flag is part of the harness command now |
+
+| **full period `--from-bars` broad, FINAL binary** (17 min) | **209,252 = 209,252 trips · 37,254 = 37,254 book · zero-diff** |
+
+**Timing.** The whitelist corpus is ~141 ticker-days a day, so a full-period `--from-bars` pass is ~1 s/day single-threaded
+(~40 min for 1,667 days); the base pass is run per year (`Config.baseConfig`) to keep the in-memory sink under 1.5M rows.
+
+**Status.** Scanner = THE BROAD BOOK, sealed; signals carry the A3 multiplier. Not built: the order-management layer (the
+20-unit cap on summed multipliers of OPEN positions, one open position per ticker, FCFS skip-not-queue, the equity fraction
+per unit — S49ag/S49ai) and the LowFader / SpikeFader / Snoozer ports (tomorrow).

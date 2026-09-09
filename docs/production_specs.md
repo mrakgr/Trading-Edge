@@ -47,8 +47,12 @@ dictionary reproduces v49 EXACTLY, 39,769 = 39,769):
   Volume at $10k: 469 trades/mo, 2.3M sh/mo (80% sub-$5). OPEN: the passive fill model (S49l); consistency study.
 - Ruled OUT of the spec (S49b): eff10, s20, s5, speed, dlv (magnitude dials → sizing), z20, rflow.
 
-**Status**: Scanner (`TradingEdge.Scanner`, private repo) is at SPEC v3.1, sealed zero-diff; the production frame
-is THE BROAD BOOK (user 2026-09-08); consol columns, the wait rule and the A3 sizing table not yet in the Scanner.
+**Status (2026-09-09 evening, §S49aj)**: the Scanner (`TradingEdge.Scanner`, private repo) IS THE BROAD BOOK — crf, coil,
+counters600/rate600, the gap door, rule140, the WAIT and the A3 sizing (`Engine/Sizing.fs`, betas from the committed
+`data/flushfader_gate_review/a3_coefficients.json`) are in; the 13 dropped gates and the ROSTER are deleted. Sealed 2026-09-09: full period `--from-bars` 209,252 = 209,252 engine-level trips and **37,254 = 37,254 book** (multiplier |Δ| < 4e−15); every gate OFF per year vs base_v19 **8,273,415 = 8,273,415** on 53 columns; 10-day trades tape `--gate --ms-precision` 1,180 / 201 zero-diff, gate exact 10/10; `Sizing_Test.fsx` 52/52 cells.
+Reference = `scripts/equity/flushfader_broad_reference.py` (double precision, calendar-aware cutoff: book 37,254 — the
+S49 scripts' 37,279 includes 25 half-day 12:00–13:00 trades the engine refuses); diff = `scripts/equity/scanner_diff.py`.
+Not built: the order-management layer (20-unit cap, one open position per ticker, equity fraction per unit).
 
 ---
 

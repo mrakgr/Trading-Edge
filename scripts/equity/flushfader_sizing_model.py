@@ -27,6 +27,7 @@ ap.add_argument("--credit", type=float, default=0.001)
 ap.add_argument("--rule140", action="store_true")
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_model.md")
+ap.add_argument("--dump-coefficients", default="", help="write the A3 raw beta vectors + base + the production table as JSON (the Scanner embeds these)")
 args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:6.1f}s]", *a, flush=True)
@@ -229,4 +230,25 @@ for g3, gl in enumerate(GL3):
                 mn, mx = min(mn, m_), max(mx, m_)
                 out.append(f"| {gl} | {vl} | {'fast' if r_ else 'slow'} | {'yes' if t_ else 'no'} | {p_[0]:.3f} | {W_[0]:.2f} | {L_[0]:.2f} | {lam_[0]:.3f} | {pf1_[0]:.3f} | **{m_:.2f}** | {cnt:,} |")
 out += ["", f"multiplier range over populated cells: {mn:.2f} – {mx:.2f}; trade-weighted mean = 1.000 by construction."]
+# ---- the coefficient dump: EXACTLY what the Scanner's Sizing.fs embeds (raw betas, full double precision) + the table it must reproduce
+if args.dump_coefficients:
+    import json
+    bpA3, bwA3, blA3 = bA3
+    cells = []
+    for g3, gl in enumerate(GL3):
+        for v, vl in enumerate(VL):
+            for r_ in (0, 1):
+                for t_ in (0, 1):
+                    x = rowvec(g3, v, r_, t_)[None, :]; p_, W_, L_, lam_, pf1_, _ = predict(x, bA3)
+                    cells.append({"gap_band": g3, "gap": gl, "volat_band": v, "volat": vl, "rate600_fast": r_, "s_tier": t_,
+                                  "p": float(p_[0]), "W": float(W_[0]), "L": float(L_[0]), "pf1": float(pf1_[0]),
+                                  "multiplier": float(np.clip(pf1_[0] / baseA3, 0.25, 4.0)),
+                                  "n": int(((g3i == g3) & (vi == v) & (ri == r_) & (ti == t_)).sum())})
+    dump = {"model": "A3 (S49ae)", "fit": f"all years, broad book n={n:,}, credit ${args.credit}/sh/side, rule140={args.rule140}, wait ht>=4&ssh<300",
+            "design": NA3, "gap_edges": [0, 1, 4, 40], "volat_edges_bp": [40, 60, 90, 140, 250], "rate600_fast_threshold": 0.07,
+            "s_tier": "halts_today >= 1 and 300 <= secs_since_halt < 2400",
+            "beta_p": [float(b) for b in bpA3], "beta_w": [float(b) for b in bwA3], "beta_l": [float(b) for b in blA3],
+            "base_pf1": float(baseA3), "clip": [0.25, 4.0], "cells": cells}
+    with open(args.dump_coefficients, "w") as fh: json.dump(dump, fh, indent=1)
+    log(f"wrote {args.dump_coefficients}: base {baseA3:.6f}, {sum(1 for c in cells if c['n'] > 0)} populated cells")
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
