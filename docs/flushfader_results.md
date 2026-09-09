@@ -18001,3 +18001,21 @@ net AND the least concentrated of the tier maps (DD 211 / 221).
 
 **Ruling: production sizing = gap × volat multipliers from PF−1 (fit all) × S-tier factor 2.06 on ht ≥ 1 ∧ ssh ∈ [300,2400),
 clipped [0.25, 4]; the WAIT ht ≥ 4 ∧ ssh < 300 in the spec.** Supersedes S49k/S49n/S49q/S49r on the sizing side.
+
+### S49t — user's split: rest on gap × volat × rate600, halt trades on their own gap × volat (PF−1) — tested, loses on BOTH sides
+
+`sizing_broad_pf1.md` S49t rows. Sized PF / net / max DD on the holdouts (fit 20–23 → 24–26 · fit 24–26 → 20–23):
+
+| form | forward | mirror |
+|---|---|---|
+| rest gvr · halt = own gap × volat cells (thin → tier factor) | 1.488 / 9,153 / 370 | 1.691 / 15,064 / 230 |
+| rest gvr · halt = own gap3 × volat4 | 1.485 / 9,114 / 369 | 1.684 / 14,905 / 232 |
+| rest gvr · halt = book gap × volat map × tier factor | 1.526 / 9,887 / 360 | 1.695 / 15,078 / 238 |
+| rest gvr · halt = flat tier factor | 1.485 / 9,125 / 364 | 1.681 / 14,752 / 232 |
+| gvr for all, no tier | 1.519 / 9,617 / 342 | 1.692 / 14,928 / 250 |
+| **gap × volat for all × tier factor (S49s)** | **1.564 / 10,398 / 211** | **1.742 / 15,835 / 221** |
+
+Halt side: the tier's own gap × volat cells are too thin to fit (5 of 35 and 4 of 35 cells reach 50 trades on the fit halves;
+8 / 6 / 5 of 12 on the coarse grid) — every own-cell form is below "no tier at all" forward. Rest side: rate600 on the rest is
+what pushes the DD to 360–386 and costs PF forward under PF−1. The S49s ruling stands, restated as TWO maps: **rest = gap ×
+volat (PF−1 cells); halts = the same gap × volat cells × 2.06** (borrowed shape, own level), clip [0.25, 4].

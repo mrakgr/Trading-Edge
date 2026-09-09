@@ -104,12 +104,12 @@ out += ["## 1. volat_20m (rows) × lagged coil (cols) — n", grid("volat \\ coi
         "## 6. gap_60 (rows) × coil (cols) — trimPF-1", grid("gap \\ coil", gi, GL, ci, CL, st_t), ""]
 
 # ---- multipliers: m(cell) = tpf1(cell) / tpf1(book), derived on a FIT set, normalised to mean 1 on the APPLY set
-def mults(fit_mask, cells_fn, ncell, base_mask=None):
-    """base = the BOOK's trimPF-1 on the fit years (base_mask), so sub-population maps stay on the book's scale."""
-    m = np.ones(ncell); base = MEAS(R[fit_mask if base_mask is None else base_mask])
+def mults(fit_mask, cells_fn, ncell, base_mask=None, fallback=1.0):
+    """base = the BOOK's edge on the fit years (base_mask), so sub-population maps stay on the book's scale; thin cells (<50) -> fallback."""
+    m = np.full(ncell, fallback); base = MEAS(R[fit_mask if base_mask is None else base_mask])
     for k in range(ncell):
         r = R[fit_mask & (cells_fn == k)]
-        m[k] = (MEAS(r) / base) if len(r) >= 50 and np.isfinite(MEAS(r)) else 1.0
+        m[k] = (MEAS(r) / base) if len(r) >= 50 and np.isfinite(MEAS(r)) else fallback
     return np.clip(m, 0.25, 4.0)
 def sim(w, mask, label, cap=None):
     """w = per-trade multiplier (mean-1 normalised on mask). Returns the stats line for sized vs flat."""
@@ -154,6 +154,16 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
             for tier_lab, tier_idx, tier_n in [("2x2 gap<4 × volat>=90", t2i, 4), ("gap3 × volat4", tgv, len(TGL) * len(TVL)), ("volat4", tvi, len(TVL)), ("flat 1 cell", np.zeros(len(B), int), 1)]:
                 w = np.where(ti == 1, apply(mults(fit & (ti == 1), tier_idx, tier_n, fit), tier_idx), apply(mults(fit & (ti == 0), rest_idx, rest_n, fit), rest_idx))
                 rows.append(sim(w, app, f"SPLIT: rest = {rest_lab} (fit on rest) · tier = {tier_lab} (fit on tier)"))
+        # S49t (user): REST on gap x volat x rate600 (fit on rest), HALT trades on gap x volat (their OWN cells; thin cells -> the tier factor or 1.0)
+        tf = mults(fit & (ti == 1), np.zeros(len(B), int), 1, fit)[0]
+        w_rest = apply(mults(fit & (ti == 0), gvr, len(GL) * len(VL) * len(RL), fit), gvr)
+        rows.append(f"| (S49t: tier factor on the fit years = {tf:.2f}; tier cells with >= 50 trades: gap × volat {sum(1 for k in range(len(GL)*len(VL)) if ((ti==1)&fit&(gv==k)).sum()>=50)} of 35, gap3 × volat4 {sum(1 for k in range(len(TGL)*len(TVL)) if ((ti==1)&fit&(tgv==k)).sum()>=50)} of 12) | | | | | | | | |")
+        for tl, tidx, tn in [("own gap × volat", gv, len(GL) * len(VL)), ("own gap3 × volat4", tgv, len(TGL) * len(TVL))]:
+            for fl, fb in [("thin -> tier factor", tf), ("thin -> 1.0", 1.0)]:
+                w = np.where(ti == 1, apply(mults(fit & (ti == 1), tidx, tn, fit, fb), tidx), w_rest)
+                rows.append(sim(w, app, f"S49t: rest = gvr · halt = {tl} ({fl})"))
+        rows.append(sim(np.where(ti == 1, np.minimum(apply(mults(fit, gv, len(GL) * len(VL)), gv) * tf, 4.0), w_rest), app, f"S49t: rest = gvr · halt = BOOK gap × volat map × tier factor {tf:.2f}, clip 4"))
+        rows.append(sim(np.where(ti == 1, tf, w_rest), app, f"S49t: rest = gvr · halt = flat tier factor {tf:.2f}"))
         # the S49r form: PREMIUM cell (tier & gap<4 & volat>=90) at its own flat multiplier; everything else (incl. the other 3 tier cells) on the book map
         prem = (ti == 1) & (t2i == 1)
         for rest_lab, rest_idx, rest_n in [("gap × volat × rate600", gvr, len(GL) * len(VL) * len(RL)), ("gap × volat", gv, len(GL) * len(VL))]:
