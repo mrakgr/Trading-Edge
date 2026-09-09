@@ -17861,3 +17861,39 @@ book (every non-halted gap300≤2 trip has gap60<4), so the S tier sits on top o
 **Rulings:** (1) cascade on this book = **one wait: ht ≥ 4 ∧ ssh < 300 → no trade** (ht 1–3 early trips stay at book
 weight); (2) **S tier = ht ≥ 1 ∧ ssh ∈ [300, 2400)**, sized separately (multiplier from its trimPF−1 vs the book's, on top
 of gap × volat). Next: the tier's sizing multiplier and the combined sized book.
+
+## S49q — the S tier as a SIZING axis on the broad book (2026-09-09)
+
+`flushfader_sizing_broad.py --credit 0.001 --rule140 --halts` → `data/flushfader_gate_review/sizing_broad_halts.md`.
+`--halts` = the S49p WAIT (ht ≥ 4 ∧ ssh < 300 excluded: 37,348 → **37,279** trades, PF 1.533 → 1.536 under the credit) +
+the S TIER flag (ht ≥ 1 ∧ ssh ∈ [300,2400)) as a multiplier axis. Returns net of the $0.001/sh/side credit.
+
+| set (net of credit) | n | PF | trimPF−1 | avg% | worst | years < 1 |
+|---|---|---|---|---|---|---|
+| S tier | 1,181 | 2.107 | 3.446 | +1.51 | −41.5 | none (min 1.55) |
+| rest of book | 36,098 | 1.511 | 2.035 | +0.52 | −84.3 | none |
+| tier ∧ gap < 4 | 979 | 2.238 | 3.620 | +1.68 | −41.5 | none |
+| tier ∧ gap ≥ 4 | 202 | 1.492 | 2.712 | +0.69 | −37.2 | 2025 0.51, 2026 0.65 |
+| tier ∧ volat < 90 | 186 | 1.471 | 2.033 | +0.48 | −25.3 | 2022–2024 |
+| tier ∧ volat ≥ 90 | 995 | 2.192 | 3.627 | +1.71 | −41.5 | none |
+
+**Tier multiplier** (tier trimPF−1 / book trimPF−1): 1.64 fit all · 1.75 fit 2020–23 · 1.66 fit 2024–26 — stable. The
+premium lives on dense volatile tape: gap 0 × volat 140–250 = 2.42 (331), 250+ = 3.88 (52), 90–140 = 1.87 (201); gap 1–3
+1.0–1.3; tier ∧ gap ≥ 4 and tier ∧ volat < 90 carry NO premium over the book. So the tier stacks on gap × volat as a
+FACTOR (joint cells are too thin: 40 of 70 tier cells < 50 trades).
+
+Sized vs flat at equal exposure (trimPF−1 flat / sized · net flat / sized · worst sized):
+
+| map | in-sample | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|---|
+| gap × volat | 2.099 / 2.475 · 20,392 / 23,597 · −152 | 1.863 / 2.321 · 7,624 / 9,309 · −82 | 2.276 / 2.617 · 12,768 / 14,181 · −84 |
+| gap × volat × rate600 | 2.099 / 2.715 · 25,551 · −135 | 1.863 / 2.634 · 9,877 · −138 | 2.276 / 2.814 · 14,307 · −135 |
+| gap × volat, × tier | 2.630 · 24,807 · −188 | 2.536 · 10,110 · −98 | 2.743 · 14,698 · −126 |
+| gap × volat × rate600, × tier | 2.874 · 26,810 · −221 | 2.875 · 10,872 · −132 | 2.941 · 14,784 · −227 |
+| same, product CAPPED at 4 | **2.850 · 26,573 · −167** | **2.770 · 10,357 · −134** | **2.921 · 14,704 · −176** |
+
+Product multiplier before the cap: max 5.31, 0.2% of trades > 4, 1.0% > 3. The cap costs ~1% of the sized edge and keeps
+the worst sized trade inside the 4× envelope (the −84.3% trade is an S-tier trade at gap 0 — the tier's tail is the book's tail).
+
+**Ruling: production sizing = gap × volat × rate600 multipliers (S49k/S49n) × S-tier factor 1.64, total capped at 4.**
+Year holdouts: sized trimPF−1 2.77 / 2.92 vs flat 1.86 / 2.28; net +36% / +15% at equal exposure. The WAIT is in the spec.

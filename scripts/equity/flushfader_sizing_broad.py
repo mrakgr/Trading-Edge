@@ -19,12 +19,13 @@ ap.add_argument("--rule140", action="store_true", help="user rule: volat >= 140 
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--base", type=float, default=0.10, help="fraction of equity per trade at multiplier 1 (compounded sim)")
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_broad.md")
+ap.add_argument("--halts", action="store_true", help="S49p: WAIT (ht>=4 & ssh<300 excluded) + S TIER (ht>=1 & ssh in [300,2400)) as a sizing axis")
 args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:6.1f}s]", *a, flush=True)
 
 D = pd.read_parquet(args.slice, columns=["tkd", "yr", "signal_sec", "ent", "ext", "ret", "dv0945", "volat", "px", "gap60",
-                                        "l180", "l300", "eff10a", "z20", "v10r", "crf", "consol_5m_lag1m", "rate600", "lows_rr1_300"])
+                                        "l180", "l300", "eff10a", "z20", "v10r", "crf", "consol_5m_lag1m", "rate600", "lows_rr1_300", "ht", "ssh"])
 N = len(D); log(f"{N:,} sampler trips")
 def nz(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 # the S49d step-7 spec: frame (S49a) + lows300 + eff10 + v10r + z20 + lows180 + crf + coil5lo, door < args.door, NO vote
@@ -32,6 +33,7 @@ M = (nz(D.volat.values >= 40) & nz(D.signal_sec.values <= 54000) & nz(D.gap60.va
      & nz(D.l300.values >= 6) & nz(D.eff10a.values >= 0.15) & nz(D.v10r.values >= 0.75) & nz(D.z20.values < -1.5)
      & nz(D.l180.values >= 3) & nz(D.crf.values <= -0.002) & nz(D.consol_5m_lag1m.values <= 0.22))
 if args.rule140: M &= ~(nz(D.volat.values >= 140) & nz(D.gap60.values >= 4))
+if args.halts: M &= ~(nz(D.ht.values >= 4) & nz(D.ssh.values < 300))   # S49p wait: 4th+ halt of the day, first 5 min after the resume
 
 @njit(cache=True)
 def greedy_keep(tkd, ent, ext, mask, keep):
@@ -63,6 +65,7 @@ GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
 RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125+"]   # rate600 quartile-ish bands (S49n)
 ri = np.digitize(np.nan_to_num(B.rate600.values, nan=0.0), RB[1:-1])
+TL = ["book", "S tier"]; ti = (nz(B.ht.values >= 1) & nz(B.ssh.values >= 300) & nz(B.ssh.values < 2400)).astype(int)
 
 out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
        f"Book flat: PF {f(pf(R),3)}  trimPF-1 {f(tpf1(R),3)}  avg {R.mean():+.2f}%  net {R.sum():,.0f}%\n"]
@@ -98,9 +101,11 @@ def mults(fit_mask, cells_fn, ncell):
         r = R[fit_mask & (cells_fn == k)]
         m[k] = (tpf1(r) / base) if len(r) >= 50 and np.isfinite(tpf1(r)) else 1.0
     return np.clip(m, 0.25, 4.0)
-def sim(w, mask, label):
+def sim(w, mask, label, cap=None):
     """w = per-trade multiplier (mean-1 normalised on mask). Returns the stats line for sized vs flat."""
-    r = R[mask]; w = w[mask]; w = w / w.mean()
+    r = R[mask]; w = w[mask]
+    if cap is not None: w = np.minimum(w, cap)
+    w = w / w.mean()
     sized = w * r
     # compounded equity at base fraction per unit multiplier, chronological
     def maxdd(x):   # drawdown of the cumulative sum, in % of ONE position's notional (position units)
@@ -128,6 +133,30 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
     rows.append(sim(apply(mults(fit, ri, len(RL)), ri), app, "rate600 only"))
     gvr = gv * len(RL) + ri
     rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr), app, "gap × volat × rate600"))
+    if args.halts:
+        rows.append(sim(apply(mults(fit, ti, 2), ti), app, "S tier only"))
+        gvt = gv * 2 + ti
+        rows.append(sim(apply(mults(fit, gvt, len(GL) * len(VL) * 2), gvt), app, "gap × volat × tier (joint cells)"))
+        rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor"))
+        rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti), app, "gap × volat × rate600, × tier factor"))
+        wprod = apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti)
+        rows.append(sim(wprod, app, "gap × volat × rate600, × tier factor, product CAPPED at 4", cap=4.0))
+        rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor, product CAPPED at 4", cap=4.0))
+        if lab.startswith("in-sample"):
+            rows.append(f"| (product multiplier before cap: max {wprod.max():.2f}, share > 4 = {(wprod > 4).mean()*100:.1f}%, share > 3 = {(wprod > 3).mean()*100:.1f}%) | | | | | | | | |")
+if args.halts:
+    out += ["", f"## 6b. S TIER (ht>=1 & ssh in [300,2400)) on this book, {COSTLAB}", "| set | n | PF | trimPF-1 | avg% | net | worst | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|---|---|" + "---|" * len(YEARS)]
+    for lab, m in [("S tier", ti == 1), ("rest of book", ti == 0), ("tier & gap<4", (ti == 1) & (B.gap60.values < 4)), ("tier & gap>=4", (ti == 1) & (B.gap60.values >= 4)),
+                   ("tier & volat<90", (ti == 1) & (B.volat.values < 90)), ("tier & volat>=90", (ti == 1) & (B.volat.values >= 90))]:
+        r = R[m]; out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.sum():,.0f} | {r.min():.1f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
+    out += ["", "tier multiplier (fit all): " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(all_m, ti, 2))),
+            "tier multiplier fit 2020-23: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(early, ti, 2))) + " ; fit 2024-26: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(late, ti, 2)))]
+    gvt_m = mults(all_m, gv * 2 + ti, len(GL) * len(VL) * 2)
+    out += ["", "## 6c. gap (rows) × volat (cols) multipliers, S tier cells vs book cells (fit all; 1.00 = fewer than 50 trades)"]
+    for t, tl in enumerate(TL):
+        out += [f"\n{tl}:", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+        for g, gl in enumerate(GL):
+            out.append(f"| {gl} | " + " | ".join(f"{gvt_m[(g * len(VL) + v) * 2 + t]:.2f} ({((gi==g)&(vi==v)&(ti==t)).sum()})" for v in range(len(VL))) + " |")
 out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "volat: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(VL, mults(all_m, vi, len(VL)))),
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),
