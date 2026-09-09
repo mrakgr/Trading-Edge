@@ -18381,3 +18381,28 @@ fitted PF−1), power 1 (ruled), clip [0.25, 4] (never binds: range 0.52–3.12)
 
 Holdouts (∝ PF−1, equal exposure): fit 20–23 → 24–26 **1.527 / 9,744 / DD 238** (flat 1.442 / 7,624 / 214); fit 24–26 →
 20–23 **1.728 / 15,266 / 180** (flat 1.615 / 12,768 / 149). Supersedes S49aa/ab (the product of marginal ladders).
+
+## S49af — CONSISTENCY of the broad book (user, 2026-09-09): days / weeks / months profitable
+
+`scripts/equity/flushfader_consistency.py --credit 0.001 --rule140` → `data/flushfader_gate_review/consistency.md`.
+37,279 trades over 1,666 days (2020-01 … 2026-08), net of the credit; P&L in POSITION UNITS (1 = one flat position's
+notional). Three sizings: FLAT, A3 in-sample, A3 CROSS-FIT (each half sized by the other half's fit — the honest one).
+
+| period | n | FLAT profitable | A3 in-sample | A3 cross-fit | cross-fit median / p10 / worst | longest losing streak |
+|---|---|---|---|---|---|---|
+| day | 1,666 | 76.4% | 77.2% | **77.1%** | +11.3 / −11.4 / −347 | 4 days |
+| week | 347 | 86.2% | 87.9% | **85.9%** | +55.8 / −10.0 / −203 | 3 weeks |
+| month | 80 | 95.0% | 97.5% | **97.5%** | +241 / +48 / −46 | 1 month |
+| quarter | 27 | 100% | 100% | **100%** | +706 / +297 / +142 | 0 |
+| year | 7 | 100% | 100% | **100%** | +3,527 / +1,481 / +1,391 | 0 |
+
+By year (A3 cross-fit): PF 1.98 / 1.79 / 1.47 / 1.42 / 1.54 / 1.49 / 1.57; days profitable 87 / 84 / 72 / 70 / 75 / 77 /
+73%; weeks 92 / 88 / 85 / 75 / 85 / 83 / 94%; months 12/12 every year except 2023 (10/12: Mar −22, Dec −46). The two
+losing months are the only ones in 80. Sizing does not change the consistency (it changes the level: +21% net).
+
+**The concentration risk is DAILY, not monthly.** Worst day 2020-03-18: 331 trades, −501 flat (mean −1.5%/trade), i.e. five
+positions' notional lost in one session — from trade COUNT, not from bad trades (worst trade that day −38%). Trades/day
+median 18, p90 38, max 331; max concurrent positions median 4, p90 10, p99 32, max 107. The other worst days are −116 …
+−75 on 21–145 trades. With a per-position size of 10% of equity (the user's stance), 2020-03-18 flat = −50% of equity in
+a day, and a p99 day holds 32 positions = 320% gross. **A concurrency cap (max open positions / max positions per day) is
+a production parameter that has to be set before go-live; it is not a sizing question and was not studied here.**
