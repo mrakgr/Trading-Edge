@@ -116,11 +116,13 @@ def mults(fit_mask, cells_fn, ncell, base_mask=None, fallback=1.0):
         m[k] = (MEAS(r) / base) if len(r) >= 50 and np.isfinite(MEAS(r)) else fallback
     return np.clip(m, 0.25, 4.0)
 # 6g. is rate600 EXPLAINED by gap x volat? within-cell test: each band vs cell-weighted peers in the same gap x volat cells
-def within_cell(band_mask, fit_mask):
+def within_cell(band_mask, fit_mask, cell_idx=None):
+    """band vs cell-weighted peers in the same cells of cell_idx (default: the gap x volat cells)."""
+    cidx = gv if cell_idx is None else cell_idx
     w = np.zeros(len(B)); other = fit_mask & ~band_mask
-    for c in np.unique(gv[fit_mask & band_mask]):
-        kb = (fit_mask & band_mask & (gv == c)).sum(); ko = (other & (gv == c)).sum()
-        if ko: w[other & (gv == c)] = kb / ko
+    for c in np.unique(cidx[fit_mask & band_mask]):
+        kb = (fit_mask & band_mask & (cidx == c)).sum(); ko = (other & (cidx == c)).sum()
+        if ko: w[other & (cidx == c)] = kb / ko
     rw = R * w
     if args.measure == "tpf1":   # trim the bottom 5% of WEIGHT from the peers, like MEAS trims the band
         o = np.argsort(R); cw = np.cumsum(w[o]) / w.sum(); drop = o[cw < args.trim]; rw = rw.copy(); rw[drop] = 0.0
@@ -159,6 +161,13 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rcs = np.array([(lambda o, pe, _: o / pe)(*within_cell(ri == k, fit)) for k in range(len(RL))])
         rows.append(sim(np.minimum(wsep * rcs[ri], 4.0), app, "SEPARABLE gap × volat × rate600 conditional, clip 4"))
         rows.append(sim(np.minimum(wsep * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE gap × volat × rate600 conditional × tier, clip 4"))
+        # ALL-CONDITIONAL separable: gap within volat bands, volat within gap bands, rate600 within gap x volat cells
+        gc = np.array([(lambda o, pe, _: o / pe)(*within_cell(gi == k, fit, vi)) for k in range(len(GL))])
+        vcnd = np.array([(lambda o, pe, _: o / pe)(*within_cell(vi == k, fit, gi)) for k in range(len(VL))])
+        rm = mults(fit, ri, len(RL))
+        rows.append(f"| (ladders on the fit years — gap marginal {' / '.join(f'{x:.2f}' for x in mults(fit, gi, len(GL)))} vs conditional {' / '.join(f'{x:.2f}' for x in gc)}; volat marginal {' / '.join(f'{x:.2f}' for x in mults(fit, vi, len(VL)))} vs conditional {' / '.join(f'{x:.2f}' for x in vcnd)}; rate600 marginal {' / '.join(f'{x:.2f}' for x in rm)} vs conditional {' / '.join(f'{x:.2f}' for x in rcs)}) | | | | | | | | |")
+        rows.append(sim(np.minimum(wsep * rm[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-MARGINAL: gap × volat × rate600 marginal × tier, clip 4"))
+        rows.append(sim(np.minimum(gc[gi] * vcnd[vi] * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-CONDITIONAL: gap|volat × volat|gap × rate600|cell × tier, clip 4"))
         wj = apply(mults(fit, gv, len(GL) * len(VL)), gv)
         for pw in (1.25, 1.5):
             rows.append(sim(np.minimum(wj ** pw * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, f"CONTROL: JOINT grid ^ {pw} × rate600 conditional × tier, clip 4"))

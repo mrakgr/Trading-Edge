@@ -18200,3 +18200,27 @@ cells), 9 parameters instead of 20, no exponent to choose; what it costs is conc
 
 **Ruling: SEPARABLE.** Production sizing = gap ladder × volat ladder × rate600 (2-band conditional) × S-tier 2.06, clip
 [0.25, 4], multipliers from PF−1. The separable product is the steepness the user accepted (S49s: "endures the bad trades").
+
+## S49ab — separable map: ALL-MARGINAL vs mixed vs ALL-CONDITIONAL (user, 2026-09-09: "would rate600 also be a marginal?")
+
+Ladders on all years (PF−1), marginal vs conditional (each axis within the other axes' bands):
+gap 1.68 / 1.06 / 0.89 / 0.78 vs 1.92 / 0.92 / 0.90 / 0.71 · volat 0.76 / 1.02 / 1.18 / 1.70 / 2.22 vs 0.72 / 1.06 / 1.08 /
+1.21 / 1.48 · rate600 1.15 / 0.82 vs 1.50 / 0.69. On the halves the conditional ladders are the noisier ones (volat 250+
+conditional 3.59 on 20–23, 0.83 on 24–26 — 108 trades; gap 0 conditional 1.70 / 2.34). Full map × tier 2.06, clip 4:
+
+| separable form | fit 20–23 → 24–26 (PF / net / DD) | fit 24–26 → 20–23 |
+|---|---|---|
+| mixed (gap, volat marginal; rate600 conditional) — S49aa | 1.583 / 10,968 / 257 | 1.806 / 17,260 / 218 |
+| **ALL-MARGINAL** | 1.585 / 11,053 / 252 | 1.794 / 17,367 / 242 |
+| ALL-CONDITIONAL | 1.588 / 11,152 / 246 | 1.801 / 16,739 / 201 |
+
+All three within noise of each other. **Ruling: ALL-MARGINAL** — one rule for every axis, the most stable ladders across
+halves, no within-cell machinery. rate600 becomes 1.15 / 0.82.
+
+**FINAL PRODUCTION SIZING (supersedes S49k/n/q/r/s/u/v/w/y/z/aa on the form):** multiplier = gap ladder × volat ladder ×
+rate600 ladder × S-tier factor, clipped [0.25, 4], every ladder = band PF−1 / book PF−1 on the broad book net of the
+$0.001/sh/side credit, fitted on all years:
+- gap_60: 0 → 1.68 · 1–3 → 1.06 · 4–12 → 0.89 · 13–39 → 0.78
+- volat_20m (bp): 40–60 → 0.76 · 60–90 → 1.02 · 90–140 → 1.18 · 140–250 → 1.70 · ≥ 250 → 2.22 (≥ 140 only at gap < 4)
+- rate600: < .07 → 1.15 · ≥ .07 → 0.82
+- S tier (ht ≥ 1 ∧ ssh ∈ [300, 2400)) → 2.06; WAIT: ht ≥ 4 ∧ ssh < 300 → no trade
