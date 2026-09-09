@@ -18385,8 +18385,8 @@ Holdouts (∝ PF−1, equal exposure): fit 20–23 → 24–26 **1.527 / 9,744 /
 ## S49af — CONSISTENCY of the broad book (user, 2026-09-09): days / weeks / months profitable
 
 `scripts/equity/flushfader_consistency.py --credit 0.001 --rule140` → `data/flushfader_gate_review/consistency.md`.
-37,279 trades over 1,666 days (2020-01 … 2026-08), net of the credit; P&L in POSITION UNITS (1 = one flat position's
-notional). Three sizings: FLAT, A3 in-sample, A3 CROSS-FIT (each half sized by the other half's fit — the honest one).
+37,279 trades over 1,666 days (2020-01 … 2026-08), net of the credit; P&L in POSITION UNITS (**1 unit = 1% of one flat position's notional; 100 units = one whole position** — the label
+'1 = one notional' in the first draft was WRONG). Three sizings: FLAT, A3 in-sample, A3 CROSS-FIT (each half sized by the other half's fit — the honest one).
 
 | period | n | FLAT profitable | A3 in-sample | A3 cross-fit | cross-fit median / p10 / worst | longest losing streak |
 |---|---|---|---|---|---|---|
@@ -18401,10 +18401,10 @@ By year (A3 cross-fit): PF 1.98 / 1.79 / 1.47 / 1.42 / 1.54 / 1.49 / 1.57; days 
 losing months are the only ones in 80. Sizing does not change the consistency (it changes the level: +21% net).
 
 **The concentration risk is DAILY, not monthly.** Worst day 2020-03-18: 331 trades, −501 flat (mean −1.5%/trade), i.e. five
-positions' notional lost in one session — from trade COUNT, not from bad trades (worst trade that day −38%). Trades/day
+positions' notional (501% of one position) lost in one session — from trade COUNT, not from bad trades (worst trade that day −38%). Trades/day
 median 18, p90 38, max 331; max concurrent positions median 4, p90 10, p99 32, max 107. The other worst days are −116 …
 −75 on 21–145 trades. With a per-position size of 10% of equity (the user's stance), 2020-03-18 flat = −50% of equity in
-a day, and a p99 day holds 32 positions = 320% gross. **A concurrency cap (max open positions / max positions per day) is
+a day at 10% per position, and a p99 day holds 32 positions = 320% gross. **A concurrency cap (max open positions / max positions per day) is
 a production parameter that has to be set before go-live; it is not a sizing question and was not studied here.**
 
 ## S49ag — the CAPPED replay (user ruling, 2026-09-09: 400% gross = 20 units of size open at once; one position per ticker-date)
@@ -18412,7 +18412,7 @@ a production parameter that has to be set before go-live; it is not a sizing que
 `scripts/equity/flushfader_capped_replay.py --credit 0.001 --rule140 --cap 20` → `data/flushfader_gate_review/capped_replay.md`.
 Chronological first-come-first-served replay over the 168,760 spec-passing trips: a trip executes if its ticker is free and
 the open size + its multiplier ≤ cap; otherwise skipped (not queued). Sizes = A3 (fit on the uncapped book; cross-fit twin
-agrees within 1%). P&L in position units.
+agrees within 1%). P&L in position units (1 unit = 1% of one flat position's notional; 100 = one position).
 
 | replay | trades | PF | net | max DD | worst day | days / weeks / months prof. | peak open size med / p90 / max |
 |---|---|---|---|---|---|---|---|
@@ -18447,3 +18447,35 @@ Mar 18 −305, Mar 24 −3. Trades/day 7–20 before Feb 27, 46–69 on the vola
 week; the cap (20 units) bound on Mar 13, 18, 19, 20, 23, 25 (peak open 20.0; 615 trips refused on Mar 18 alone).
 The crash was a GOOD period for the book except for one session; the day after the mREIT liquidation (Mar 19) was +20
 sized / +96 flat, and Mar 23–27 (the bottom) +253 sized. The single-day tail is the whole story of this stress test.
+
+## S49ah — DAILY LOSS STOP on the ruled replay (user, 2026-09-09): no new entries once the day's REALISED P&L ≤ −L
+
+Units: 1 = 1% of one position's notional; **100 units = one whole position = 10% of equity at 10%/position, 20% at 20%.**
+Ruled replay (re-entries allowed, cap 20 units of size), A3 cross-fit sizes. Realised = closed positions only; open
+positions keep running after the stop, so a day's final loss can exceed L.
+
+| L | trades | PF | net | Δ net | max DD | worst day | days stopped | refused trips | their naive P&L |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 36,543 | 1.625 | 24,322 | – | 453 | −305 | 0 | 0 | – |
+| 25 | 35,011 | 1.638 | 23,572 | −750 (−3.1%) | 290 | −200 | 105 | 8,317 | +9,635 |
+| 50 | 35,843 | 1.628 | 23,937 | −384 (−1.6%) | 291 | −200 | 33 | 4,326 | +5,951 |
+| 75 | 36,194 | 1.631 | 24,263 | −59 (−0.2%) | 336 | −200 | 14 | 2,590 | +1,969 |
+| **100** | 36,256 | 1.631 | 24,308 | **−14 (−0.06%)** | 331 | −200 | **7** | 2,272 | +1,513 |
+| 150 | 36,411 | 1.623 | 24,179 | −143 | 476 | −329 | 3 | 654 | +1,721 |
+| 200 | 36,499 | 1.625 | 24,303 | −19 | 465 | −318 | 2 | 197 | +126 |
+
+The refused trips are GOOD trades (+0.67%/trade naive, the book's average) — the stop trades expected value for tail, it
+does not select bad trades; the user's prior holds. At L ≤ 100 the worst day floors at −200 because the positions open
+when the stop fires keep losing. At L ≥ 150 the stop fires too LATE and makes 2020-03-18 WORSE (−329): it refuses the
+afternoon bounce trades. Stopped days at L = 100 (no stop → stop): 2020-03-18 −305 → −183 · 2021-01-28 −57 → **−148**
+(fired 10:51 on a day that would have recovered) · 2021-08-26 −129 → −135 · 2021-10-05 −101 → −103 · 2022-03-08 −88 →
+−106 · 2024-02-27 −202 → −200 · 2024-12-31 −105 → −126. **The stop helps ONE day in seven and hurts five.**
+
+2024-02-27 (−202 sized, only −75 flat) is a different animal: IFBD, volat 259 bp, gap 0, slow leg → multiplier ~3, a −55%
+trade held 41 min = −170 units from ONE position; the second IFBD entry −11% × 2.3. That is the SIZED tail: the clip at 4
+bounds it at 4 × the worst trade, and no daily stop touches it.
+
+**Verdict: the daily stop is not worth having.** It costs nothing at L = 100 but also buys almost nothing (worst day −305
+→ −200, DD 453 → 331) and it hurts on five of the seven days it fires. The two tails are (a) a sector liquidation where
+positions keep turning over — a market/sector brake on NEW entries (index in free fall) is the mechanism-shaped tool;
+(b) a single high-volat name gapping −55% — bounded by the clip and the per-position equity fraction, nothing else.

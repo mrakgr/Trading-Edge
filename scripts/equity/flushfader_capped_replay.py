@@ -81,24 +81,30 @@ log(f"A3 multipliers on the uncapped book: mean {W_IN[BOOK].mean():.3f}")
 
 # ---- the capped replay
 @njit(cache=True)
-def capped_replay(day, tkd, ent, ext, size, cap, one_per_tkd, take, reason, open_size_at_entry):
-    """Trips sorted by (day, ent). take[i]=1 if executed. reason: 0 taken, 1 ticker already used today, 2 cap."""
+def capped_replay(day, tkd, ent, ext, size, cap, one_per_tkd, take, reason, open_size_at_entry, pnl, stop, realised_at_entry):
+    """Trips sorted by (day, ent). take[i]=1 if executed. reason: 0 taken, 1 ticker busy/used, 2 cap, 3 daily stop.
+    pnl = per-trip sized P&L (known at EXIT); stop = daily loss limit in units (<= 0 disables): once the day's REALISED
+    P&L (closed positions) <= -stop, no new entries for the rest of the day."""
     n = day.shape[0]; i = 0
     while i < n:
         d = day[i]; j = i
         while j < n and day[j] == d: j += 1
         # per-day state
         m = j - i
-        op_ext = np.empty(m, np.int64); op_size = np.empty(m, np.float64); op_tkd = np.empty(m, np.int64); nop = 0
-        used = np.empty(m, np.int64); nused = 0
+        op_ext = np.empty(m, np.int64); op_size = np.empty(m, np.float64); op_tkd = np.empty(m, np.int64); op_pnl = np.empty(m, np.float64); nop = 0
+        used = np.empty(m, np.int64); nused = 0; realised = 0.0; stopped = False
         for t in range(i, j):
             now = ent[t]
             # close positions whose exit <= now (exit at the exit second frees the slot for entries at >= that second)
             w = 0
             for q in range(nop):
                 if op_ext[q] > now:
-                    op_ext[w] = op_ext[q]; op_size[w] = op_size[q]; op_tkd[w] = op_tkd[q]; w += 1
+                    op_ext[w] = op_ext[q]; op_size[w] = op_size[q]; op_tkd[w] = op_tkd[q]; op_pnl[w] = op_pnl[q]; w += 1
+                else:
+                    realised += op_pnl[q]
             nop = w
+            realised_at_entry[t] = realised
+            if stop > 0 and realised <= -stop: stopped = True
             cur = 0.0
             for q in range(nop): cur += op_size[q]
             open_size_at_entry[t] = cur
@@ -113,16 +119,17 @@ def capped_replay(day, tkd, ent, ext, size, cap, one_per_tkd, take, reason, open
                     if op_tkd[q] == tkd[t]: busy = True; break
                 if busy: reason[t] = 1; continue
             if cur + size[t] > cap + 1e-9: reason[t] = 2; continue
+            if stopped: reason[t] = 3; continue
             take[t] = 1; reason[t] = 0
-            op_ext[nop] = ext[t]; op_size[nop] = size[t]; op_tkd[nop] = tkd[t]; nop += 1
+            op_ext[nop] = ext[t]; op_size[nop] = size[t]; op_tkd[nop] = tkd[t]; op_pnl[nop] = pnl[t]; nop += 1
             used[nused] = tkd[t]; nused += 1
         i = j
 
-def run(size, cap, one_per_tkd, label):
-    n = len(C); take = np.zeros(n, np.int8); reason = np.full(n, -1, np.int8); osz = np.zeros(n)
-    capped_replay(C.day.values.astype(np.int64), C.tkd.values.astype(np.int64), C.ent.values.astype(np.int64), C.ext.values.astype(np.int64), size.astype(np.float64), float(cap), one_per_tkd, take, reason, osz)
+def run(size, cap, one_per_tkd, label, stop=0.0):
+    n = len(C); take = np.zeros(n, np.int8); reason = np.full(n, -1, np.int8); osz = np.zeros(n); rae = np.zeros(n)
+    capped_replay(C.day.values.astype(np.int64), C.tkd.values.astype(np.int64), C.ent.values.astype(np.int64), C.ext.values.astype(np.int64), size.astype(np.float64), float(cap), one_per_tkd, take, reason, osz, (R * size).astype(np.float64), float(stop), rae)
     t = take == 1; pnl = R[t] * size[t]; dt = C.date.values[t]
-    return dict(label=label, n=int(t.sum()), tkd=len(np.unique(C.tkd.values[t])), pnl=pnl, dt=dt, size=size[t], reason=reason, osz=osz[t], t=t)
+    return dict(label=label, n=int(t.sum()), tkd=len(np.unique(C.tkd.values[t])), pnl=pnl, dt=dt, size=size[t], reason=reason, osz=osz[t], t=t, rae=rae)
 
 def pf(r):
     g, l = r[r > 0].sum(), -r[r < 0].sum(); return np.inf if l == 0 else g / l
@@ -139,7 +146,7 @@ HDR = ("| replay | trades | tkd | PF | net (units) | avg/trade | max DD | worst 
        "|---|---|---|---|---|---|---|---|---|---|---|---|---|")
 
 out = [f"# S49ag — capped replay of the broad book: cap {args.cap:g} size units open at once, one position per ticker-date; {len(C):,} spec-passing trips; net of ${args.credit}/sh/side\n",
-       "P&L in position units (1 = one flat position's notional). 'trips skipped' are candidate trips (not book trades) refused by each rule.\n", HDR]
+       "P&L in position units (1 unit = 1% of one flat position's notional; 100 = one position). 'trips skipped' are candidate trips (not book trades) refused by each rule.\n", HDR]
 ref_flat = dict(label="REFERENCE: uncapped mc=1 (re-entries allowed), flat", n=int(BOOK.sum()), tkd=len(np.unique(C.tkd.values[BOOK])), pnl=R[BOOK], dt=C.date.values[BOOK], size=np.ones(BOOK.sum()), reason=np.zeros(len(C), np.int8), osz=np.zeros(BOOK.sum()), t=BOOK)
 ref_a3 = dict(ref_flat, label="REFERENCE: uncapped mc=1, A3 sized (in-sample)", pnl=R[BOOK] * W_IN[BOOK], size=W_IN[BOOK])
 out += [stats(ref_flat), stats(ref_a3)]
@@ -155,6 +162,27 @@ for cap in (10.0, 20.0):
     out.append(stats(run(ones, cap, False, f"re-entries allowed (mc=1), cap {cap:g} positions, flat")))
     out.append(stats(run(W_IN, cap, False, f"re-entries allowed (mc=1), cap {cap:g} units, A3 sized (in-sample)")))
     out.append(stats(run(W_X, cap, False, f"re-entries allowed (mc=1), cap {cap:g} units, A3 sized (CROSS-FIT)")))
+# ---- DAILY LOSS STOP sweep on the ruled replay (re-entries allowed, cap 20), cross-fit sizes
+out += ["", "## Daily loss STOP on the ruled replay (re-entries allowed, cap 20 units, A3 cross-fit): no new entries once the day's REALISED P&L ≤ −L; open positions run to their exits\n",
+        "1 unit = one flat position's notional; at 20% of equity per unit, L = 25 units ≈ 5% of equity, 50 ≈ 10%, 100 ≈ 20%.\n",
+        "| L (units) | trades | PF | net | Δ net vs no stop | max DD | worst day | days prof. | months prof. | days stopped | trips refused by stop | P&L those trips would have made (naive) | worst 5 days |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+base = run(W_X, args.cap, False, "no stop")
+for L in (0.0, 25.0, 50.0, 75.0, 100.0, 150.0, 200.0):
+    r = run(W_X, args.cap, False, f"stop {L:g}", stop=L); pnl = r["pnl"]; dt = pd.to_datetime(r["dt"]); s_ = pd.Series(pnl)
+    d = s_.groupby(dt.normalize()).sum(); mo = s_.groupby(dt.to_period("M").start_time).sum(); c = np.cumsum(pnl); dd = float((np.maximum.accumulate(c) - c).max())
+    refused = r["reason"] == 3; forgone = (R * W_X)[refused].sum()
+    stopped_days = len(np.unique(C.date.values[refused]))
+    worst5 = ", ".join(f"{v:+.0f}" for v in d.sort_values().head(5).values)
+    out.append(f"| {'none' if L == 0 else f'{L:g}'} | {r['n']:,} | {pf(pnl):.3f} | {pnl.sum():+,.0f} | {pnl.sum() - base['pnl'].sum():+,.0f} | {dd:,.0f} | {d.min():+.0f} | {(d>0).mean()*100:.1f}% | {(mo>0).sum()}/{len(mo)} | {stopped_days} | {refused.sum():,} | {forgone:+,.0f} | {worst5} |")
+for L in (75.0, 100.0):
+    r = run(W_X, args.cap, False, f"stop {L:g}", stop=L); refused = r["reason"] == 3
+    days = np.unique(C.date.values[refused]); dtb = pd.to_datetime(base["dt"]); dtr = pd.to_datetime(r["dt"])
+    out += ["", f"stopped days at L = {L:g} (day P&L without stop → with stop; trades without → with; time the stop fired):", "| date | no stop | with stop | trades | stop fired at |", "|---|---|---|---|---|"]
+    for d in days:
+        pb = base["pnl"][np.asarray(dtb == d)].sum(); pr = r["pnl"][np.asarray(dtr == d)].sum()
+        nb = int(np.asarray(dtb == d).sum()); nr = int(np.asarray(dtr == d).sum())
+        first = C.ent.values[refused & (C.date.values == d)].min(); hh, mm = divmod(int(first) // 60, 60)
+        out.append(f"| {pd.Timestamp(d).date()} | {pb:+.0f} | {pr:+.0f} | {nb} → {nr} | {hh:02d}:{mm:02d} |")
 main = run(W_X, args.cap, False, "RULED: re-entries allowed (mc=1), cap 20 units, A3 CROSS-FIT")
 flat_main = run(ones, args.cap, False, "flat, same rules")
 a, b = args.window.split(":"); wm = (C.date.values >= np.datetime64(a)) & (C.date.values <= np.datetime64(b))

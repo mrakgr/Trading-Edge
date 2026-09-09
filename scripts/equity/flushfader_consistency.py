@@ -3,7 +3,7 @@
 Book = the broad book (S49 step 7, gap < 40, rule140, WAIT ht>=4 & ssh<300), returns net of the $0.001/sh/side credit.
 Sizing = model A3 (S49ae), fitted on ALL years (in-sample multipliers — noted) and, as the honest twin, fitted on the
 OTHER half (2020-23 multipliers applied to 2024-26 and vice versa). P&L is in POSITION UNITS: % per trade × multiplier,
-i.e. 1.0 = one flat position's notional; a day's P&L is the sum over its trades.
+i.e. 1 unit = 1% of one flat position's notional; a day's P&L is the sum over its trades.
 
 Run from research/:  python -u scripts/equity/flushfader_consistency.py --credit 0.001 --rule140
 """
@@ -109,7 +109,7 @@ def block(pnl, label):
         out.append(f"| {y} | " + " | ".join(cells) + " |")
     return "\n".join(out) + "\n"
 
-out = [f"# S49af — consistency of the broad book: {n:,} trades, {DT.nunique():,} days, net of ${args.credit}/sh/side; P&L in position units (1 = one flat position's notional)\n"]
+out = [f"# S49af — consistency of the broad book: {n:,} trades, {DT.nunique():,} days, net of ${args.credit}/sh/side; P&L in position units (1 unit = 1% of one flat position's notional; 100 = one position)\n"]
 out.append(block(R, "FLAT (every trade one unit)"))
 out.append(block(R * w_in, "SIZED — model A3 fitted on all years (in-sample multipliers)"))
 out.append(block(R * w_ho, "SIZED — model A3 CROSS-FIT (2024-26 sized by the 2020-23 fit and vice versa)"))
