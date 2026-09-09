@@ -67,6 +67,8 @@ RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125
 ri = np.digitize(np.nan_to_num(B.rate600.values, nan=0.0), RB[1:-1])
 TGB = [0, 1, 4]; TGL = ["0", "1-3", "4+"]; TVB = [40, 90, 140, 250]; TVL = ["<90", "90-140", "140-250", "250+"]   # the tier's coarse grid
 tgi = np.digitize(B.gap60.values, TGB[1:]); tvi = np.digitize(B.volat.values, TVB[1:]); tgv = tgi * len(TVL) + tvi
+T2L = ["gap<4 & volat<90", "gap<4 & volat>=90", "gap>=4 & volat<90", "gap>=4 & volat>=90"]
+t2i = (B.gap60.values >= 4).astype(int) * 2 + (B.volat.values >= 90).astype(int)   # the tier's 2x2
 TL = ["book", "S tier"]; ti = (nz(B.ht.values >= 1) & nz(B.ssh.values >= 300) & nz(B.ssh.values < 2400)).astype(int)
 
 out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
@@ -144,9 +146,26 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rows.append(sim(apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti), app, "gap × volat × rate600, × tier factor"))
         # SPLIT maps: the tier sized from ITS OWN cells (coarse grid), the rest from its own gvr / gv map; one scale (book trimPF-1), no product
         for rest_lab, rest_idx, rest_n in [("gap × volat × rate600", gvr, len(GL) * len(VL) * len(RL)), ("gap × volat", gv, len(GL) * len(VL))]:
-            for tier_lab, tier_idx, tier_n in [("gap3 × volat4", tgv, len(TGL) * len(TVL)), ("volat4", tvi, len(TVL)), ("flat 1 cell", np.zeros(len(B), int), 1)]:
+            for tier_lab, tier_idx, tier_n in [("2x2 gap<4 × volat>=90", t2i, 4), ("gap3 × volat4", tgv, len(TGL) * len(TVL)), ("volat4", tvi, len(TVL)), ("flat 1 cell", np.zeros(len(B), int), 1)]:
                 w = np.where(ti == 1, apply(mults(fit & (ti == 1), tier_idx, tier_n, fit), tier_idx), apply(mults(fit & (ti == 0), rest_idx, rest_n, fit), rest_idx))
                 rows.append(sim(w, app, f"SPLIT: rest = {rest_lab} (fit on rest) · tier = {tier_lab} (fit on tier)"))
+        # the S49r form: PREMIUM cell (tier & gap<4 & volat>=90) at its own flat multiplier; everything else (incl. the other 3 tier cells) on the book map
+        prem = (ti == 1) & (t2i == 1)
+        for rest_lab, rest_idx, rest_n in [("gap × volat × rate600", gvr, len(GL) * len(VL) * len(RL)), ("gap × volat", gv, len(GL) * len(VL))]:
+            mp = mults(fit & prem, np.zeros(len(B), int), 1, fit)[0]
+            w = np.where(prem, mp, apply(mults(fit & ~prem, rest_idx, rest_n, fit), rest_idx))
+            rows.append(sim(w, app, f"PREMIUM CELL flat {mp:.2f} (fit) · rest (incl. other tier cells) = {rest_lab}"))
+        # premium cell = book map x a factor (clip 4); factor = the cell's ratio (1.80) or the RESIDUAL after the book map's own grade of those trades
+        wb = apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr)
+        mp = mults(fit & prem, np.zeros(len(B), int), 1, fit)[0]; mb = wb[fit & prem].mean(); resid = mp / mb
+        mt = mults(fit & (ti == 1), np.zeros(len(B), int), 1, fit)[0]; mbt = wb[fit & (ti == 1)].mean()
+        rows.append(f"| (book map's mean multiplier on the premium cell = {mb:.2f} vs the cell's own ratio {mp:.2f} → residual {resid:.2f}; on the whole tier {mbt:.2f} vs {mt:.2f} → residual {mt/mbt:.2f}) | | | | | | | | |")
+        rows.append(sim(np.where(prem, np.minimum(wb * mp, 4.0), wb), app, f"PREMIUM CELL = book gvr map × {mp:.2f} (cell ratio), clip 4 · rest = book map"))
+        rows.append(sim(np.where(prem, np.minimum(wb * resid, 4.0), wb), app, f"PREMIUM CELL = book gvr map × {resid:.2f} (residual), clip 4 · rest = book map"))
+        rows.append(sim(np.where(ti == 1, np.minimum(wb * (mt / mbt), 4.0), wb), app, f"WHOLE TIER = book gvr map × {mt/mbt:.2f} (residual), clip 4 · rest = book map"))
+        # CONTROL: is the product's gain tier-specific or just a STEEPER book map? (map^p, no tier information)
+        for pw in (1.25, 1.5, 2.0):
+            rows.append(sim(np.minimum(wb ** pw, 4.0), app, f"CONTROL: book gvr map ^ {pw} (steeper, NO tier), clip 4"))
         wprod = apply(mults(fit, gvr, len(GL) * len(VL) * len(RL)), gvr) * apply(mults(fit, ti, 2), ti)
         rows.append(sim(wprod, app, "gap × volat × rate600, × tier factor, product CAPPED at 4", cap=4.0))
         rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ti, 2), ti), app, "gap × volat, × tier factor, product CAPPED at 4", cap=4.0))
@@ -159,6 +178,11 @@ if args.halts:
         r = R[m]; out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.sum():,.0f} | {r.min():.1f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
     out += ["", "tier multiplier (fit all): " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(all_m, ti, 2))),
             "tier multiplier fit 2020-23: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(early, ti, 2))) + " ; fit 2024-26: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(TL, mults(late, ti, 2)))]
+    out += ["", "## 6d. The tier's 2x2: gap<4 / >=4 × volat<90 / >=90 (net of credit)", "| tier cell | n | PF | trimPF-1 | avg% | net | worst | mult (fit all) | mult fit 20-23 | mult fit 24-26 | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|---|---|---|---|---|" + "---|" * len(YEARS)]
+    m_all, m_e, m_l = mults(all_m & (ti == 1), t2i, 4, all_m), mults(early & (ti == 1), t2i, 4, early), mults(late & (ti == 1), t2i, 4, late)
+    for k, lab in enumerate(T2L):
+        m = (ti == 1) & (t2i == k); r = R[m]
+        out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.sum():,.0f} | {r.min():.1f} | {m_all[k]:.2f} | {m_e[k]:.2f} | {m_l[k]:.2f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
     for flab, fm in [("fit all", all_m), ("fit 2020-23", early), ("fit 2024-26", late)]:
         tm = mults(fm & (ti == 1), tgv, len(TGL) * len(TVL), fm)
         out += ["", f"tier's own map gap3 × volat4 ({flab}; multiplier = cell trimPF-1 / BOOK trimPF-1; 1.00 = < 50 trades): ", "| gap \\ volat | " + " | ".join(TVL) + " |", "|---|" + "---|" * len(TVL)]

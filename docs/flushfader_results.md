@@ -17917,3 +17917,41 @@ product because it throws away the gradient INSIDE the tier — and that gradien
 own gradient, estimated on 36k trades instead of 1.2k. So the production form IS a separate tier map: **tier cells = the
 book's gap × volat × rate600 cells × 1.64**, clipped to [0.25, 4] like every other map (the "cap" is that clip; it binds on
 0.2% of trades). Ruling unchanged.
+
+## S49r — the tier's 2×2 and the STEEPNESS CONTROL: the S tier is NOT a sizing axis (2026-09-09) — SUPERSEDES the S49q ruling
+
+User: size the tier from its 2×2 (gap<4 / ≥4 × volat<90 / ≥90) instead of a product + cap. Net of the $0.001 credit:
+
+| tier cell | n | PF | trimPF−1 | avg% | worst | mult (all / 20–23 / 24–26) | years < 1 |
+|---|---|---|---|---|---|---|---|
+| gap<4 ∧ volat≥90 | 844 | 2.326 | 3.788 | +1.87 | −41.5 | 1.80 / 1.73 / 1.97 | none (min 1.50) |
+| gap<4 ∧ volat<90 | 135 | 1.496 | 2.201 | +0.52 | −25.3 | 1.05 / 0.69 / 1.00 | 2022, 2024 |
+| gap≥4 ∧ volat<90 | 51 | 1.396 | 1.488 | +0.37 | −9.5 | 0.71 / – / – | 2023, 2024, 2026 |
+| gap≥4 ∧ volat≥90 | 151 | 1.511 | 2.984 | +0.80 | −37.2 | 1.42 / 4.00 / 0.55 | 2025, 2026 |
+
+The premium is ONE cell: dense (gap<4) AND volatile (volat≥90), 844 trades @ 2.33 / +1.87%, 7/7 years. The other three
+cells carry no premium over the book (and the gap≥4 ∧ volat≥90 multiplier flips 4.00 → 0.55 across halves).
+
+**But the book's gap × volat × rate600 map ALREADY grades those trades.** Mean book-map multiplier on the premium cell =
+1.54 (fit all) / 1.79 (fit 20–23) / 1.49 (fit 24–26) vs the cell's own ratio 1.80 / 1.73 / 1.97 → residual 1.17 / 0.96 /
+1.32; on the whole tier 1.42 vs 1.64 → residual 1.15 / 1.10 / 1.18. Sized vs flat at equal exposure (trimPF−1):
+
+| map | in-sample | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|---|
+| gap × volat × rate600 (gvr), no tier | 2.715 | 2.634 | 2.814 |
+| premium cell flat 1.80, rest gvr | 2.699 | 2.515 | 2.814 |
+| whole tier = gvr × residual (1.15), rest gvr | 2.747 | 2.652 | 2.843 |
+| premium cell = gvr × residual, rest gvr | 2.749 | 2.625 | 2.860 |
+| gvr × tier factor 1.64, clip 4 (the S49q form) | 2.850 | 2.770 | 2.921 |
+| **CONTROL: gvr ^ 1.25, NO tier, clip 4** | 2.973 | **2.879** | **3.050** |
+| CONTROL: gvr ^ 1.5 | 3.234 | 3.087 | 3.245 |
+| CONTROL: gvr ^ 2.0 | 3.816 | 3.342 | 3.676 |
+
+The residual forms add +0.02–0.03 — nothing. The S49q product's gain was NOT halt information: a steeper book map with no
+tier beats it on both holdouts (the product = more weight on the book's best cells, which is what an exponent does).
+
+**Ruling (corrects S49q): the S tier is a DESCRIPTION, not a sizing axis.** Halt-resume trades 5–40 min after the resume on
+dense volatile tape are the top of the book, and the gap × volat × rate600 map already sizes them there (mean 1.5–1.8).
+Production sizing stays gap × volat × rate600 (S49k/S49n). The WAIT (ht ≥ 4 ∧ ssh < 300 → no trade) stays in the spec.
+OPEN (user's call, a sizing-policy question not a halt question): the map exponent — ^1.25 lifts every holdout (+0.24)
+at the cost of concentration (max DD in position units 315 → 338 forward); the standing rule is size ∝ trimPF−1 (p = 1).
