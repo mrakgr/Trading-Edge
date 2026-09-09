@@ -17973,3 +17973,31 @@ book's tail (the −84% trade is a tier trade); trimPF−1 rewards a thin tail, 
 **Ruling stands: not a sizing axis. Record the premium as a fact about the book** (halt-resume trades 5–40 min after the
 resume on dense volatile tape earn ~+0.7%/trade over their cell-mates) and revisit only if the sizing rule changes from
 trimPF−1 to an average-return measure.
+
+## S49s — sizing on PF−1 instead of trimPF−1 (user ruling, 2026-09-09): "this system endures the bad trades rather than avoiding them"
+
+`flushfader_sizing_broad.py --credit 0.001 --rule140 --halts --measure pf1` → `sizing_broad_pf1.md`. Every multiplier =
+cell PF−1 / book PF−1 (untrimmed), clipped [0.25, 4], mean-1 normalised. Maps (fit all): volat 0.76 / 1.02 / 1.18 / 1.70 /
+2.22 (tpf1: 0.80 … 2.45) · gap 1.68 / 1.06 / 1.01 / 0.76 / 0.96 / 0.79 / 0.67 (tpf1: 1.45 … 0.78) · rate600 1.25 / 1.01 /
+0.77 / 0.86 · **S tier 2.06 (fit 20–23 1.93, fit 24–26 2.37)** vs 1.64 under tpf1. PF−1 maps are steeper than the tpf1 maps.
+
+Sized vs flat at equal exposure — sized PF / net / max DD (position units) / worst sized trade:
+
+| map (multipliers from PF−1) | fit 20–23 → 24–26 (flat 1.442 / 7,624 / 214 / −84) | fit 24–26 → 20–23 (flat 1.615 / 12,768 / 149 / −75) |
+|---|---|---|
+| gap × volat | 1.519 / 9,468 / 227 / −95 | 1.712 / 15,095 / 163 / −133 |
+| gap × volat × rate600 | 1.519 / 9,617 / 342 / −161 | 1.692 / 14,928 / 250 / −183 |
+| gap × volat × rate600 ^1.25 (no tier) | 1.531 / 9,909 / 336 / −151 | 1.706 / 15,315 / 255 / −194 |
+| gap × volat × rate600 × tier 2.06, clip 4 | 1.543 / 10,164 / 323 / −154 | 1.716 / 15,549 / 246 / −176 |
+| **gap × volat × tier 2.06, clip 4** | **1.564 / 10,398 / 211 / −90** | **1.742 / 15,835 / 221 / −188** |
+| (reference: tpf1 maps, gap × volat × rate600 × tier 1.64) | 1.568 / 10,357 / 299 / −134 | 1.694 / 14,704 / 213 / −176 |
+
+Under PF−1: (1) **the S tier comes back as an axis** — the whole-tier factor (2.06) lifts PF and net on BOTH holdouts over
+every no-tier map including the steeper ^1.25 control (fwd 1.543 vs 1.531, mirror 1.716 vs 1.706), which is the tier-specific
+test the tpf1 measure failed; the within-cell factor is still unstable (1.37 / 0.90 / 2.15) so the tier is sized as ONE
+factor, not per cell. (2) **rate600 drops out** — a wash on the holdouts under PF−1 (fwd +net, mirror −PF −net) and it is
+what pushes the tails (DD 342 vs 227, worst −161 vs −95). (3) gap × volat × tier is the best map on both holdouts on PF and
+net AND the least concentrated of the tier maps (DD 211 / 221).
+
+**Ruling: production sizing = gap × volat multipliers from PF−1 (fit all) × S-tier factor 2.06 on ht ≥ 1 ∧ ssh ∈ [300,2400),
+clipped [0.25, 4]; the WAIT ht ≥ 4 ∧ ssh < 300 in the spec.** Supersedes S49k/S49n/S49q/S49r on the sizing side.

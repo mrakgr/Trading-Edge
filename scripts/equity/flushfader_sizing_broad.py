@@ -19,6 +19,7 @@ ap.add_argument("--rule140", action="store_true", help="user rule: volat >= 140 
 ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--base", type=float, default=0.10, help="fraction of equity per trade at multiplier 1 (compounded sim)")
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_broad.md")
+ap.add_argument("--measure", default="tpf1", choices=["tpf1", "pf1"], help="edge measure the multipliers are derived from: trimPF-1 (bottom 5% trimmed) or raw PF-1")
 ap.add_argument("--halts", action="store_true", help="S49p: WAIT (ht>=4 & ssh<300 excluded) + S TIER (ht>=1 & ssh in [300,2400)) as a sizing axis")
 args = ap.parse_args()
 T0 = time.time()
@@ -56,6 +57,10 @@ def pf(r):
 def tpf1(r):
     if len(r) < 20: return np.nan
     return pf(r[r >= np.quantile(r, args.trim)]) - 1
+def pf1(r):
+    if len(r) < 20: return np.nan
+    return pf(r) - 1
+MEAS = tpf1 if args.measure == "tpf1" else pf1
 def f(x, d=2):
     return "inf" if np.isinf(x) else ("nan" if np.isnan(x) else f"{x:.{d}f}")
 
@@ -71,7 +76,7 @@ T2L = ["gap<4 & volat<90", "gap<4 & volat>=90", "gap>=4 & volat<90", "gap>=4 & v
 t2i = (B.gap60.values >= 4).astype(int) * 2 + (B.volat.values >= 90).astype(int)   # the tier's 2x2
 TL = ["book", "S tier"]; ti = (nz(B.ht.values >= 1) & nz(B.ssh.values >= 300) & nz(B.ssh.values < 2400)).astype(int)
 
-out = [f"# S49k — sizing the broad book: step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
+out = [f"# S49k — sizing the broad book (multipliers from {args.measure}): step-7 spec, gap < {args.door}, no vote; {len(B):,} trades; {COSTLAB}{'; RULE volat>=140 only if gap<4' if args.rule140 else ''}\n",
        f"Book flat: PF {f(pf(R),3)}  trimPF-1 {f(tpf1(R),3)}  avg {R.mean():+.2f}%  net {R.sum():,.0f}%\n"]
 
 def grid(name, ai, al, bi, bl, stat):
@@ -101,10 +106,10 @@ out += ["## 1. volat_20m (rows) × lagged coil (cols) — n", grid("volat \\ coi
 # ---- multipliers: m(cell) = tpf1(cell) / tpf1(book), derived on a FIT set, normalised to mean 1 on the APPLY set
 def mults(fit_mask, cells_fn, ncell, base_mask=None):
     """base = the BOOK's trimPF-1 on the fit years (base_mask), so sub-population maps stay on the book's scale."""
-    m = np.ones(ncell); base = tpf1(R[fit_mask if base_mask is None else base_mask])
+    m = np.ones(ncell); base = MEAS(R[fit_mask if base_mask is None else base_mask])
     for k in range(ncell):
         r = R[fit_mask & (cells_fn == k)]
-        m[k] = (tpf1(r) / base) if len(r) >= 50 and np.isfinite(tpf1(r)) else 1.0
+        m[k] = (MEAS(r) / base) if len(r) >= 50 and np.isfinite(MEAS(r)) else 1.0
     return np.clip(m, 0.25, 4.0)
 def sim(w, mask, label, cap=None):
     """w = per-trade multiplier (mean-1 normalised on mask). Returns the stats line for sized vs flat."""
@@ -169,11 +174,11 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         for c in np.unique(gvr_idx_[fit & prem]):
             kt = (fit & prem & (gvr_idx_ == c)).sum(); kn = (fit & (ti == 0) & (gvr_idx_ == c)).sum()
             if kn: wgt[fit & (ti == 0) & (gvr_idx_ == c)] = kt / kn
-        def tpf1w(r, w):   # weighted trimPF-1: trim the bottom 5% of weight
-            o = np.argsort(r); cw = np.cumsum(w[o]) / w.sum(); keep_ = o[cw >= args.trim]; rr, ww = r[keep_] * w[keep_], w[keep_]
+        def tpf1w(r, w):   # weighted measure: trim the bottom 5% of weight (tpf1) or nothing (pf1)
+            o = np.argsort(r); cw = np.cumsum(w[o]) / w.sum(); keep_ = o[cw >= (args.trim if args.measure == "tpf1" else 0.0)]; rr, ww = r[keep_] * w[keep_], w[keep_]
             g_, l_ = rr[rr > 0].sum(), -rr[rr < 0].sum(); return g_ / l_ - 1 if l_ else np.inf
-        fw = tpf1(R[fit & prem]) / tpf1w(R, wgt)
-        rows.append(f"| (within-cell tier factor on the fit years: premium-cell trimPF-1 {tpf1(R[fit & prem]):.2f} / cell-matched non-tier {tpf1w(R, wgt):.2f} = {fw:.2f}) | | | | | | | | |")
+        fw = MEAS(R[fit & prem]) / tpf1w(R, wgt)
+        rows.append(f"| (within-cell tier factor on the fit years, {args.measure}: premium-cell {MEAS(R[fit & prem]):.2f} / cell-matched non-tier {tpf1w(R, wgt):.2f} = {fw:.2f}) | | | | | | | | |")
         for pw in (1.0, 1.25, 1.5):
             base_w = wb ** pw
             rows.append(sim(np.minimum(base_w, 4.0), app, f"book gvr map ^ {pw} (NO tier), clip 4"))
