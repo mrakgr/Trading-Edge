@@ -18066,3 +18066,37 @@ The merged band is the most stable cell of the three (halves within 0.02). Sized
 gap × volat × rate600 factor × tier, clip 4 — forward 1.565 / 10,416 / DD 231 (4-band 1.563 / 10,405 / 229), mirror 1.758 /
 16,058 / 227 (1.758 / 16,063 / 228). **Ruling: 3 bands.** Note: the middle band is the noisy one (0.91 / 1.17, straddling
 1.0); a 2-band form (slow leg 1.25 vs the rest ≈ 0.9) would be the next fold if it ever needs simplifying further.
+
+## S49w — is rate600 explained by gap × volat? NO — and why its sizing gain is small anyway (2026-09-09)
+
+Within-cell test (`sizing_broad_pf1.md` §6g): each rate600 band vs CELL-WEIGHTED peers in the same gap × volat cells, PF−1:
+
+| band | n | own PF−1 | peers PF−1 | within-cell ratio all / 20–23 / 24–26 | avg% own / peers |
+|---|---|---|---|---|---|
+| < .044 (slow) | 12,298 | 0.669 | 0.460 | **1.45** / 1.59 / 1.32 | +0.67 / +0.49 |
+| .044–.07 | 8,067 | 0.543 | 0.515 | 1.06 / 0.92 / 1.27 | +0.54 / +0.53 |
+| ≥ .07 (fast) | 16,914 | 0.442 | 0.638 | **0.69** / 0.68 / 0.70 | +0.47 / +0.62 |
+
+Composition is flat: the three bands have near-identical gap and volat mixes (slow leg 15/12/10/10/13/18/23 % by gap bucket vs
+fast 21/13/9/8/11/16/23; by volat 46/33/18/3 vs 53/27/15/4). Inside the 21 big cells (≥ 600 trades) the slow leg beats the
+fast leg in 17. The CONDITIONAL gradient (1.45 → 0.69, 2.1×) is steeper than the marginal one (1.25 → 0.82, 1.5×) because the
+slow leg is slightly under-represented at gap 0. So rate600 is an independent axis, not a gap/volat proxy.
+
+Why the sized gain is still small: sizing gain at equal exposure ≈ Σ_band n_b (w_b − 1)(avg_b − avg). The bands differ by
+only +0.67 / +0.54 / +0.47 %/trade — a 0.2%/trade spread — so the gain is bounded at ~3% of net whatever the multipliers say.
+PF−1 ratios (0.67 vs 0.44 = 1.5×) exaggerate a 0.2%/trade difference when PF sits at 1.4–1.7. Gap and volat move avg% by
+~1%/trade across their spans; that is why they are the big axes.
+
+Conditional factor as the rate600 axis (sized PF / net / DD):
+
+| map (PF−1) | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|
+| gap × volat | 1.519 / 9,468 / 227 | 1.712 / 15,095 / 163 |
+| × rate600 MARGINAL factor (1.25/1.01/0.82) | 1.524 / 9,605 / 244 | 1.732 / 15,397 / 188 |
+| × rate600 CONDITIONAL factor (1.45/1.06/0.69) | 1.530 / 9,724 / 261 | 1.748 / 15,634 / 204 |
+| × conditional × tier 2.06, clip 4 | **1.566 / 10,445 / 248** | **1.771 / 16,219 / 231** |
+| × marginal × tier 2.06, clip 4 | 1.565 / 10,416 / 231 | 1.758 / 16,058 / 227 |
+
+**Ruling: rate600 stays, as the CONDITIONAL (within gap × volat cell) 3-band factor 1.45 / 1.06 / 0.69.** Worth +2.7% / +3.6%
+net over gap × volat on the holdouts, +0.3% / +1.0% over the marginal factor. Production map (S49u amended): gap × volat
+cells (PF−1) × rate600 conditional factor × S-tier 2.06, clip [0.25, 4].

@@ -113,6 +113,15 @@ def mults(fit_mask, cells_fn, ncell, base_mask=None, fallback=1.0):
         r = R[fit_mask & (cells_fn == k)]
         m[k] = (MEAS(r) / base) if len(r) >= 50 and np.isfinite(MEAS(r)) else fallback
     return np.clip(m, 0.25, 4.0)
+# 6g. is rate600 EXPLAINED by gap x volat? within-cell test: each band vs cell-weighted peers in the same gap x volat cells
+def within_cell(band_mask, fit_mask):
+    w = np.zeros(len(B)); other = fit_mask & ~band_mask
+    for c in np.unique(gv[fit_mask & band_mask]):
+        kb = (fit_mask & band_mask & (gv == c)).sum(); ko = (other & (gv == c)).sum()
+        if ko: w[other & (gv == c)] = kb / ko
+    rw = R * w; g_, l_ = rw[rw > 0].sum(), -rw[rw < 0].sum()
+    peers = (g_ / l_ - 1) if l_ else np.inf
+    return MEAS(R[fit_mask & band_mask]), peers, (rw.sum() / w.sum()) if w.sum() else np.nan
 def sim(w, mask, label, cap=None):
     """w = per-trade multiplier (mean-1 normalised on mask). Returns the stats line for sized vs flat."""
     r = R[mask]; w = w[mask]
@@ -144,6 +153,10 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
     rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv), app, "gap × volat"))
     rows.append(sim(apply(mults(fit, ri, len(RL)), ri), app, "rate600 only"))
     rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ri, len(RL)), ri), app, "gap × volat × rate600 FACTOR (separable: gv cells × r bands)"))
+    rc = np.array([(lambda o, pe, _: o / pe)(*within_cell(ri == k, fit)) for k in range(len(RL))])   # CONDITIONAL (within gap x volat cell) rate600 factor
+    rows.append(sim(apply(mults(fit, gv, len(GL) * len(VL)), gv) * rc[ri], app, f"gap × volat × rate600 CONDITIONAL factor ({' / '.join(f'{x:.2f}' for x in rc)})"))
+    if args.halts:
+        rows.append(sim(np.minimum(apply(mults(fit, gv, len(GL) * len(VL)), gv) * rc[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "gap × volat × rate600 CONDITIONAL factor × tier factor, clip 4"))
     if args.halts:
         rows.append(sim(np.minimum(apply(mults(fit, gv, len(GL) * len(VL)), gv) * apply(mults(fit, ri, len(RL)), ri) * apply(mults(fit, ti, 2), ti), 4.0), app, "gap × volat × rate600 FACTOR × tier factor, clip 4"))
     gvr = gv * len(RL) + ri
@@ -264,6 +277,23 @@ ma, me, ml = mults(all_m, ri, len(RL)), mults(early, ri, len(RL), early), mults(
 for k, lab in enumerate(RL):
     m = ri == k; r = R[m]
     out.append(f"| {lab} | {len(r):,} | {f(pf(r),3)} | {f(tpf1(r),3)} | {r.mean():+.2f} | {r.min():.1f} | {(r < -20).mean()*100:.2f}% | {ma[k]:.2f} | {me[k]:.2f} | {ml[k]:.2f} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)}" for y in YEARS) + " |")
+out += ["", f"## 6g. Is rate600 explained by gap × volat? Each band vs CELL-WEIGHTED peers in the same gap × volat cells ({args.measure})",
+        "| band | n | own PF-1 (all) | peers PF-1 (all) | within-cell ratio all | ratio fit 20-23 | ratio fit 24-26 | avg% own / peers (all) |", "|---|---|---|---|---|---|---|---|"]
+for k, lab in enumerate(RL):
+    bm = ri == k; o, pe, pa = within_cell(bm, all_m); oe, pee, _ = within_cell(bm, early); ol, pel, _ = within_cell(bm, late)
+    out.append(f"| {lab} | {bm.sum():,} | {o:.3f} | {pe:.3f} | {o/pe:.2f} | {oe/pee:.2f} | {ol/pel:.2f} | {R[bm].mean():+.2f} / {pa:+.2f} |")
+out += ["", "composition — share of each rate600 band by gap bucket (row %):", "| band | " + " | ".join(GL) + " |", "|---|" + "---|" * len(GL)]
+for k, lab in enumerate(RL):
+    bm = ri == k; out.append(f"| {lab} | " + " | ".join(f"{(bm & (gi == g)).sum() / bm.sum() * 100:.0f}" for g in range(len(GL))) + " |")
+out += ["", "composition — by volat bucket (row %):", "| band | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+for k, lab in enumerate(RL):
+    bm = ri == k; out.append(f"| {lab} | " + " | ".join(f"{(bm & (vi == v)).sum() / bm.sum() * 100:.0f}" for v in range(len(VL))) + " |")
+out += ["", "rate600 gradient INSIDE the big gap × volat cells (PF-1 of slow leg / mid / fast; n):", "| gap / volat | " + " | ".join(RL) + " |", "|---|" + "---|" * len(RL)]
+for g in range(len(GL)):
+    for v in range(len(VL)):
+        cm = (gi == g) & (vi == v)
+        if cm.sum() < 600: continue
+        out.append(f"| {GL[g]} / {VL[v]} | " + " | ".join(f"{f(pf1(R[cm & (ri == k)]),2)} ({(cm & (ri == k)).sum()})" for k in range(len(RL))) + " |")
 out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "volat: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(VL, mults(all_m, vi, len(VL)))),
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),
