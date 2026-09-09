@@ -224,9 +224,15 @@ def kelly_block(res, label):
     for _ in range(400):
         x = rng.choice(Dv, len(Dv), replace=True); gb = np.array([G(f, x) for f in fs[::4]]); boots.append(fs[::4][int(np.nanargmax(np.where(np.isfinite(gb), gb, -np.inf)))])
     boots = np.array(boots)
+    # EXACT Kelly with the worst k days removed (the ruin bound is 1/|worst remaining day|)
+    order = np.argsort(Dv); loo = []
+    for kk in (1, 2, 5, 10):
+        x = Dv[order[kk:]]; gk = np.array([G(f, x) for f in fs]); loo.append(f"drop worst {kk}: f* = {fs[int(np.nanargmax(np.where(np.isfinite(gk), gk, -np.inf)))]:.3f} (bound 1/|worst| = {1/abs(x.min()):.2f})")
+    gauss = Dv.mean() / Dv.var()
     tr = res["pnl"] / 100.0   # per-trade sized return as a fraction of one unit's notional
     rows = [f"### Kelly — {label}\n", f"days {len(Dv):,}; mean daily P&L {Dv.mean()*100:+.1f} units, sd {Dv.std()*100:.1f}, worst {Dv.min()*100:+.0f}; worst single sized trade {tr.min()*100:+.0f} units (= {tr.min():.2f} × one unit's notional).\n",
             f"**full Kelly f\* = {fstar:.3f}** of equity per unit position (G = {g[k]*252*100:.1f}%/yr log growth); per-year f\*: " + ", ".join(f"{y} {fy[y]:.2f}" for y in yrs) + f"; bootstrap (400 day-resamples) f\* p5 / p50 / p95 = {np.quantile(boots,.05):.2f} / {np.median(boots):.2f} / {np.quantile(boots,.95):.2f}.\n",
+            f"exact Kelly, worst days removed: " + " · ".join(loo) + f"; Gaussian approximation μ/σ² = {gauss:.2f} (for reference only).\n",
             "| f (equity per unit) | Kelly fraction | growth %/yr | max DD of equity | worst day % equity | worst trade % equity | max gross (cap 20 units) | p1 day |", "|---|---|---|---|---|---|---|---|"]
     for f in sorted(set([round(fstar/4, 3), round(fstar/2, 3), round(fstar, 3), 0.05, 0.10, 0.15, 0.20, 0.25])):
         if f <= 0: continue

@@ -18508,3 +18508,9 @@ allow 0.5–1.0. So f* = 0.30 is a tail number and the right one to use. At f (A
 BACKTEST's arithmetic at 22 trades/day × +0.67% and will be bounded by fills and capacity long before Kelly binds
 (at $100k equity, f = 0.10 → $10k/unit → 2.3M sh/mo, S49m; at $1M → 23M sh/mo). **Recommendation: f = 0.10 per unit
 (1/3 Kelly; 31% of equity on the largest cell, gross ≤ 200%) as the ceiling; 0.075 (1/4 Kelly, 23% / 150%) to start.**
+
+### S49ai addendum — EXACT Kelly, worst days removed (user: "exact or approximate?"). The script maximises mean log(1 + f·D_t)
+over the empirical daily series (grid step 0.0025) — exact, no distributional assumption. With the worst k days removed
+(A3 in-sample sizes): drop 1 → f* 0.54 · drop 2 → 0.73 · drop 5 → 0.98 · drop 10 → 1.00 (grid cap); each time f* sits
+2% under 1/|next-worst day|. The Gaussian μ/σ² = 1.66 is quoted only to show how far the variance-implied fraction is
+from the ruin-bound one. **f* is a ruin bound in this book at every depth of the tail, never a variance optimum.**
