@@ -18125,3 +18125,30 @@ halves) and **does NOT grade in gap<4 ∧ volat≥90** — the premium cell, whe
 1.84, avg +1.24 / +1.44 / +1.21, the middle band best on both halves. The separable factor applies 1.45 / 0.69 there too,
 i.e. it mis-sizes the best cell in both directions. That is the interaction the 140-cell joint grid was finding (and
 fitting noisily). The S-tier premium cell is the same cell (S49r), so halt trades there are already flat in rate600.
+
+## S49y — rate600 as TWO bands, < .07 vs ≥ .07 (user, 2026-09-09): fixes the premium cell's direction
+
+`--rate-bands 2` (now the default). Raw joint inside the 2×2, net of credit (PF / avg% / PF 20–23 / PF 24–26):
+
+| cell | < .07 | ≥ .07 |
+|---|---|---|
+| gap<4 ∧ volat<90 | 3,447 · 1.75 / +0.62 / 1.94 / 1.52 | 3,730 · 1.50 / +0.45 / 1.57 / 1.40 |
+| gap<4 ∧ volat≥90 (premium) | 2,157 · 1.98 / +1.31 / 2.23 / 1.84 | 2,047 · 1.84 / +1.21 / 2.01 / 1.73 |
+| gap≥4 ∧ volat<90 | 12,791 · 1.50 / +0.45 / 1.57 / 1.40 | 9,910 · 1.33 / +0.31 / 1.38 / 1.25 |
+| gap≥4 ∧ volat≥90 | 1,970 · 1.60 / +0.91 / 1.74 / 1.47 | 1,227 · 1.31 / +0.55 / 1.55 / 1.07 |
+
+With the middle band folded into the slow leg, the slow side wins in ALL FOUR cells on both halves — the premium cell now
+grades mildly in the right direction (1.98 vs 1.84) instead of inverting. Within-cell ratios 1.51 / 0.69 (halves 1.43 /
+1.69 and 0.68 / 0.70). Holdouts, sized PF / net / DD:
+
+| map (PF−1) | fit 20–23 → 24–26 | fit 24–26 → 20–23 |
+|---|---|---|
+| gap × volat | 1.519 / 9,468 / 227 | 1.712 / 15,095 / 163 |
+| × 2-band conditional (1.51 / 0.69) | 1.536 / 9,766 / 260 | 1.760 / 15,811 / 226 |
+| × 2-band conditional × tier 2.06, clip 4 | **1.565 / 10,378 / 248** | **1.769 / 16,066 / 206** |
+| (3-band conditional × tier, S49w) | 1.566 / 10,445 / 248 | 1.771 / 16,219 / 231 |
+
+Same result as three bands within noise, one parameter fewer, and no cell sized against its own gradient. **Ruling:
+rate600 = two bands, < .07 → 1.51, ≥ .07 → 0.69 (conditional, PF−1).** Residual mis-sizing: the premium cell's true
+within-cell ratio is ~1.05 / 0.93, so the factor still over-states rate600 there — the sign is right, the magnitude is not;
+acceptable at 11% of the book, and the 12-cell joint remains the fix if it ever matters.

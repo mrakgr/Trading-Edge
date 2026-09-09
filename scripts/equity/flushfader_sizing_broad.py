@@ -20,7 +20,7 @@ ap.add_argument("--trim", type=float, default=0.05)
 ap.add_argument("--base", type=float, default=0.10, help="fraction of equity per trade at multiplier 1 (compounded sim)")
 ap.add_argument("--out", default="data/flushfader_gate_review/sizing_broad.md")
 ap.add_argument("--measure", default="tpf1", choices=["tpf1", "pf1"], help="edge measure the multipliers are derived from: trimPF-1 (bottom 5% trimmed) or raw PF-1")
-ap.add_argument("--rate-bands", type=int, default=3, choices=[3, 4], help="rate600 bands: 4 (S49n quartiles) or 3 (the two fast bands folded, S49v)")
+ap.add_argument("--rate-bands", type=int, default=2, choices=[2, 3, 4], help="rate600 bands: 4 (S49n quartiles) or 3 (the two fast bands folded, S49v)")
 ap.add_argument("--halts", action="store_true", help="S49p: WAIT (ht>=4 & ssh<300 excluded) + S TIER (ht>=1 & ssh in [300,2400)) as a sizing axis")
 args = ap.parse_args()
 T0 = time.time()
@@ -71,6 +71,7 @@ GB = [0, 1, 4, 8, 13, 20, 30, 40]; GL = ["0", "1-3", "4-7", "8-12", "13-19", "20
 vi = np.digitize(B.volat.values, VB[1:-1]); ci = np.digitize(B.consol_5m_lag1m.values, CB[1:-1]); gi = np.digitize(B.gap60.values, GB[1:-1])
 RB = [0, 0.044, 0.07, 0.125, 1.01]; RL = ["<.044", ".044-.07", ".07-.125", ".125+"]   # rate600 quartile-ish bands (S49n)
 if args.rate_bands == 3: RB = [0, 0.044, 0.07, 1.01]; RL = ["<.044", ".044-.07", ".07+"]
+if args.rate_bands == 2: RB = [0, 0.07, 1.01]; RL = ["<.07", ".07+"]
 ri = np.digitize(np.nan_to_num(B.rate600.values, nan=0.0), RB[1:-1])
 TGB = [0, 1, 4]; TGL = ["0", "1-3", "4+"]; TVB = [40, 90, 140, 250]; TVL = ["<90", "90-140", "140-250", "250+"]   # the tier's coarse grid
 tgi = np.digitize(B.gap60.values, TGB[1:]); tvi = np.digitize(B.volat.values, TVB[1:]); tgv = tgi * len(TVL) + tvi
