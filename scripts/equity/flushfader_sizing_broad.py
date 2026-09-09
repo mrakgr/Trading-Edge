@@ -344,6 +344,30 @@ gvm = mults(all_m, gv, len(GL) * len(VL))
 out += ["", f"## 8b. THE gap × volat multiplier grid ({args.measure}, fit all, clip [0.25, 4]; cell multiplier (n); 1.00 = < 50 trades)", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
 for g, gl in enumerate(GL):
     out.append(f"| {gl} | " + " | ".join(f"{gvm[g * len(VL) + v]:.2f} ({((gi==g)&(vi==v)).sum():,})" for v in range(len(VL))) + " |")
+out += ["", "## 8c. gap × volat — MEDIAN trade % (net of credit): all years · fit 20–23 · fit 24–26 (n)", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+for g, gl in enumerate(GL):
+    cells = []
+    for v in range(len(VL)):
+        m = (gi == g) & (vi == v)
+        if m.sum() < 50: cells.append(f"– ({m.sum()})"); continue
+        cells.append(f"{np.median(R[m]):+.2f} · {np.median(R[m & early]):+.2f} · {np.median(R[m & late]):+.2f} ({m.sum():,})")
+    out.append(f"| {gl} | " + " | ".join(cells) + " |")
+out += ["", "## 8d. gap × volat — MEAN trade % (net of credit): all · 20–23 · 24–26", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+for g, gl in enumerate(GL):
+    cells = []
+    for v in range(len(VL)):
+        m = (gi == g) & (vi == v)
+        if m.sum() < 50: cells.append("–"); continue
+        cells.append(f"{R[m].mean():+.2f} · {R[m & early].mean():+.2f} · {R[m & late].mean():+.2f}")
+    out.append(f"| {gl} | " + " | ".join(cells) + " |")
+out += ["", "## 8e. gap × volat — WIN % : all · 20–23 · 24–26", "| gap \\ volat | " + " | ".join(VL) + " |", "|---|" + "---|" * len(VL)]
+for g, gl in enumerate(GL):
+    cells = []
+    for v in range(len(VL)):
+        m = (gi == g) & (vi == v)
+        if m.sum() < 50: cells.append("–"); continue
+        cells.append(f"{(R[m]>0).mean()*100:.0f} · {(R[m & early]>0).mean()*100:.0f} · {(R[m & late]>0).mean()*100:.0f}")
+    out.append(f"| {gl} | " + " | ".join(cells) + " |")
 out += ["", "## 9. gap_60 (rows) × rate600 (cols) — trimPF-1", grid("gap \\ rate600", gi, GL, ri, RL, st_t),
         "", "## 9b. volat (rows) × rate600 (cols) — trimPF-1", grid("volat \\ rate600", vi, VL, ri, RL, st_t)]
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
