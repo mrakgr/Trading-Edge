@@ -169,6 +169,9 @@ for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdou
         rows.append(sim(np.minimum(wsep * rm[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-MARGINAL: gap × volat × rate600 marginal × tier, clip 4"))
         rows.append(sim(np.minimum(gc[gi] * vcnd[vi] * rcs[ri] * apply(mults(fit, ti, 2), ti), 4.0), app, "SEPARABLE all-CONDITIONAL: gap|volat × volat|gap × rate600|cell × tier, clip 4"))
         wam = wsep * rm[ri] * apply(mults(fit, ti, 2), ti)   # the all-marginal product before clip
+        if lab.startswith("in-sample"):
+            gm_, vm_, tm_ = mults(fit, gi, len(GL)), mults(fit, vi, len(VL)), mults(fit, ti, 2)
+            rows.append(f"| (trade-weighted MEAN of each ladder over the book: gap {gm_[gi].mean():.3f} · volat {vm_[vi].mean():.3f} · rate600 {rm[ri].mean():.3f} · tier {tm_[ti].mean():.3f}; raw product: mean {wam.mean():.3f}, median {np.median(wam):.3f}, min {wam.min():.2f}, max {wam.max():.2f}, share > 4 before clip {(wam > 4).mean()*100:.2f}%; after clip 4 the mean is {np.minimum(wam, 4).mean():.3f}) | | | | | | | | |")
         for pw in (0.5, 0.75, 1.0, 1.25):
             wp = np.minimum(wam ** pw, 4.0)
             rows.append(sim(wp, app, f"ALL-MARGINAL ^ {pw}, clip 4  (max {wp.max()/ (wp[app].mean()):.2f}, share > 2x {(wp/wp[app].mean() > 2).mean()*100:.1f}%, share < 0.5x {(wp/wp[app].mean() < 0.5).mean()*100:.1f}%)"))
