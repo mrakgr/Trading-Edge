@@ -121,9 +121,12 @@ def within_cell(band_mask, fit_mask):
     for c in np.unique(gv[fit_mask & band_mask]):
         kb = (fit_mask & band_mask & (gv == c)).sum(); ko = (other & (gv == c)).sum()
         if ko: w[other & (gv == c)] = kb / ko
-    rw = R * w; g_, l_ = rw[rw > 0].sum(), -rw[rw < 0].sum()
+    rw = R * w
+    if args.measure == "tpf1":   # trim the bottom 5% of WEIGHT from the peers, like MEAS trims the band
+        o = np.argsort(R); cw = np.cumsum(w[o]) / w.sum(); drop = o[cw < args.trim]; rw = rw.copy(); rw[drop] = 0.0
+    g_, l_ = rw[rw > 0].sum(), -rw[rw < 0].sum()
     peers = (g_ / l_ - 1) if l_ else np.inf
-    return MEAS(R[fit_mask & band_mask]), peers, (rw.sum() / w.sum()) if w.sum() else np.nan
+    return MEAS(R[fit_mask & band_mask]), peers, ((R * w).sum() / w.sum()) if w.sum() else np.nan
 def sim(w, mask, label, cap=None):
     """w = per-trade multiplier (mean-1 normalised on mask). Returns the stats line for sized vs flat."""
     r = R[mask]; w = w[mask]
