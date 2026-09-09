@@ -18314,3 +18314,15 @@ gap=0 × 0.92, log(1+gap) × 1.007 per e-fold; C3: gap≥13 × 1.003). The win r
 per e-fold, ≈ × 0.87 from gap 1 to gap 39; C3: gap≥13 × 0.955) and the slope takes the step's share (gap=0 odds 1.14 → 1.04).
 Holdouts ∝ PF−1 (net): C 9,872 / 15,265 · C2 9,793 / 15,283 · C3 9,767 / 15,252 — nothing. **C stands**: gap = 0 is the
 only gap term the sizing needs; the residual win-rate slide over the sparse buckets is worth < 1% of net.
+
+### S49ad — C4: gap band DUMMIES + log-volat slope + flags (user, 2026-09-09)
+
+| term | p odds | W × | L × | λ × |
+|---|---|---|---|---|
+| gap 1–3 / 4–12 / 13–39 (vs 0) | 0.91 / 0.90 / 0.86 | 0.99 / 1.03 / 1.05 | 1.08 / 1.16 / 1.16 | 1.09 / 1.12 / 1.11 |
+| volat per doubling | × 1.03 | × 1.79 | × 1.75 | × 0.98 |
+| rate600 fast · S tier | 0.87 · 1.03 | 1.00 · 0.98 | 1.00 · 0.86 | 0.99 · 0.88 |
+
+Same gap picture as A (λ a step, p a slow slide). Holdouts ∝ PF−1 (PF / net / DD): C4 1.530 / 9,759 / 241 · 1.730 /
+15,252 / 164 vs C 1.536 / 9,872 / 221 · 1.731 / 15,265 / 163. C4 ≈ A ≈ C on the mirror; on the forward C is 1% ahead at
+lower DD. 8 params per component vs 5. **C stands; C4 is the choice if the three gap bands are wanted for reporting.**

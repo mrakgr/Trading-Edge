@@ -80,6 +80,9 @@ def X_hybrid2():   # C2: step at 0 PLUS a slope over the non-zero gaps
 def X_hybrid3():   # C3: step at 0 plus a second step at 13+
     cols = [np.ones(n), (gi == 0).astype(float), (gi == 3).astype(float), np.log(B.volat.values.astype(float) / 100.0), ri.astype(float), ti.astype(float)]
     return np.column_stack(cols), ["1", "gap = 0", "gap >= 13", "log(volat/100)", "rate600 fast", "S tier"]
+def X_hybrid4():   # C4: gap band DUMMIES (as in A) + log volat slope + the two flags
+    cols = [np.ones(n)] + [(gi == k).astype(float) for k in range(1, len(GL))] + [np.log(B.volat.values.astype(float) / 100.0), ri.astype(float), ti.astype(float)]
+    return np.column_stack(cols), ["1"] + [f"gap {GL[k]}" for k in range(1, len(GL))] + ["log(volat/100)", "rate600 fast", "S tier"]
 def X_slopes():
     cols = [np.ones(n), np.log1p(B.gap60.values.astype(float)), np.log(B.volat.values.astype(float)), ri.astype(float), ti.astype(float)]
     return np.column_stack(cols), ["1", "log(1+gap)", "log volat", "rate600 fast", "S tier"]
@@ -146,10 +149,10 @@ out = [f"# S49ad — structured sizing model on the broad book ({n:,} trades, cr
        "Components fitted by IRLS on ALL trades of the fit set: logit p (win rate), log W (mean win), log L (mean |loss|). "
        "multiplier ∝ PF−1 = p/((1−p)·L/W) − 1, mean-1 normalised on the apply set, clipped [0.25, 4].\n"]
 all_m = np.ones(n, bool); early = YR <= 2023; late = YR > 2023
-XA, NA = X_dummies(); XI, NI = X_dummies(inter=True); XB, NB = X_slopes(); XD, ND = X_dummies(dense_vol=True); XC, NC = X_hybrid(); XC2, NC2 = X_hybrid2(); XC3, NC3 = X_hybrid3()
+XA, NA = X_dummies(); XI, NI = X_dummies(inter=True); XB, NB = X_slopes(); XD, ND = X_dummies(dense_vol=True); XC, NC = X_hybrid(); XC2, NC2 = X_hybrid2(); XC3, NC3 = X_hybrid3(); XC4, NC4 = X_hybrid4()
 
 # ---- coefficients on all years (as RATIOS: exp(b) for W/L, odds-ratio for p)
-for lab, X, names in [("A: band dummies", XA, NA), ("A+I: dummies + premium×fast interaction", XI, NI), ("A+D: dummies + dense×volatile interaction", XD, ND), ("B: one slope per feature", XB, NB), ("C: hybrid (gap=0 flag, log volat, two flags)", XC, NC), ("C2: C + log(1+gap) slope", XC2, NC2), ("C3: C + gap>=13 step", XC3, NC3)]:
+for lab, X, names in [("A: band dummies", XA, NA), ("A+I: dummies + premium×fast interaction", XI, NI), ("A+D: dummies + dense×volatile interaction", XD, ND), ("B: one slope per feature", XB, NB), ("C: hybrid (gap=0 flag, log volat, two flags)", XC, NC), ("C2: C + log(1+gap) slope", XC2, NC2), ("C3: C + gap>=13 step", XC3, NC3), ("C4: gap dummies + log volat + flags", XC4, NC4)]:
     bp, bw, bl = fit_model(X, all_m)
     out += [f"## Model {lab} — coefficients on all years (p: odds ratio · W: ×mean win · L: ×mean loss · λ ratio = L/W)\n",
             "| term | p odds ratio | W × | L × | λ × |", "|---|---|---|---|---|"]
@@ -188,7 +191,7 @@ out += ["## Sized vs flat at equal exposure\n", HDR]
 for lab, fit, app in [("in-sample (fit all, apply all)", all_m, all_m), ("holdout: fit 2020-23 → apply 2024-26", early, late), ("holdout: fit 2024-26 → apply 2020-23", late, early)]:
     out.append(f"| **{lab}** | | | | | | | | | |")
     out.append(sim(marginal_product(fit), app, "S49ab all-marginal PF-1 product, clip 4"))
-    for mlab, X in [("model A (dummies)", XA), ("model A+I (dummies + premium×fast)", XI), ("model A+D (dummies + dense×volatile)", XD), ("model B (slopes)", XB), ("model C (hybrid)", XC), ("model C2 (step + slope)", XC2), ("model C3 (two steps)", XC3)]:
+    for mlab, X in [("model A (dummies)", XA), ("model A+I (dummies + premium×fast)", XI), ("model A+D (dummies + dense×volatile)", XD), ("model B (slopes)", XB), ("model C (hybrid)", XC), ("model C2 (step + slope)", XC2), ("model C3 (two steps)", XC3), ("model C4 (gap dummies + log volat)", XC4)]:
         b = fit_model(X, fit); p, W, L, lam, pf1x, er = predict(X, b)
         base = pf1x[fit].mean()
         out.append(sim(np.clip(pf1x / base, 0.25, 4.0), app, f"{mlab}: ∝ PF-1"))
