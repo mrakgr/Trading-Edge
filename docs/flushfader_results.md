@@ -18479,3 +18479,32 @@ bounds it at 4 × the worst trade, and no daily stop touches it.
 → −200, DD 453 → 331) and it hurts on five of the seven days it fires. The two tails are (a) a sector liquidation where
 positions keep turning over — a market/sector brake on NEW entries (index in free fall) is the mechanism-shaped tool;
 (b) a single high-volat name gapping −55% — bounded by the clip and the per-position equity fraction, nothing else.
+
+## S49ai — KELLY sizing of the equity fraction per unit position (user, 2026-09-09)
+
+Ruled replay (re-entries allowed, cap 20 units), daily compounding equity × (1 + f·D_t), D_t = the day's sized P&L as a
+fraction of one unit's notional; f = equity fraction per UNIT (multiplier 1) position. `capped_replay.py` KELLY section.
+
+| sizes | f* (full Kelly) | binding constraint | per-year f* | bootstrap p5 / p50 / p95 |
+|---|---|---|---|---|
+| A3 in-sample (production table) | **0.300** | 2020-03-18: −326 units → ruin at f = 0.307 | 0.29 · 0.52 · 0.72 · 0.92 · 0.85 · 0.70 · 1.00 | 0.29 / 0.30 / 0.80 |
+| A3 cross-fit | 0.323 | −305 units | 0.31 · 0.74 · 0.95 · 0.98 · 0.46 · 0.55 · 1.00 | 0.31 / 0.32 / 0.58 |
+| flat | 0.290 | −339 units | 0.27 · 0.82 · 0.71 · 0.98 · 0.95 · 1.00 · 1.00 | 0.28 / 0.29 / 0.85 |
+
+**Full Kelly is pinned by ONE day**, not by variance: f* ≈ 1 / |worst day| in every variant, and every other year would
+allow 0.5–1.0. So f* = 0.30 is a tail number and the right one to use. At f (A3 in-sample sizes):
+
+| f per unit | Kelly | max single position (× 3.12) | gross at the 20-unit cap | max DD | worst day | worst trade | p1 day |
+|---|---|---|---|---|---|---|---|
+| 0.05 | 1/6 | 16% of equity | 100% | 16% | −16% | −7% | −2.8% |
+| **0.075** | **1/4** | **23%** | **150%** | **24%** | **−24%** | **−10%** | −4.3% |
+| **0.10** | **1/3** | **31%** | **200%** | **33%** | **−33%** | **−13%** | −5.7% |
+| 0.15 | 1/2 | 47% | 300% | 49% | −49% | −20% | −8.5% |
+| 0.20 | 2/3 | 62% | 400% | 65% | −65% | −26% | −11.3% |
+| 0.30 | 1 | 94% | 600% | 98% | −98% | −39% | −17% |
+
+(cross-fit sizes carry a −221-unit trade: worst trade −18% / −22% / −36% at f = 0.075 / 0.10 / 0.15.) The user's earlier
+"20% per PF−1 bet" is 2/3 Kelly here: DD 65%, a −65% day. Growth figures (f = 0.10: +1.46%/day ≈ 38×/yr) are the
+BACKTEST's arithmetic at 22 trades/day × +0.67% and will be bounded by fills and capacity long before Kelly binds
+(at $100k equity, f = 0.10 → $10k/unit → 2.3M sh/mo, S49m; at $1M → 23M sh/mo). **Recommendation: f = 0.10 per unit
+(1/3 Kelly; 31% of equity on the largest cell, gross ≤ 200%) as the ceiling; 0.075 (1/4 Kelly, 23% / 150%) to start.**

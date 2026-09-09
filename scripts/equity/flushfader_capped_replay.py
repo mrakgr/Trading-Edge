@@ -209,4 +209,35 @@ for y in sorted(set(yr_)):
 # 2020-03-18 under the cap
 m = dt.normalize() == pd.Timestamp("2020-03-18")
 out += ["", f"2020-03-18 under the ruled replay: {m.sum()} trades, P&L {pnl[m].sum():+.0f} units (uncapped flat: 331 trades, −501); trips skipped that day: ticker busy {int(((main['reason']==1) & (C.date.values == np.datetime64('2020-03-18'))).sum())}, cap {int(((main['reason']==2) & (C.date.values == np.datetime64('2020-03-18'))).sum())}."]
+# ---- KELLY (user, 2026-09-09): equity fraction f per UNIT position; daily compounding equity_{t+1} = equity_t * (1 + f * D_t / 100), D_t = the day's sized P&L in units
+def kelly_block(res, label):
+    pnl, dt = res["pnl"], pd.to_datetime(res["dt"]); D_ = pd.Series(pnl).groupby(dt.normalize()).sum(); Dv = D_.values / 100.0   # fraction of one unit's notional per day
+    fs = np.arange(0.0, 1.0001, 0.0025)
+    def G(f, x=Dv):
+        a = 1 + f * x
+        return -np.inf if (a <= 0).any() else np.log(a).mean()
+    g = np.array([G(f) for f in fs]); k = int(np.nanargmax(np.where(np.isfinite(g), g, -np.inf))); fstar = fs[k]
+    yrs = sorted(set(D_.index.year)); fy = {}
+    for y in yrs:
+        x = Dv[D_.index.year == y]; gy = np.array([G(f, x) for f in fs]); fy[y] = fs[int(np.nanargmax(np.where(np.isfinite(gy), gy, -np.inf)))]
+    rng = np.random.default_rng(7); boots = []
+    for _ in range(400):
+        x = rng.choice(Dv, len(Dv), replace=True); gb = np.array([G(f, x) for f in fs[::4]]); boots.append(fs[::4][int(np.nanargmax(np.where(np.isfinite(gb), gb, -np.inf)))])
+    boots = np.array(boots)
+    tr = res["pnl"] / 100.0   # per-trade sized return as a fraction of one unit's notional
+    rows = [f"### Kelly — {label}\n", f"days {len(Dv):,}; mean daily P&L {Dv.mean()*100:+.1f} units, sd {Dv.std()*100:.1f}, worst {Dv.min()*100:+.0f}; worst single sized trade {tr.min()*100:+.0f} units (= {tr.min():.2f} × one unit's notional).\n",
+            f"**full Kelly f\* = {fstar:.3f}** of equity per unit position (G = {g[k]*252*100:.1f}%/yr log growth); per-year f\*: " + ", ".join(f"{y} {fy[y]:.2f}" for y in yrs) + f"; bootstrap (400 day-resamples) f\* p5 / p50 / p95 = {np.quantile(boots,.05):.2f} / {np.median(boots):.2f} / {np.quantile(boots,.95):.2f}.\n",
+            "| f (equity per unit) | Kelly fraction | growth %/yr | max DD of equity | worst day % equity | worst trade % equity | max gross (cap 20 units) | p1 day |", "|---|---|---|---|---|---|---|---|"]
+    for f in sorted(set([round(fstar/4, 3), round(fstar/2, 3), round(fstar, 3), 0.05, 0.10, 0.15, 0.20, 0.25])):
+        if f <= 0: continue
+        a = 1 + f * Dv
+        if (a <= 0).any(): rows.append(f"| {f:.3f} | {f/fstar:.2f} | RUIN (a day ≤ −100%) | | {f*Dv.min()*100:+.0f}% | | | |"); continue
+        eq = np.cumprod(a); dd = float((np.maximum.accumulate(eq) - eq).max() / np.maximum.accumulate(eq)[np.argmax(np.maximum.accumulate(eq) - eq)]) if len(eq) else 0
+        peak = np.maximum.accumulate(eq); ddm = float(((peak - eq) / peak).max())
+        rows.append(f"| {f:.3f} | {f/fstar:.2f} | {(np.exp(np.log(a).mean()*252)-1)*100:+.0f}% | {ddm*100:.0f}% | {f*Dv.min()*100:+.0f}% | {f*tr.min()*100:+.0f}% | {f*20*100:.0f}% | {f*np.quantile(Dv,.01)*100:+.1f}% |")
+    return "\n".join(rows) + "\n"
+out += ["", "## KELLY — equity fraction per unit position, ruled replay (re-entries allowed, cap 20 units), daily compounding\n"]
+out.append(kelly_block(run(W_IN, args.cap, False, "in"), "A3 in-sample sizes (the production table)"))
+out.append(kelly_block(run(W_X, args.cap, False, "x"), "A3 cross-fit sizes"))
+out.append(kelly_block(run(ones, args.cap, False, "flat"), "FLAT sizes (every position 1 unit)"))
 txt = "\n".join(out); os.makedirs(os.path.dirname(args.out), exist_ok=True); open(args.out, "w").write(txt); print(txt); log(f"wrote {args.out}")
