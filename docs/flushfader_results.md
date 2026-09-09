@@ -18326,3 +18326,16 @@ only gap term the sizing needs; the residual win-rate slide over the sparse buck
 Same gap picture as A (λ a step, p a slow slide). Holdouts ∝ PF−1 (PF / net / DD): C4 1.530 / 9,759 / 241 · 1.730 /
 15,252 / 164 vs C 1.536 / 9,872 / 221 · 1.731 / 15,265 / 163. C4 ≈ A ≈ C on the mirror; on the forward C is 1% ahead at
 lower DD. 8 params per component vs 5. **C stands; C4 is the choice if the three gap bands are wanted for reporting.**
+
+### S49ad — gap = 0 flag + a SLOPE over gap > 0 (user, 2026-09-09): C2 (log slope) and C5 (linear slope); power 1 RULED
+
+| model | gap = 0 (p odds · λ) | slope (p odds · λ) | fwd PF / net / DD | mirror |
+|---|---|---|---|---|
+| C: flag only | 1.14 · 0.90 | – | 1.536 / 9,872 / 221 | 1.731 / 15,265 / 163 |
+| C2: flag + log(1+gap) | 1.04 · 0.92 | 0.964 · 1.007 per e-fold | 1.533 / 9,793 / 238 | 1.735 / 15,283 / 169 |
+| C5: flag + gap/10 | 1.08 · 0.91 | 0.972 · 1.004 per 10 gaps | 1.530 / 9,758 / 244 | 1.734 / 15,275 / 166 |
+
+Both slopes find the same thing: NO slope on the loss ratio (1.007 / 1.004), a slow win-rate slide (odds −3.6% per e-fold
+or −2.8% per 10 gaps, ≈ −10% over the whole 1–39 range) which takes the step's share on p. Holdouts within noise of C
+(forward −0.8% / −1.2%, mirror +0.1%). **User ruling: exponent = 1 (linear models). Gap = the gap = 0 flag; a slope over
+gap > 0 is optional and worth nothing — C stands as the sizing model.**
