@@ -294,6 +294,15 @@ for g in range(len(GL)):
         cm = (gi == g) & (vi == v)
         if cm.sum() < 600: continue
         out.append(f"| {GL[g]} / {VL[v]} | " + " | ".join(f"{f(pf1(R[cm & (ri == k)]),2)} ({(cm & (ri == k)).sum()})" for k in range(len(RL))) + " |")
+# 6h. the RAW joint: rate600 bands inside the 2x2 gap<4 / >=4 x volat<90 / >=90 (user, 2026-09-09)
+out += ["", f"## 6h. rate600 bands INSIDE the 2×2 (gap<4 / ≥4 × volat<90 / ≥90) — raw data, net of credit",
+        "| cell | rate600 | n | PF | PF-1 | trimPF-1 | avg% | win% | worst | tail<-20% | net | PF 20-23 | PF 24-26 | " + " | ".join(str(y) for y in YEARS) + " |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|" + "---|" * len(YEARS)]
+for gl, gm in [("gap<4", B.gap60.values < 4), ("gap>=4", B.gap60.values >= 4)]:
+    for vl, vm in [("volat<90", B.volat.values < 90), ("volat>=90", B.volat.values >= 90)]:
+        cm = gm & vm
+        for k, lab in list(enumerate(RL)) + [(None, "ALL")]:
+            m = cm if k is None else cm & (ri == k); r = R[m]
+            out.append(f"| {gl} & {vl} | {lab} | {len(r):,} | {f(pf(r),3)} | {pf(r)-1:.3f} | {f(tpf1(r),3)} | {r.mean():+.2f} | {(r>0).mean()*100:.1f} | {r.min():.1f} | {(r<-20).mean()*100:.2f}% | {r.sum():,.0f} | {f(pf(r[YR[m]<=2023]),2)} | {f(pf(r[YR[m]>2023]),2)} | " + " | ".join(f"{f(pf(r[YR[m]==y]),2)} ({(YR[m]==y).sum()})" for y in YEARS) + " |")
 out += rows + ["", "## 8. The multiplier maps (fit on all years)",
                "volat: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(VL, mults(all_m, vi, len(VL)))),
                "coil: " + ", ".join(f"{l} {m:.2f}" for l, m in zip(CL, mults(all_m, ci, len(CL)))),

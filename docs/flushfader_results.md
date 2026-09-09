@@ -18100,3 +18100,28 @@ Conditional factor as the rate600 axis (sized PF / net / DD):
 **Ruling: rate600 stays, as the CONDITIONAL (within gap × volat cell) 3-band factor 1.45 / 1.06 / 0.69.** Worth +2.7% / +3.6%
 net over gap × volat on the holdouts, +0.3% / +1.0% over the marginal factor. Production map (S49u amended): gap × volat
 cells (PF−1) × rate600 conditional factor × S-tier 2.06, clip [0.25, 4].
+
+## S49x — the RAW joint: rate600 inside the 2×2 gap × volat (user, 2026-09-09: "I want to see the data, not the conclusion")
+
+`sizing_broad_pf1.md` §6h. Net of the credit; PF on each half in the last two columns.
+
+| cell | rate600 | n | PF | avg% | worst | 20–23 | 24–26 |
+|---|---|---|---|---|---|---|---|
+| gap<4 ∧ volat<90 | slow < .044 | 1,998 | 1.88 | +0.70 | −30 | 2.07 | 1.65 |
+| | .044–.07 | 1,449 | 1.60 | +0.52 | −49 | 1.78 | 1.35 |
+| | fast ≥ .07 | 3,730 | 1.50 | +0.45 | −60 | 1.57 | 1.40 |
+| **gap<4 ∧ volat≥90** | slow | 1,344 | 1.92 | +1.24 | −51 | 2.11 | 1.82 |
+| | .044–.07 | 813 | **2.09** | **+1.44** | −55 | 2.43 | 1.88 |
+| | fast | 2,047 | 1.84 | +1.21 | −84 | 2.01 | 1.73 |
+| gap≥4 ∧ volat<90 (61% of the book) | slow | 7,686 | 1.58 | +0.52 | −51 | 1.71 | 1.40 |
+| | .044–.07 | 5,105 | 1.39 | +0.34 | −37 | 1.39 | 1.39 |
+| | fast | 9,910 | 1.33 | +0.31 | −75 | 1.38 | 1.25 |
+| gap≥4 ∧ volat≥90 | slow | 1,270 | 1.60 | +0.90 | −47 | 1.88 | 1.39 |
+| | .044–.07 | 700 | 1.60 | +0.92 | −53 | 1.56 | 1.65 |
+| | fast | 1,227 | 1.31 | +0.55 | −64 | 1.55 | 1.07 |
+
+What the data shows: rate600 grades in three of the four cells (slow > fast by 0.25–0.35%/trade and 0.25–0.3 PF, both
+halves) and **does NOT grade in gap<4 ∧ volat≥90** — the premium cell, where the book's largest multipliers sit: 1.92 / 2.09 /
+1.84, avg +1.24 / +1.44 / +1.21, the middle band best on both halves. The separable factor applies 1.45 / 0.69 there too,
+i.e. it mis-sizes the best cell in both directions. That is the interaction the 140-cell joint grid was finding (and
+fitting noisily). The S-tier premium cell is the same cell (S49r), so halt trades there are already flat in rate600.
