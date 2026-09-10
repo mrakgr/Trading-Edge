@@ -1313,3 +1313,38 @@ Whole-tape corpus (run at 20bp), SPEC v4 otherwise, mc=1 first bar (`data/lowfad
 Bands: (20, 25] 15 trades, PF22 0.96, avg22 −0.04%, net22 0 · (25, 30] 22, PF22 3.56, net22 +13 · vs (30, 40] 3.53 / +74 and the
 book climbing to (80, 100] 51 / +144. The added days net +9 over 4.6 years (with the 10m cover +8); the entry shift touches 4
 days. Net22 is flat (433 → 432) while PF22 falls 4.57 → 4.21. **The floor stays at 30bp** — 30–40bp was the last band that pays.
+
+## §L26 — LowFader SPEC v4 IN THE LIVE SCANNER (2026-09-10): ported and sealed zero-diff; NO price floor (user)
+
+**What was built** (private repo `TradingEdge.Scanner`, the FlushFader pattern of §S49aj): `Engine/LowFader.fs` — a debloated
+fork of the Scanner's FlushFader engine carrying exactly the ratified spec, because the corpus `data/lowfader_wl_wide/` was run
+with `--base-run` and the spec IS the research engine's `ordPass` (Intraday.fs:2360-2374): session-low signal (the strictly-prior
+`RunMinMa`), the time-clock floors, volat ≥ 30 bp, and the 11 ORD gates in the research conjunction's order (volat (30,100] ·
+`EwmaEffMa 20.0` of the SIGNED slot returns < −0.7 · lows_600 ≥ 40 · rate_600 ≥ 0.15 · rr ≥ 2 · chg_1d ≤ −4% against
+close_m1 + div_m1 from the candidate row (nan fails closed) · gap_adj_60 ≤ 60 · dv_60 ≥ $1M · lows_120 ≥ 30 · crf ≤ −0.2% ·
+dv_0945 < $20M); exit = the first bar at/after the close fills at its vwap (research `NextOpenExit = false`; every corpus exit is
+"moc" at 57600 — ⚠ the FlushFader sink's next_open rewrite does NOT apply here). `LowFaderBook.fs` = the FIRST qualifying signal
+per ticker-day (mc = 1, no averaging down) + the A/rest grade (A = volat > 50 bp ∧ gap_adj_60 ≤ 30 ∧ (rr ≥ 5 ∨ lows_rr3_120 ≥ 20)
+→ 1.00, rest 0.30; nan rr counts as not ≥ 5). The engine stays a sampler (every ordPass bar emits) so a rejected order never
+silences the next low; the OMS owns "one position per ticker". `RrLegCounts` (§L16) rides the 2m leg, reset with it on a new
+120-bar high. **Price floor: NONE** — user 2026-09-10 on the numbers: the 7 sub-$1 book trades are PF 6.01 / +8.4% each (6 of 7
+winners); without them 214 @ 5.095 vs 5.152 with. The fee wall goes to the OMS.
+
+**Reference** = `scripts/equity/lowfader_reference.py` on the ratified corpus (`WHERE spec_ord > 0`): 753 engine-level trips on
+221 ticker-days; book 221 @ 5.152 (net +786, worst −12.8), grade A 36 @ 21.57 / rest 185 @ 3.85, sized (1.00/0.30) 7.55;
+years 2020 49/8.60 · 2021 33/3.97 · 2022 37/12.83 · 2023 30/1.88 · 2024 27/6.00 · 2025 33/6.60 · 2026 12/1.71 (§L23's table).
+(§L23 quotes 5.17 / 2021 4.06 — the entry_px-vs-signal-vwap boundary of the post-hoc chg_1d; the engine is the truth.)
+
+**Seals** (`scripts/equity/scanner_diff.py`):
+
+| harness | Scanner | reference | result |
+|---|---|---|---|
+| full period `--from-bars --system lowfader` on `lowfader_wide_whitelist` (7 s), engine-level trips | 753 | 753 | zero-diff, 24 shared columns |
+| same, BOOK (first per ticker-day, grade, weight) | 221 | 221 | zero-diff, 11 shared columns |
+| FlushFader 10d regression after the multi-system refactor (`IBarEngine`, `SystemDriver`, `--system`) | 1,180 / 201 | | zero-diff |
+| trades tape `--gate --ms-precision --system lowfader` vs research `lowfader_run_base_win.sh 2026-02-11 2026-02-26` (full universe, 28,664 base trips) | 11 / 5 | 11 / 5 | gate exact 11/11 days; zero-diff on 24 / 11 columns. (⚠ the standard 2026-07-27..08-07 window carries NO LowFader signal on the full universe — 0 = 0 there proves nothing; a window with reference trades was chosen instead) |
+
+**Scanner plumbing added for the four ports**: `IBarEngine` (Process/Flatten) on every engine; `FanOut.TickerWorker` takes an
+engine factory; `Trips.SystemDriver {Name; Make; Emit}` per system with its own sink and book (`Drivers.fs`);
+`scan trips --system flushfader|lowfader|spikefader|snoozer`. The live poll (`Live.fs`) still reads FlushFader only — the
+order-management layer folds every system next.

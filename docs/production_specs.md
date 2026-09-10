@@ -67,7 +67,9 @@ X rr ≥ 12 (0.74) · C halts ∧ fresh (0.75) · D volat ≥ 100 bp (0.48) · r
 **Corpus** `data/spikefader_s47/` (`data/spikefader_s47.log` has the flags); reproduce the book with
 `python3 -u scripts/analysis/spikefader_s47_exits.py` (SLICE header) → **3,067 @ 2.327** with the floor
 (3,573 @ 2.213 without; sub-$1 slice 544 @ 1.93). Volume at $10k: 46 trades/mo, ~150k sh/mo above $1.
-**Status**: research-complete; no Scanner port yet; borrow = the live constraint.
+**Status (2026-09-10, §S50)**: IN THE SCANNER (`Engine/SpikeFader.fs` + `SpikeFaderBook.fs`, `scan trips --system spikefader`, the whole
+SPEC as engine gates incl. the two s47 rewrites), sealed on the s47 corpus: 63,435 = 63,435 SPEC trips, **3,067 = 3,067 book** zero-diff;
+reference `scripts/equity/spikefader_reference.py`; trades tape 10d `--gate --ms-precision` 232 = 232 / book 15 = 15, gate exact 10/10. Borrow = the live constraint.
 
 ---
 
@@ -116,7 +118,9 @@ Reproduce = `WHERE spec_ord > 0` on the corpus (verified 221). ⚠ GAP: the comm
 `lowfader_wide_book.py` / `lowfader_wide_grades.py` hardcode crf ≤ −0.001 (the REJECTED wide variant, 275 trades) —
 change to −0.002 or use `spec_ord`. **Price floor: NONE** (`MinPrevClose` 0; 7 of the 221 book trades enter under $1,
 min $0.05) — the $1 decision is pending (SpikeFader/FlushFader carry $1; SpringFlyer $2).
-**Status**: ratified; Scanner port pending; live sizing per the A/rest ladder.
+**Status (2026-09-10, §L26)**: IN THE SCANNER (`Engine/LowFader.fs` + `LowFaderBook.fs`, `scan trips --system lowfader`), sealed
+zero-diff on the ratified corpus: 753 = 753 engine-level trips, 221 = 221 book (grade A 36); reference `scripts/equity/lowfader_reference.py`;
+trades tape `--gate --ms-precision` 2026-02-11..26: 11 = 11 / book 5 = 5, gate exact 11/11. **Price floor: NONE (user 2026-09-10)** — the 7 sub-$1 trades are PF 6.01, the fee wall goes to the OMS.
 
 ## 6. SpringFlyer — DAILY-bar SHORT of the straight-line climax — `docs/springflyer_results.md` §S9 (SPEC v2 RATIFIED 2026-09-07)
 

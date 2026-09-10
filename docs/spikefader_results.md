@@ -4331,3 +4331,32 @@ book — +2.2%/trade vs +0.5% — but it is also the hardest borrow, and we are 
 prior-close variant is worse because it also drops the sub-$1 names that spike THROUGH $1 on day D — among the
 best shorts. `spikefader_zq.SPEC` carries the clause; the Scanner port must gate on the signal bar's raw vwap, not
 `close_m1`. Volume at $10k/position: 46 trades/mo, ~150k shares/mo above $1 (606k with the sub-$1 names).
+
+## §S50 — SpikeFader S47 IN THE LIVE SCANNER (2026-09-10): ported and sealed zero-diff
+
+**What was built** (private repo `TradingEdge.Scanner`, the FlushFader §S49aj pattern): `Engine/SpikeFader.fs` — the FlushFader
+fork direction-flipped, carrying the WHOLE spec as engine gates (the research corpus gates only volat / be6030 / eff10 in the
+engine and applies the rest post-hoc): new strictly-prior 1200-bar HIGH, time-clock floors, volat ≥ 40 bp, `vwap / ewp_6030_be − 1
+> 2%` (`DecaySumMa` 60/30-bar window-difference exponential mean of the vwap, this bar included), SIGNED eff_10m ≥ 0.3, highs_300 ≥
+40 / highs_600 ≥ 90 / highs_180 ≥ 15 (new-high legs disarmed by a strictly-prior N-bar LOW breach), halt-adjusted gap_60 < 10,
+`vwap / sess_low − 1 > 3%` (the s47 `dlv` substitution — the parquet `dlv` is an S41q moment, not the spec's), ols_slope_300 ≥ 0
+and ols_slope_1200 ≥ 5e-5 ln/bar (the ring `LogPxOls`; ⚠ the SPEC's literal 0.0030 is the per-MINUTE figure in a per-bar
+column and selects nothing — 30 bp/min ÷ 60), signal < 15:30, ac1_ewma ≥ −0.1 (`EwmaAutoCorrMa(40, 3)` of the signed slot
+returns), signal vwap ≥ $1 (§S49). Exit = strictly-prior 540-bar LOW (§S47), next-bar fill, else MOC at the close bar; no
+overnight shorts. `SpikeFaderBook.fs` = the research `mc1` (per ticker-day, SIGNAL order, kept iff `signal_sec >= the last kept
+exit_sec`) + ROSTER v3.4 as the OVERWRITE CASCADE it is (E .19 → D volat ≥ 100 bp .48 → C halts ≥ 2 ∧ ssh ∈ [60,300) .75 → X
+rr ≥ 12 .74 → B dslo ≤ −5% .99 → A rr < 0.5 1.00; the LAST firing voice wins, so C ∧ X = 0.74). Returns short-signed as the
+TripSink writes them, `(entry − exit) / entry`. `rr = vol_60 / (vol_0945_tape · 60/900)` (time-clock numerator); `dslo` reads the
+session HIGH despite its name.
+
+**Reference** = `scripts/equity/spikefader_reference.py` on `data/spikefader_s47/` (SPEC with the s47 rewrites, numpy NaN-fails
+mask): 63,435 SPEC trips on 2,847 ticker-days; book **3,067 @ 2.327** (net +6,217, worst −83.4), sized 2.884; grades A 73 @ 4.26 ·
+B 110 @ 5.02 · X 112 @ 4.42 · C 30 @ 4.29 · D 518 @ 3.20 · E 2,224 @ 1.79 — §S49's numbers exactly.
+
+**Seals** (`scripts/equity/scanner_diff.py`):
+
+| harness | Scanner | reference | result |
+|---|---|---|---|
+| full period `--from-bars --system spikefader` on `spikefader_s44_whitelist` 2020-01-02..2026-07-17 (21 min), SPEC trips | 63,435 | 63,435 | **zero-diff, all 26 shared columns** (a first pass differed on ret_exit by 1.1e−16 — expression order; the sink now writes the TripSink's `(entry − exit)/entry`) |
+| same, BOOK (mc=1, grade, weight) | 3,067 | 3,067 | zero-diff (tol 1e−9) |
+| 10d trades tape `--gate --ms-precision --system spikefader` vs research `spikefader_base_10d` (full universe, 5,907 trips) | 232 / 15 | 232 / 15 | gate exact 10/10 days; SPEC trips 0 key-exclusive (ret_exit within 1.1e−16 before the expression fix); book zero-diff |

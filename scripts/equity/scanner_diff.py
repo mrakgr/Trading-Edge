@@ -16,6 +16,8 @@ ap = argparse.ArgumentParser()
 ap.add_argument("mode", choices=["trips", "book"])
 ap.add_argument("left"); ap.add_argument("right")
 ap.add_argument("--year", type=int, default=0, help="restrict BOTH sides to year(trade_date) = this")
+ap.add_argument("--start", default="", help="restrict BOTH sides to trade_date >= this (yyyy-mm-dd)")
+ap.add_argument("--end", default="", help="restrict BOTH sides to trade_date <= this")
 ap.add_argument("--cols", default="", help="restrict the column diff to these (comma list); default = every shared column")
 ap.add_argument("--show", type=int, default=20)
 ap.add_argument("--tol", type=float, default=0.0, help="a column 'differs' where |Δ| > this (default 0 = exact)")
@@ -31,7 +33,8 @@ shared = [c for c in lc if c in rc and c not in KEY]
 if args.cols: shared = [c for c in args.cols.split(",") if c in shared]
 NUM = ("DOUBLE", "FLOAT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT", "UINTEGER", "UBIGINT", "USMALLINT", "UTINYINT", "DECIMAL")
 def is_num(t): return any(t.upper().startswith(n) for n in NUM)
-where = f"WHERE year(trade_date::DATE) = {args.year}" if args.year else ""
+conds = ([f"year(trade_date::DATE) = {args.year}"] if args.year else []) + ([f"trade_date::DATE >= '{args.start}'"] if args.start else []) + ([f"trade_date::DATE <= '{args.end}'"] if args.end else [])
+where = ("WHERE " + " AND ".join(conds)) if conds else ""
 proj = ", ".join(KEY[:1] + ["trade_date::VARCHAR AS trade_date", "signal_sec"] + [f'"{c}"' for c in shared])
 con.execute(f"CREATE VIEW L AS SELECT {proj} FROM read_parquet('{args.left}') {where}")
 con.execute(f"CREATE VIEW R AS SELECT {proj} FROM read_parquet('{args.right}') {where}")
