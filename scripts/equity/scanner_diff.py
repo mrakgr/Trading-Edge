@@ -21,6 +21,7 @@ ap.add_argument("--end", default="", help="restrict BOTH sides to trade_date <= 
 ap.add_argument("--cols", default="", help="restrict the column diff to these (comma list); default = every shared column")
 ap.add_argument("--show", type=int, default=20)
 ap.add_argument("--tol", type=float, default=0.0, help="a column 'differs' where |Δ| > this (default 0 = exact)")
+ap.add_argument("--rtol", type=float, default=0.0, help="RELATIVE tolerance: |Δ| / max(|a|, |b|, 1) > this (summation-order noise on big sums)")
 ap.add_argument("--mem", default="6GB")
 args = ap.parse_args()
 KEY = ["symbol", "trade_date", "signal_sec"]
@@ -60,16 +61,17 @@ for c in shared:
         a, b = f'L."{c}"::DOUBLE', f'R."{c}"::DOUBLE'
         na, nb = f"({a} IS NULL OR isnan({a}))", f"({b} IS NULL OR isnan({b}))"
         d = f"CASE WHEN {na} AND {nb} THEN 0.0 WHEN {na} OR {nb} THEN 'inf'::DOUBLE ELSE abs({a} - {b}) END"
+        if args.rtol > 0: d = f"CASE WHEN {na} AND {nb} THEN 0.0 WHEN {na} OR {nb} THEN 'inf'::DOUBLE ELSE abs({a} - {b}) / greatest(abs({a}), abs({b}), 1.0) END"
     else:
         d = f'CASE WHEN L."{c}" IS NOT DISTINCT FROM R."{c}" THEN 0.0 ELSE 1.0 END'
-    exprs.append(f"max({d}), count(*) FILTER (WHERE {d} > {args.tol!r})")
+    exprs.append(f"max({d}), count(*) FILTER (WHERE {d} > {(args.rtol if args.rtol > 0 else args.tol)!r})")
 res = con.execute(f"SELECT {', '.join(exprs)} FROM L JOIN R USING (symbol, trade_date, signal_sec)").fetchone() if shared and ns else ()
 print(f"\ncolumn diff over {ns:,} shared rows, {len(shared)} shared columns:")
 bad = 0; w = max((len(c) for c in shared), default=10)
 for i, c in enumerate(shared):
     mx, n = (res[2 * i] or 0.0, res[2 * i + 1] or 0) if res else (0.0, 0)
     if n: bad += 1
-    print(f"  {c:<{w}}  max|Δ| {mx:<12.3e} rows≠ {n:>9,}{'' if n == 0 else '   ⚠'}")
+    print(f"  {c:<{w}}  max|Δ|{'/rel' if args.rtol > 0 else ''} {mx:<12.3e} rows≠ {n:>9,}{'' if n == 0 else '   ⚠'}")
 ok = bad == 0 and not lo and not ro
 print(f"\n{'✅ ZERO-DIFF' if ok else '⚠ DIFFERENCES'}: {ns:,} shared keys, {bad} of {len(shared)} shared columns differ, {len(lo) + len(ro):,} key-exclusive")
 if args.mode == "book":

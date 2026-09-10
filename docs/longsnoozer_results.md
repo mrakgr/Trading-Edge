@@ -1734,3 +1734,49 @@ A+ 195 @ 3.426 (+6.96%) — the 39 sub-$1 trades read PF 33.8 / +18.6%/trade, i.
 no free limits under $1 (TradeZero) — trivial against +18.6%, but 39 trades in 10 years is an anecdote and sub-$1
 overnight holds carry halt/delisting/reverse-split risk the sample cannot show. User ruling pending. Volume at
 $10k/position: 7.6 trades/mo, ~27k shares/mo (both legs).
+
+## §S50 — LongSnoozer IN THE LIVE SCANNER (2026-09-10): re-baselined at 15:59, gap ceiling, ported and sealed
+
+**Two user rulings before the port.** (1) The book's dollar / density ratios (`dv_over_open30`, `bar_over_open30`) read
+(15:00, 16:00] — one minute PAST the 15:59 decision (`snoozer_build_shape.py:55-58` admits it). Live cannot read that
+minute, so every last-hour feature was CUT AT 15:59 and the reference RE-BASELINED on the ms corpus (`scripts/equity/
+snoozer_build_1559.py`, one pass over 2,534 day files, ~25 min alone — ⚠ it was OOM-killed at 7.9 GB while three Scanner
+runs shared the box; run it alone at `--mem 4GB --batch 10`; `snoozer_books_1559.py`). (2) A STALENESS CEILING on the last
+hour, `gaps = 3540 − traded seconds in (15:00, 15:59] ≤ 3,450` (≥ 90 traded seconds) — the ZJYL hole (§S43cw's open item:
+`p1559` was hours old, 3,599 of 3,600 seconds absent) closed with a rule that removes NOTHING from any reference cell (max
+gaps in the books: A++ 3,091 · A+ 2,709 · S 3,314 · B 3,396; the user chose the count ceiling over a recency floor because the
+gap count is already the book's feature). NYSE early-close days are EXCLUDED from the reference (the caches' "last hour" is
+after-hours tape there; 9,759 ticker-days; the calendar-aware Scanner never sees those bars). No price floor (both $1 rulings
+still pending; a config knob).
+
+**The re-baseline** (ratified thresholds I/B/BB kept as literals; ms corpus 2016-08-08..2026-09-03, 1,449,973 ticker-days):
+
+| cell | w | (a) 16:00 defs on the ms corpus | (b) 15:59 defs | (c) 15:59 + ceiling = PRODUCTION | worst % | registry (ns-era) |
+|---|---|---|---|---|---|---|
+| long A++ | 1.00 | 476 @ 3.452 | 463 @ 3.587 | **463 @ 3.587** | −24.3 | 476 @ 3.452 |
+| long A+ | 1.00 | 212 @ 4.150 | 206 @ 4.123 | **206 @ 4.123** | −40.2 | 211 @ 4.152 |
+| long B++ | 0.35 | 304 @ 1.563 | 284 @ 1.592 | **284 @ 1.592** | −44.0 | 304 @ 1.590 |
+
+(a) reproduces the ns-era registry on the ms corpus to within a trade (the precision drift the doc bounded); the 15:59 cut
+moves 13 / 6 / 20 trades out of the three cells and leaves the PFs where they were; the ceiling removes zero. Long book (c):
+953 @ 2.777 incl. B++. Reference artifacts: `data/flushfader_gate_review/snoozer_reference_{signals,book}.parquet`
+(1,589 signals / 1,587 with a fill, both sides).
+
+**The Scanner** (`Engine/Snoozer.fs`, `SnoozerBook.fs`, `scan trips --system snoozer`): not a per-bar sampler — one decision per
+ticker-day at 15:59:00 from the running sums (p1500 / p1559 last-bar vwaps, 30-wall-clock-second slot volat over [09:30,10:00)
+between consecutive PRESENT slots, the opening dollar/second buckets, `dv_lh59` / `nb60k59` over (15:00, 15:59]), the cells
+per the registry incl. B++ 0.35, the ceiling; then the fill proxy (vwap of (15:59, 16:00]) and the outcome (open_p1 + div_p1
+from the candidate row — FORWARD, audit only). ⚠ The Snoozer universe is the WHOLE candidate table: no volat prepass and NO
+barnum warmup (25 of the 2025-26 reference signals are listings younger than 22 sessions — the FlushFader warmup had to be
+switched off for this system). Both Snoozers stay NOT ADOPTED in the registry; the port makes them runnable.
+
+**Seals** (one engine, both sides):
+
+| harness | Scanner | reference | result |
+|---|---|---|---|
+| `--from-bars --system snoozer` 2025-01-02..2026-08-31 (416 days, full universe, 10 min), decided ticker-days (both sides) | 345 | 344 | zero-diff on 24 columns (dollar sums to 2.4e−15 RELATIVE — DuckDB's parallel summation order vs the engine's sequential fold; `scanner_diff.py --rtol 1e-12`); the 1 Scanner-only signal is GSRT 2025-10-09, the ticker's LAST session (no next open) — the reference's universe join drops it, the engine rightly emits it, neither side books it |
+| same, BOOK (with a fill) | 344 | 344 | zero-diff, 25 columns |
+| 10d trades tape `--gate --ms-precision --system snoozer` | 26 / 26 | 26 / 26 | signals and book zero-diff; gate exact 9/10 days + 1 gate-only ticker with no candidate row (the known class; no trip) |
+
+Before the barnum fix the same runs read 319 / 25 — the FlushFader `barnum ≥ 22` warmup was silently applied to a universe the
+Snoozers read whole (25 young listings) plus NCPL 2025-07-03 (the early-close class, now out of the reference).

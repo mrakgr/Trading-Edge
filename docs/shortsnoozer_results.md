@@ -2116,3 +2116,22 @@ blind by construction, the other two actively favour the trade.
 `scripts/equity/snoozer_production_books.py` reproduces §S43cw exactly (S 142 @ 6.884, A 108 @ 3.244, B 378 @
 2.775). Registry: `docs/production_specs.md` §4. **$1 floor on p1559 is FREE here**: S 141 @ 6.848, A 103 @ 4.135
 (improves), B 357 @ 2.735; the sub-$1 slice is 27 @ 2.12. Volume at $10k/position: 6.7 trades/mo, ~28k shares/mo.
+
+## §S50 — ShortSnoozer IN THE LIVE SCANNER (2026-09-10): re-baselined at 15:59, the staleness ceiling, ported and sealed
+
+See `docs/longsnoozer_results.md` §S50 for the two rulings (15:59 endpoints; `gaps ≤ 3,450`), the rebuild and the Scanner engine
+— one engine decides both sides. The short cells read no last-hour ratio, so the 15:59 cut changes nothing on this side; the
+ns → ms precision drift is the whole difference to the registry (S 145 vs 142, B 381 vs 378 — `gaps` counts absent seconds and
+ms truncation converts absent → present, exactly the doc's bounded effect):
+
+| cell | w | (a) 16:00 defs on the ms corpus | (b) 15:59 defs | (c) + ceiling = PRODUCTION | worst % | registry (ns-era) |
+|---|---|---|---|---|---|---|
+| short S | 1.00 | 145 @ 6.936 | 145 @ 6.936 | **145 @ 6.936** | −15.2 | 142 @ 6.884 |
+| short A | 0.50 | 108 @ 3.244 | 108 @ 3.244 | **108 @ 3.244** | −32.3 | 108 @ 3.244 |
+| short B | 0.35 | 381 @ 2.781 | 381 @ 2.781 | **381 @ 2.781** | −63.6 | 378 @ 2.775 |
+
+Short book (c): 634 @ 3.342. **The ZJYL open item is closed** by the ceiling: the stale-print class sits above every cell's
+range (max gaps 3,396 in the book vs 3,539 for ZJYL), so `gaps ≤ 3,450` vetoes it at zero cost. Early-close days excluded from
+the reference (after-hours "last hour"). Still NOT ADOPTED (borrow, fees, spreads unmodelled).
+
+**Seals**: see `docs/longsnoozer_results.md` §S50 — 345 / 344 signals and 344 = 344 book zero-diff (2025-26 from-bars), 26 = 26 on the 10-day trades tape.

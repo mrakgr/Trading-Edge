@@ -85,6 +85,10 @@ Signal chg60k59 < −6% (15:00 → 15:59 vwap). r = (open_p1 + div_p1) / px_lim_
 **$1 floor (p1559 ≥ 1)**: A++ 453 @ 3.044 / A+ 195 @ 3.426 — the 39 sub-$1 trades are PF 33.8, +18.6%/trade (the
 floor COSTS here; user ruling pending). Volume at $10k: 7.6 trades/mo, 27k sh/mo. **Status: NOT ADOPTED** (A+ has
 < 5 trades/yr before 2020; A++ 2026 = 29.8 on n=46); caches ns-era.
+**2026-09-10 (§S50 in both snoozer docs): RE-BASELINED at 15:59 endpoints on the ms corpus + a staleness ceiling `gaps ≤ 3,450`
++ early closes excluded (`scripts/equity/snoozer_build_1559.py` → `snoozer_books_1559.py`): A++ 463 @ 3.587 · A+ 206 @ 4.123 ·
+B++ 284 @ 1.592 (the 16:00 definitions on the ms corpus reproduce the numbers above to within a trade). IN THE SCANNER
+(`Engine/Snoozer.fs`, `--system snoozer`, no barnum warmup, no price floor): sealed 2025-26 from-bars 344 = 344 book zero-diff (+1 engine-only signal on a ticker's last session), 10d trades tape 26 = 26.
 
 ## 4. ShortSnoozer — overnight reversal SHORT — `docs/shortsnoozer_results.md` §S43cw
 
@@ -94,7 +98,9 @@ Same script/caches. Signal chg60k59 > +8%; r = −ovn_from_lim59; gaps = 3540 �
 - **B (0.35)**: volat ∈ [40,100) ∧ gaps ≥ 2000 → 378 @ 2.775 (worst −64%)
 - SKIP: volat [40,100) ∧ gaps < 2000 (509 @ 0.918, worst −235%); volat ≥ 100 not in the book.
 **$1 floor**: S 141 @ 6.848 / A 103 @ 4.135 / B 357 @ 2.735 — free (sub-$1 slice 27 @ 2.12). Volume at $10k: 6.7
-trades/mo, 28k sh/mo. **Status: NOT ADOPTED** (borrow, fees, spreads unmodelled); open item = last-hour staleness guard.
+trades/mo, 28k sh/mo. **Status: NOT ADOPTED** (borrow, fees, spreads unmodelled). **2026-09-10 (§S50)**: the staleness
+guard is CLOSED — `gaps ≤ 3,450` (removes 0 book trades, vetoes ZJYL); re-baselined on the ms corpus S 145 @ 6.936 · A 108 @ 3.244 ·
+B 381 @ 2.781 (the 15:59 cut does not touch the short cells); IN THE SCANNER (same engine as the long side): sealed 2025-26 from-bars 344 = 344 book zero-diff (+1 engine-only signal on a ticker's last session), 10d trades tape 26 = 26.
 
 ---
 

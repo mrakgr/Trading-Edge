@@ -33,6 +33,12 @@ I, B, BB = 0.498393, 0.652937, 0.925649
 con = duckdb.connect()
 F = con.execute(f"SELECT * FROM read_parquet('{args.feat}')").df()
 F["date"] = F["date"].astype(str)
+# ⚠ NYSE early-close days are EXCLUDED (2026-09-10): the research caches read (15:00, 16:00] on every day, which on a 13:00
+# close is AFTER-HOURS tape — no 15:59 limit exists there. The calendar-aware Scanner never sees those bars (its day ends at
+# 13:00). One reference trade in 2025-26 (NCPL 2025-07-03) was this class.
+EARLY = {"2016-11-25","2017-07-03","2017-11-24","2018-07-03","2018-11-23","2018-12-24","2019-07-03","2019-11-29","2019-12-24","2020-11-27","2020-12-24",
+         "2021-11-26","2022-11-25","2023-07-03","2023-11-24","2024-07-03","2024-11-29","2024-12-24","2025-07-03","2025-11-28","2025-12-24","2026-11-27","2026-12-24"}
+n_early = int(F.date.isin(EARLY).sum()); F = F[~F.date.isin(EARLY)].reset_index(drop=True); print(f"early-close ticker-days excluded: {n_early:,}")
 vb = F.volat_open30.values * 1e4
 def nz(m): return np.where(np.isnan(np.asarray(m, dtype=float)), False, m).astype(bool)
 def pf(r):
