@@ -101,3 +101,23 @@ by construction. The two biggest days are two SpikeFader 4-unit shorts (MGRX +5,
 one (JLHL −4,668): SpikeFader's A/B/X/C grades all saturate the clip at 4 units (ruling 1), so one short = 30 % of
 equity. ⚠ Worth a look before this is believed: 4 units on a short whose grade PF−1 is 3.3–4 is the ruling's
 consequence, not a bug, but the +17 % in ten days is mostly three SpikeFader trades.
+
+## O0b — THE CAP SEAL (2026-09-11): the manager against the §S49ag capped replay — IDENTICAL
+
+`scan oms --systems flushfader --schedule off --entry-mode cross --exit-mode cross --no-queue --free-on-fill` on
+2026-01-02..2026-08-31 (166 days, 44,848 messages, 38 min, 0 invariant violations) vs `scripts/equity/oms_cap_seal.py`
+(the replay kernel on the sealed reference trips `broad_reference_trips.parquet`, with the OMS's conventions: decide
+at the signal second, ties in symbol order, units free at the exit fill, the $1 floor on the signal vwap, units =
+the OMS's own per-signal `units`), window 2026-01-02..08-21 (the reference's last day):
+
+| | trips | taken | busy (already_open) | sub_dollar | reason mismatches | fills | Σ ret × units per day |
+|---|---|---|---|---|---|---|---|
+| replay vs OMS | 21,946 | **3,617 = 3,617** | 11,992 = 11,992 | 6,337 = 6,337 | **0** | 3,617 matched, max Δ px 0, sec mismatches 0 | 160 days, max Δ **0.000**, totals +25.570766 = +25.570766 |
+
+Two things the seal had to know: (1) the OMS tests "ticker busy" BEFORE the $1 floor (the replay's order was the
+reverse — reasons only, no trade changes); (2) the reference audit trail carries the NEXT-OPEN REWRITE on MOC exits
+(`SignalSink.resolvedExit`: 4,241 MOC exits in the window, 7 rewritten to the next open — e.g. REPL 2026-04-10, halted
+at 09:40, one 16:00 print at 4.76, next open 1.71): the OMS exits at the 16:00 bar by ruling 2 (no overnight book), so
+the script restores the close-bar vwap from the 1s bars for the comparison. Nothing else: the cap, the one-position-
+per-ticker rule, FCFS in signal order, the fills and the P&L are the replay's to the bit. The cap did not bind in the
+window at 20 units with FlushFader alone (no `cap` rejects) — it is the ticker rule that refuses 55 % of the trips.

@@ -27,6 +27,7 @@ ap.add_argument("--start", required=True); ap.add_argument("--end", required=Tru
 ap.add_argument("--cap", type=float, default=20.0)
 ap.add_argument("--tol", type=float, default=1e-9)
 ap.add_argument("--show", type=int, default=20)
+ap.add_argument("--secdir", default="data/intraday_1s_slim")
 a = ap.parse_args()
 
 con = duckdb.connect()
@@ -34,9 +35,27 @@ T = con.sql(f"""select symbol, trade_date, signal_sec, entry_sec, exit_sec, entr
                from read_parquet('{a.trips}') where trade_date >= '{a.start}' and trade_date <= '{a.end}'
                order by trade_date, signal_sec, symbol""").df()
 S = con.sql(f"""select trade_date, sec, symbol, units, outcome, reason from read_parquet('{a.oms}/signals.parquet')
-               where system = 'flushfader' and msg = 'long_mr'""").df()
+               where system = 'flushfader' and msg = 'long_mr' and trade_date >= '{a.start}' and trade_date <= '{a.end}'""").df()
 P = con.sql(f"""select trade_date, symbol, signal_sec, units, ret, entry_sec, exit_sec, entry_px, exit_px, exit_reason
-               from read_parquet('{a.oms}/positions.parquet') where system = 'flushfader'""").df()
+               from read_parquet('{a.oms}/positions.parquet') where system = 'flushfader' and trade_date >= '{a.start}' and trade_date <= '{a.end}'""").df()
+# ⚠ the reference audit trail carries the NEXT-OPEN REWRITE on MOC exits (SignalSink.resolvedExit: exit_sec stays the
+# close, exit_px becomes the next session's open — the overnight book the OMS does NOT hold). Restore the close-bar
+# vwap for those trips from the 1s bars, so both sides price the same exit.
+moc = T[T.exit_sec >= 46800].copy()
+if len(moc):
+    days = sorted(moc.trade_date.unique())
+    fixes = {}
+    for d in days:
+        rows = moc[moc.trade_date == d]
+        syms = ",".join("'" + s_ + "'" for s_ in rows.symbol.unique())
+        bars = con.sql(f"""select ticker, bucket, vwap::DOUBLE v from read_parquet('{a.secdir}/{d}.parquet')
+                          where ticker in ({syms}) and bucket in ({",".join(str(int(x)) for x in rows.exit_sec.unique())}) and vwap > 0 and volume > 0""").fetchall()
+        for tk, b, v in bars: fixes[(d, tk, int(b))] = v
+    T["exit_px_ref"] = T.exit_px
+    k = list(zip(T.trade_date, T.symbol, T.exit_sec))
+    T["exit_px"] = [fixes.get(kk, px) if kk in fixes else px for kk, px in zip(k, T.exit_px)]
+    n_rw = int(sum(1 for kk, px, px0 in zip(k, T.exit_px, T.exit_px_ref) if kk in fixes and px != px0))
+    print(f"MOC exits in the window: {len(moc):,}; next-open rewrites undone: {n_rw:,}")
 print(f"trips {len(T):,}  oms signal rows {len(S):,}  oms positions {len(P):,}   window {a.start}..{a.end}")
 
 # units per trip from the OMS's own message row (one row per signal; a re-signal is impossible in --no-queue mode
@@ -62,10 +81,10 @@ while i < n:
         now = sig[t]
         keep = [(e, s_, uu) for e, s_, uu in zip(open_ext, open_sym, open_u) if e > now]
         open_ext = [k[0] for k in keep]; open_sym = [k[1] for k in keep]; open_u = [k[2] for k in keep]
+        if sym[t] in open_sym:
+            reason[t] = 1; continue                     # ticker busy (already_open) — the OMS tests this first
         if not (svw[t] >= 1.0):
             reason[t] = 4; continue                     # sub_dollar (signal vwap)
-        if sym[t] in open_sym:
-            reason[t] = 1; continue                     # ticker busy (already_open)
         if sum(open_u) + u[t] > a.cap + 1e-9:
             reason[t] = 2; continue                     # cap
         take[t] = 1; reason[t] = 0
@@ -76,7 +95,7 @@ RN = {0: "taken", 1: "busy", 2: "cap", 4: "sub_dollar"}
 
 # ---- 1. the taken set
 P["key"] = list(zip(P.trade_date, P.symbol, P.signal_sec))
-taken_replay = set(T.key[T.take == 1]); taken_oms = set(P.key)
+taken_replay = set(T.key[T["take"] == 1]); taken_oms = set(P.key)
 only_r = sorted(taken_replay - taken_oms); only_o = sorted(taken_oms - taken_replay)
 print(f"\nTAKEN: replay {len(taken_replay):,}  oms {len(taken_oms):,}  replay-only {len(only_r):,}  oms-only {len(only_o):,}")
 for k in only_r[: a.show]: print("  replay-only", k, RN.get(int(T.reason[T.key == k].iloc[0]), "?"))
@@ -106,15 +125,15 @@ print(f"OMS entries placed but never filled (last-bar signals, cancelled eod): {
 
 # ---- 3. P&L: Σ ret × units per day
 T["ret"] = T.exit_px / T.entry_px - 1.0
-rep = T[T.take == 1].groupby("trade_date").apply(lambda g: (g.ret * g.units).sum())
-oms = P.groupby("trade_date").apply(lambda g: (g.ret * g.units).sum())
+rep = T[T["take"] == 1].assign(ru=lambda d: d.ret * d.units).groupby("trade_date").ru.sum()
+oms = P.assign(ru=lambda d: d.ret * d.units).groupby("trade_date").ru.sum()
 D = pd.concat([rep.rename("replay"), oms.rename("oms")], axis=1).fillna(0.0)
 D["diff"] = (D.replay - D.oms).abs()
 bad = D[D["diff"] > a.tol]
 print(f"\nP&L (Σ ret × units per day): {len(D)} days, max |Δ| {D['diff'].max():.3e}, days over tol {len(bad)}; totals replay {D.replay.sum():+.6f} oms {D.oms.sum():+.6f}")
 if len(bad): print(bad.head(a.show).to_string())
 # per-position: entry/exit second and price must be the engine's own
-m = T[T.take == 1].merge(P, on=["trade_date", "symbol", "signal_sec"], suffixes=("_t", "_o"))
+m = T[T["take"] == 1].merge(P, on=["trade_date", "symbol", "signal_sec"], suffixes=("_t", "_o"))
 dpx = np.maximum((m.entry_px_t - m.entry_px_o).abs().max() if len(m) else 0, (m.exit_px_t - m.exit_px_o).abs().max() if len(m) else 0)
 dsec = int(max((m.entry_sec_t != m.entry_sec_o).sum(), (m.exit_sec_t != m.exit_sec_o).sum())) if len(m) else 0
 print(f"matched positions {len(m):,}: max |Δ entry/exit px| {dpx:.3e}, entry/exit second mismatches {dsec}")
