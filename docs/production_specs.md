@@ -144,3 +144,42 @@ close 10 sessions later (the 10d timestop; low-exit variants NOT adopted); retur
 script that produced `data/springflyer_spec_v2.log` was never committed** — the signal SQL reproduces, the mc=1
 collapse must be re-implemented. **Status**: ratified; **BORROW is the blocker** (TradeZero / Lightspeed / IBKR
 availability for $2–10 mania runners to be evaluated); squeeze tail p95 5d-high +98%.
+
+## 7. The SYSTEMS MANAGER (OMS) — beta on historical 1s bars — `docs/oms_results.md`
+
+**What it is (2026-09-11):** the RECONCILER between the production systems' desired states and one account's positions,
+under the account's constraints; private Scanner `TradingEdge.Scanner/Oms/*` + `OmsRun.fs`, `scan oms`. Subsystems
+(one per system × ticker × day, wrapping the sealed engines) send `LongMeanReversion(pf1, signalPx)` /
+`ShortMeanReversion(pf1, signalPx)` / `Close signalSec` on state changes only; the OMS enters, exits, sizes and
+schedules. Tested by `Oms/Oms_Test.fsx` (135 checks + 20 random seeds, 0 invariant violations, byte-identical
+determinism); the engine accessors it needed (`Pending`, `HoldingCount`) re-sealed zero-diff on every system.
+
+**Rulings (user, 2026-09-10/11):**
+1. **PF−1 → size, one map for every system:** `units = clip(PF−1 / 0.519, 0.25, 4)` (FlushFader's A3 map). FlushFader
+   passes its fitted `Pf1` unnormalized; the others pass the REALIZED per-grade PF−1 of their ratified books: LowFader
+   A 20.6 / rest 2.63; SpikeFader A 3.26 B 4.02 X 3.42 C 3.29 D 2.20 E 0.79; Snoozer A++ 2.452 A+ 3.152 B++ 0.590 /
+   S 5.884 A 2.244 B 1.775. Consequence accepted: every LowFader/SpikeFader/Snoozer grade but SpikeFader E and the
+   Snoozer B/B++ saturates at 4 units (30 % of equity at 7.5 %/unit) — ⚠ see oms_results §O0a: one 4-unit SpikeFader
+   short is the biggest line of the ten-day smoke run.
+2. **v1 scope:** the Snoozers are SIGNAL-ONLY (logged at 15:59, never traded); the three faders exit before 16:00;
+   FlushFader's next-open rewrite stays audit-only; the OMS never holds overnight.
+3. **Close schedule (defaults, all knobs):** no new entries from 15:45; resting exits become crosses from 15:45; from
+   15:45 positions are closed largest-units-first until gross ≤ 200 %; at 15:58 everything left is crossed out;
+   early closes shift every second by the close. Account: 100,000 · 7.5 % of equity per unit (§S49ai ¼ Kelly) ·
+   cap 20 units (§S49ag) · gross ≤ 400 % intraday · $1 floor on FlushFader signals only.
+4. **Pending wants:** a want blocked by the cap/gross stays pending and enters when capacity allows AND the price is
+   STRICTLY past the signal (below a long's, above a short's; equal is no improvement), re-checked every second.
+   `--no-queue` = the §S49ag replay's skip-not-queue for the cap seal.
+5. **Two-pass settlement (borrowed from Malcolm's trade-engine):** per second, closes settle before entries; a position
+   with a MARKET exit pending frees its units at placement (`--free-on-fill` = the replay's convention for the seal).
+   **Never a silent drop:** every message has an outcome + reason row.
+6. **Build, don't adapt (2026-09-11):** Malcolm's Rust engine assessed and not adopted as the OMS — bar-driven alphas
+   inside the engine, no external-signal input, no per-signal sizing, no gross cap, no close-of-day reduction, silent
+   risk rejects, no live path or broker on main, no equities readiness, config semantics that break every ~10 days
+   (private notes: `private_research/docs/trade_engine_replication.md`).
+7. **LIVE GAP → DEFENSIVE POSTURE (user policy, 2026-08-21, written down at last):** when the live feed gaps (the
+   session is tainted — every rolling window is silently wrong), exit every open position at the 5-minute high and
+   take NO new entries for the rest of the day. Not yet implemented (the live per-second barrier across shards is v2).
+
+**Status:** beta on historical bars; the fill A/B (§O1: rest vs repeg vs cross entries, rest vs cross exits, the 200 %
+rule priced) and the cap seal against the §S49ag replay are in `oms_results.md`. NOT a live path.
