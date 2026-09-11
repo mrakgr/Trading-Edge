@@ -227,3 +227,21 @@ each), and the effects add: cross/cross 1.92 vs rest/rest 1.46, every month, eve
 
 **Ruled by the numbers (2026-09-11): the OMS default becomes cross / cross** (`EntryMode = EntryCross`,
 `ExitMode = ExitCross`) once the fee run confirms it; until then the defaults stay rest/rest and the flags choose.
+
+### The fee run — the verdict holds, cross / cross is the default
+
+Same 2026 window, generic ECN costs (take $0.003/sh on crosses, maker rebate $0.002/sh on resting fills — the broker
+memory note's placeholder until the broker is chosen); PF on $ now includes the fees, PF on ret × units does not:
+
+| entries / exits | trades | PF $ (no fees) | PF $ (with fees) | fees total | fee per trade | avg shares | equity end (compounded) |
+|---|---|---|---|---|---|---|---|
+| rest / rest | 3,714 | 1.43 | **1.50** | −136,625 (rebates EARN) | −36.79 | 9,355 | 1,295,184 |
+| cross / cross | 3,952 | 1.85 | **1.73** | +412,730 | +104.44 | 17,406 | 3,159,893 |
+
+Per system with fees, PF $: FlushFader rest/rest 1.18 vs cross/cross (fees) 1.34; SpikeFader 3.17 vs 3.98;
+LowFader 1.68 vs 3.2 (12 trades). The rebates are worth ≈ +0.07 PF to resting, the take fees ≈ −0.12 PF to
+crossing (on lines twice as large, since the crossed path compounded faster) — together ≈ 0.2 PF, and cross/cross
+still leads by 0.23. **RULED (2026-09-11): the OMS defaults become `EntryMode = EntryCross`, `ExitMode = ExitCross`**
+(`--entry-mode rest` / `--exit-mode rest` remain as knobs; `Oms_Test.fsx` sets rest explicitly where it tests the
+resting rules). Not run: the full period (~14 h for one config with four engines resident — the user ruled it out
+as an overnight job; the 8-month result stands as the beta's verdict).
