@@ -121,3 +121,50 @@ at 09:40, one 16:00 print at 4.76, next open 1.71): the OMS exits at the 16:00 b
 the script restores the close-bar vwap from the 1s bars for the comparison. Nothing else: the cap, the one-position-
 per-ticker rule, FCFS in signal order, the fills and the P&L are the replay's to the bit. The cap did not bind in the
 window at 20 units with FlushFader alone (no `cap` rejects) — it is the ticker rule that refuses 55 % of the trips.
+
+## O1 — THE FILL A/B (2026-09-11): rest vs repeg vs cross entries × rest vs cross exits, 2026-01-02..2026-08-31
+
+Four systems (Snoozers signal-only), defaults (100,000 · 7.5 %/unit · cap 20 · 200 % cut and cross exits from 15:45 ·
+flatten 15:58 · 0 bp slippage · no fees), 166 days, ~94 min per run at four concurrent runs, 0 invariant violations
+everywhere. ⚠ Dollar columns COMPOUND (sizing on each day's opening equity, ~24 trades a day) — compare **PF on
+ret × units, Σ ret × units and bp per trade**, not net $. `repeg` = 60 s, +10 bp, 3 steps, then cross.
+⚠ Not the full period (the plan said 2020–2026; with all four engines resident a day costs ~30 s → ~14 h per run,
+so the A/B ran on 2026); the follow-up is the full period for the winning configuration only.
+
+### Wave 1
+
+| entries / exits | trades | fill rate | PF (ret×units) | Σ ret×units | avg / median bp | worst trade | cross-from exits | flattened |
+|---|---|---|---|---|---|---|---|---|
+| rest / rest | 3,714 | 96 % (3,889 placed) | 1.46 | +3,113 % | +31 / +108 | −84 % | 52 | 17 |
+| repeg / rest | 3,845 | 99 % | 1.47 | +3,213 % | +31 / +106 | −84 % | 53 | 17 |
+| **cross / cross** | 3,952 | 100 % | **1.92** | **+5,538 %** | **+65** / +118 | −84 % | 0 | 18 |
+
+Per system (PF on $, avg bp, hold):
+
+| entries / exits | FlushFader n / PF / bp / hold | SpikeFader n / PF / bp / hold | LowFader n / PF / bp / hold |
+|---|---|---|---|
+| rest / rest | 3,476 / 1.11 / +17 / 20 min | 226 / 3.15 / +243 / 24 min | 12 / 1.45 / −69 / 341 min |
+| repeg / rest | 3,598 / 1.12 / +17 / 20 | 235 / 3.11 / +242 / 23 | 12 / 1.47 / −70 / 342 |
+| cross / cross | 3,703 / 1.41 / +49 / 15 | 237 / 4.27 / +324 / 17 | 12 / 3.56 / −65 / 342 |
+
+Per month (n / net $ / PF / worst day), rest/rest vs cross/cross:
+
+| month | rest/rest | cross/cross |
+|---|---|---|
+| 2026-01 | 559 / +24,086 / 1.29 / −7,223 | 598 / +59,468 / 1.68 / −4,531 |
+| 2026-02 | 371 / +177 / 1.00 / −5,265 | 391 / +29,223 / 1.54 / −2,771 |
+| 2026-03 | 438 / +25,875 / 1.40 / −10,753 | 472 / +68,884 / 1.68 / −18,637 |
+| 2026-04 | 453 / +26,732 / 1.27 / −23,566 | 480 / +144,973 / 2.03 / −6,420 |
+| 2026-05 | 569 / +76,765 / 1.57 / −5,487 | 600 / +288,990 / 1.90 / −2,956 |
+| 2026-06 | 592 / +445,295 / 2.22 / −13,143 | 620 / +1,937,190 / 2.68 / −33,905 |
+| 2026-07 | 371 / +7,604 / 1.02 / −65,810 | 401 / +658,647 / 1.39 / −171,098 |
+| 2026-08 | 361 / +151,753 / 1.31 / −52,703 | 390 / +1,864,836 / 1.78 / −241,728 |
+
+Reading (wave 1 alone): crossing BOTH sides beats resting both sides in every month, on every system, on the same
+trade count (the resting entry misses only 4 %). Since a resting entry that fills gets the signal price, which is never
+worse than the next bar's vwap, the gap cannot come from the entries — it must be the RESTING EXIT: the sampler's exit
+signal is "target reached" at bar S, a sell limit at that bar's vwap fills only when a LATER bar's vwap is at or above
+it, and on a mean-reverting tape it often is not — the position then sits past its exit until 15:45 (52 converted to
+crosses) while the engine's own exit was the next bar. Repeg (+10 bp every 60 s, then cross) recovers the missed 4 %
+of entries and nothing else — the entry side was never the problem. Wave 2 (rest/cross, cross/rest, repeg/cross,
+and the 200 % rule off) separates the two sides properly.
