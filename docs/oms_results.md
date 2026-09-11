@@ -168,3 +168,62 @@ it, and on a mean-reverting tape it often is not — the position then sits past
 crosses) while the engine's own exit was the next bar. Repeg (+10 bp every 60 s, then cross) recovers the missed 4 %
 of entries and nothing else — the entry side was never the problem. Wave 2 (rest/cross, cross/rest, repeg/cross,
 and the 200 % rule off) separates the two sides properly.
+
+### Wave 2 and the verdict
+
+The full 2 × 3 matrix, PF on ret × units (avg bp per trade), 166 days, 0 invariant violations in every run:
+
+| entries \ exits | rest | cross |
+|---|---|---|
+| rest | 1.46 (+31) | 1.67 (+45) |
+| repeg 60 s / +10 bp / 3 | 1.47 (+31) | 1.68 (+45) |
+| **cross** | 1.68 (+52) | **1.92 (+65)** |
+
+| entries / exits | trades | fill rate | PF (ret×units) | Σ ret×units | avg / median bp | worst day $ (compounded) |
+|---|---|---|---|---|---|---|
+| rest / cross | 3,776 | 96 % | 1.67 | +4,097 % | +45 / +110 | −92,164 |
+| repeg / cross | 3,907 | 99 % | 1.68 | +4,216 % | +45 / +107 | −102,734 |
+| cross / rest | 3,889 | 100 % | 1.68 | +4,518 % | +52 / +118 | −136,785 |
+| cross / cross | 3,952 | 100 % | 1.92 | +5,538 % | +65 / +118 | −241,728 |
+| rest / rest, `--cut-gross 4` (200 % rule OFF) | 3,714 | 96 % | 1.46 | +3,113 % | +31 / +108 | −65,810 — **identical to rest/rest** |
+
+Per system, PF $ / avg bp: FlushFader rest/cross 1.24 / +30 · cross/rest 1.27 / +37 · cross/cross 1.41 / +49;
+SpikeFader 3.65 / +283 · 3.64 / +287 · 4.27 / +324; LowFader (12 trades) 2.01 · 2.45 · 3.56.
+
+Per month, n / net $ / PF / worst day — the diagonal:
+
+| month | rest/cross | cross/rest | cross/cross |
+|---|---|---|---|
+| 2026-01 | 566 / +41,458 / 1.51 / −5,227 | 591 / +39,747 / 1.45 / −6,597 | 598 / +59,468 / 1.68 / −4,531 |
+| 2026-02 | 375 / +13,430 / 1.29 / −3,514 | 386 / +9,998 / 1.18 / −6,306 | 391 / +29,223 / 1.54 / −2,771 |
+| 2026-03 | 444 / +37,534 / 1.47 / −13,811 | 466 / +49,683 / 1.60 / −14,357 | 472 / +68,884 / 1.68 / −18,637 |
+| 2026-04 | 461 / +82,541 / 1.81 / −5,472 | 472 / +57,352 / 1.42 / −29,664 | 480 / +144,973 / 2.03 / −6,420 |
+| 2026-05 | 575 / +141,122 / 1.68 / −7,033 | 594 / +159,087 / 1.77 / −3,756 | 600 / +288,990 / 1.90 / −2,956 |
+| 2026-06 | 601 / +809,527 / 2.34 / −23,518 | 611 / +1,055,189 / 2.54 / −20,807 | 620 / +1,937,190 / 2.68 / −33,905 |
+| 2026-07 | 383 / +181,623 / 1.24 / −81,756 | 389 / +142,832 / 1.14 / −136,455 | 401 / +658,647 / 1.39 / −171,098 |
+| 2026-08 | 371 / +399,328 / 1.42 / −92,164 | 380 / +784,709 / 1.65 / −136,785 | 390 / +1,864,836 / 1.78 / −241,728 |
+
+**Verdict.** Both sides lose to resting, independently and by about the same amount (≈ 0.2 PF, ≈ 15–20 bp a trade
+each), and the effects add: cross/cross 1.92 vs rest/rest 1.46, every month, every system.
+- **Exits:** the sampler's exit signal is "target reached at bar S"; a sell limit at that bar's vwap fills only when a
+  LATER bar's vwap is at or above it, which on a reverting tape it often is not — the position then sits past the
+  engine's own next-bar exit (the hold goes 15 → 20 min; 52 of them are still open at the 15:45 cross conversion).
+  The engine's exit = the next bar's vwap = the cross. Rest the exit and you keep the losers longer.
+- **Entries (the surprise):** a FlushFader signal is a NEW LOW and the next bar is usually lower still, so a cross at
+  the next bar's vwap buys CHEAPER than a limit resting at the signal price — and the limit misses the 4 % of trades
+  where the price bounced at once, the best ones (§S43y's MISSED 12.6 % at PF 8.72, again). Repeg (+10 bp / 60 s ×
+  3) recovers the missed fills and none of the price: +0.01 PF. The user's "leave it vs raise it" question has its
+  answer: neither — for a flush entry, cross the next bar (or rest BELOW the signal, untested).
+- **The 200 % rule never fired** in any run: 20 units × 7.5 % = 150 % gross, so the cut cannot bind at these
+  settings; `--cut-gross 4` is byte-identical to the default. It only matters if the unit fraction rises (10 % → 200 %)
+  or the cap does. The cap itself never bound either (peak 19.5 units, p50 6.5; 0 `cap` rejects in 8 months) — the
+  ticker rule refuses 16k re-signals, the $1 floor 6.5k FlushFader signals.
+- ⚠ What this does NOT price: the crosses are at the bar's vwap with 0 bp slippage and no fees — the §S43y frame said
+  "cross the entry, rest the exit" partly because rests EARN rebates; on the broad book the rebates were +0.55 %/trade
+  (§S49). With take fees at $0.003/sh both ways on ~$7.5k lines, the cross costs ≈ 8–15 bp a side — a chunk of the
+  15–20 bp each side wins here, not all of it. The next run: cross/cross vs rest/rest with `--fee 0.003 --rebate 0.002`.
+- ⚠ 2026 only, and the per-day cost (~30 s with four engines resident) is what kept it there; the full-period run
+  is cross/cross only, next.
+
+**Ruled by the numbers (2026-09-11): the OMS default becomes cross / cross** (`EntryMode = EntryCross`,
+`ExitMode = ExitCross`) once the fee run confirms it; until then the defaults stay rest/rest and the flags choose.
