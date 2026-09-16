@@ -143,3 +143,23 @@ EITHER message type, `ErrorCode` optional; rotate the working id on every replac
 the chain key); mint `ClientOrderID` once, store it before sending; reconnect = rebuild from the snapshot
 (nothing is replayed); reply to heartbeats only with the current `SessionId`; frames < 10 KB; paper
 opens 06:00 ET (engine), production 04:00 ET.
+
+## §L4 Can an order's status be queried on demand? (09-16, 10:04 ET) — NO
+
+Six candidate message types (`OrderStatusRequest`, `OrderMassStatusRequest`, `OrderStatus`,
+`OrderSingleStatus`, `OrderQuery`, `OrderUpdate`) were all refused: `MsgError 1 "MsgType not valid."` or
+`100 "##:REJECT - MsgType not found"`. `AccountUpdate` returns balances + positions only, no orders. The
+only order read is the logon snapshot: after disconnecting with one limit resting and one market order
+filled, the reconnect replayed **the resting limit only** (`OrderSingleStatus NEW 0/10`); the filled order
+appeared nowhere — its fill survives only as the position (`PositionStatus` showed AAPL 5) and in whatever
+the client logged from the stream before the drop. ⇒ Lightspeed order state is **push-only**: the OMS
+must keep its own order ledger keyed by `ClientOrderID`, and after a reconnect reconcile (a) open orders
+from the snapshot, (b) everything else from positions vs the ledger. An order that filled during the
+outage shows up as a position delta with no execution report.
+
+Cross-broker answer to "place, then query by id": TradeZero **yes** (`GET .../order/{clientOrderId}` at
+any time, 404 = never seen; `GET /orders` lists everything incl. filled; the row is the record of truth);
+IBKR **partially** (no per-order call; `reqAllOpenOrders` for open, `reqExecutions` for the day's fills by
+permId, `reqCompletedOrders` lossy — reconstruct, keyed by `permId`); Lightspeed **no** (snapshot of open
+orders at logon, nothing for closed ones). On ALL three, positions are netted per symbol per account: no
+broker will say which system's order a share belongs to — attribution lives in the OMS ledger only.
