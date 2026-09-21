@@ -63,3 +63,4 @@ let early_closes : DateOnly HashSet =
         DateOnly(2028,11,24)
     |] |> HashSet
     
+do if DateOnly.FromDateTime DateTime.Today > DateOnly(2028,11,24) then failwith "Early closes must be updated."
