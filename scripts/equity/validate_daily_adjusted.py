@@ -130,7 +130,11 @@ print("\n=== 4. SPLIT CORRECTIONS (02_split_corrections.sql) ===")
 # The correction table is RECOMPUTED every materialize, so its action counts are a
 # silent-drift surface: a vendor data change could move them without anyone
 # noticing. Assert them, so a change has to be acknowledged rather than absorbed.
-EXPECT = {"SHIFT": 30, "REJECT": 141}
+# Re-pinned 2026-09-22: the splits table now MIRRORS Polygon's full-range file
+# (retired ids are deleted at ingest — Database.fs `retireAbsentIds`), and Polygon
+# had corrected some rows of its own since 08-12 (BMI's 2016 split moved from a
+# recorded 08-29 to 09-15). 30/141 were the counts on the 08-12 download.
+EXPECT = {"SHIFT": 31, "REJECT": 138}
 act = dict(con.execute(
     "SELECT action, count(*) FROM split_corrections GROUP BY 1").fetchall())
 print(f"  {act}")
@@ -156,7 +160,9 @@ check("no DIAGNOSTIC split (>=1.25x) is still tape-contradicted", diag == 0,
 # Known answers: Polygon logged announcement dates for these.
 for tkr, orig, want in [("IAU", "2010-06-17", "2010-06-24"),
                         ("HEI", "2018-01-02", "2018-01-18"),
-                        ("BMI", "2016-08-29", "2016-09-16")]:
+                        # Polygon re-recorded BMI as 2016-09-15 (was 08-29) by 2026-09-22;
+                        # the tape halves on 09-16, so it still shifts by one day.
+                        ("BMI", "2016-09-15", "2016-09-16")]:
     got = con.execute(f"""SELECT CAST(corrected_date AS VARCHAR) FROM split_corrections
       WHERE ticker='{tkr}' AND execution_date=DATE '{orig}'""").fetchone()
     check(f"{tkr} {orig} shifts to {want}", got is not None and got[0] == want,

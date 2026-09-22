@@ -21,6 +21,37 @@ By contrast `download-bulk`, `download-bulk-trades` and `download-bulk-minute`
 are per-day files with a skip-if-exists stage — those ARE safe to run for a
 narrow range, and that is the normal way to backfill.
 
+## ⭐ The full-range files are MIRRORS — the ingest retires ids Polygon dropped (2026-09-22)
+
+Polygon re-keys split and dividend records over time: the same event comes back
+under a new `id` and the old id is never published again. Until 2026-09-22 the
+ingest was an append-only upsert on `id`, so every retired id stayed in
+`trading.db` on top of its replacement and the event STACKED. Found by
+`validate_daily_adjusted.py` after the 09-22 backfill:
+
+| | splits | dividends |
+|---|---|---|
+| rows in the database | 29,067 | 2,066,403 |
+| rows in the full-range file | 28,314 | 2,066,630 |
+| database ids absent from the file (retired) | 753 | 9 |
+| duplicate natural keys in the database | 903 | 688 |
+| duplicate natural keys inside Polygon's own file | 185 | 687 |
+
+AAPL's 2020-08-31 4:1 sat under two ids → a 16x two-leg split → the tape
+corroboration in `02_split_corrections.sql` REJECTED it → the split was not
+applied at all (the table read −74% across the split day). The dividends side
+was fine: its duplicates are Polygon's own, present in the file.
+
+**The rule now** (`Database.fs` `retireAbsentIds`, called by both CSV ingests):
+before the upsert, every id the file no longer carries is DELETED, and the log
+line says how many (`retired N ids absent from the file`). ⚠ Because the two
+download verbs rewrite the file whole, a narrow-range file would make this
+delete the table's history — so retiring more than 10% of a table is REFUSED
+with a message pointing here. `backfill-daily` always fetches the full range.
+After the fix the inventory returned to exactly the 53-split baseline and the
+validator was re-pinned (SHIFT 31 / REJECT 138; Polygon had corrected BMI's 2016
+split date itself).
+
 ## ⭐ Just use `backfill-daily`
 
 ```

@@ -596,11 +596,11 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
     if File.Exists splitsFile then
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let countBefore = getSplitCount connection
-        let _ = ingestSplitsFromCsv connection splitsFile
+        let retired = ingestSplitsFromCsv connection splitsFile
         let countAfter = getSplitCount connection
-        let newSplits = countAfter - countBefore
+        let newSplits = countAfter - countBefore + retired
         sw.Stop()
-        printfn "Ingested %d new splits (total: %d) in %.2fs" newSplits countAfter sw.Elapsed.TotalSeconds
+        printfn "Ingested %d new splits, retired %d ids absent from the file (total: %d) in %.2fs" newSplits retired countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Splits file not found: %s" splitsFile
 
@@ -608,11 +608,11 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
     if File.Exists dividendsFile then
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let countBefore = getDividendCount connection
-        let _ = ingestDividendsFromCsv connection dividendsFile
+        let retired = ingestDividendsFromCsv connection dividendsFile
         let countAfter = getDividendCount connection
-        let newDividends = countAfter - countBefore
+        let newDividends = countAfter - countBefore + retired
         sw.Stop()
-        printfn "Ingested %d new dividends (total: %d) in %.2fs" newDividends countAfter sw.Elapsed.TotalSeconds
+        printfn "Ingested %d new dividends, retired %d ids absent from the file (total: %d) in %.2fs" newDividends retired countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Dividends file not found: %s" dividendsFile
 

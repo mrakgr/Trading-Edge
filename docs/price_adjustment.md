@@ -319,6 +319,7 @@ expected to be one.
 | `.../materialized/03_daily_adjusted.sql` | builds the table; consumes the corrections. ⚠ The `02_`/`03_` prefixes are load-bearing — the folder is executed in NAME order |
 | `TradingEdge.Database/sql/schema/tables/{splits,dividends}.sql` | `PRIMARY KEY(id)` + the rationale |
 | `TradingEdge.Massive/{SplitDownload,DividendDownload}.fs` | capture Polygon's `id`; `VendorId.require` throws if absent |
+| `TradingEdge.Database/Database.fs` `retireAbsentIds` | ⭐ 2026-09-22: the full-range file is a MIRROR — ids Polygon no longer publishes are deleted at ingest (retired ids had stacked AAPL's 4:1 into a rejected 16x); >10% retirement refused. See `docs/massive_cli_gotchas.md` |
 | `TradingEdge.Massive/Types.fs` | `Split` / `Dividend` records |
 | `scripts/equity/validate_daily_adjusted.py` | acceptance tests — run after any rebuild |
 | `docs/flushfader_results.md` §S43bq | the overnight study that exposed the dividend bug |

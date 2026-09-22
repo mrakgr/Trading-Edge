@@ -314,8 +314,36 @@ let upsertSplits (connection: IDbConnection) (splits: Split array) : int =
     transaction.Commit()
     count
 
-/// Bulk ingest splits directly from a CSV file using DuckDB's native CSV reader
+/// ⭐ THE FULL-RANGE FILE IS A MIRROR (2026-09-22). Polygon re-keys split and
+/// dividend records over time: the same event comes back under a new `id` and
+/// the old one is never published again. An append-only upsert on `id` then keeps
+/// BOTH — the event stacks (AAPL 2020-08-31 became a 16x two-leg split, which the
+/// tape corroboration REJECTED, so the 4:1 was not applied at all; 753 retired
+/// split ids, 903 duplicate (ticker, date) pairs against 185 in Polygon's own
+/// file). So before the upsert, every id the file no longer carries is deleted.
+///
+/// ⚠ GUARD: the files are rewritten WHOLE by their download verbs, so a
+/// narrow-range download would make this delete the table's history
+/// (docs/massive_cli_gotchas.md). Retiring more than `maxRetireFraction` of the
+/// table is refused — `backfill-daily` always fetches the full range.
+let private maxRetireFraction = 0.10
+
+let private retireAbsentIds (connection: IDbConnection) (table: string) (filePath: string) : int64 =
+    let total = connection.ExecuteScalar<int64>($"SELECT COUNT(*) FROM {table}")
+    let absent =
+        connection.ExecuteScalar<int64>(
+            $"SELECT COUNT(*) FROM {table} WHERE id NOT IN (SELECT id FROM read_csv('{filePath}', header = true))")
+    if total > 0L && float absent > maxRetireFraction * float total then
+        failwithf "%s: the file %s would retire %d of %d ids (> %.0f%%) — a narrow-range download? The splits/dividends files must be FULL RANGE (docs/massive_cli_gotchas.md)."
+            table filePath absent total (maxRetireFraction * 100.0)
+    connection.Execute($"DELETE FROM {table} WHERE id NOT IN (SELECT id FROM read_csv('{filePath}', header = true))") |> ignore
+    absent
+
+/// Bulk ingest splits directly from a CSV file using DuckDB's native CSV reader.
+/// The file is a MIRROR: ids it no longer carries are retired first (see
+/// `retireAbsentIds`). Returns the number of retired ids.
 let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
+    let retired = retireAbsentIds connection "splits" filePath
     let sql = $"""
         INSERT INTO splits (id, ticker, execution_date, split_from, split_to, split_ratio)
         SELECT 
@@ -343,7 +371,8 @@ let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
             split_to = excluded.split_to,
             split_ratio = excluded.split_ratio
     """
-    connection.Execute(sql) |> int64
+    connection.Execute(sql) |> ignore
+    retired
 
 /// Get count of daily prices in database
 let getDailyPriceCount (connection: IDbConnection) : int64 =
@@ -355,8 +384,11 @@ let getSplitCount (connection: IDbConnection) : int64 =
 
 // --- Dividends ---
 
-/// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader
+/// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader.
+/// The file is a MIRROR: ids it no longer carries are retired first (see
+/// `retireAbsentIds`). Returns the number of retired ids.
 let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
+    let retired = retireAbsentIds connection "dividends" filePath
     let sql = $"""
         INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
         SELECT
@@ -390,7 +422,8 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
             frequency = excluded.frequency,
             dividend_type = excluded.dividend_type
     """
-    connection.Execute(sql) |> int64
+    connection.Execute(sql) |> ignore
+    retired
 
 /// Get count of dividends in database
 let getDividendCount (connection: IDbConnection) : int64 =
