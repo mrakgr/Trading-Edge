@@ -163,3 +163,28 @@ IBKR **partially** (no per-order call; `reqAllOpenOrders` for open, `reqExecutio
 permId, `reqCompletedOrders` lossy — reconstruct, keyed by `permId`); Lightspeed **no** (snapshot of open
 orders at logon, nothing for closed ones). On ALL three, positions are netted per symbol per account: no
 broker will say which system's order a share belongs to — attribution lives in the OMS ledger only.
+
+## §L5 The adapter's probes (09-23, 11:08 ET, paper, AAPL) — the shapes the OMS depends on
+
+Run through the OMS adapter (`Trade/Lightspeed.fs` in the private Scanner) with its probe script; every
+frame logged. Answers the open questions of the execution layer (plan step 7):
+
+| probe | measured |
+|---|---|
+| logon burst | `AccountBalanceStatus` + `PositionStatus` BEFORE the `Logon` reply again (as 09-15), all within 1 ms, ~0.6 s after connect |
+| replace price / replace qty DOWN | `OrderReplaceUpdate "Validated OK"` (carries only ids, `Symbol`, `OrderStatus` = the state at ack) → `OrderSingleUpdate REPLACED` **under the replace's `ClientOrderID`** (the docs, read 09-23, say the original id — measured says otherwise; handle both) with no `OrigClientOrderID`; the broker `OrderID` is **unchanged across every replace** ⇒ the queue position is kept |
+| replace qty UP (1 → 5) | **ACCEPTED on paper** (`REPLACED`, qty 5): the documented 205 is not enforced; production will refuse it |
+| replace LIMIT → MARKET (`OrderType MARKET`, no `Price`) | accepted `REPLACED`, but the order **stays LIMIT at its price** — the type change is silently ignored on paper. The OMS cancels + re-places instead |
+| cancel | `OrderCancelUpdate "Validated OK"` (**no `Side`/`OrderQty`**, only `Symbol` — the docs say they are echoed) → `OrderSingleUpdate CANCELED` under the ORDER's id, no `OrigClientOrderID` |
+| cancel via a STALE id of a replace chain | cancels the live order (the server resolves the chain) |
+| cancel of a canceled order / of a FILLED order | `OrderCancelReject`, **`ErrorCode 0`**, `ErrorText "Unknown or inactive order"`, no `Symbol`, no `CancelRejectResponseTo`; no restating `OrderSingleUpdate` follows |
+| market fill | `OrderSingleUpdate FILLED` → `ExecutionReport` → **ONE `PositionUpdate` row** (the symbol traded, not the account) → `AccountBalanceUpdate` — the position comes AFTER the report (the quickstart transcript's order did not recur) |
+| pushed position rows | a `PositionUpdate` + `AccountBalanceUpdate` pair follows EVERY order state change, fills or not, carrying the current `pos` (0 included) |
+| a position closed to 0 | pushed as a `pos 0` row, but **absent** from `PositionStatus` (the logon snapshot and `AccountUpdate`): absent = flat |
+| `SELL` with no position | fills, position −1 (as 09-15: paper does not check the mark) |
+| reconnect | the socket closed by us → a new logon ~1.5 s later, a clean burst |
+
+**Adapter consequences:** book fills only from `ExecutionReport`; normalize `REPLACED` under either id from
+the replaces in flight; map every refusal (an `OrderCancelReject`, an ack with a non-zero code, a `REJECTED`
+under the request's id) to one event and never key on `ErrorCode` (0 on refusals); complete an ack's missing
+fields from the order as sent; treat `PositionStatus` as the whole book (absent = flat).
