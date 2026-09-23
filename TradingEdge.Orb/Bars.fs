@@ -200,7 +200,7 @@ let inline keepByMask (mask: uint64) (sipTs: int64) (participantTs: int64)
                       (price: float) (size: float) : bool =
     size > 0.0 && price > 0.0
     && (mask &&& openCloseMask <> 0UL // keep if the trade is an open or a close trade
-        || (sipTs = 0L || participantTs = 0L || sipTs - participantTs <= MaxSipDeltaNs) // of if there delta between sip and participant timestamps is small enough
+        || (sipTs = 0L || participantTs = 0L || sipTs - participantTs <= MaxSipDeltaNs) // or if the delta between sip and participant timestamps is small enough
            && mask &&& excludeMask = 0UL) // and there are no exclude conditions
 
 // -----------------------------------------------------------------------------
