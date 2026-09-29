@@ -15,15 +15,19 @@ from market_hours import split_by_market_hours
 
 # Load API keys from config files
 CONFIG = {}
-if os.path.exists('api_key.json'):
+if os.path.exists('api_key.json'):                                   # FMP (and other non-Massive keys)
     with open('api_key.json') as f:
         CONFIG = json.load(f)
+MASSIVE = os.path.expanduser('~/.config/massive/credentials')       # the Massive keys, out of the repo since 2026-09-29
+if os.path.exists(MASSIVE):
+    with open(MASSIVE) as f:
+        CONFIG.update(json.load(f))
 
 POLYGON_KEY = CONFIG.get('massive_api_key') or os.getenv('POLYGON_API_KEY')
 FMP_KEY = CONFIG.get('financialmodelingprep_key') or os.getenv('FMP_API_KEY')
 
 if not POLYGON_KEY:
-    print("Error: Polygon API key not found in api_key.json or POLYGON_API_KEY environment variable")
+    print("Error: Polygon API key not found in ~/.config/massive/credentials or POLYGON_API_KEY environment variable")
     sys.exit(1)
 
 def get_ticker_details(ticker):

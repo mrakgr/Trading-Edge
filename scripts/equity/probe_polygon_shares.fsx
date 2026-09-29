@@ -27,7 +27,7 @@ let inPath, outPath =
     | _ -> failwith "usage: probe_polygon_shares.fsx -- <in.csv> <out.csv>"
 
 let apiKey =
-    let doc = JsonDocument.Parse(IO.File.ReadAllText "api_key.json")
+    let doc = JsonDocument.Parse(IO.File.ReadAllText (IO.Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.UserProfile, ".config", "massive", "credentials")))
     doc.RootElement.GetProperty("massive_api_key").GetString()
 
 let rows =

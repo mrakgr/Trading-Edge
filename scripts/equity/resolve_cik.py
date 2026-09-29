@@ -37,7 +37,8 @@ POLY_BASE = "https://api.polygon.io/v3/reference/tickers/"
 
 
 def load_polygon_key():
-    cfg = json.load(open("api_key.json")) if os.path.exists("api_key.json") else {}
+    p = os.path.expanduser("~/.config/massive/credentials")          # moved out of the repo 2026-09-29
+    cfg = json.load(open(p)) if os.path.exists(p) else {}
     return cfg.get("massive_api_key") or os.getenv("POLYGON_API_KEY")
 
 

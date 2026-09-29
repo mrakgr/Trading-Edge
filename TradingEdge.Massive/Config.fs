@@ -5,7 +5,7 @@ open System.IO
 open System.Text.Json
 open System.Text.Json.Serialization
 
-/// Internal JSON representation matching the api_key.json format
+/// Internal JSON representation of the Massive credentials (~/.config/massive/credentials since 2026-09-29)
 [<CLIMutable>]
 type private ConfigJson = {
     [<JsonPropertyName("massive_api_key")>]

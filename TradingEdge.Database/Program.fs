@@ -1178,7 +1178,9 @@ let main argv =
     try
         let results = parser.ParseCommandLine(inputs = argv, raiseOnUsage = true)
 
-        let configPath = Path.Combine(Environment.CurrentDirectory, "api_key.json")
+        // the Massive keys (massive_api_key, massive_s3_access_key, massive_s3_secret_key; JSON, mode 600) live outside
+        // the repo since 2026-09-29 — the same file on the home PC and the VPS
+        let configPath = Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.UserProfile, ".config", "massive", "credentials")
 
         for result in results.GetAllResults() do
             match result with

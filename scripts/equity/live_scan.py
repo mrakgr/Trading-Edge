@@ -35,7 +35,7 @@ import duckdb
 ROOT = Path(__file__).resolve().parents[2]
 DB = ROOT / "data" / "trading.db"
 FLOAT_DB = ROOT / "data" / "equity" / "float" / "float.db"
-KEY = json.load(open(ROOT / "api_key.json"))["massive_api_key"]
+KEY = json.load(open(Path.home() / ".config" / "massive" / "credentials"))["massive_api_key"]   # moved out of the repo 2026-09-29
 
 # production EntryConfig defaults (Types.fs)
 # rvol_min is the CHECKPOINT-calibrated floor, not the daily-close 5.0: intraday
