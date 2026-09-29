@@ -129,16 +129,22 @@ type BackfillDailyArgs =
     | [<AltCommandLine("-d")>] Database of string
     | Skip_Tickers
     | Skip_Ingest
+    | V2_Only
+    | Skip_V2
+    | V2_Dir of string
 
     interface IArgParserTemplate with
         member this.Usage =
             match this with
-            | Start_Date _ -> "First day of aggregates to fetch. Default: the day after the newest date already in daily_prices (i.e. resume where the DB left off)."
+            | Start_Date _ -> "First day of aggregates to fetch. Default: the day after the newest date already in daily_prices (with --v2-only: the day after the newest file in data/daily_aggregates)."
             | End_Date _ -> "Last day of aggregates to fetch (default: today; weekends/holidays skip themselves)."
             | Parallelism _ -> "Concurrent S3 downloads for the daily aggregates (default: 12). Massive throttles PER CONNECTION, so this is the throughput dial."
             | Database _ -> "DuckDB database path (default: data/trading.db)."
             | Skip_Tickers -> "Skip the reference-ticker refresh (CS/ADRC/ETF/ETN/ETV/ETS)."
-            | Skip_Ingest -> "Download only; do not ingest or materialize."
+            | Skip_Ingest -> "Download only; do not ingest or materialize (v1 or v2)."
+            | V2_Only -> "Download, then build data v2 (parquet) only — trading.db is never opened. The production VPS runs this."
+            | Skip_V2 -> "Do not rebuild data v2 after the v1 ingest."
+            | V2_Dir _ -> "Data v2 directory (default: data/v2)."
 
 type DownloadTickersArgs =
     | [<AltCommandLine("-o")>] Output_File of string
@@ -161,18 +167,6 @@ type DownloadTickerEventsArgs =
             | Output_Dir _ -> "Output directory for per-ticker JSON files (default: data/tickers/events)"
             | Parallelism _ -> "Concurrent requests (default: 8)"
             | Tickers _ -> "Comma-separated tickers to download (default: every ticker in ticker_reference)"
-
-type IngestTickerEventsArgs =
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-i")>] Input_Dir of string
-    | [<AltCommandLine("-o")>] Output_Parquet of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Database _ -> "DuckDB database (default: data/trading.db)"
-            | Input_Dir _ -> "Directory of per-ticker JSON files (default: data/tickers/events)"
-            | Output_Parquet _ -> "Output parquet (default: data/tickers/events.parquet)"
 
 type RefreshViewsArgs =
     | [<AltCommandLine("-d")>] Database of string
@@ -264,18 +258,6 @@ type DownloadNewsArgs =
             | Output_Dir _ -> "Output directory for downloaded data (default: data/news)"
             | Parallelism _ -> "Max parallel downloads (default: 5)"
 
-type IngestIntradayArgs =
-    | [<AltCommandLine("-d")>] Database of string
-    | [<AltCommandLine("-i")>] Input_Dir of string
-    | Timespan of string
-
-    interface IArgParserTemplate with
-        member this.Usage =
-            match this with
-            | Database _ -> "DuckDB database path (default: data/trading.db)"
-            | Input_Dir _ -> "Input directory for intraday data (default: data/intraday)"
-            | Timespan _ -> "Filter by timespan: 'minute', 'second', or 'all' (default: all)"
-
 type BuildMinuteBarsArgs =
     | [<AltCommandLine("-s")>] Start_Date of string
     | [<AltCommandLine("-e")>] End_Date of string
@@ -294,6 +276,24 @@ type BuildMinuteBarsArgs =
             | Parallelism _ -> "Concurrent days. Default: 4"
             | Force -> "Overwrite existing per-day output parquets."
 
+type BuildV2Args =
+    | Raw_Dir of string
+    | Out_Dir of string
+    | Memory_Limit of string
+    | Temp_Dir of string
+    | Seed_Tickers of string
+    | Threads of int
+
+    interface IArgParserTemplate with
+        member this.Usage =
+            match this with
+            | Raw_Dir _ -> "Directory holding daily_aggregates/, splits.csv, dividends.csv, tickers.csv (default: data)."
+            | Out_Dir _ -> "Output directory (default: data/v2); the previous build is kept as <out>.prev."
+            | Memory_Limit _ -> "DuckDB memory_limit (default: 4GB)."
+            | Temp_Dir _ -> "DuckDB spill directory (default: the bulk temp dir)."
+            | Seed_Tickers _ -> "The FIRST build only: v1's ticker_reference as parquet (tickers.csv alone has lost delisted names)."
+            | Threads _ -> "DuckDB threads (default: all cores). Peak memory grows with it, beyond --memory-limit."
+
 type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk of ParseResults<DownloadBulkArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Bulk_Minute of ParseResults<DownloadBulkMinuteArgs>
@@ -307,12 +307,11 @@ type Arguments =
     | [<CliPrefix(CliPrefix.None)>] Download_Quotes of ParseResults<DownloadQuotesArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_News of ParseResults<DownloadNewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Ingest_Data of ParseResults<IngestDataArgs>
-    | [<CliPrefix(CliPrefix.None)>] Ingest_Intraday of ParseResults<IngestIntradayArgs>
+    | [<CliPrefix(CliPrefix.None)>] Build_V2 of ParseResults<BuildV2Args>
     | [<CliPrefix(CliPrefix.None)>] Download_Tickers of ParseResults<DownloadTickersArgs>
     | [<CliPrefix(CliPrefix.None)>] Refresh_Views of ParseResults<RefreshViewsArgs>
     | [<CliPrefix(CliPrefix.None)>] Build_Minute_Bars of ParseResults<BuildMinuteBarsArgs>
     | [<CliPrefix(CliPrefix.None)>] Download_Ticker_Events of ParseResults<DownloadTickerEventsArgs>
-    | [<CliPrefix(CliPrefix.None)>] Ingest_Ticker_Events of ParseResults<IngestTickerEventsArgs>
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -329,12 +328,11 @@ type Arguments =
             | Download_Quotes _ -> "Download NBBO quotes data for a ticker"
             | Download_News _ -> "Download news articles for a ticker"
             | Ingest_Data _ -> "Ingest daily data into DuckDB database"
-            | Ingest_Intraday _ -> "Ingest intraday data into DuckDB database"
+            | Build_V2 _ -> "⭐ Data v2: rebuild the daily parquet set (daily_prices, splits, dividends, ticker_reference, split_corrections, daily_adjusted) from the raw files — no trading.db"
             | Download_Tickers _ -> "Download ETF/ETN ticker reference data from Polygon"
             | Refresh_Views _ -> "Refresh views only (fast, no table rematerialization)"
             | Build_Minute_Bars _ -> "Build 1m time-bar aggregates from bulk trades (lit-only, 04:00-20:00 ET, 960 buckets/day)"
             | Download_Ticker_Events _ -> "Download ticker rename/event chains from Polygon /vX/reference/tickers/{ticker}/events"
-            | Ingest_Ticker_Events _ -> "Flatten data/tickers/events/*.json -> data/tickers/events.parquet -> ticker_events table"
 
 let private ensureDataDir () =
     Directory.CreateDirectory("data") |> ignore
@@ -699,6 +697,11 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
     let startDate =
         match args.TryGetResult BackfillDailyArgs.Start_Date with
         | Some d -> DateTime.Parse d
+        | None when args.Contains BackfillDailyArgs.V2_Only ->
+            // no trading.db on the VPS: the newest downloaded day file is the resume point
+            let days = if Directory.Exists "data/daily_aggregates" then Directory.GetFiles("data/daily_aggregates", "*.csv.gz") else [||]
+            if days.Length = 0 then datasetStart
+            else (days |> Array.map (fun f -> DateTime.Parse(Path.GetFileName(f).Substring(0, 10))) |> Array.max).AddDays 1.0
         | None ->
             if File.Exists dbPath then
                 use conn = openConnection dbPath
@@ -773,11 +776,30 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
         eprintfn "ingest: SKIPPED — a download step failed; fix it and re-run (downloads resume)."
         exit 1
     else
-        runIngest dbPath "data/daily_aggregates" "data/splits.csv" "data/dividends.csv" "data/tickers.csv"
+        let v2Dir = args.GetResult(BackfillDailyArgs.V2_Dir, defaultValue = "data/v2")
+        if not (args.Contains BackfillDailyArgs.V2_Only) then
+            runIngest dbPath "data/daily_aggregates" "data/splits.csv" "data/dividends.csv" "data/tickers.csv"
+        if args.Contains BackfillDailyArgs.Skip_V2 then printfn "v2: SKIPPED (--skip-v2)"
+        elif not (File.Exists (Path.Combine(v2Dir, "manifest.json"))) && not (args.Contains BackfillDailyArgs.V2_Only) then
+            printfn "v2: %s not built yet — bootstrap it once with build-v2 --seed-tickers <v1 ticker_reference parquet>" v2Dir
+        else
+            printfn ""
+            printfn "v2 build -> %s" v2Dir
+            V2Build.build { RawDir = "data"; OutDir = v2Dir; MemoryLimit = "4GB"; TempDir = Some (Path.Combine(defaultBulkTempDir (), "v2_duck_tmp")); SeedTickers = None; Threads = None } |> ignore
 
     printfn ""
     printfn "=== backfill-daily %s ===" (if ok then "COMPLETE" else "FINISHED WITH ERRORS")
     if not ok then exit 1
+
+let private handleBuildV2 (args: ParseResults<BuildV2Args>) =
+    V2Build.build
+        { RawDir = args.GetResult(BuildV2Args.Raw_Dir, defaultValue = "data")
+          OutDir = args.GetResult(BuildV2Args.Out_Dir, defaultValue = "data/v2")
+          MemoryLimit = args.GetResult(BuildV2Args.Memory_Limit, defaultValue = "4GB")
+          TempDir = Some (args.GetResult(BuildV2Args.Temp_Dir, defaultValue = Path.Combine(defaultBulkTempDir (), "v2_duck_tmp")))
+          SeedTickers = args.TryGetResult BuildV2Args.Seed_Tickers
+          Threads = args.TryGetResult BuildV2Args.Threads }
+    |> ignore
 
 let private handleIngestData (args: ParseResults<IngestDataArgs>) =
     runIngest
@@ -838,24 +860,6 @@ let private handleDownloadTickerEvents (config: MassiveConfig) (args: ParseResul
     printfn "Done. ok=%d  not_found=%d  failed=%d" ok notFound failed
     if failed > 0 then
         eprintfn "WARNING: %d tickers failed -- re-run to retry (idempotent; skips existing files)." failed
-
-let private handleIngestTickerEvents (args: ParseResults<IngestTickerEventsArgs>) =
-    let dbPath =
-        args.TryGetResult IngestTickerEventsArgs.Database
-        |> Option.defaultValue "data/trading.db"
-    let jsonDir =
-        args.TryGetResult IngestTickerEventsArgs.Input_Dir
-        |> Option.defaultValue "data/tickers/events"
-    let parquet =
-        args.TryGetResult IngestTickerEventsArgs.Output_Parquet
-        |> Option.defaultValue "data/tickers/events.parquet"
-
-    // Make sure the table exists before we INSERT into it.
-    do
-        use conn = new DuckDB.NET.Data.DuckDBConnection($"Data Source={dbPath}")
-        conn.Open()
-        Database.executeNamedResource conn "ticker_events.sql"
-    TickerEventsIngest.buildAndLoad jsonDir parquet dbPath
 
 let private handleRefreshViews (args: ParseResults<RefreshViewsArgs>) =
     let dbPath =
@@ -1148,64 +1152,6 @@ let private handleDownloadNews (config: MassiveConfig) (args: ParseResults<Downl
         printfn ""
         printfn "Download complete: %d downloaded, %d skipped, %d failed" downloaded skipped failed
 
-let private handleIngestIntraday (args: ParseResults<IngestIntradayArgs>) =
-    let dbPath =
-        args.TryGetResult IngestIntradayArgs.Database
-        |> Option.defaultValue "data/trading.db"
-
-    let inputDir =
-        args.TryGetResult IngestIntradayArgs.Input_Dir
-        |> Option.defaultValue "data/intraday"
-
-    let timespan =
-        args.TryGetResult IngestIntradayArgs.Timespan
-        |> Option.defaultValue "all"
-
-    printfn "Ingesting intraday data..."
-    printfn "Database: %s" (Path.GetFullPath dbPath)
-    printfn "Input directory: %s" (Path.GetFullPath inputDir)
-    printfn "Timespan filter: %s" timespan
-    printfn ""
-
-    use connection = openConnection dbPath
-    initializeSchema connection
-
-    let ingestTimespan timespanName tableName ingestFn countFn =
-        let dir = Path.Combine(inputDir, timespanName)
-        if Directory.Exists dir then
-            let globPattern = Path.Combine(dir, "*", "*.json")
-            let fileCount =
-                if Directory.Exists dir then
-                    Directory.GetDirectories(dir)
-                    |> Array.sumBy (fun d -> Directory.GetFiles(d, "*.json").Length)
-                else 0
-
-            if fileCount > 0 then
-                printfn "Found %d %s JSON files" fileCount timespanName
-                let sw = System.Diagnostics.Stopwatch.StartNew()
-                let countBefore = countFn connection
-                let _ = ingestFn connection globPattern
-                let countAfter = countFn connection
-                let newRows = countAfter - countBefore
-                sw.Stop()
-                printfn "Ingested %d new %s bars (total: %d) in %.2fs" newRows timespanName countAfter sw.Elapsed.TotalSeconds
-            else
-                printfn "No %s JSON files found in %s" timespanName dir
-        else
-            printfn "Directory not found: %s" dir
-
-    match timespan with
-    | "minute" ->
-        ingestTimespan "minute" "intraday_prices_minute" ingestIntradayMinuteFromGlob getIntradayMinuteCount
-    | "second" ->
-        ingestTimespan "second" "intraday_prices_second" ingestIntradaySecondFromGlob getIntradaySecondCount
-    | "all" | _ ->
-        ingestTimespan "minute" "intraday_prices_minute" ingestIntradayMinuteFromGlob getIntradayMinuteCount
-        ingestTimespan "second" "intraday_prices_second" ingestIntradaySecondFromGlob getIntradaySecondCount
-
-    printfn ""
-    printfn "Intraday ingestion complete."
-
 /// One-shot migration: walk data/trades/*/*.json, rewrite each file as a
 /// zstd-compressed Parquet sibling, then delete the source JSON on success.
 /// Idempotent: files with a matching .parquet are skipped, so interrupted
@@ -1271,8 +1217,8 @@ let main argv =
                 handleDownloadNews config args
             | Ingest_Data args ->
                 handleIngestData args
-            | Ingest_Intraday args ->
-                handleIngestIntraday args
+            | Build_V2 args ->
+                handleBuildV2 args
             | Refresh_Views args ->
                 handleRefreshViews args
             | Download_Tickers args ->
@@ -1283,8 +1229,6 @@ let main argv =
             | Download_Ticker_Events args ->
                 let config = loadConfigOrFail configPath
                 handleDownloadTickerEvents config args
-            | Ingest_Ticker_Events args ->
-                handleIngestTickerEvents args
 
         0
     with

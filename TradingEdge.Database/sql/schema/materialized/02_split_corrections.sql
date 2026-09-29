@@ -78,7 +78,9 @@ mv AS (
 -- Net ratio per DATE: a reverse/forward pair on one date is the PRODUCT of its
 -- legs (= 1.0, i.e. no change at all), never one leg. See splits.sql.
 sbd AS (
-    SELECT ticker, execution_date, EXP(SUM(LN(split_ratio))) AS r, count(*) AS n_legs
+    -- ORDER BY inside the aggregate: a float sum over several legs in thread order differs run to run in the last
+    -- bits (measured 2026-09-29: two builds from identical inputs disagreed on 6.2M cum_div values) — fixed order, fixed bits
+    SELECT ticker, execution_date, EXP(SUM(LN(split_ratio) ORDER BY split_ratio)) AS r, count(*) AS n_legs
     FROM splits WHERE split_ratio > 0
     GROUP BY ticker, execution_date
 ),

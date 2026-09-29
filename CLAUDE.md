@@ -31,8 +31,10 @@ OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year bec
    ⭐ **2026-08-12: `adj_ratio` IS BEING RETIRED.** `daily_adjusted` (raw `P` + causal
    `n` + causal `cum_div`) makes this whole bug class structurally impossible — every
    value depends only on events up to day D. Read `docs/price_adjustment.md` before
-   touching any price scaling. Engines still read `split_adjusted_prices`; migration
-   is in progress, so do NOT mix the two in one calculation.
+   touching any price scaling. The fader engines (FlushFader, LowFader, SpikeFader, LongHiker)
+   and the Snoozers read only `daily_adjusted`-derived tables; the LEGACY 1m engines still read
+   `split_adjusted_prices` (via `mr_candidate` / the `daily_episodes` view) — do NOT mix the two
+   in one calculation.
 5. **Knowability clock:** for every field in a filter, write the earliest minute it is determined and
    compare it to `EntryStartMin`. `day_close` / `avgvol20` / `rvol_0945` / `close_fwd_*` = ❌ never.
    `med_bar_vol_0945` = ✅ only because `EntryStartMin = 09:45` — **aligned to the minute; lower the entry
@@ -49,8 +51,10 @@ lookaheads found 2026-07-31 (day D's ADJUSTED close ≥ $1 + future-episode-leng
 VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead · SurgeRider/V2, DipRiderV6, PlungeRider,
 MaxRiderV1 🛑 invalid pending clean-table reruns (same §S39d bug; banners on their docs; sub-$1/$2
 slices inflated — bounce-door PF 8.5 = outcome selection). `docs/systems_showcase.md` quotes dead
-numbers. Clean universe = `mr_candidate_1s` (1s-tape-native, no price floor, NO warmup — `barnum` recorded;
-FlushFader default).
+numbers. Clean universe = `mr_candidate_1s_v2` (1s-tape-native, causal `daily_adjusted` scale, no price floor,
+NO warmup — `barnum` recorded; the fader engines' default). The legacy `mr_candidate_1s` (adj_ratio scale) is kept
+only for the LowFlyer control. **2026-09-29:** 69 dead tables were archived to
+`/mnt/d/trading-edge-bulk/db_archive/2026-09-29/` (manifest.tsv) and dropped (`scripts/db/archive_and_drop.py`).
 
 ## 🛑 Experiment execution discipline (2026-08-27 OOM postmortem)
 

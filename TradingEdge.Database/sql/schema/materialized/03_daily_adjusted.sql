@@ -102,7 +102,9 @@ WITH splits_corrected AS (
 -- This also re-collapses correctly when a SHIFT lands on a date that already has
 -- a split: both then apply on the same day, and the product is the right answer.
 splits_by_date AS (
-    SELECT ticker, execution_date, EXP(SUM(LN(split_ratio))) AS split_ratio
+    -- ORDER BY inside the aggregate: a float sum over several legs in thread order differs run to run in the last
+    -- bits (measured 2026-09-29: two builds from identical inputs disagreed on 6.2M cum_div values) — fixed order, fixed bits
+    SELECT ticker, execution_date, EXP(SUM(LN(split_ratio) ORDER BY split_ratio)) AS split_ratio
     FROM splits_corrected
     GROUP BY ticker, execution_date
 ),
@@ -134,7 +136,9 @@ div_scaled AS (
         AND d.ex_dividend_date > sc.execution_date
 ),
 div_by_date AS (
-    SELECT ticker, ex_dividend_date, SUM(cash_at) AS cash_at
+    -- ORDER BY inside the aggregate: a float sum over several legs in thread order differs run to run in the last
+    -- bits (measured 2026-09-29: two builds from identical inputs disagreed on 6.2M cum_div values) — fixed order, fixed bits
+    SELECT ticker, ex_dividend_date, SUM(cash_at ORDER BY cash_at) AS cash_at
     FROM div_scaled
     GROUP BY ticker, ex_dividend_date
 ),

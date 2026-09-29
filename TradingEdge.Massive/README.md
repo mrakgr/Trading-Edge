@@ -167,8 +167,8 @@ dotnet run --project TradingEdge.Database -- download-ticker-events [options]
 - `-p, --parallelism <n>` (default 8)
 - `-t, --tickers <csv>` — explicit list (default: every ticker in `ticker_reference`)
 
-Output: `data/tickers/events/{ticker}.json` (the durable copy; the DuckDB table is rebuilt
-from these via `ingest-ticker-events`).
+Output: `data/tickers/events/{ticker}.json` (the durable copy; the `ticker_events` DuckDB table and its
+`ingest-ticker-events` command were removed 2026-09-29 — nothing read them).
 
 ## Project structure
 

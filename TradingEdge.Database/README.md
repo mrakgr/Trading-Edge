@@ -39,10 +39,7 @@ sql/schema/
 │   ├── daily_prices.sql
 │   ├── splits.sql
 │   ├── dividends.sql
-│   ├── ticker_reference.sql
-│   ├── ticker_events.sql
-│   ├── intraday_prices_minute.sql
-│   └── intraday_prices_second.sql
+│   └── ticker_reference.sql
 └── materialized/                    # derived tables (rebuilt on ingest-data)
     ├── 01_split_adjusted_prices.sql   # LEGACY back-adjusted prices (lookahead; being retired)
     ├── 02_split_corrections.sql       # splits the price tape contradicts -> SHIFT / REJECT
@@ -112,6 +109,29 @@ A failed aggregate download aborts **before** ingest (a silently missing day
 truncates history); re-running resumes. Days older than your plan's history
 entitlement answer 403 and are reported as skipped, not fatal.
 
+### ⭐ build-v2 — data v2: the daily set as parquet, no trading.db (2026-09-29)
+
+```bash
+dotnet run --project TradingEdge.Database -c Release -- build-v2 [--raw-dir data] [--out-dir data/v2] [--threads N] [--memory-limit 4GB]
+dotnet run --project TradingEdge.Database -c Release -- build-v2 --seed-tickers <v1 ticker_reference.parquet>   # the FIRST build only
+```
+Rebuilds `daily_prices`, `splits`, `dividends`, `ticker_reference`, `split_corrections`, `daily_adjusted` from the raw files
+alone (`data/daily_aggregates/*.csv.gz`, `data/{splits,dividends,tickers}.csv`) into `data/v2/*.parquet` + `manifest.json`
+(the previous build is kept as `data/v2.prev/`). The raw-file → row SQL is `Database.fs`'s `*Source` functions, shared with
+the v1 ingest; `02_`/`03_` are the same materialize files — research (v1 + v2 at home) and production (v2 on the VPS) build
+their data one way. ~50 s on 16 threads; 67 s / 4.2 GB peak on 4 threads with `--memory-limit 3GB` (the VPS's shape).
+The build is deterministic: identical parquet bytes run to run and at any thread count.
+- `ticker_reference` ACCUMULATES (the previous v2 list upserted with tickers.csv), as v1 never deletes: the API drops
+  delisted / reclassified names whose history the research universe still needs. Hence the one-time `--seed-tickers`.
+- A (ticker, date) carried by two day files: the file that owns that session wins (the 2019-08-12 file stamps 29 thin ETFs
+  2019-08-13; v1 kept those strays — the ONLY v1/v2 difference: 27 rows of non-CS/ADRC ETFs).
+- Guards: duplicate keys refuse; splits/dividends shrinking > 10 % against the previous build refuse.
+- Verify against v1: `python scripts/db/compare_v1_v2.py`.
+
+`backfill-daily` runs it after the v1 ingest (`--skip-v2` to skip; it waits for the first seeded build); **`backfill-daily
+--v2-only`** downloads and builds v2 without ever opening trading.db (the resume point is then the newest day file) —
+what the production VPS runs each morning.
+
 ### ingest-data — load base tables + materialize
 
 Bulk-loads downloaded daily aggregates, splits, dividends, and the ticker reference into
@@ -130,28 +150,9 @@ dotnet run --project TradingEdge.Database -- ingest-data [options]
 Uses DuckDB's native CSV reader for fast bulk load; upserts splits/dividends/tickers; then
 builds `split_adjusted_prices`.
 
-### ingest-intraday — load per-ticker intraday JSON
-
-```bash
-dotnet run --project TradingEdge.Database -- ingest-intraday [options]
-```
-- `-d, --database <path>` (default `data/trading.db`)
-- `-i, --input-dir <path>` (default `data/intraday`)
-- `--timespan <minute|second|all>` (default `all`)
-
-Loads into `intraday_prices_minute` / `intraday_prices_second` (upsert on conflict).
-
-### ingest-ticker-events — flatten event JSONs → table
-
-```bash
-dotnet run --project TradingEdge.Database -- ingest-ticker-events [options]
-```
-- `-d, --database <path>` (default `data/trading.db`)
-- `-i, --input-dir <path>` (default `data/tickers/events`)
-- `-o, --output-parquet <path>` (default `data/tickers/events.parquet`)
-
-Flattens `data/tickers/events/*.json` → a parquet → the `ticker_events` table
-(truncate-and-insert; safe to re-run). The parquet is the source of truth.
+> `ingest-intraday` and `ingest-ticker-events` were REMOVED 2026-09-29 with their tables (`intraday_prices_minute/_second`
+> were empty; `ticker_events` had no reader). The tables' last contents are archived in
+> `/mnt/d/trading-edge-bulk/db_archive/2026-09-29/` (see `scripts/db/archive_and_drop.py`).
 
 ### refresh-views — rebuild views only (fast)
 
@@ -187,7 +188,6 @@ Idempotent — re-runs skip dates whose output already exists unless `--force`.
 TradingEdge.Database/
 ├── Database.fs            # DuckDB schema (DDL/materialize) + bulk ingest + query helpers
 ├── MinuteBarsBuild.fs     # build-minute-bars (uses Orb Timezone/TradeFilters)
-├── TickerEventsIngest.fs  # ingest-ticker-events (JSON -> parquet -> table)
 ├── Program.fs             # the Argu CLI (download + DB subcommands)
 └── sql/schema/            # embedded SQL (tables/ + materialized/)
 ```

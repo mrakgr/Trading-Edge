@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# ⚠ STALE (2026-09-29): build_mr_candidate_1s.fsx now writes mr_candidate_1s_v2 by default, but the checks below read the
+# legacy mr_candidate_1s — pass `-t mr_candidate_1s` to the builder (or switch the checks to _v2) before rerunning.
 # S43be — the OOS steps: rebuild mr_candidate_1s over the FULL slim dir, then run
 # the FROZEN spec on both OOS ranges. No re-tuning anywhere.
 #

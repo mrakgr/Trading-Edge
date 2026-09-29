@@ -127,6 +127,95 @@ let materializeAll (connection: IDbConnection) : unit =
 // Note: DuckDB is columnar and optimized for bulk loads by default.
 // No PRAGMA statements or index manipulation needed.
 
+// ---------------------------------------------------------------------------
+// THE RAW-FILE SOURCES — one definition of how each downloaded file becomes rows,
+// shared by the v1 ingest (INSERT … ON CONFLICT into trading.db) and the v2 build
+// (V2Build.fs: parquet). Research and production must build their data the same way
+// (user, 2026-09-29): change a source here and both change together.
+// ---------------------------------------------------------------------------
+
+/// Day aggregates (`data/daily_aggregates/*.csv.gz`, one S3 day_aggs file per session). `withFile` adds the
+/// source file's session date as `file_date` (v2 uses it to settle a (ticker, date) that two files carry).
+let dailyPricesSourceWith (withFile: bool) (fileOrGlob: string) = $"""
+        SELECT
+            ticker,
+            (epoch_ms(0) + to_milliseconds(window_start / 1000000))::DATE as date,
+            open, high, low, close, volume, transactions{if withFile then ",\n            strptime(regexp_extract(filename, '(\\d{4}-\\d{2}-\\d{2})\\.csv\\.gz$', 1), '%Y-%m-%d')::DATE AS file_date" else ""}
+        FROM read_csv('{fileOrGlob}',{if withFile then " filename = true," else ""}
+            columns = {{
+                'ticker': 'VARCHAR',
+                'volume': 'DOUBLE',
+                'open': 'DOUBLE',
+                'close': 'DOUBLE',
+                'high': 'DOUBLE',
+                'low': 'DOUBLE',
+                'window_start': 'BIGINT',
+                'transactions': 'BIGINT'
+            }},
+            header = true
+        )"""
+let dailyPricesSource (fileOrGlob: string) = dailyPricesSourceWith false fileOrGlob
+
+/// The splits mirror (`data/splits.csv`, always the FULL range).
+let splitsSource (filePath: string) = $"""
+        SELECT
+            id,
+            ticker,
+            execution_date::DATE AS execution_date,
+            split_from,
+            split_to,
+            split_ratio
+        FROM read_csv('{filePath}',
+            columns = {{
+                'id': 'VARCHAR',
+                'ticker': 'VARCHAR',
+                'execution_date': 'VARCHAR',
+                'split_from': 'DOUBLE',
+                'split_to': 'DOUBLE',
+                'split_ratio': 'DOUBLE'
+            }},
+            header = true
+        )"""
+
+/// The dividends mirror (`data/dividends.csv`, always the FULL range).
+let dividendsSource (filePath: string) = $"""
+        SELECT
+            id,
+            ticker,
+            ex_dividend_date::DATE AS ex_dividend_date,
+            cash_amount,
+            CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END AS declaration_date,
+            CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END AS pay_date,
+            frequency,
+            dividend_type
+        FROM read_csv('{filePath}',
+            columns = {{
+                'id': 'VARCHAR',
+                'ticker': 'VARCHAR',
+                'ex_dividend_date': 'VARCHAR',
+                'cash_amount': 'DOUBLE',
+                'declaration_date': 'VARCHAR',
+                'pay_date': 'VARCHAR',
+                'frequency': 'INTEGER',
+                'dividend_type': 'VARCHAR'
+            }},
+            header = true
+        )"""
+
+/// The reference tickers snapshot (`data/tickers.csv`, RFC-4180-quoted; active AND delisted).
+let tickersSource (filePath: string) = $"""
+        SELECT ticker, name, type
+        FROM read_csv('{filePath}',
+            columns = {{
+                'ticker': 'VARCHAR',
+                'name': 'VARCHAR',
+                'type': 'VARCHAR'
+            }},
+            header = true,
+            quote = '"',
+            escape = '"'
+        )"""
+
 /// Convert DailyPrice to Dapper DynamicParameters
 let private toDailyPriceParams (price: DailyPrice) : DynamicParameters =
     let p = DynamicParameters()
@@ -197,23 +286,7 @@ let upsertDailyPrices (duckDbConn : DuckDBConnection) (prices: DailyPrice array)
 let ingestDailyPricesFromCsvGz (connection: IDbConnection) (filePath: string) : int64 =
     let sql = $"""
         INSERT INTO daily_prices (ticker, date, open, high, low, close, volume, transactions)
-        SELECT 
-            ticker,
-            (epoch_ms(0) + to_milliseconds(window_start / 1000000))::DATE as date,
-            open, high, low, close, volume, transactions
-        FROM read_csv('{filePath}',
-            columns = {{
-                'ticker': 'VARCHAR',
-                'volume': 'DOUBLE',
-                'open': 'DOUBLE',
-                'close': 'DOUBLE',
-                'high': 'DOUBLE',
-                'low': 'DOUBLE',
-                'window_start': 'BIGINT',
-                'transactions': 'BIGINT'
-            }},
-            header = true
-        )
+        {dailyPricesSource filePath}
         ON CONFLICT(ticker, date) DO UPDATE SET
             open = excluded.open,
             high = excluded.high,
@@ -228,23 +301,7 @@ let ingestDailyPricesFromCsvGz (connection: IDbConnection) (filePath: string) : 
 let ingestDailyPricesFromGlob (connection: IDbConnection) (globPattern: string) : int64 =
     let sql = $"""
         INSERT INTO daily_prices (ticker, date, open, high, low, close, volume, transactions)
-        SELECT 
-            ticker,
-            (epoch_ms(0) + to_milliseconds(window_start / 1000000))::DATE as date,
-            open, high, low, close, volume, transactions
-        FROM read_csv('{globPattern}',
-            columns = {{
-                'ticker': 'VARCHAR',
-                'volume': 'DOUBLE',
-                'open': 'DOUBLE',
-                'close': 'DOUBLE',
-                'high': 'DOUBLE',
-                'low': 'DOUBLE',
-                'window_start': 'BIGINT',
-                'transactions': 'BIGINT'
-            }},
-            header = true
-        )
+        {dailyPricesSource globPattern}
         ON CONFLICT(ticker, date) DO UPDATE SET
             open = excluded.open,
             high = excluded.high,
@@ -346,24 +403,7 @@ let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
     let retired = retireAbsentIds connection "splits" filePath
     let sql = $"""
         INSERT INTO splits (id, ticker, execution_date, split_from, split_to, split_ratio)
-        SELECT 
-            id,
-            ticker,
-            execution_date::DATE,
-            split_from,
-            split_to,
-            split_ratio
-        FROM read_csv('{filePath}',
-            columns = {{
-                'id': 'VARCHAR',
-                'ticker': 'VARCHAR',
-                'execution_date': 'VARCHAR',
-                'split_from': 'DOUBLE',
-                'split_to': 'DOUBLE',
-                'split_ratio': 'DOUBLE'
-            }},
-            header = true
-        )
+        {splitsSource filePath}
         ON CONFLICT(id) DO UPDATE SET
             ticker = excluded.ticker,
             execution_date = excluded.execution_date,
@@ -391,28 +431,7 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
     let retired = retireAbsentIds connection "dividends" filePath
     let sql = $"""
         INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
-        SELECT
-            id,
-            ticker,
-            ex_dividend_date::DATE,
-            cash_amount,
-            CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END,
-            CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END,
-            frequency,
-            dividend_type
-        FROM read_csv('{filePath}',
-            columns = {{
-                'id': 'VARCHAR',
-                'ticker': 'VARCHAR',
-                'ex_dividend_date': 'VARCHAR',
-                'cash_amount': 'DOUBLE',
-                'declaration_date': 'VARCHAR',
-                'pay_date': 'VARCHAR',
-                'frequency': 'INTEGER',
-                'dividend_type': 'VARCHAR'
-            }},
-            header = true
-        )
+        {dividendsSource filePath}
         ON CONFLICT(id) DO UPDATE SET
             ticker = excluded.ticker,
             ex_dividend_date = excluded.ex_dividend_date,
@@ -437,17 +456,7 @@ let getDividendCount (connection: IDbConnection) : int64 =
 let ingestTickersFromCsv (connection: IDbConnection) (filePath: string) : int64 =
     let sql = $"""
         INSERT INTO ticker_reference (ticker, name, type)
-        SELECT ticker, name, type
-        FROM read_csv('{filePath}',
-            columns = {{
-                'ticker': 'VARCHAR',
-                'name': 'VARCHAR',
-                'type': 'VARCHAR'
-            }},
-            header = true,
-            quote = '"',
-            escape = '"'
-        )
+        {tickersSource filePath}
         ON CONFLICT(ticker, type) DO UPDATE SET
             name = excluded.name
     """
@@ -521,99 +530,3 @@ let getSplitAdjustedPricesByTickerDateRange (connection: IDbConnection) (ticker:
         "SELECT ticker, date, adj_open, adj_high, adj_low, adj_close, adj_volume FROM split_adjusted_prices WHERE ticker = $ticker AND date >= $startDate AND date <= $endDate ORDER BY date",
         {| ticker = ticker; startDate = startDate.ToString("yyyy-MM-dd"); endDate = endDate.ToString("yyyy-MM-dd") |})
     |> Seq.toArray
-
-// --- Intraday Prices ---
-
-/// Bulk ingest minute-level intraday prices from JSON files using glob pattern
-let ingestIntradayMinuteFromGlob (connection: IDbConnection) (globPattern: string) : int64 =
-    let sql = $"""
-        INSERT INTO intraday_prices_minute (ticker, timestamp, open, high, low, close, volume, vwap, transactions)
-        SELECT
-            r.ticker,
-            epoch_ms(bar.t),
-            bar.o, bar.h, bar.l, bar.c,
-            bar.v,
-            bar.vw,
-            bar.n
-        FROM read_json('{globPattern}') r,
-        UNNEST(r.results) AS t(bar)
-        WHERE bar.t IS NOT NULL
-        ON CONFLICT(ticker, timestamp) DO UPDATE SET
-            open = excluded.open,
-            high = excluded.high,
-            low = excluded.low,
-            close = excluded.close,
-            volume = excluded.volume,
-            vwap = excluded.vwap,
-            transactions = excluded.transactions
-    """
-    connection.Execute(sql) |> int64
-
-/// Bulk ingest second-level intraday prices from JSON files using glob pattern
-let ingestIntradaySecondFromGlob (connection: IDbConnection) (globPattern: string) : int64 =
-    let sql = $"""
-        INSERT INTO intraday_prices_second (ticker, timestamp, open, high, low, close, volume, vwap, transactions)
-        SELECT
-            r.ticker,
-            epoch_ms(bar.t),
-            bar.o, bar.h, bar.l, bar.c,
-            bar.v,
-            bar.vw,
-            bar.n
-        FROM read_json('{globPattern}') r,
-        UNNEST(r.results) AS t(bar)
-        WHERE bar.t IS NOT NULL
-        ON CONFLICT(ticker, timestamp) DO UPDATE SET
-            open = excluded.open,
-            high = excluded.high,
-            low = excluded.low,
-            close = excluded.close,
-            volume = excluded.volume,
-            vwap = excluded.vwap,
-            transactions = excluded.transactions
-    """
-    connection.Execute(sql) |> int64
-
-/// Get count of minute-level intraday prices in database
-let getIntradayMinuteCount (connection: IDbConnection) : int64 =
-    connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM intraday_prices_minute")
-
-/// Get count of second-level intraday prices in database
-let getIntradaySecondCount (connection: IDbConnection) : int64 =
-    connection.ExecuteScalar<int64>("SELECT COUNT(*) FROM intraday_prices_second")
-
-// --- Intraday Price Queries ---
-
-[<CLIMutable>]
-type IntradayPriceRow = {
-    ticker: string
-    timestamp: DateTime
-    ``open``: float
-    high: float
-    low: float
-    close: float
-    volume: float
-    vwap: Nullable<float>
-    transactions: Nullable<int>
-}
-
-/// Get minute-level intraday prices for a ticker on a specific date
-let getIntradayMinuteByTickerDate (connection: IDbConnection) (ticker: string) (date: DateTime) : IntradayPriceRow array =
-    connection.Query<IntradayPriceRow>(
-        """SELECT ticker, timestamp, open, high, low, close, volume, vwap, transactions 
-           FROM intraday_prices_minute 
-           WHERE ticker = $ticker AND CAST(timestamp AS DATE) = $date 
-           ORDER BY timestamp""",
-        {| ticker = ticker; date = date.ToString("yyyy-MM-dd") |})
-    |> Seq.toArray
-
-/// Get second-level intraday prices for a ticker on a specific date
-let getIntradaySecondByTickerDate (connection: IDbConnection) (ticker: string) (date: DateTime) : IntradayPriceRow array =
-    connection.Query<IntradayPriceRow>(
-        """SELECT ticker, timestamp, open, high, low, close, volume, vwap, transactions 
-           FROM intraday_prices_second 
-           WHERE ticker = $ticker AND CAST(timestamp AS DATE) = $date 
-           ORDER BY timestamp""",
-        {| ticker = ticker; date = date.ToString("yyyy-MM-dd") |})
-    |> Seq.toArray
-

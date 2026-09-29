@@ -1,3 +1,4 @@
+# ⚠ STALE (2026-09-29): joins the LEGACY mr_candidate_1s (adj_ratio scale), not mr_candidate_1s_v2 — port before reuse.
 """S43bq — MOC exits vs holding to the NEXT OPEN, and the overnight-reversal map.
 
 Answers: trades that never reach a 5m high exit at the close. Is exiting on the
