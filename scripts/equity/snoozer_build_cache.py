@@ -52,7 +52,7 @@ import duckdb
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--bars1s", default="data/intraday_1s_slim/*.parquet")
-ap.add_argument("--db", default="data/trading.db")
+ap.add_argument("--db", default=None, help="a v1 trading.db (default: data v2 parquet — scripts/equity/data_v2.py)")
 ap.add_argument("--out", default="data/equity/flushfader/snoozer_cache.parquet")
 ap.add_argument("--force", action="store_true")
 args = ap.parse_args()
@@ -62,7 +62,11 @@ if os.path.exists(args.out) and not args.force:
 
 con = duckdb.connect(config={"memory_limit": "12GB", "threads": 8})
 con.execute("SET enable_progress_bar=false")
-con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+if args.db:
+    con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+else:
+    import data_v2
+    data_v2.attach(con)
 
 t0 = time.time()
 print("scanning the 1s tape over [15:00, 16:00] ...")

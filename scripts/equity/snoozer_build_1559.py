@@ -25,7 +25,7 @@ import duckdb
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--bars1s", default="data/intraday_1s_slim")
-ap.add_argument("--db", default="data/trading.db")
+ap.add_argument("--db", default=None, help="a v1 trading.db (default: data v2 parquet — scripts/equity/data_v2.py)")
 ap.add_argument("--out", default="data/equity/flushfader/snoozer_1559.parquet")
 ap.add_argument("--start", default="2016-08-08")
 ap.add_argument("--end", default="2026-12-31")
@@ -39,7 +39,11 @@ files = sorted(f for f in glob.glob(os.path.join(args.bars1s, "*.parquet")) if a
 print(f"{len(files):,} day files {os.path.basename(files[0])[:10]}..{os.path.basename(files[-1])[:10]}, batch {args.batch}", flush=True)
 con = duckdb.connect(config={"memory_limit": args.mem, "threads": 6})
 con.execute("SET enable_progress_bar=false"); con.execute("SET preserve_insertion_order=false")
-con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+if args.db:
+    con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+else:
+    import data_v2
+    data_v2.attach(con)
 con.execute("""CREATE OR REPLACE TABLE feat (date DATE, ticker VARCHAR,
     p1500 DOUBLE, p1559 DOUBLE, p1600 DOUBLE, nb60k59 BIGINT, nb_lh BIGINT, dv_lh59 DOUBLE, dv_lh DOUBLE,
     dvO5 DOUBLE, dvO15 DOUBLE, dvO30 DOUBLE, nbO5 BIGINT, nbO15 BIGINT, nbO30 BIGINT,

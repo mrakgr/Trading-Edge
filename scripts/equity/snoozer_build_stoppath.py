@@ -46,7 +46,7 @@ import duckdb
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--bars1s", default="data/intraday_1s_slim/*.parquet")
-ap.add_argument("--db", default="data/trading.db")
+ap.add_argument("--db", default=None, help="a v1 trading.db (default: data v2 parquet — scripts/equity/data_v2.py)")
 ap.add_argument("--rth", default="data/equity/flushfader/snoozer_cache.parquet")
 ap.add_argument("--out", default="data/equity/flushfader/snoozer_stoppath.parquet")
 ap.add_argument("--min-chg", type=float, default=0.02,
@@ -59,7 +59,11 @@ if os.path.exists(args.out) and not args.force:
 
 con = duckdb.connect(config={"memory_limit": "12GB", "threads": 8})
 con.execute("SET enable_progress_bar=false")
-con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+if args.db:
+    con.execute(f"ATTACH '{args.db}' AS db (READ_ONLY)")
+else:
+    import data_v2
+    data_v2.attach(con)
 
 t0 = time.time()
 # ---- candidates + their true next trading day ------------------------------

@@ -23,7 +23,8 @@ args = ap.parse_args()
 
 if args.rebuild or not os.path.exists(args.feat):
     t0 = time.time()
-    con = duckdb.connect('data/trading.db', read_only=True)
+    import data_v2                                          # data v2 parquet (2026-09-29), no trading.db
+    con = data_v2.attach(duckdb.connect(), 'main')
     con.execute("SET memory_limit='8GB'; SET threads=8")
     con.execute(f"""
     COPY (
