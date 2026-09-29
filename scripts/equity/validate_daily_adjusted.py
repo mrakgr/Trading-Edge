@@ -134,7 +134,14 @@ print("\n=== 4. SPLIT CORRECTIONS (02_split_corrections.sql) ===")
 # (retired ids are deleted at ingest — Database.fs `retireAbsentIds`), and Polygon
 # had corrected some rows of its own since 08-12 (BMI's 2016 split moved from a
 # recorded 08-29 to 09-15). 30/141 were the counts on the 08-12 download.
-EXPECT = {"SHIFT": 31, "REJECT": 138}
+# Re-pinned 2026-09-29 (SHIFT 31 -> 29): by 09-24 Polygon had rewritten more history
+# on its own — IAU 2010 re-dated to 06-24 (so it no longer needs our shift), NTES /
+# CGNX / GL / VLO re-dated, SOXL/TECL 2015 1:5 -> 1:4, ~40 missing old splits added,
+# STCN 1:375 / FIXX / MDRR / RCON removed. Every tape-testable change was checked
+# against daily_prices: the 38 added agree with the tape, the 3 that contradict it
+# (ITT 2011 — a real 1:2 masked by its same-day spin-offs — MNST 2005/2006) are
+# REJECTed here, and all 11 removed rows were tape-contradicted.
+EXPECT = {"SHIFT": 29, "REJECT": 138}
 act = dict(con.execute(
     "SELECT action, count(*) FROM split_corrections GROUP BY 1").fetchall())
 print(f"  {act}")
@@ -158,8 +165,7 @@ diag = con.execute("""
 check("no DIAGNOSTIC split (>=1.25x) is still tape-contradicted", diag == 0,
       f"{diag} remain")
 # Known answers: Polygon logged announcement dates for these.
-for tkr, orig, want in [("IAU", "2010-06-17", "2010-06-24"),
-                        ("HEI", "2018-01-02", "2018-01-18"),
+for tkr, orig, want in [("HEI", "2018-01-02", "2018-01-18"),
                         # Polygon re-recorded BMI as 2016-09-15 (was 08-29) by 2026-09-22;
                         # the tape halves on 09-16, so it still shifts by one day.
                         ("BMI", "2016-09-15", "2016-09-16")]:
@@ -167,6 +173,14 @@ for tkr, orig, want in [("IAU", "2010-06-17", "2010-06-24"),
       WHERE ticker='{tkr}' AND execution_date=DATE '{orig}'""").fetchone()
     check(f"{tkr} {orig} shifts to {want}", got is not None and got[0] == want,
           f"got {got[0] if got else None}")
+# IAU was the first known answer (Polygon recorded 2010-06-17, the tape splits 06-24).
+# Since 2026-09-24 Polygon records 06-24 itself: the source row must be there and need
+# no correction.
+iau = con.execute("""SELECT
+  (SELECT count(*) FROM splits WHERE ticker='IAU' AND execution_date=DATE '2010-06-24' AND split_ratio=10),
+  (SELECT count(*) FROM splits WHERE ticker='IAU' AND execution_date=DATE '2010-06-17'),
+  (SELECT count(*) FROM split_corrections WHERE ticker='IAU')""").fetchone()
+check("IAU 2010 split recorded on 06-24 at the source, no correction", iau == (1, 0, 0), f"got {iau}")
 
 print("\n=== 5. SOURCE-DATA INVENTORY: splits contradicted by the price tape ===")
 # A split ratio makes a testable prediction: total value P*n + C should be
