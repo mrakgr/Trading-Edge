@@ -54,6 +54,7 @@ type Config =
       /// future SHORT system). 0 = off. Applied only when the column exists
       /// (legacy tables predate it and are warmed by construction).
       MinBarnum: int
+      Candidates: string        // --candidates: a v1 table or data-v2 parquet (TradingEdge.Orb.CandidateSource)
       /// ⭐ S39h: day-worker parallelism. Days are the natural isolation unit
       /// (fresh IntradaySystems, no cross-day state); the trip SET is identical
       /// at any worker count, only parquet row ORDER varies.
@@ -142,6 +143,7 @@ let defaultConfig =
                                     // would drop names flushing DOWN through $1 — the $1
                                     // book stays a POST-HOC entry_px cut (S7c fee wall)
       MinBarnum = 22                // ⭐ S40e: cut the early-episode slice (long book only)
+      Candidates = TradingEdge.Orb.CandidateSource.defaultSource
       Workers = max 1 (Environment.ProcessorCount - 2) }
 
 /// One candidate (ticker, day) from diprider_v6_candidate — the daily context
@@ -172,24 +174,15 @@ type Candidate =
       Dv0945: float
       Rvol0945Honest: float }
 
-/// The candidate table: `mr_candidate_1s_v2` (S43br — the CAUSAL rebuild; 1s-tape-native,
-/// dv_0945_tape >= $2M x n_bars_1s >= 200, 2016+) unless overridden via FF_CANDIDATE_TABLE.
-/// ⚠ The legacy `mr_candidate_1s` will NOT work: its daily-context columns are
-/// back-adjusted and differently named (day_close/adj_ratio/prev_adj_close/close_fwd_*).
-/// (Research: run a
-/// breakdown against a different universe, e.g. the old 1m-gated diprider_v6_candidate or
-/// a restricted tkd table). Identifier-only (injection-safe). Fails fast on a bad value.
-let candidateTable =
-    match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
-    | null | "" -> "mr_candidate_1s_v2"
-    | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
-    | bad -> failwithf "Invalid FF_CANDIDATE_TABLE %A (identifier chars only)" bad
+/// The candidate universe is `cfg.Candidates` (`--candidates`; default `mr_candidate_1s_v2`, the S43br CAUSAL rebuild —
+/// 1s-tape-native, dv_0945_tape >= $2M x n_bars_1s >= 200, 2016+): a v1 table or data-v2 parquet (Orb.CandidateSource).
+/// ⚠ The legacy `mr_candidate_1s` will NOT work: its daily-context columns are back-adjusted and differently named.
 
 /// ⭐ Public since 2026-08-18: the live scanner reads the SAME candidate set so a
 /// parity run cannot differ by universe. (Live, the universe is computed in-stream
 /// at 09:45; this stays the historical/parity path.)
-let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) (minBarnum: int) : Candidate[] =
-    let table = candidateTable
+let readCandidates (conn: DuckDBConnection) (source: string) (startDate: DateOnly) (endDate: DateOnly) (minDv0945: float) (minRvol0945: float) (minPrevClose: float) (minVolat20m: float) (minBarnum: int) : Candidate[] =
+    let table = TradingEdge.Orb.CandidateSource.fromClause source
     // ⭐ S39j volat-prepass trim (user): mr_candidate_1s carries max_slot_absr_bp =
     // the day's MAX |30s-slot log return| (engine slot definition, bp). volat_20m
     // is an EmaHlMa = CONVEX COMBINATION of that |r| stream, so volat <= day-max at
@@ -201,7 +194,7 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
     // Applied only when the column exists (override tables may predate it).
     let hasPrepassCol =
         use c = conn.CreateCommand()
-        c.CommandText <- $"SELECT count(*) FROM pragma_table_info('{table}') WHERE name = 'max_slot_absr_bp'"
+        c.CommandText <- TradingEdge.Orb.CandidateSource.hasColumnSql source "max_slot_absr_bp"
         Convert.ToInt64(c.ExecuteScalar()) > 0L
     let prepassClause =
         if minVolat20m > 0.0 && hasPrepassCol then
@@ -213,7 +206,7 @@ let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: Date
     // prepass: legacy tables without `barnum` were warmed by construction.
     let hasBarnumCol =
         use c = conn.CreateCommand()
-        c.CommandText <- $"SELECT count(*) FROM pragma_table_info('{table}') WHERE name = 'barnum'"
+        c.CommandText <- TradingEdge.Orb.CandidateSource.hasColumnSql source "barnum"
         Convert.ToInt64(c.ExecuteScalar()) > 0L
     let barnumClause =
         if minBarnum > 0 && hasBarnumCol then
@@ -998,7 +991,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.CommandText <- "PRAGMA memory_limit='6GB'"
         pragma.ExecuteNonQuery() |> ignore
 
-    let candidates = readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.Intraday.MinVolat20m cfg.MinBarnum
+    let candidates = readCandidates conn cfg.Candidates startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.Intraday.MinVolat20m cfg.MinBarnum
     use sink = new TripSink(outDir)
     let daysRun = collectTrips cfg secDir candidates sink progress
     // the `use` binding disposes the sink on return, flushing the final part

@@ -5,8 +5,8 @@
 cd /home/mrakgr/Trading-Edge/research
 START=${1:?start}; END=${2:?end}; TAG=${3:?tag}
 OUT=data/maxfader_wl_$TAG; rm -rf $OUT
-FF_CANDIDATE_TABLE=maxfader_whitelist DOTNET_GCHeapHardLimitPercent=55 \
-  ./TradingEdge.MaxFader/bin/Release/net10.0/TradingEdge.MaxFader \
+DOTNET_GCHeapHardLimitPercent=55 \
+  ./TradingEdge.MaxFader/bin/Release/net10.0/TradingEdge.MaxFader --candidates maxfader_whitelist \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db \
   --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
   --start-date $START --end-date $END \

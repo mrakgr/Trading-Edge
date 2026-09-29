@@ -36,6 +36,7 @@ type Args =
     | Min_Rvol_0945 of float
     | Min_Prev_Close of float
     | Min_Barnum of int
+    | Candidates of string
     // ----- sampler vs book -----
     | Max_Concurrent of int
     | Workers of int
@@ -67,6 +68,7 @@ type Args =
             | Min_Rvol_0945 _ -> "Universe pre-filter: rvol_0945_honest >= this. Default 0 = off (sampler breadth). ⚠ 09:45-class."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D RAW scale >= this. Knowable BEFORE the open. Default 0 = off."
             | Min_Barnum _ -> "Episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22. 0 = off. Column-guarded."
+            | Candidates _ -> "The candidate universe (an argument, not LH_CANDIDATE_TABLE): a table in the --db file (default mr_candidate_1s_v2) or data-v2 parquet (a file, glob or hive-partitioned directory)."
             | Max_Concurrent _ -> "0 (DEFAULT) = the SAMPLER: every qualifying bar opens an independent trip. PF is then ATTRIBUTION, not a portfolio number. 1 = a real book."
             | Workers _ -> "Parallel day-workers (default: cores - 2). Trip SET is identical at any worker count; parquet row ORDER is not."
             | Entry_Start_Sec _ -> "Earliest ET second an entry may fire. Default 34800 = 09:40 (user). ⚠⚠ BELOW 35100 the candidate universe (dv_0945_tape / n_bars_1s over [09:30,09:45)) is a LOOKAHEAD — the run is still emitted, with a loud banner, because `signal_sec` is a recorded column and `WHERE signal_sec >= 35100` IS the free control. Run every headline both ways."
@@ -113,6 +115,7 @@ let main argv =
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
             MinBarnum = parsed.GetResult(Min_Barnum, defaultValue = d.MinBarnum)
+            Candidates = parsed.GetResult(Candidates, defaultValue = d.Candidates)
             Workers = parsed.GetResult(Workers, defaultValue = d.Workers) }
 
     let ic = cfg.Intraday
@@ -129,9 +132,7 @@ let main argv =
     let hhmmss s = sprintf "%02d:%02d:%02d" (s / 3600) (s % 3600 / 60) (s % 60)
     printfn "LongHiker v7 — 1s BOTH-SIDES momentum: breakouts from tight consolidations"
     printfn "  db          = %s" dbPath
-    printfn "  candidates  = %s%s" Backtest.candidateTable
-        (match Environment.GetEnvironmentVariable "LH_CANDIDATE_TABLE" with
-         | null | "" -> "  (default)" | _ -> "  [LH_CANDIDATE_TABLE override]")
+    printfn "  candidates  = %s" cfg.Candidates
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  ENTRY       = EVERY new-20m-extreme bar (side +1 hi / -1 lo, NO eff gate)   AND dv60 >= $%.0fk AND tc60 >= %.0f   (fill: NEXT bar vwap)"
@@ -158,7 +159,7 @@ let main argv =
     if ic.EntryStartSec < 35100 then
         printfn ""
         printfn "  ⚠⚠ LOOKAHEAD NOTICE — entries start at %s, before the 09:45 knowability floor." (hhmmss ic.EntryStartSec)
-        printfn "     The universe (%s) gates on dv_0945_tape / n_bars_1s measured over" Backtest.candidateTable
+        printfn "     The universe (%s) gates on dv_0945_tape / n_bars_1s measured over" cfg.Candidates
         printfn "     [09:30, 09:45), so every trip with signal_sec < 35100 was SELECTED using tape"
         printfn "     that had not happened yet. This is deliberate and quarantined, not ignored:"
         printfn "     ⭐ the control is    WHERE signal_sec >= 35100    — free, no re-run."

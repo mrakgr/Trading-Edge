@@ -16,5 +16,6 @@
     <Compile Include="Timezone.fs" />
     <Compile Include="TradeFilters.fs" />
     <Compile Include="Bars.fs" />
+    <Compile Include="CandidateSource.fs" />
   </ItemGroup>
 </Project>

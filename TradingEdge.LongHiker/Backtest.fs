@@ -36,6 +36,7 @@ type Config =
       /// Episode warmup: candidate `barnum` (prior-only ROW_NUMBER, live-knowable)
       /// >= this. Column-guarded — legacy tables predate it.
       MinBarnum: int
+      Candidates: string        // --candidates: a v1 table or data-v2 parquet (TradingEdge.Orb.CandidateSource)
       /// Day-worker parallelism. Days are the natural isolation unit (fresh
       /// IntradaySystems, no cross-day state); the trip SET is identical at any
       /// worker count, only parquet row ORDER varies.
@@ -84,6 +85,7 @@ let defaultConfig =
       MinRvol0945 = 0.0
       MinPrevClose = 0.0
       MinBarnum = 22
+      Candidates = TradingEdge.Orb.CandidateSource.defaultSource
       Workers = max 1 (Environment.ProcessorCount - 2) }
 
 /// One candidate (ticker, day): the daily context that rides along on every trip
@@ -110,21 +112,15 @@ type Candidate =
       Dv0945: float
       Rvol0945Honest: float }
 
-/// The candidate table, overridable via LH_CANDIDATE_TABLE. Identifier-only
-/// (injection-safe); fails fast on a bad value.
-let candidateTable =
-    match Environment.GetEnvironmentVariable "LH_CANDIDATE_TABLE" with
-    | null | "" -> "mr_candidate_1s_v2"
-    | t when t |> Seq.forall (fun c -> Char.IsLetterOrDigit c || c = '_') -> t
-    | bad -> failwithf "Invalid LH_CANDIDATE_TABLE %A (identifier chars only)" bad
-
-let readCandidates (conn: DuckDBConnection) (startDate: DateOnly) (endDate: DateOnly)
+/// The candidate universe is `cfg.Candidates` (`--candidates`; default `mr_candidate_1s_v2`): a v1 table or data-v2
+/// parquet (Orb.CandidateSource).
+let readCandidates (conn: DuckDBConnection) (source: string) (startDate: DateOnly) (endDate: DateOnly)
                    (minDv0945: float) (minRvol0945: float) (minPrevClose: float)
                    (minBarnum: int) : Candidate[] =
-    let table = candidateTable
+    let table = TradingEdge.Orb.CandidateSource.fromClause source
     let hasBarnumCol =
         use c = conn.CreateCommand()
-        c.CommandText <- $"SELECT count(*) FROM pragma_table_info('{table}') WHERE name = 'barnum'"
+        c.CommandText <- TradingEdge.Orb.CandidateSource.hasColumnSql source "barnum"
         Convert.ToInt64(c.ExecuteScalar()) > 0L
     let barnumClause =
         if minBarnum > 0 && hasBarnumCol then
@@ -588,7 +584,7 @@ let run (dbPath: string) (secDir: string) (outDir: string) (cfg: Config)
         pragma.ExecuteNonQuery() |> ignore
 
     let candidates =
-        readCandidates conn startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.MinBarnum
+        readCandidates conn cfg.Candidates startDate endDate cfg.MinDv0945 cfg.MinRvol0945 cfg.MinPrevClose cfg.MinBarnum
     use sink = new TripSink(outDir)
     let daysRun = collectTrips cfg secDir candidates sink progress
     candidates.Length, daysRun,

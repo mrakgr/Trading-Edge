@@ -52,7 +52,7 @@ w.execute("CREATE TABLE wl (ticker VARCHAR, date DATE)")
 w.executemany("INSERT INTO wl VALUES (?,?)", rows)
 w.execute(f"COPY wl TO '{OUT}' (FORMAT PARQUET)")
 print(f"wrote {OUT}", flush=True)
-# materialize the candidate-schema table the engine reads via FF_CANDIDATE_TABLE
+# materialize the candidate-schema table the engine reads via --candidates
 c.close()
 wc=duckdb.connect("data/trading.db")
 wc.execute("DROP TABLE IF EXISTS lowfader_spec_whitelist")

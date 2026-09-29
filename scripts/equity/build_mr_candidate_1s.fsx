@@ -47,7 +47,7 @@
 // ⚠ KNOWABILITY: every (A') field is fully determined at 09:45 — legal ONLY for engines
 // with EntryStartMin >= 09:45 (FlushFader enters 09:45+). Same alignment trap as before.
 // ⚠ SPAN: the 1s slim corpus starts 2020 — this table spans 2020+, not 2003+ like
-// `mr_candidate`. Point the engine at it with FF_CANDIDATE_TABLE=mr_candidate_1s.
+// `mr_candidate`. Point the engine at it with --candidates mr_candidate_1s.
 //
 // Columns (the LEGACY engine reads prev_adj_close/close_3d/day_close/adj_ratio/
 // close_fwd_*; v2 renames those — see the S43br block below):
@@ -90,6 +90,16 @@
 //
 // Run:  dotnet fsi scripts/equity/build_mr_candidate_1s.fsx
 //       dotnet fsi scripts/equity/build_mr_candidate_1s.fsx -- --min-neff 25 --min-dv 2000000
+//
+// ⭐ DATA v2 (2026-09-29): `-- --v2 data/v2` builds the SAME table as PARQUET, with no database:
+//   daily context  <- data/v2/{daily_adjusted,ticker_reference}.parquet + daily_episodes_causal (this directory's view SQL)
+//   output         -> <out>/mr_candidate_1s_v2/date=YYYY-MM-DD/*.parquet  (hive; the previous build kept as ….prev)
+//   liquidity      -> <out>/liq_cache/date=…  — the EXPENSIVE part (a scan of each day's 1s bars) is computed once per
+//                     slim day and cached (days.txt lists the days done; params.json pins the thresholds). The daily
+//                     context is RECOMPUTED IN FULL every run (cheap), so a split correction, a new dividend, a ticker
+//                     reclassification or the forward columns (close_p1..p5) filling in can never leave a stale row.
+//   `--full` recomputes the liquidity cache too. Default <out> = data/v2_candidates (NOT inside data/v2: build-v2 swaps
+//   that directory whole). Engines: `--candidates data/v2_candidates/mr_candidate_1s_v2`.
 
 open System
 open Argu
@@ -103,6 +113,9 @@ type CliArgs =
     | Min_Bars of int
     | [<AltCommandLine("-t")>] Table of string
     | Pattern of string
+    | V2 of string
+    | Out of string
+    | Full
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -114,6 +127,9 @@ type CliArgs =
             | Min_Bars _ -> "n_bars_1s floor over [09:30,09:45) = 900 - gap count. THE (A') gate (default: 200)."
             | Pattern _ -> "File pattern inside slim-dir (default *.parquet). e.g. '2025-0[1-6]-*.parquet' for a pilot window (2026-09-05)."
             | Table _ -> "Destination table (default: mr_candidate_1s_v2). ⚠ v2 is the CAUSAL rebuild (S43br) with RENAMED columns; the engine still reads the legacy `mr_candidate_1s` until it is migrated."
+            | V2 _ -> "DATA v2: read the daily context from this parquet directory (e.g. data/v2) and write parquet (no database)."
+            | Out _ -> "DATA v2 output directory (default: data/v2_candidates): mr_candidate_1s_v2/ + liq_cache/."
+            | Full -> "DATA v2: recompute the liquidity cache for every slim day (after a threshold change or a slim rebuild)."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_mr_candidate_1s.fsx")
 let parsed =
@@ -138,7 +154,7 @@ let minBars = parsed.TryGetResult Min_Bars |> Option.defaultValue 200
 // RENAMED (day_close -> close_d, prev_adj_close -> close_m1, adj_ratio -> n, ...) so
 // a stale query fails LOUDLY rather than silently reading raw prices as adjusted —
 // which is exactly the failure mode CLAUDE.md rule 4 exists for. Swap the engine over
-// with FF_CANDIDATE_TABLE once the control run passes.
+// with --candidates once the control run passes.
 let tbl = parsed.TryGetResult Table |> Option.defaultValue "mr_candidate_1s_v2"
 let pattern = parsed.TryGetResult Pattern |> Option.defaultValue "*.parquet"
 let glob = IO.Path.Combine(slimDir, pattern).Replace("'", "''")
@@ -271,6 +287,77 @@ CREATE UNIQUE INDEX {tbl}_ticker_date ON {tbl} (ticker, date);
 // trim. The engine's auto-trim clause is column-existence-guarded, so tables built
 // without the column just skip it.)
 
+// ---------------------------------------------------------------------------------------------------------------
+// DATA v2: the same SQL, split in two — `liq` per slim day (cached), `ctx` + the join (every run) — over parquet.
+// ---------------------------------------------------------------------------------------------------------------
+let liqSql (files: string) =
+    let a = sql.IndexOf "liq AS (" + "liq AS (".Length
+    let b = sql.IndexOf "\n),\n-- (B) episode-partitioned daily context"
+    sql.Substring(a, b - a).Replace($"read_parquet('{glob}', filename = true)", $"read_parquet({files}, filename = true)")
+let finalSql (liqSource: string) =
+    let a = sql.IndexOf "ctx AS ("
+    let b = sql.IndexOf "l.date = c.date;" + "l.date = c.date".Length        // the statement ends at this ';' (a comment follows)
+    "WITH " + sql.Substring(a, b - a).Replace("JOIN liq l ON", $"JOIN {liqSource} l ON")
+
+match parsed.TryGetResult V2 with
+| Some v2Dir ->
+    let outDir = parsed.TryGetResult Out |> Option.defaultValue "data/v2_candidates"
+    let q (p: string) = IO.Path.GetFullPath(p).Replace("'", "''")
+    if not (IO.File.Exists (IO.Path.Combine(v2Dir, "manifest.json"))) then failwithf "%s is not a data v2 build (no manifest.json)" v2Dir
+    let sw = Diagnostics.Stopwatch.StartNew()
+    let say (m: string) = printfn "[%6.1f s] %s" sw.Elapsed.TotalSeconds m
+    let conn = new DuckDBConnection("DataSource=:memory:")
+    conn.Open()
+    let exec (x: string) = (use c = conn.CreateCommand() in c.CommandText <- x; c.CommandTimeout <- 0; c.ExecuteNonQuery() |> ignore)
+    let scalar (x: string) = (use c = conn.CreateCommand() in c.CommandText <- x; c.ExecuteScalar())
+    exec "SET memory_limit='8GB'"
+    exec "SET preserve_insertion_order=false"
+    for t in [ "daily_adjusted"; "ticker_reference" ] do
+        let path = q (IO.Path.Combine(v2Dir, t + ".parquet"))
+        exec $"CREATE VIEW {t} AS SELECT * FROM '{path}'"
+    exec (IO.File.ReadAllText(IO.Path.Combine(__SOURCE_DIRECTORY__, "build_daily_episodes_causal_view.sql")))
+
+    // 1. the liquidity cache: one pass over the slim days not yet done (same thresholds, or --full)
+    let liqDir = IO.Path.Combine(outDir, "liq_cache")
+    let daysFile, paramsFile = IO.Path.Combine(liqDir, "days.txt"), IO.Path.Combine(liqDir, "params.json")
+    let paramsNow = sprintf "{\"min_dv\": %.17g, \"min_neff\": %.17g, \"min_bars\": %d}" minDv minNeff minBars
+    if parsed.Contains Full && IO.Directory.Exists liqDir then IO.Directory.Delete(liqDir, true)
+    IO.Directory.CreateDirectory liqDir |> ignore
+    if IO.File.Exists paramsFile && IO.File.ReadAllText paramsFile <> paramsNow then
+        failwithf "the liquidity cache was built with %s, now %s: pass --full" (IO.File.ReadAllText paramsFile) paramsNow
+    IO.File.WriteAllText(paramsFile, paramsNow)
+    let doneDays = if IO.File.Exists daysFile then set (IO.File.ReadAllLines daysFile) else Set.empty
+    let slimFiles = IO.Directory.GetFiles(slimDir, pattern) |> Array.sort
+    let dayOf (f: string) = IO.Path.GetFileNameWithoutExtension f
+    let todo = slimFiles |> Array.filter (fun f -> not (doneDays.Contains (dayOf f)))
+    say (sprintf "liquidity: %d slim days, %d cached, %d to scan" slimFiles.Length doneDays.Count todo.Length)
+    for chunk in Array.chunkBySize 100 todo do
+        let files = "[" + (chunk |> Array.map (fun f -> "'" + q f + "'") |> String.concat ", ") + "]"
+        let liqOut = q liqDir
+        exec $"COPY ({liqSql files}) TO '{liqOut}' (FORMAT PARQUET, COMPRESSION zstd, PARTITION_BY (date), OVERWRITE_OR_IGNORE true, FILENAME_PATTERN 'liq_{{uuid}}')"
+        IO.File.AppendAllLines(daysFile, chunk |> Array.map dayOf)
+        say (sprintf "  scanned %s .. %s" (dayOf chunk.[0]) (dayOf chunk.[chunk.Length - 1]))
+
+    // 2. the daily context in full, joined to the cached liquidity -> a fresh dataset, swapped in
+    let target = IO.Path.Combine(outDir, "mr_candidate_1s_v2")
+    let building, prev = target + ".building", target + ".prev"
+    if IO.Directory.Exists building then IO.Directory.Delete(building, true)
+    let liqGlob = q (IO.Path.Combine(liqDir, "**", "*.parquet"))
+    let liqSource = $"read_parquet('{liqGlob}', hive_partitioning = true)"
+    let buildingOut = q building
+    exec $"COPY ({finalSql liqSource} ORDER BY c.date, c.ticker) TO '{buildingOut}' (FORMAT PARQUET, COMPRESSION zstd, PARTITION_BY (date))"
+    if IO.Directory.Exists target then
+        if IO.Directory.Exists prev then IO.Directory.Delete(prev, true)
+        IO.Directory.Move(target, prev)
+    IO.Directory.Move(building, target)
+    let targetGlob = q (IO.Path.Combine(target, "**", "*.parquet"))
+    let src = $"read_parquet('{targetGlob}', hive_partitioning = true)"
+    let rows = scalar $"SELECT count(*) FROM {src}" :?> int64
+    let span = scalar $"SELECT min(date)::VARCHAR || ' .. ' || max(date)::VARCHAR FROM {src}" :?> string
+    say (sprintf "mr_candidate_1s_v2 -> %s: %d rows, %s (previous build in %s)" target rows span prev)
+    exit 0
+| None -> ()
+
 printfn "Building `%s` (dv_0945_tape >= $%.1fM AND n_bars_1s >= %d [gaps <= %d of 900]%s; CS/ADRC; NO warmup, NO price floor)"
     tbl (minDv / 1e6) minBars (900 - minBars)
     (if minNeff > 0.0 then sprintf " AND n_eff_shannon >= %.0f" minNeff else "; n_eff gate OFF (S43u)")
@@ -294,6 +381,9 @@ let scalar (q: string) =
 
 exec "PRAGMA memory_limit='8GB'"
 exec sql
+// write the WAL into the file: a read-only reader (every engine) cannot replay a left-over WAL
+// ("Failure while replaying WAL file", measured 2026-09-29)
+exec "CHECKPOINT"
 sw.Stop()
 
 let rows    = scalar $"SELECT COUNT(*) FROM {tbl}" :?> int64

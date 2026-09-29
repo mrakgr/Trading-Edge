@@ -68,6 +68,7 @@ type Args =
     | Min_Rvol_0945 of float
     | Min_Prev_Close of float
     | Min_Barnum of int
+    | Candidates of string
     | Max_Dist_1m of float
     | Halt_Min_Run of int
     | Halt_Min_Rng_300 of float
@@ -142,6 +143,7 @@ type Args =
             | Min_Rvol_0945 _ -> "Optional in-play universe pre-filter: rvol_0945_honest >= this (premkt-incl vol thru 09:45 / prior-20d avg; LIVE-SAFE at 09:45). Default 0 = off (sampler breadth)."
             | Min_Prev_Close _ -> "Universe gate: PRIOR day's close in day-D RAW scale >= this (the `close_m1` column — already converted, no rescale; knowable BEFORE the open). Default 0 = off. 2 = the >=$2 universe (sub-$1 priced out on every EU-accessible broker)."
             | Min_Barnum _ -> "⭐ S40e episode warmup: candidate barnum (prior-only ROW_NUMBER, live-knowable) >= this. Default 22 = cut the IPO/early-listing slice (below-book for the LONG book; reserved for a future short system). 0 = off. Column-guarded (legacy tables skip it)."
+            | Candidates _ -> "The candidate universe (user 2026-09-29: an argument, not FF_CANDIDATE_TABLE): a table in the --db file (default mr_candidate_1s_v2, a whitelist, a corpus) or data-v2 parquet (a file, glob or hive-partitioned directory)."
             | Max_Dist_1m _ -> "⭐ SPEC v1.9 (S40g): vwap/hi_60 - 1 < this — dist from the 1m HIGH; conjunction with the speed gate (the shallow slice above -2%% = slot thieves). Default -0.02. >= 0 = off."
             | Halt_Min_Run _ -> "⭐ S40x halt detector (record-only): a tradeless run >= this many seconds can classify as a HALT. Default 58."
             | Halt_Min_Rng_300 _ -> "⭐ S40x: pre-hole 5m range (ln hi/lo) >= this for the run to classify as a halt (the LULD trigger state). Default 0.04."
@@ -266,6 +268,7 @@ let main argv =
             MinRvol0945 = parsed.GetResult(Min_Rvol_0945, defaultValue = d.MinRvol0945)
             MinPrevClose = parsed.GetResult(Min_Prev_Close, defaultValue = d.MinPrevClose)
             MinBarnum = parsed.GetResult(Min_Barnum, defaultValue = d.MinBarnum)
+            Candidates = parsed.GetResult(Candidates, defaultValue = d.Candidates)
             Workers = parsed.GetResult(Workers, defaultValue = d.Workers)
             NextOpenExit = parsed.Contains Next_Open }
 
@@ -310,9 +313,7 @@ let main argv =
     let hhmmss s = sprintf "%02d:%02d:%02d" (s / 3600) (s % 3600 / 60) (s % 60)
     printfn "LowFader — 1s LONG session-low flush fade, HOLD TO MOC (LowFlyer ported to the tape; FlushFader engine)"
     printfn "  db          = %s" dbPath
-    printfn "  candidates  = %s%s" Backtest.candidateTable
-        (match Environment.GetEnvironmentVariable "FF_CANDIDATE_TABLE" with
-         | null | "" -> "  (default)" | _ -> "  [FF_CANDIDATE_TABLE override]")
+    printfn "  candidates  = %s" cfg.Candidates
     printfn "  1s bars     = %s" secDir
     printfn "  range       = %O .. %O" startDate endDate
     printfn "  universe    = dv_0945_tape >= $%.1fM (⭐ 1s-bar-native, honest dollars — S35)%s%s%s" (ic.MinDv0945Tape / 1e6)
