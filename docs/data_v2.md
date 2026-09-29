@@ -50,11 +50,17 @@ Readers:
 | the same runs on the parquet universe | every trip matches (symbol, date, signal, entry, trade_idx; prices and returns identical); numeric columns ≤ 6e-14 relative; `n` differs on 1,478 / 404 / 6 trips — see below |
 | corpora exports | content hashes match (HUGEINT `tc_0945_tape` cast exact) |
 
-⚠ **The v1 `mr_candidate_1s_v2` table is stale** against today's daily data: Polygon changed its split history on
-2026-09-22 (~40 old splits added, some dates/ratios moved, IAU's 2010 split now correct at the source), which moves the
-`n` LEVEL for those tickers (never a decision input: prices are in D's scale) and 3 rows in or out. The parquet universe
-is built from current data. `validate_daily_adjusted.py` still fails its two pins (SHIFT 29 ≠ 31, IAU) for the same reason —
-pending the user's review of that split-history diff.
+**Split history (resolved 2026-09-29):** Polygon rewrote old split history by 09-24 (~40 old splits added, some
+dates/ratios moved, IAU's 2010 split now correct at the source). Every tape-testable changed row was checked against
+`daily_prices` (38 added agree, the 3 contradicting are REJECTed by `02_split_corrections.sql`, the 11 removed were
+tape-contradicted); `validate_daily_adjusted.py` is re-pinned (SHIFT 29) and passes. The v1 `mr_candidate_1s_v2` table
+was then rebuilt: it equals the parquet universe (1,451,254 rows, same keys, same `n`); against the old table 3 rows are
+new and `n` moved on 111,511 rows / 217 tickers (a level, never a decision input). The old table is archived as
+`db_archive/2026-09-29/mr_candidate_1s_v2_pre_split_fix.parquet`.
+
+**Home = VPS:** the v2 build is byte-identical on both machines (every output hash). Polygon silently revises old day
+files: the VPS's fresh download of 2025-10-28..11-21 differed from home's February copies in 6 rows (warrants/rights,
+busted prints); home took the current files. `backfill-daily` never re-downloads a day file it already has.
 
 ## v1 cleanup (same day)
 
