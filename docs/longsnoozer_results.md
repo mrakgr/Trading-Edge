@@ -1780,3 +1780,5 @@ switched off for this system). Both Snoozers stay NOT ADOPTED in the registry; t
 
 Before the barnum fix the same runs read 319 / 25 — the FlushFader `barnum ≥ 22` warmup was silently applied to a universe the
 Snoozers read whole (25 young listings) plus NCPL 2025-07-03 (the early-close class, now out of the reference).
+
+**2026-09-30:** the long-vs-short liquidity comparison is `docs/shortsnoozer_results.md` §S51.

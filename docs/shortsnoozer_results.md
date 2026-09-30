@@ -2135,3 +2135,47 @@ range (max gaps 3,396 in the book vs 3,539 for ZJYL), so `gaps ≤ 3,450` vetoes
 the reference (after-hours "last hour"). Still NOT ADOPTED (borrow, fees, spreads unmodelled).
 
 **Seals**: see `docs/longsnoozer_results.md` §S50 — 345 / 344 signals and 344 = 344 book zero-diff (2025-26 from-bars), 26 = 26 on the 10-day trades tape.
+
+## §S51 — LIQUIDITY: long vs short (2026-09-30)
+
+The user asked for the dollar volume in the last minute and the last hour of each side's trades, to decide whether the
+short book is too thin to trade. The production books (the §S50 reference: 953 long, 634 short, 2016-08 .. 2026-08) were
+joined to the 1s bars of each ticker-day (`scripts/equity/snoozer_liquidity.py`, log `data/equity/flushfader/snoozer_liquidity.log`,
+per-trade parquet `snoozer_liquidity.parquet`):
+- **last minute:** [15:59:00, 16:00:00), the continuous minute in which the limit entry fills;
+- **last hour:** [15:00:00, 16:00:00);
+- both **exclude the 16:00:00 second**. The bars there are not the closing auction: they hold the cross (condition 8)
+  and its official-close reports (condition 15, the same shares again), and they miss a cross stamped later (DAR
+  2026-08-31 printed $50.8M at 16:00:03).
+
+| book | n | $ last min p50 | $ last hour p50 | last min < $100k | last min < $250k | weighted PF |
+|---|---|---|---|---|---|---|
+| long (all cells) | 953 | 945k | 25.4M | 3% | 14% | 3.30 |
+| short (all cells) | 634 | 608k | 10.2M | 14% | 30% | 3.95 |
+| short S + A | 253 | 2.16M | 42.1M | 4% | 5% | 5.48 |
+| short B | 381 | 272k | 4.85M | 21% | 46% | 2.78 |
+
+- **The short book is thinner overall:**
+  - 1.6× in the last minute, 2.5× in the last hour (2025-26: 2.1× and 3.3×);
+  - the last-minute p10 is 73k (long: 209k);
+  - trading seconds in the last minute, median 51 of 60 (long 57), p10 26 (long 41).
+- ⭐ **The deficit is ONE CELL.** Cell B (`volat_open30 ∈ [40,100) bp ∧ gaps ≥ 2000`, w 0.35) is 60% of the short
+  trades. S and A are MORE liquid than the long book (last minute 2.16M vs 945k). B's weighted return is 34% of the short
+  book's (450 of 1,317 weighted %-points).
+- **The edge does not live in the thin names.**
+
+  | side | T1 (thinnest) | T2 | T3 |
+  |---|---|---|---|
+  | long | 3.12 | 3.67 | 3.11 |
+  | short | 3.89 | 2.98 | 5.11 |
+
+  Weighted PF by within-side last-minute tercile. A liquidity floor would not remove the short side's best trades.
+- **Capacity**, as the position at 10% of the last minute: long median 94k (p25 41k), short 61k (p25 20k); the short
+  B cell's p50 is 27k.
+- The year table is in the log. The short side was thinnest relative to the long in 2022-24 (last-hour ratio 4.5–8.1×).
+
+⚠ **Not measured:**
+- the closing auction (a MOC entry's liquidity; needs the condition-8 prints from the raw tape);
+- the exit's liquidity at the next open;
+- **borrow**, which is likely the harder limit on shorting cell B's thin names;
+- the returns use the last minute's vwap as the fill, which flatters the thinnest names (no impact).
