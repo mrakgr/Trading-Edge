@@ -92,6 +92,19 @@ accept them in either order.
   the ack. From the same WSL desk TradeZero paper took ~240 ms per POST + ~300 ms to the fill, IBKR
   555–903 ms. Lightspeed's server round trip is the smallest of the three (AWS us-east-1 NLB, no
   gateway process).
+- **From a datacenter VPS in New York state, the round trip is ~10× shorter** (2026-09-29, the median of 10 paper
+  orders: a 1-share limit BUY at $1, which cannot fill, then its cancel):
+
+  | | home PC (WSL) | VPS |
+  |---|---|---|
+  | `PENDING_NEW` | 117 ms | **11 ms** |
+  | `NEW` | 121 ms | 15 ms |
+  | cancel → `CANCELED` | 120 ms | 13 ms |
+  | Logon | 128 ms | 18 ms |
+  | connect (TCP + TLS + upgrade) | 480 ms | 133 ms |
+  | the slowest order ack | 188 ms | 11.7 ms |
+
+  Almost all of the home figure is the network path; the VPS is also steadier.
 - **Fills at the real pre-market market:** bought 330.87, sold 330.64 → the round trip cost exactly the
   spread (−$2.30 on 10 sh); the quotes match AAPL's live pre-market. No commission on paper.
 - **Fill ordering gotcha:** `OrderSingleUpdate FILLED` arrives 1 ms BEFORE the `ExecutionReport`. Book fills
