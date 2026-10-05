@@ -201,3 +201,43 @@ frame logged. Answers the open questions of the execution layer (plan step 7):
 the replaces in flight; map every refusal (an `OrderCancelReject`, an ack with a non-zero code, a `REJECTED`
 under the request's id) to one event and never key on `ErrorCode` (0 on refusals); complete an ack's missing
 fields from the order as sent; treat `PositionStatus` as the whole book (absent = flat).
+
+## §L6 The locate messages' answers (2026-10-05, 06:29 ET, paper) — the shapes the docs leave out
+
+Probe: `TradingEdge.Oms/probe/lightspeed_locate_probe.fsx` (private repo). No stock order was sent. Paper's locate is
+still the §L3 stub (`OfferPx 0.01`, `OfferSize` = the request), so only the SHAPES are evidence; rates, availability and
+the hard-to-borrow rejects are production's.
+
+| request | answer (paper, ~35–110 ms) |
+|---|---|
+| `LocateRequest GME 100` | `LocateQuote {OfferPx "0.01", OfferSize "100", QuoteID = QuoteRequestID = ours, Symbol, LocateType "LOCATE", ErrorCode 0}` |
+| `LocateOrder GME 100, Price 0.01` | **`LocateOrderUpdate {ClientOrderID = ours, OrderStatus "FILLED", Price, RequestQty, Symbol, ErrorText "Validated OK"}`** — NOT the documented `LocateExecution`; no filled-quantity field (`RequestQty` echoed) |
+| `LocateRequest RequestQty 0` | `{MsgType "LocateRequest", ErrorCode 1411, ErrorText "RequestQty must be >= 100"}` — the echo of the request's MsgType, **no QuoteRequestID, no Symbol** |
+| `LocateOrder` with no `Price` | `LocateOrderReject {ErrorCode 1421, ErrorText "Price must be > 0"}` — **no ClientOrderID, no Symbol** |
+| `LocateRequest GME 150` | quoted 150: odd lots above the 100 minimum are accepted |
+| `LocateOrder GME 250, Price 0.01` with no quote for 250 | `LocateOrderUpdate FILLED` 250: paper does not tie the order to a quote |
+| `LocateRequest ZZZZQQ 100` | quoted: paper does not validate symbols (as for orders, §L3) |
+| two `LocateRequest`s back to back (AAPL 100, then qty 0) | answered IN ORDER: the quote, then the 1411 |
+
+Production (the rep, 2026-10-05): an EASY-TO-BORROW symbol's `LocateRequest` answers a `LocateQuote` with `OfferPx "0"`
+and `OfferSize "0"` (example on symbol F) — "no locate needed", not "none available". (The rep's first answer said a
+`LocateRequestReject`; the second, from the developers, the 0/0 quote.) An API for the ETB list is planned.
+
+**Adapter rules (locates):** a validation reject carries no id, so the adapter matches it to the OLDEST request of its kind
+still unanswered (requests are answered in order); the minimum locate is 100 shares; success is `LocateOrderUpdate`
+with `OrderStatus FILLED` (any other status is logged and taken as not located).
+
+**The rep's answers (2026-10-05, by email):**
+1. A locate is REUSABLE all day: locate 1,000, short 1,000, cover — the same 1,000 can be shorted again on it.
+2. Partial use: locate 1,000, short 400 — the full lot stays available for later shorts that day.
+3. The fee is charged once the locate is accepted (`LocateOrder` executed), whether or not the shares are ever shorted.
+4. Easy to borrow: "ETB will reject, no locate is needed and you can sellshort directly" — ⚠ CONTRADICTS the developers'
+   example earlier the same day (a `LocateQuote` with `OfferPx "0"`, `OfferSize "0"` for F). Treat both as "easy" until
+   production shows which.
+5. Partial availability: a `LocateOrder` for just the available amount is accepted — ROUND LOTS ONLY (paper accepted 150).
+6. A quote is valid for 30 s; after that a new `LocateRequest` is needed. (Whether `LocateOrder` needs the `QuoteID` was
+   not answered; the docs' `LocateOrder` has no such field — the price ties it to the quote.)
+7. A `SELL_SHORT` of a hard-to-borrow name without a locate is REJECTED with a "not available to short" message (code
+   not given).
+⇒ The located shares are a per-ticker CAP on the short position for the day (|short| + resting shorts ≤ located), not a
+stock that fills use up.
