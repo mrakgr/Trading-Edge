@@ -241,3 +241,12 @@ with `OrderStatus FILLED` (any other status is logged and taken as not located).
    not given).
 ⇒ The located shares are a per-ticker CAP on the short position for the day (|short| + resting shorts ≤ located), not a
 stock that fills use up.
+
+**The developers' answers (2026-10-05 evening, via the rep, with production screenshots — account LSCOTEST1, PROD key):**
+- A short REJECTED for want of a locate: `OrderSingleUpdate` with `OrderStatus "REJECTED"`, `ErrorCode 0`, `ErrorText ""`,
+  `WarningTextType "INFO"`, **`WarningText "TE: Symbol is not on Easy to Borrow list"`** (their example: a `SELL` MARKET 100
+  APUS with no position, route NSDQ). The order got TWO `REJECTED` updates after its `PENDING_NEW`.
+- An EASY-TO-BORROW symbol's `LocateRequest` returns a `LocateQuote` with `OfferPx "0"`, `OfferSize "0"` (GE) — no error.
+  The rep's "ETB will reject" (item 4 above) was WRONG.
+- ⚠ The logon burst on production listed a FINISHED order: `OrderSingleStatus · REJECTED` (that APUS order) before the Logon
+  reply. The burst carries the day's finished orders, not only the resting ones (paper's bursts never showed this).
