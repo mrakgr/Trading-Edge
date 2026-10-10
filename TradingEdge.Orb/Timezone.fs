@@ -64,3 +64,38 @@ let early_closes : DateOnly HashSet =
     |] |> HashSet
     
 do if DateOnly.FromDateTime DateTime.Today > DateOnly(2028,11,24) then failwith "Early closes must be updated."
+
+let holidays : DateOnly HashSet =
+    // NYSE/Nasdaq equity FULL CLOSURES on weekdays (user 2026-10-10: the live Oms must not run on one, and the day after
+    // one must not wait for its daily data). 2016 – 2026-09-28: the weekdays with no daily data (data/v2 daily_prices),
+    // which are exactly the NYSE holidays plus the two national days of mourning (2018-12-05 Bush, 2025-01-09 Carter);
+    // Juneteenth from 2022; no holiday is observed when New Year's Day falls on a Saturday (2022, 2028). 2026-11-26 on:
+    // the NYSE Group 2026-2028 Holiday and Early Closings Calendar (Business Wire, 2025-12-23), checked against Massive's
+    // /v1/marketstatus/upcoming (through 2027-09-06) on 2026-10-10.
+    [|
+        DateOnly(2016,01,01); DateOnly(2016,01,18); DateOnly(2016,02,15); DateOnly(2016,03,25); DateOnly(2016,05,30); DateOnly(2016,07,04); DateOnly(2016,09,05); DateOnly(2016,11,24); DateOnly(2016,12,26)
+        DateOnly(2017,01,02); DateOnly(2017,01,16); DateOnly(2017,02,20); DateOnly(2017,04,14); DateOnly(2017,05,29); DateOnly(2017,07,04); DateOnly(2017,09,04); DateOnly(2017,11,23); DateOnly(2017,12,25)
+        DateOnly(2018,01,01); DateOnly(2018,01,15); DateOnly(2018,02,19); DateOnly(2018,03,30); DateOnly(2018,05,28); DateOnly(2018,07,04); DateOnly(2018,09,03); DateOnly(2018,11,22); DateOnly(2018,12,05); DateOnly(2018,12,25)
+        DateOnly(2019,01,01); DateOnly(2019,01,21); DateOnly(2019,02,18); DateOnly(2019,04,19); DateOnly(2019,05,27); DateOnly(2019,07,04); DateOnly(2019,09,02); DateOnly(2019,11,28); DateOnly(2019,12,25)
+        DateOnly(2020,01,01); DateOnly(2020,01,20); DateOnly(2020,02,17); DateOnly(2020,04,10); DateOnly(2020,05,25); DateOnly(2020,07,03); DateOnly(2020,09,07); DateOnly(2020,11,26); DateOnly(2020,12,25)
+        DateOnly(2021,01,01); DateOnly(2021,01,18); DateOnly(2021,02,15); DateOnly(2021,04,02); DateOnly(2021,05,31); DateOnly(2021,07,05); DateOnly(2021,09,06); DateOnly(2021,11,25); DateOnly(2021,12,24)
+        DateOnly(2022,01,17); DateOnly(2022,02,21); DateOnly(2022,04,15); DateOnly(2022,05,30); DateOnly(2022,06,20); DateOnly(2022,07,04); DateOnly(2022,09,05); DateOnly(2022,11,24); DateOnly(2022,12,26)
+        DateOnly(2023,01,02); DateOnly(2023,01,16); DateOnly(2023,02,20); DateOnly(2023,04,07); DateOnly(2023,05,29); DateOnly(2023,06,19); DateOnly(2023,07,04); DateOnly(2023,09,04); DateOnly(2023,11,23); DateOnly(2023,12,25)
+        DateOnly(2024,01,01); DateOnly(2024,01,15); DateOnly(2024,02,19); DateOnly(2024,03,29); DateOnly(2024,05,27); DateOnly(2024,06,19); DateOnly(2024,07,04); DateOnly(2024,09,02); DateOnly(2024,11,28); DateOnly(2024,12,25)
+        DateOnly(2025,01,01); DateOnly(2025,01,09); DateOnly(2025,01,20); DateOnly(2025,02,17); DateOnly(2025,04,18); DateOnly(2025,05,26); DateOnly(2025,06,19); DateOnly(2025,07,04); DateOnly(2025,09,01); DateOnly(2025,11,27); DateOnly(2025,12,25)
+        DateOnly(2026,01,01); DateOnly(2026,01,19); DateOnly(2026,02,16); DateOnly(2026,04,03); DateOnly(2026,05,25); DateOnly(2026,06,19); DateOnly(2026,07,03); DateOnly(2026,09,07); DateOnly(2026,11,26); DateOnly(2026,12,25)
+        DateOnly(2027,01,01); DateOnly(2027,01,18); DateOnly(2027,02,15); DateOnly(2027,03,26); DateOnly(2027,05,31); DateOnly(2027,06,18); DateOnly(2027,07,05); DateOnly(2027,09,06); DateOnly(2027,11,25); DateOnly(2027,12,24)
+        DateOnly(2028,01,17); DateOnly(2028,02,21); DateOnly(2028,04,14); DateOnly(2028,05,29); DateOnly(2028,06,19); DateOnly(2028,07,04); DateOnly(2028,09,04); DateOnly(2028,11,23); DateOnly(2028,12,25)
+    |] |> HashSet
+
+do if DateOnly.FromDateTime DateTime.Today > DateOnly(2028,12,25) then failwith "Holidays must be updated."
+
+/// A day the equity market trades: a weekday, not a holiday (an early close is a trading day)
+let isTradingDay (d: DateOnly) =
+    d.DayOfWeek <> DayOfWeek.Saturday && d.DayOfWeek <> DayOfWeek.Sunday && not (holidays.Contains d)
+
+/// The last trading day before `d`
+let previousTradingDay (d: DateOnly) =
+    let mutable p = d.AddDays -1
+    while not (isTradingDay p) do p <- p.AddDays -1
+    p
