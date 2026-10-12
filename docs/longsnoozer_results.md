@@ -1782,3 +1782,114 @@ Before the barnum fix the same runs read 319 / 25 — the FlushFader `barnum ≥
 Snoozers read whole (25 young listings) plus NCPL 2025-07-03 (the early-close class, now out of the reference).
 
 **2026-09-30:** the long-vs-short liquidity comparison is `docs/shortsnoozer_results.md` §S51.
+
+## §S52 — AFTER-HOURS entries: keep the 15:59 limit on until 16:10? (user, 2026-10-12) — both books
+
+`scripts/equity/snoozer_ah_entry.py` (log `data/equity/snoozer_ah_entry.log`, per-trade `data/equity/snoozer_ah_entry.parquet`).
+The Oms enters with a maker limit capped at the signal price (the decision bar's vwap on the tick grid, against us:
+a buy floors, a short ceils — `Broker.onGrid`) and cancels it at 16:00. The research filled at the vwap of (15:59,
+16:00]. Measured on the RAW trades tape for the 1,587 reference trades (953 long, 634 short, 2016-08 .. 2026-08): LIT
+prints only (`trf_id = 0`, what a resting order fills against), the trade_filters.py exclusions, the closing cross
+(conditions 8 / 19) on its own, condition 15 (the official-close report) dropped. Scale check: the tape vwap of the
+signal second / p1559 = 1.000000 median (p1 0.9995, p99 1.0002; 1,328 trades with a print in that second).
+
+**Lit dollar volume relative to our limit, median per trade (share of trades with any):**
+
+| side | window | better than the limit | at the limit | worse | off-exchange |
+|---|---|---|---|---|---|
+| long | (signal, 16:00) | 77k (73 %) | 28k (85 %) | 181k | 382k |
+| long | the cross | 0 (33 %) | 0 (7 %) | 46k | — |
+| long | [16:00, 16:10) | 21k (71 %) | 0 (49 %) | 49k | 131k |
+| short | (signal, 16:00) | 41k (70 %) | 14k (79 %) | 80k | 202k |
+| short | the cross | 0 (42 %) | 0 (8 %) | 3k | — |
+| short | [16:00, 16:10) | 2.5k (67 %) | 0 (38 %) | 21k | 44k |
+
+**Fill model** (conservative: filled iff a lit print trades THROUGH the limit; the outcome at the limit price,
+weighted by the cell weight; missed trades at the research proxy):
+
+| side | limit held | filled | PF filled | mean % filled | missed: n / PF / mean % | Σ weighted return | vs 16:00 |
+|---|---|---|---|---|---|---|---|
+| long | until 16:00 (today's Oms) | 73.1 % | 3.46 | +4.52 | 256 / 2.74 / +3.06 | 2,829 | — |
+| long | until 16:00 + the cross | 75.0 % | 3.45 | +4.52 | 238 / 2.62 / +2.82 | | |
+| long | **until 16:10** | **87.0 %** | 3.33 | +4.41 | 124 / 3.51 / +2.81 | **3,257** | **+15.1 %** |
+| short | until 16:00 (today's Oms) | 69.9 % | 3.44 | +3.40 | 191 / 5.04 / +4.02 | 850 | — |
+| short | until 16:00 + the cross | 73.8 % | 3.57 | +3.52 | 166 / 4.06 / +3.38 | | |
+| short | **until 16:10** | **83.6 %** | 3.45 | +3.41 | 104 / 7.99 / +4.27 | **1,047** | **+23.2 %** |
+
+The late fills alone (filled only after 16:00): long 132 trades, mean +3.84 %, win 53 %; short 87, mean +3.45 %, win
+67 %. First trade-through by after-hours minute (share of trades): long 51 % in 16:00, then 36–40 % per minute;
+short 45 %, then 23–34 %. The 16:10 gain holds in every year 2017–2026 (long +4 to +23 pp, short +9 to +19 pp).
+
+Reading:
+- **Leaving the limit on until 16:10 fills ~14 pp more trades on both sides, at the same quality**: the filled PF
+  barely moves (long 3.46 → 3.33, short 3.44 → 3.45) and the captured return rises +15 % (long) / +23 % (short).
+- **The close cross adds almost nothing** (+1.9 / +3.9 pp): our limit is not in it unless it rests on the listing
+  exchange, so it is no substitute.
+- ⚠ **Adverse selection on the shorts:** the ones we miss are the best (missed PF 5.04 at 16:00, 7.99 at 16:10) — a
+  short limit sells only if the price comes UP to us, and the trades that never come back fall straight away. The
+  long misses are average (2.74 / 3.51). Not fixable by waiting longer; a marketable short entry would be.
+- ⚠ **Capacity is thin after hours:** among the trades that fill only after 16:00, the lit $ strictly better than the
+  limit is p25 8k / p50 63k (long) and **p25 1k / p50 16k (short)**. At 10k equity (a position of $750–3,000) this
+  is fine; at 30k+ the short after-hours fills are partial.
+- Prerequisites for the Oms: an order that rests after 16:00 needs Lightspeed EXTENDED-HOURS orders (Connect's
+  OrderSingle has no session field — asked Rob 2026-10-11), and paper's after-16:00 behaviour is unknown (the
+  10-12 session's Snoozer entries reach paper at ~16:14 wall with the 900 s delay — the first evidence).
+
+### §S52 addendum — longer than 16:10? (user, 2026-10-12) — `--post-end 72000` (`data/equity/snoozer_ah_entry_2000.parquet`)
+
+Cumulative fills (trade-through model) and the captured weighted return vs today's 16:00 cancel:
+
+| held until | long filled | long Σ return | short filled | short Σ return |
+|---|---|---|---|---|
+| 16:00 | 73.1 % | — | 69.9 % | — |
+| 16:05 | 84.6 % | +13.3 % | 81.7 % | +20.5 % |
+| **16:10** | **87.0 %** | **+15.1 %** | **83.6 %** | **+23.2 %** |
+| 16:15 | 87.7 % | +15.9 % | 84.4 % | +25.0 % |
+| 16:30 | 89.1 % | +16.4 % | 85.2 % | +24.9 % |
+| 17:00 | 90.7 % | +17.1 % | 87.5 % | +30.2 % |
+| 18:00 | 91.2 % | +17.0 % | 89.0 % | +31.5 % |
+| 20:00 | 92.1 % | +16.6 % | 89.9 % | +35.2 % |
+
+- **The first five minutes after the close carry almost all of it** (long +109 of +181 added fills, short +75 of +127).
+- Long: flat after ~16:30 (+16–17 %), and the late fills get WORSE (their mean +3.97 % → +3.07 % by 20:00) —
+  after-hours news (earnings at 16:0x) picks a resting buy off.
+- Short: keeps adding slowly to +35 % by 20:00 (late fills mean +3.9 %, win 70 %), but on very thin tape: the trades
+  first filled after 16:10 saw lit $ through the limit over 16:00–20:00 of p25 3.9k / p50 36k (short), 10k / 115k (long),
+  vs 15k / 87k and 65k / 494k for those filled 16:00–16:10. The trade-through model is most optimistic exactly there
+  (one odd lot through the price is not our size).
+
+## §S53 — CAPPED vs UNCAPPED maker entries, both held until 16:10 (user, 2026-10-12) — both books
+
+`scripts/equity/snoozer_maker_sim.py` (log `data/equity/snoozer_maker_sim.log`, per-trade `data/equity/snoozer_maker_sim.parquet`,
+quotes cached in `data/equity/snoozer_quotes/`). A quote-driven fill simulation per reference trade (1,587): the NBBO
+from Massive REST `/v3/quotes` (15:59–16:10 per ticker-day; 1 empty file, 2 in round lots) against the lit trades
+of the raw tape (no cross, no official-close reports). The order lives from the end of the signal second to 16:10:
+- **capped** = today's Oms entry: a buy at onGrid(min(bid, signal price)), a short at onGrid(max(ask, signal price));
+- **uncapped** = the same maker without the cap: the bid / the ask.
+
+Fill rule: a lit print through our price fills us; prints AT our price eat the queue ahead (the displayed NBBO size
+when we joined the level — all venues, conservative); every reprice joins the back of the new level; resting below
+the bid, the queue is unknown until the bid comes down to us. No order latency modelled.
+
+| side | policy | filled | filled by 16:00 | PF filled | mean % filled | fill vs signal (bp, + better) | Σ weighted return |
+|---|---|---|---|---|---|---|---|
+| long | capped | 85.7 % | 76.3 % | 3.40 | +4.57 | +10.4 | 3,305 |
+| long | **uncapped** | **98.8 %** | 95.0 % | 3.32 | +4.19 | +1.3 | **3,560 (+7.7 %)** |
+| short | capped | 79.5 % | 70.8 % | 3.73 | +3.61 | +9.6 | 1,043 |
+| short | **uncapped** | **98.1 %** | 91.6 % | **3.92** | +3.70 | +0.4 | **1,296 (+24.3 %)** |
+
+Where they differ: on the trades BOTH fill (long 817, short 504) the capped price is better by ~0.2 pp of return
+(long +4.57 vs +4.38 %, short +3.61 vs +3.46 %). The uncapped-only fills (long 125: +2.97 %; short 118: **+4.71 %**)
+are the trades the cap never reaches — for the shorts the BEST ones (the price fell away from our offer). Capped-only:
+none. By year the uncapped Σ is higher in 8 of 11 long years and 9 of 11 short years; halves: long 2,154 → 2,310
+(2016–23) and 1,151 → 1,250 (2024–26), short 776 → 899 and 267 → 397.
+
+Reading:
+- **Uncapped wins on both sides, out of both halves**: it gives up ~10 bp of entry price on the trades both fill, and
+  buys ~13 pp more trades that are worth far more than that (long +2.97 %, short +4.71 % each).
+- **The short side is where the cap hurts**: it systematically misses the best shorts (§S52's adverse selection);
+  uncapped fixes it — short PF RISES (3.73 → 3.92) while filling 18.6 pp more.
+- With the cap gone, the after-hours extension matters less: uncapped fills 95 % / 92 % by 16:00 already (the 16:10
+  tail adds ~4–6 pp).
+- Caveats: no latency (the Oms re-plans per 200 ms frame + the broker round trip — an uncapped order chasing a
+  rising bid lags a little); queue-ahead from consolidated NBBO size (conservative); the after-hours NBBO is thin.

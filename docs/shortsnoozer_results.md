@@ -2179,3 +2179,9 @@ per-trade parquet `snoozer_liquidity.parquet`):
 - the exit's liquidity at the next open;
 - **borrow**, which is likely the harder limit on shorting cell B's thin names;
 - the returns use the last minute's vwap as the fill, which flatters the thinnest names (no impact).
+
+## §S52 — AFTER-HOURS entries (2026-10-12): see `docs/longsnoozer_results.md` §S52 (both books)
+
+Short book: holding the 15:59 limit until 16:10 fills 69.9 % → 83.6 % (trade-through model), filled PF 3.44 → 3.45,
+captured weighted return +23 %. The shorts the limit misses are the BEST ones (missed PF 5.04 → 7.99: a short limit
+needs the price to come up to it). After-hours capacity is thin: lit $ through the limit on late fills p25 1k / p50 16k.
