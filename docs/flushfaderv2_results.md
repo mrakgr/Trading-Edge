@@ -425,3 +425,24 @@ Reading:
   its cap-20 net (V1 keeps 97 %).
 - Worst-day risk at the Oms's sizing is still large: −15 % of equity on 2024-02-27 (and −13 % on 2020-03-18). That is
   the user's stated tolerance ("occasional 10–30 % losing days"), not a free lunch.
+
+## V2-9 — the PRODUCTION reference in double precision (2026-10-12; user: "replace FlushFader with V2 in production")
+
+`scripts/equity/flushfaderv2_reference.py` — the broad-book reference (flushfader_broad_reference.py's mask,
+calendar-aware entry window) − dslo ∈ (0, 2 %], with dslo and s20 read in DOUBLE from the base corpus (sess_low,
+ols_slope_1200), not the float32 slice. Outputs in `data/flushfaderv2/`: `flushfaderv2_reference_{trips,book}.parquet`
+(the Oms's Parity targets), `v2_coefficients.json` (committed: β vectors, BasePf1, the s20 constants, the thresholds,
+200 pin trades for the F# tests); `_10d` twins for the trades-tape seal (coefficients APPLIED, not refitted).
+
+| set | base_v19 (full period) | base_10d |
+|---|---|---|
+| engine-level trips, broad → V2 | 209,252 → **195,764** (gate −13,488) | 1,180 → **1,112** (−68) |
+| book (raw px ≥ $1, mc=1) | **35,612** (= the slice study, identical keys) | **192** (V1: 201) |
+| book PF net of credit, flat → sized | 1.583 → 1.798 | 1.676 → 2.027 |
+| multiplier mean / range / at 0.25 | 1.0021 / 0.25–4.00 / 5.0 % | 1.062 / 0.25–3.55 / 4.7 % |
+
+The coefficients reproduce V2-7's table to every printed digit (the float32 slice made no difference on this book).
+s20 constants: winsorise [−105.830750, 10.477523] bp/min, mean −26.001895, SD 21.187586; BasePf1 0.5955897035.
+The mean multiplier is 1.0021, not 1: the 0.25 floor binds (A3's never did), lifting the clipped mean.
+NaN dslo / NaN s20 at an engine-level trip: 0 / 0 over the full period (the live port still guards: a NaN s20 enters
+as z = 0).
