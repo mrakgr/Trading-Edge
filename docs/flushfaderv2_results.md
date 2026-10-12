@@ -446,3 +446,19 @@ s20 constants: winsorise [−105.830750, 10.477523] bp/min, mean −26.001895, S
 The mean multiplier is 1.0021, not 1: the 0.25 floor binds (A3's never did), lifting the clipped mean.
 NaN dslo / NaN s20 at an engine-level trip: 0 / 0 over the full period (the live port still guards: a NaN s20 enters
 as z = 0).
+
+## V2-10 — V2 in the Oms, SEALED (2026-10-12); deployed for the 10-12 session
+
+Private repo: `Engine/FlushFader.fs` (SessLow + OlsSlope1200 restored, the near-low gate `NearLowLo/Hi` = 0 / 0.02),
+`Engine/Sizing.fs` (the V2 model, betas + constants pasted from `v2_coefficients.json`), `Sizer.UnitPf1` = 0.519 (one
+PF−1 scale for every system, user ruling: V2 positions average ~1.15 units), Parity's signals (+ sess_low,
+ols_slope_1200) and book (+ dslo, dslo_flag, s20, s20_z, pf1_fitted).
+
+| seal | result |
+|---|---|
+| 10d `--from-bars`, gate OFF, vs V1 `broad_reference_trips_10d` | 1,180 = 1,180, zero-diff; every signal column vs base_10d zero-diff incl. sess_low / ols_slope_1200 (`n`, a candidate column, 1 row) |
+| 10d `--from-bars`, gate ON, vs V2 reference | trips 1,112 = 1,112 · book 192 = 192 (multiplier Δ ≤ 4.4e-15) |
+| 10d trades tape `--gate --ms-precision` | trips 1,112 = 1,112 · book 192 = 192; the gate's universe = the table on all 10 days |
+| full period 2020-01-02 .. 2026-08-21 `--from-bars` | **book 35,612 = 35,612** (multiplier Δ ≤ 7.6e-15); trips 195,764 shared, zero-diff (one exit_px 2e-16), + 34 Oms-only trips = ONE ticker-day, PSNYW 2025-08-27 (a warrant at $0.55: in today's candidate table, absent from base_v19 built 09-08 — universe drift, not the engine; all below $1, so no book effect) |
+| Oms tests | 100 / 100 (SizingTests: betas + constants digit for digit, 200 pins to 1e-9; FaderTests AXTI restated — V2's continuous s20 gives overlapping trips different pf1) |
+| controls | the session-low pushed AFTER the gate: sess_low differs on 589 / 1,112 (the trip set does NOT move — only the record would drift); s20 without the winsorising: 2 tests fail (pin 92 Δ 0.198) |

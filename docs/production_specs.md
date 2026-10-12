@@ -9,6 +9,14 @@ index that tells you WHERE the current truth lives and HOW to regenerate it. Com
 
 ## 1. FlushFader — 1s LONG mean reversion (THE system) — `docs/flushfader_results.md`
 
+**⭐⭐ PRODUCTION SINCE 2026-10-12 = FlushFaderV2** (`docs/flushfaderv2_results.md`; user: "replace FlushFader with V2 in
+production"). THE BROAD BOOK below + **the near-low gate** (reject 0 < dslo ≤ 2 %, dslo = signal_vwap / running session
+low − 1, the signal bar included) → book **35,612**; **sizing V2 = A3 + [dslo ≥ 4 %] + z(s20)** (s20 = ols_slope_1200 ×
+6e5, winsorised at the book's 1 / 99 % and standardised), coefficients `data/flushfaderv2/v2_coefficients.json`
+(`scripts/equity/flushfaderv2_reference.py`). The Oms reads the fitted PF−1 on the ONE unit scale 0.519 (A3's book mean;
+user 2026-10-12), so V2 positions average ~1.15 units. Capped replay (cap 20, cross-fit) vs V1: net +13.6 %, max DD
+443 → 308, worst day −296 → −199 units, 80/80 months. Sealed in the Oms 2026-10-12 (see V2-10 in the V2 doc).
+
 **Signal**: new strict 1200-bar (≈20m) vwap low → buy next bar vwap; exit strict new 300-bar (≈5m) high → sell next
 bar vwap, else hold to the NEXT session's open (calendar-aware close 16:00 / 13:00). One leg per new 1200-bar high.
 Engine `TradingEdge.FlushFader` (Argu flags; `--base-run` = every spec gate OFF).
