@@ -250,3 +250,32 @@ stock that fills use up.
   The rep's "ETB will reject" (item 4 above) was WRONG.
 - ⚠ The logon burst on production listed a FINISHED order: `OrderSingleStatus · REJECTED` (that APUS order) before the Logon
   reply. The burst carries the day's finished orders, not only the resting ones (paper's bursts never showed this).
+
+## §L7 Paper does not fill a resting limit when trades print through it (2026-10-14, measured on 10-12 and 10-13)
+
+The first full maker-entry paper days (the delayed follower: our orders reach paper 900 s after the market, and paper's
+own prices are the 15-minute-delayed feed, so the two clocks line up). Every resting BUY limit was replayed against the
+tape (Massive REST trades, the order times minus 900 s; average-price / odd-lot style condition codes dropped,
+off-exchange prints kept):
+
+| | 10-12 | 10-13 |
+|---|---|---|
+| trades (L3's target from 0 and back to 0) whose entry bid rested | 25 | 19 |
+| …that paper filled | 7 | 2 |
+| …that the tape traded THROUGH (a print strictly below the bid while it rested) | 21 | 17 |
+
+Bids sat untouched for minutes while tens of thousands of shares printed below them, e.g. on 10-13 a 1.30 bid for 9 min
+with 28,233 shares printed below it, a 3.28 bid for 70 s with 33,931 below, a 2.52 bid for 1 s with 62,972 below.
+
+⇒ **Paper fills a resting limit only when ITS OWN QUOTE crosses it** (the ask reaches a buy limit, the bid a sell limit;
+consistent with §L3, "the simulator fills against the NBBO"), **never because a trade printed at or through the
+level.** A real venue would have filled most of these: a print below a resting bid means the bid was taken (queue
+position aside). So paper systematically UNDER-FILLS maker orders and says nothing about their real fill rate or
+adverse selection — it fills mostly the orders the market came back to. Marketable orders (crosses) are unaffected.
+Replaying the trade-throughs as fills (full size at the limit, exits at the exit signal's price, no fees — maker
+commission and rebate roughly cancel): 10-12 +892 vs paper's +321, 10-13 +5 vs paper's −284. Scripts (private repo):
+`TradingEdge.Oms/probe/paper_unfilled_bids.py` (per bid level) and `paper_hypo_fills.py` (the P&L had they filled).
+
+**And a DAY limit placed after 16:00 is accepted, then expired at once** (10-13, a 15:59 entry reaching paper at 16:14
+wall): `OrderSingleUpdate NEW`, then `EXPIRED` (`LeavesQty 0`) 0.3–1.1 s later, five times in a row. No extended-hours
+fill with `TimeInForce DAY`. (Production's behaviour: asked of the rep 10-13.)
