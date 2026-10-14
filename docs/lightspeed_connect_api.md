@@ -305,11 +305,29 @@ it is used.**
 | question | the rep | what we have seen |
 |---|---|---|
 | a DAY limit at 16:00 on a route not open after hours | `CANCELED` ("tested in prod 10.13") | — |
-| a DAY limit at 20:00 on an after-hours route (ARCA, NSDQ, BATS, LITE) | `CANCELED` | — |
+| a DAY limit at 20:00 on an after-hours route (ARCA, NSDQ, BATS, LITE, per the rep) | `CANCELED` | — (only ARCA is one: below) |
 | the order id in that update | only the order's own `ClientOrderID`, no `OrigClientOrderID` | — |
 | does paper send the same? | "No. We do not replicate the expired or done for day messages in paper trading" | ❌ **contradicted:** on 10-13 paper sent `EXPIRED` for a DAY limit placed after 16:00, five times (§L7) |
 
 The OMS treats any `CANCELED` / `EXPIRED` / `DONE_FOR_DAY` that it did not request as ended by the venue (a 2 s pause,
 then re-placed; after 5 an entry stops until a new signal), so whichever production sends is handled; the first live
-after-close order will show which it is. The routes not open after hours (where a DAY limit is cancelled at 16:00, per
-the rep 10-12) include `EDGAROUT`: an order that must rest past the close goes to an after-hours route.
+after-close order will show which it is.
+
+**THE OVERNIGHT ROUTES — measured (2026-10-14, 16:20 ET, after the close):** the rep (10-12) said a DAY limit stays active
+to 20:00 on "ARCA, NSDQ, BATS, or LITE" and other routes cancel it at 16:00. The live check (`ls_route_check.py --hold
+30`: a 1-share BUY DAY limit on AAPL at half the price per route, LEFT 30 s before our cancel; nothing filled):
+
+| route | after the close |
+|---|---|
+| **`ARCA`** | ✅ accepted, rested 30 s (cancelled by us) |
+| `PDQSMART` | accepted, rested 30 s — a smart router (PDQ, now Coda Markets), not a venue; its fee/rebate unknown: not used |
+| `NSDQ` | accepted (`NEW`), then **`CANCELED` by the venue** within the 30 s |
+| `BATS`, `BATYSLIM`, `EDGAROUT`, `EDGXROUT` | `REJECTED` "A: Outside trading hours" |
+| `NYSE`, `AMEX` | `REJECTED` "R042: Invalid TradingSessionID" |
+| `MNGD` | `REJECTED` "Orders not accepted after close" |
+| `SMART` | `REJECTED` "Market closed" |
+| `LITE` | `REJECTED` "TE: No Routing Code" — not a route code at all |
+
+⇒ **`ARCA` is the only overnight (after-the-close) route** — the rep's list was wrong but for ARCA. An order that must rest
+past 16:00 (the Snoozers' 15:59 entry) goes to ARCA only (the OMS's `AfterHoursRoutes`, user 2026-10-14). Not tested: an
+order resting ACROSS 16:00 (the OMS holds the only connection then) — the first live Snoozer entry will show it.
