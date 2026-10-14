@@ -32,7 +32,7 @@ for fills, a reply for every request. Equities and equity options only (multi-le
 | place | `OrderSingle {ClientID, Account, ClientOrderID, Symbol, Side BUY/SELL/SELL_SHORT, OrderType, OrderQty, Price?, StopPrice?, TimeInForce?, ExchangeDestination?, SessionId}`; `Account` is REPLACED server-side by the account bound to the key; `ClientID` = `LSCO` in production |
 | order types | `MARKET, LIMIT, STOP, STOP_LIMIT, MARKET_ON_CLOSE, LIMIT_ON_CLOSE`; MOO/LOO = MARKET/LIMIT + `TimeInForce AT_THE_OPENING`; trailing stop = MARKET + `ExecInstruction TRAILING_STOP_PEG` + `PegDifference`. "Additional order types are available on request." **No post-only, no peg-to-touch/mid, no display-size field in the schema** (same gap as TradeZero's API, cf. `tradezero_api.md` §T3) |
 | TIF | `DAY` (default), `GOOD_TILL_CANCEL`, `AT_THE_OPENING`, `IMMEDIATE_OR_CANCEL`; no FOK, no GTX/extended-hours flag in the schema; "accounts may be restricted to a subset" (error 35) |
-| routes | `ExchangeDestination`; equities default `SMART`. Pro routes: `AMEX, NYSEARCA, BATS, BATYSLIM, EDGAROUT, EDGXROUT, NSDQ, NYSE`. Lite routes: `PDQSMART, MNGD (Apex), ARCA`. Options `SMART` only |
+| routes | `ExchangeDestination`; equities default `SMART`. Pro routes: `AMEX, NYSEARCA, BATS, BATYSLIM, EDGAROUT, EDGXROUT, NSDQ, NYSE`. Lite routes: `PDQSMART, MNGD (Apex), ARCA`. Options `SMART` only. ⚠ **Production rejects `NYSEARCA`; Arca is `ARCA`** (§L8) |
 | ack | `OrderSingleUpdate` echoing the order with server defaults (`SecurityType COMMON_STOCK`, `NotHeld TRUE`), `ErrorCode 0 "Validated OK"`, `OrderStatus PENDING_NEW`; a rejection is the SAME message with `OrderStatus REJECTED` + the reason (e.g. `200 "##:REJECT - Duplicate ClientOrderID - …"`) — one error per message, validation stops at the first |
 | fills | `ExecutionReport` per execution (`LastShares`, `LastPx`, `CumQty`, `AvgPrice`, `LeavesQty`, `ExecType FILL/PARTIAL_FILL`, broker `LastMkt`/`ExecBroker`/`ContraBroker` when present) followed by an `OrderSingleUpdate` with the new `OrderStatus`. Quickstart transcript: `PENDING_NEW → NEW → PositionUpdate → ExecutionReport FILLED → OrderSingleUpdate FILLED` |
 | statuses | `PENDING_NEW, NEW, PARTIALLY_FILLED, FILLED, DONE_FOR_DAY, CANCELED, REPLACED, PENDING_CANCEL, PENDING_REPLACE, STOPPED, REJECTED, SUSPENDED, EXPIRED` |
@@ -278,4 +278,38 @@ commission and rebate roughly cancel): 10-12 +892 vs paper's +321, 10-13 +5 vs p
 
 **And a DAY limit placed after 16:00 is accepted, then expired at once** (10-13, a 15:59 entry reaching paper at 16:14
 wall): `OrderSingleUpdate NEW`, then `EXPIRED` (`LeavesQty 0`) 0.3–1.1 s later, five times in a row. No extended-hours
-fill with `TimeInForce DAY`. (Production's behaviour: asked of the rep 10-13.)
+fill with `TimeInForce DAY`.
+
+## §L8 PRODUCTION: the routes, and how a DAY order ends (2026-10-14, the first live day)
+
+**⚠ Paper ignores `ExchangeDestination`.** It accepted `BOGUSROUTE` (rested `NEW`, cancelled normally), and its fills for
+orders sent to `NYSEARCA` came back with `LastMkt KNLI` / `ExecBroker INCA`. No paper day can validate a route.
+
+**Production rejects `NYSEARCA`**, the §L1 docs' Pro name for NYSE Arca: every live order of the first morning
+(09:54–10:24 ET, ~96) came back `OrderSingleUpdate REJECTED`, `WarningText "TE: No Routing Code"` (after a `PENDING_NEW
+"Validated OK"`). The live route check (`TradingEdge.Oms/probe/ls_route_check.py`, private repo; 10:48 ET: one BUY 1 AAPL
+LIMIT DAY at half the last price per route, cancelled as soon as it rested; nothing filled):
+
+| `ExchangeDestination` | production |
+|---|---|
+| `NYSEARCA` | ❌ REJECTED "TE: No Routing Code" |
+| `ARCA`, `NYSE`, `EDGAROUT`, `EDGXROUT`, `NSDQ`, `BATS`, `BATYSLIM`, `AMEX`, `PDQSMART`, `MNGD`, `SMART` | ✅ `NEW`, then `CANCELED` on our cancel |
+
+So Arca's production code is `ARCA` (the docs' Lite name), and the account takes every other route of both lists. `NSDQ`
+alone answered `PENDING_NEW` three times before `NEW`, and its cancel went through `PENDING_CANCEL` with `WarningText
+"Pending"`. **Lesson: every order field (route, TIF, type) is checked on production with an order that cannot fill before
+it is used.**
+
+**How a DAY order ends — the rep's answers (2026-10-14), ⚠ per the rep, unverified by us:**
+
+| question | the rep | what we have seen |
+|---|---|---|
+| a DAY limit at 16:00 on a route not open after hours | `CANCELED` ("tested in prod 10.13") | — |
+| a DAY limit at 20:00 on an after-hours route (ARCA, NSDQ, BATS, LITE) | `CANCELED` | — |
+| the order id in that update | only the order's own `ClientOrderID`, no `OrigClientOrderID` | — |
+| does paper send the same? | "No. We do not replicate the expired or done for day messages in paper trading" | ❌ **contradicted:** on 10-13 paper sent `EXPIRED` for a DAY limit placed after 16:00, five times (§L7) |
+
+The OMS treats any `CANCELED` / `EXPIRED` / `DONE_FOR_DAY` that it did not request as ended by the venue (a 2 s pause,
+then re-placed; after 5 an entry stops until a new signal), so whichever production sends is handled; the first live
+after-close order will show which it is. The routes not open after hours (where a DAY limit is cancelled at 16:00, per
+the rep 10-12) include `EDGAROUT`: an order that must rest past the close goes to an after-hours route.
