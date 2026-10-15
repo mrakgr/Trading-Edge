@@ -331,3 +331,45 @@ to 20:00 on "ARCA, NSDQ, BATS, or LITE" and other routes cancel it at 16:00. The
 ⇒ **`ARCA` is the only overnight (after-the-close) route** — the rep's list was wrong but for ARCA. An order that must rest
 past 16:00 (the Snoozers' 15:59 entry) goes to ARCA only (the OMS's `AfterHoursRoutes`, user 2026-10-14). Not tested: an
 order resting ACROSS 16:00 (the OMS holds the only connection then) — the first live Snoozer entry will show it.
+
+**THE OPENING-AUCTION ROUTES — measured (2026-10-15, 04:01 ET):** the rep (10-14) said a MOO/LOO goes to the LISTING
+exchange (`NSDQ` / `NYSE` / `ARCA`) and "SMART would not accept these orders". The live check (`ls_route_check.py --tif
+AT_THE_OPENING`: a 1-share BUY LOO at half the last price per SYMBOL:ROUTE, cancelled as soon as it rested; nothing filled):
+
+| order | listing | result at 04:01 ET |
+|---|---|---|
+| AAPL → `NSDQ` | XNAS | ✅ `NEW` (three `PENDING_NEW` first, as in RTH), cancelled by us |
+| SPY → `ARCA` | ARCX | ✅ `NEW`, cancelled by us |
+| KO → `NYSE` | XNYS | ❌ `REJECTED` "TE: Message to execution venue cannot be sent" |
+| IMO → `AMEX` | XASE | ❌ `REJECTED` "TE: Message to execution venue cannot be sent" |
+| IGV → `BATS` | BATS | ❌ `REJECTED` "A: Invalid ExecInst for auction order" |
+| AAPL → `SMART` | XNAS | ✅ `NEW` — ⚠ contradicts the rep; accepted is not the same as reaching the auction |
+| KO → `SMART` | XNYS | ✅ `NEW` — the same |
+| KO → `NSDQ` | XNYS (mismatch) | ✅ `NEW` — accepted for a stock Nasdaq does not list; what it does at the open is unknown |
+
+- `BATS`: the VENUE refused it ("A:", as BZX/EDGX's "A: Outside trading hours"; Lightspeed's own rejects say "TE:")
+  for an ExecInst we never sent — the route adds one (post-only / book-only?) that BZX refuses on an auction order. BZX
+  does run auctions for its listings, so this is the route's setup: ask Rob for an auction route to BZX. Until then
+  BZX-listed names (1 in the universe, IGV) get no MOO.
+- `NYSE` / `AMEX` rejected with a TE-side "cannot be sent", not a venue reason — consistent with the venue session not
+  being reachable at 04:01; **the same order later in the morning is untested.** Until it is, the OMS's NYSE MOOs at 09:00
+  ET are unverified, and AMEX stays off.
+- The OMS routes auction orders by listing; SMART only for a ticker whose listing Massive does not give (user 2026-10-15,
+  8 of 5,652 names on 10-14). The mismatch acceptance is not used.
+
+**THE PREMARKET ROUTES — measured (2026-10-15, 04:15 ET):** is ARCA (the only after-close route) also the only premarket
+one? The same `--hold 30` check as after the close (a 1-share BUY DAY limit on AAPL at half the price per route, left 30 s,
+then cancelled; nothing filled):
+
+| route | 04:15 ET |
+|---|---|
+| `ARCA`, `NSDQ`, `BATS`, `EDGXROUT` | ✅ accepted, rested 30 s |
+| `PDQSMART`, `MNGD`, `SMART` | ✅ accepted, rested 30 s (routers, not venues) |
+| `NYSE`, `AMEX`, `EDGAROUT`, `BATYSLIM` | ❌ `REJECTED` "TE: Message to execution venue cannot be sent" |
+| `NYSEARCA`, `LITE` | ❌ `REJECTED` "TE: No Routing Code" (not route codes) |
+
+⇒ ARCA is **not** the only premarket route: Nasdaq, Cboe BZX and Cboe EDGX take a DAY limit at 04:15 too (unlike after
+the close, where BZX/EDGX said "Outside trading hours" and Nasdaq cancelled). The four "cannot be sent" routes are the same
+TE-side message as the 04:01 NYSE/AMEX LOOs — consistent with venue sessions that open later than 04:00; a re-check at
+08:30 ET (the same day) tests that. Note `EDGAROUT`, one of the OMS's two maker routes, is among them: the OMS places no
+maker order before 09:30 (`MakeSpreadRth` passes outside RTH), so it is not affected today.
