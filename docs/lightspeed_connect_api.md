@@ -354,8 +354,9 @@ AT_THE_OPENING`: a 1-share BUY LOO at half the last price per SYMBOL:ROUTE, canc
 - `NYSE` / `AMEX` rejected with a TE-side "cannot be sent", not a venue reason — consistent with the venue session not
   being reachable at 04:01; **the same order later in the morning is untested.** Until it is, the OMS's NYSE MOOs at 09:00
   ET are unverified, and AMEX stays off.
-- The OMS routes auction orders by listing; SMART only for a ticker whose listing Massive does not give (user 2026-10-15,
-  8 of 5,652 names on 10-14). The mismatch acceptance is not used.
+- ⭐ The OMS sends an auction order ONLY on a route verified here (user 2026-10-15): `NSDQ` (Nasdaq listings) and `ARCA`
+  (Arca listings). NYSE, NYSE American, BZX and unknown listings get no MOO/MOC — their exits at the open are worked as
+  maker limits from 09:30 — until a live test passes. SMART and the mismatch acceptance are not used.
 
 **THE PREMARKET ROUTES — measured (2026-10-15, 04:15 ET):** is ARCA (the only after-close route) also the only premarket
 one? The same `--hold 30` check as after the close (a 1-share BUY DAY limit on AAPL at half the price per route, left 30 s,
@@ -373,3 +374,18 @@ the close, where BZX/EDGX said "Outside trading hours" and Nasdaq cancelled). Th
 TE-side message as the 04:01 NYSE/AMEX LOOs — consistent with venue sessions that open later than 04:00; a re-check at
 08:30 ET (the same day) tests that. Note `EDGAROUT`, one of the OMS's two maker routes, is among them: the OMS places no
 maker order before 09:30 (`MakeSpreadRth` passes outside RTH), so it is not affected today.
+
+**THE 08:30 ET RE-CHECK (2026-10-15)** — the "cannot be sent" routes, closer to the OMS's 09:00 MOO window:
+
+| order | 08:30 ET |
+|---|---|
+| KO LOO → `NYSE` | ❌ `REJECTED` "R138: Symbol/Series Not Open" (a venue reason now, not TE's "cannot be sent") |
+| IMO LOO → `AMEX` | ❌ `REJECTED` "R110: Symbol/Series already opened" |
+| AAPL DAY limit → `NYSE`, `AMEX`, `EDGAROUT`, `BATYSLIM` | ✅ accepted, rested 30 s |
+
+- The four routes were down at 04:15 and up by 08:30: their premarket sessions start later than 04:00 (when, untested).
+- **An NYSE/AMEX opening-auction order is still unproven.** At 08:30 NYSE refused KO's ("not open"), and NYSE American
+  said IMO had "already opened" (an early-session open before 08:30?). The OMS's MOOs for NYSE-listed names (09:00 ET) are
+  therefore unverified: ask the rep what R138 / R110 mean and when NYSE / NYSE American take a MOO.
+- WFF's MOO (Nasdaq) the same morning: placed 09:00:06 on `NSDQ`, `NEW` at 09:00:06.6, FILLED 638 @ 0.15 at 09:30:00.461,
+  `ExecBroker INET`, liquidity `O` (the opening cross).
