@@ -251,6 +251,28 @@ stock that fills use up.
 - ⚠ The logon burst on production listed a FINISHED order: `OrderSingleStatus · REJECTED` (that APUS order) before the Logon
   reply. The burst carries the day's finished orders, not only the resting ones (paper's bursts never showed this).
 
+**⭐ PRODUCTION, measured (2026-10-16, `TradingEdge.Oms/probe/ls_locate_unlock.py` + `ls_route_check.py --side SELL_SHORT`;
+1-share SELL_SHORT LIMIT DAY at twice the price, cancelled; LocateRequest = a free quote):**
+
+| ET | symbol | LocateQuote | SELL_SHORT (no locate) |
+|---|---|---|---|
+| 04:04 | NVDA, BSP, GRML | `LocateRequestReject` 1401 "Locates are currently unavailable" (the desk closed) | NVDA on NSDQ ✅ accepted; on ARCA stuck `PENDING_NEW`, never reached the venue ("TE: Order cannot be found" on our cancel) |
+| 07:03 | NVDA | `0` / `0` | ❌ "TE: Symbol is not on Easy to Borrow list" — ARCA, NSDQ, EDGAROUT |
+| 07:03 | BSP | `0.1235` / `101400` (a real offer) | — |
+| 07:03 | GRML | `0` / `0` | — |
+| 07:55 | NVDA | `0` / `0` | ✅ accepted (NSDQ), before any locate |
+| 07:55 | BSP | `0.1235` / `101400` | ❌ not on the ETB list |
+| 07:55 | GRML | `0` / `0` | ❌ not on the ETB list, before and after |
+
+- **The ETB list loads between 07:03 and 07:55 ET** (the account's ETB email comes ~08:30): before it, EVERY short is refused
+  "not on Easy to Borrow list", NVDA included. (At 04:04 the check did not run at all.)
+- **A 0/0 quote is given to BOTH kinds of name** — NVDA (on the list) and GRML (off it); BSP on 10-15 10:09 too. The
+  developers' "0/0 = no locate needed" holds only for a name on the list; for a name off it, 0/0 = **nothing to lend**. The
+  short's own answer tells them apart — and the OMS asks the desk only after a refusal, so there 0/0 = none to lend
+  (rule 9, user 2026-10-16).
+- **`LocateOrder` at `Price "0"` is refused**: `LocateOrderReject` 1421 "Price must be > 0" (a validation error). A 0/0
+  quote cannot be "unlocked" with a free locate (the user's hypothesis, ruled out).
+
 ## §L7 Paper does not fill a resting limit when trades print through it (2026-10-14, measured on 10-12 and 10-13)
 
 The first full maker-entry paper days (the delayed follower: our orders reach paper 900 s after the market, and paper's
