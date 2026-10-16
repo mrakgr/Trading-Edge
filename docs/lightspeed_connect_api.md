@@ -462,6 +462,24 @@ PENDING_NEW`) and went no further; a cancel from a NEW session got `OrderCancelR
 GRML: proper "not on Easy to Borrow list" rejects). ⚠ Untested: an ARCA short AFTER 16:00 — the ShortSnoozer's entry can
 work past the close on ARCA (the only after-hours route), and an order stuck in `PENDING_NEW` would hold its slot.
 
+**⭐ A SMART MOO FILLS IN THE LISTING'S OPENING AUCTION (2026-10-16, live; `ls_route_check.py --let-fill-until`):** a
+1-share BUY MOO on `SMART`, placed 09:12 ET and left to fill, for an NYSE and an NYSE American listing — each fill checked
+against the listing exchange's official opening print (Massive trades, conditions 17/16 = opening trade / official open):
+
+| | UEC (NYSE American) | F (NYSE) |
+|---|---|---|
+| the listing's opening print | 09:30:00.073, 8.09, 116,116 sh | 09:31:44.718 (a late NYSE open), 12.50, 1,149,486 sh |
+| our fill | 09:30:00.241 (report), **8.09** | 09:31:44.744, **12.50** |
+| `LastMkt` / `ExecBroker` | **XASE** / INCA | **XNYS** / INCA |
+| `LiquidityFlag1` | **OM** | **OM** |
+
+Same price as the official open, within ms of it, on the listing exchange, an opening liquidity code: the order was IN the
+auction (a market order after the open could not match F's late open to 26 ms). Both orders rested `NEW` at once with a
+SMART-style OrderID (1261015…). ⇒ **The OMS routes NYSE and NYSE American listings' auction orders to `SMART`, Nasdaq's to
+`NSDQ`; Arca and BZX listings get none** (user 2026-10-16; SMART on Nasdaq / Arca / BZX listings accepted but not
+fill-tested — not used). MOC / LOC are untested on every route. (A probe's watch window must outlast NYSE's opens: F
+filled 16 s before the 09:32 deadline.)
+
 ### THE PRODUCTION QUIRKS — one list (2026-10-14 to 10-16; every one measured on live)
 
 | # | quirk | found | what we do |
@@ -470,8 +488,8 @@ work past the close on ARCA (the only after-hours route), and an order stuck in 
 | 2 | `NYSEARCA` (the docs' Pro name) is rejected "TE: No Routing Code"; Arca is `ARCA`; `LITE` is no route either | 10-14 | maker routes `ARCA`, `EDGAROUT` |
 | 3 | After the close only `ARCA` keeps a DAY limit (NSDQ cancels it; BZX/EDGX/EDGA "Outside trading hours"; NYSE/AMEX R042) — the rep's list was wrong but for ARCA | 10-14 | `AfterHoursRoutes = ARCA` |
 | 4 | Premarket routes come up at different times: at 04:15 NYSE, AMEX, EDGAROUT, BATYSLIM "cannot be sent", all up by 08:30 | 10-15 | no premarket maker orders |
-| 5 | The rep: "SMART would not accept" MOO/LOO — SMART accepts them on every venue at every hour | 10-15/16 | the 09:12 fill test decides |
-| 6 | A MOO through `NYSE`/`AMEX`/`ARCA` is always R042 Invalid TradingSessionID; NYSE / AMEX LOOs never reach the Core open (R138 / R110) — likely an Early session stamped by Lightspeed | 10-16 | auction orders only on verified routes (NSDQ); asked the rep |
+| 5 | The rep: "SMART would not accept" MOO/LOO — SMART accepts them on every venue at every hour, and a SMART MOO FILLS in the NYSE / NYSE American opening auction | 10-15/16 | NYSE + NYSE American listings' auction orders on SMART |
+| 6 | A MOO through `NYSE`/`AMEX`/`ARCA` is always R042 Invalid TradingSessionID; NYSE / AMEX LOOs never reach the Core open (R138 / R110) — likely an Early session stamped by Lightspeed | 10-16 | never routed direct: NSDQ for Nasdaq, SMART for NYSE / NYSE American, none for Arca / BZX; asked the rep |
 | 7 | `BATS` adds an ExecInst the venue refuses on any auction order | 10-15 | no BZX auction orders |
 | 8 | Every order rejection is sent twice | 10-05 (developers), 10-15 | the executor ignores the repeat |
 | 9 | The logon burst replays the day's FINISHED orders (another session's included — the probes' showed up in the OMS journal) | 10-05, 10-15 | finished rows logged, never acted on |
