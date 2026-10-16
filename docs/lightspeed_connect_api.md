@@ -411,3 +411,74 @@ maker order before 09:30 (`MakeSpreadRth` passes outside RTH), so it is not affe
   therefore unverified: ask the rep what R138 / R110 mean and when NYSE / NYSE American take a MOO.
 - WFF's MOO (Nasdaq) the same morning: placed 09:00:06 on `NSDQ`, `NEW` at 09:00:06.6, FILLED 638 @ 0.15 at 09:30:00.461,
   `ExecBroker INET`, liquidity `O` (the opening cross).
+
+**What the NYSE-group rejects mean (NYSE's own documents, read 2026-10-16):** NYSE, NYSE American and NYSE Arca all run
+on Pillar. Its reason codes (`NYSE_Pillar_Reason_Codes_and_Liquidity_Indicators.xlsx`): **R042 Invalid TradingSessionID**,
+R084 Symbol/series Closed, R110 Symbol/Series already opened, R138 Symbol/Series Not Open (R014 would be Invalid
+OrderQty — never seen, so lot size is not the problem: the 1-share MOO/LOOs failed on session, not size). Every Pillar
+order carries `TradingSessionID` (FIX tag 336, required): 1 = Early, 2 = Core, 3 = Late, 4 = Early+Core, … — LS Connect has
+no field for it, so Lightspeed sets it. The sessions (`Functional_Differences_NYSE_Pillar.pdf`):
+
+| venue | orders accepted from | Early session | Early Open Auction |
+|---|---|---|---|
+| NYSE (Tape A) | 06:30 | **none** (Core only; Early in a designation is ignored) | none |
+| NYSE American | 06:30 | 07:00–09:30 | 07:00 (limit orders only) |
+| NYSE Arca | 02:30 | 04:00–09:30 | 04:00 (limit orders only) |
+
+MOO and LOO for the Core Open Auction are "Session 2 only" orders. Read against our 10-16 slots: a MOO failing R042 on all
+three venues at every hour (even on Arca, whose LOO was accepted all morning) and a NYSE American LOO turning "already
+opened" right after its 07:00 Early Open Auction both fit an order that Lightspeed stamps with an EARLY session designation
+before 09:30 — the MOO is invalid in it, the LOO is aimed at the early auction. Inferred, not confirmed: the question for
+the rep is which TradingSessionID the NYSE / AMEX / ARCA routes send, and whether a MOO/LOO can go out as Core (2).
+
+**THE OPENING-AUCTION TIMES CHECK (2026-10-16, live, 04:00–08:30 ET every 30 min):** per slot a 1-share BUY LOO (half the
+price) and MOO per ticker, on its listing's route and on SMART, each cancelled as soon as it rested (nothing filled; no
+cancel unconfirmed). `ok` = accepted `NEW`; `TE` = "TE: Message to execution venue cannot be sent"; `A` = "A: Invalid
+ExecInst for auction order"; Rxxx = the Pillar code above.
+
+| order | 04:00 | 04:30 | 05:00 | 05:30 | 06:00 | 06:30 | 07:00 | 07:30 | 08:00 | 08:30 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SOFI `NSDQ` LOO / MOO | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
+| F `NYSE` LOO | TE | TE | TE | R084 | R084 | R138 | R138 | R138 | R138 | R138 |
+| F `NYSE` MOO | TE | TE | TE | R042 | R042 | R042 | R042 | R042 | R042 | R042 |
+| XLF `ARCA` LOO | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
+| XLF `ARCA` MOO | R042 | R042 | R042 | R042 | R042 | R042 | R042 | R042 | R042 | R042 |
+| UEC `AMEX` LOO | TE | TE | TE | R084 | R084 | R138 | R110 | R110 | R110 | R110 |
+| UEC `AMEX` MOO | TE | TE | TE | R042 | R042 | R042 | R042 | R042 | R042 | R042 |
+| INDA `BATS` LOO / MOO | A | A | A | A | A | A | A | A | A | A |
+| **every ticker on `SMART`, LOO and MOO** | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
+
+⇒ Through `NYSE`, `AMEX` and `ARCA` a MOO is never accepted (R042), and a LOO to NYSE / NYSE American never reaches the
+Core open (R138 / R110) — consistent with an Early session designation (above). `NSDQ` takes both all morning; `SMART`
+accepts everything (whether it reaches the auction: the 09:12 fill test, F and UEC on SMART left to fill). (XLF and INDA
+are ETFs, used for the venue only: the account's owner cannot hold US ETFs; Arca lists no common stocks and BZX one, CBOE.)
+
+**ARCA SHORT SALES OUTSIDE RTH GET STUCK (2026-10-16):** a 1-share SELL_SHORT LIMIT DAY of NVDA (twice the price) on `ARCA`
+at 04:04 and again at 08:33 ET answered `PENDING_NEW "Validated OK"` and NOTHING more — never `NEW`, never rejected. The
+same order on `NSDQ` and `EDGAROUT` was accepted at once (08:33), and ARCA BUY orders were accepted all morning (DAY
+limits, LOOs), so it is the SHORT on ARCA outside RTH. Our cancel in the same session was acknowledged (`OrderCancelUpdate
+PENDING_NEW`) and went no further; a cancel from a NEW session got `OrderCancelReject` "TE: Order cannot be found"
+(UNKNOWN_ORDER) and the order then turned `REJECTED` — it never left TE. During RTH ARCA shorts are processed (10-15 BSP,
+GRML: proper "not on Easy to Borrow list" rejects). ⚠ Untested: an ARCA short AFTER 16:00 — the ShortSnoozer's entry can
+work past the close on ARCA (the only after-hours route), and an order stuck in `PENDING_NEW` would hold its slot.
+
+### THE PRODUCTION QUIRKS — one list (2026-10-14 to 10-16; every one measured on live)
+
+| # | quirk | found | what we do |
+|---|---|---|---|
+| 1 | Paper ignores `ExchangeDestination` (took "BOGUSROUTE"); nothing about routes can be learned on paper | 10-14 | every route checked on live with a can't-fill order |
+| 2 | `NYSEARCA` (the docs' Pro name) is rejected "TE: No Routing Code"; Arca is `ARCA`; `LITE` is no route either | 10-14 | maker routes `ARCA`, `EDGAROUT` |
+| 3 | After the close only `ARCA` keeps a DAY limit (NSDQ cancels it; BZX/EDGX/EDGA "Outside trading hours"; NYSE/AMEX R042) — the rep's list was wrong but for ARCA | 10-14 | `AfterHoursRoutes = ARCA` |
+| 4 | Premarket routes come up at different times: at 04:15 NYSE, AMEX, EDGAROUT, BATYSLIM "cannot be sent", all up by 08:30 | 10-15 | no premarket maker orders |
+| 5 | The rep: "SMART would not accept" MOO/LOO — SMART accepts them on every venue at every hour | 10-15/16 | the 09:12 fill test decides |
+| 6 | A MOO through `NYSE`/`AMEX`/`ARCA` is always R042 Invalid TradingSessionID; NYSE / AMEX LOOs never reach the Core open (R138 / R110) — likely an Early session stamped by Lightspeed | 10-16 | auction orders only on verified routes (NSDQ); asked the rep |
+| 7 | `BATS` adds an ExecInst the venue refuses on any auction order | 10-15 | no BZX auction orders |
+| 8 | Every order rejection is sent twice | 10-05 (developers), 10-15 | the executor ignores the repeat |
+| 9 | The logon burst replays the day's FINISHED orders (another session's included — the probes' showed up in the OMS journal) | 10-05, 10-15 | finished rows logged, never acted on |
+| 10 | A 0/0 locate quote is given to names on AND off the ETB list; off it, it means nothing to lend (the developers: "no locate needed") | 10-16 | 0/0 after a refused short = no borrow (rule 9) |
+| 11 | The ETB list loads between 07:03 and 07:55 ET: before it EVERY short is refused, NVDA too; the locate desk is closed at 04:00 (1401) | 10-16 | our shorts start after 09:30 |
+| 12 | `LocateOrder` at price 0 is refused (1421 "Price must be > 0") | 10-16 | — |
+| 13 | A SELL_SHORT on `ARCA` outside RTH sticks in `PENDING_NEW` at TE; a same-session cancel does not clear it, a new session's does | 10-16 | after-hours ARCA short untested (ShortSnoozer) |
+| 14 | Paper sent `EXPIRED` for a DAY limit after 16:00 though the rep said paper never does; production ends DAY orders as `CANCELED` (rep, unverified) | 10-13/14 | any unrequested end = ended by the venue |
+| 15 | Paper fills a resting limit only when its own quote crosses it, never on a trade-through | 10-14 | paper P&L understates makers (§L7) |
+| 16 | The live server sends no `PositionStatus` for a flat account | 10-13 | a balance with mktValue 0 = flat |
