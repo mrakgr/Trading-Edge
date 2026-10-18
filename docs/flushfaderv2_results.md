@@ -605,3 +605,49 @@ A risk rule; V2-12 shows it cannot be credited with edge. Only FlushFader is gat
 
 The gate removes exactly the 28 trades on 15 ticker-days of the [400, ∞) band (Σ sized −151.3): 3,285 engine-level
 trips on 46 ticker-days, and nothing else moves.
+
+## V2-14 — volatility as ONE winsorised continuous term instead of 4 band dummies (2026-10-18)
+
+**Question (user).** Would a single winsorised continuous volatility term, or its square root, beat the four volat
+band dummies of the V2 model?
+
+**Setup.** `scripts/equity/flushfaderv2_volat_shape.py` (`data/flushfaderv2/volat_shape.md`).
+- The book: the production reference, barnum ≥ 22, ATR5-gated (35,584 trades).
+- The model: V2's design with only the volatility columns swapped: 4 dummies → one standardised term,
+  `clip(volat, 40, cap)` in linear, sqrt or log form, caps 150–600 bp, the fit set's q95 / q99 / q99.5, or none.
+- Scores, V2's method:
+  - sized PF−1 on the two year-block holdouts;
+  - the matched-steepness credit against the bands;
+  - the OUT-OF-SAMPLE fit of each component: the p log-loss, and the W / L quasi-Poisson deviance.
+- volat on the book: median 60 bp, p95 135, p99 198, max 628.
+
+| volatility term | params / component | fwd | mirror | mean | credit (fwd / mirror) | Δ W dev ×1e3 | Δ L dev ×1e3 |
+|---|---|---|---|---|---|---|---|
+| V2: 4 band dummies | 4 | 0.691 | 0.908 | 0.800 | — | — | — |
+| **none** | 0 | 0.705 | 0.917 | **0.811** | +0.020 / +0.006 | +185 / +137 | +255 / +155 |
+| linear, cap q95 (≈ 135 bp) | 1 | 0.707 | 0.912 | 0.810 | +0.020 / +0.003 | −10 / −10 | −37 / −32 |
+| linear, no cap | 1 | 0.704 | 0.908 | 0.806 | +0.020 / −0.003 | +52 / +9 | +36 / −1 |
+| sqrt, cap q99 | 1 | 0.706 | 0.914 | 0.810 | +0.019 / +0.003 | −16 / −18 | −35 / −32 |
+| **log, cap 250 bp** | 1 | 0.706 | 0.914 | 0.810 | +0.017 / +0.004 | **−26 / −20** | **−43 / −33** |
+
+(p log-loss: every single-term model −1.0 to −1.7 ×1e-4 vs the bands. In-sample sized PF−1: bands 0.812, log 0.814,
+none 0.810.)
+
+**Reading.**
+- **Volatility does not rank the trades.** Its PF−1 effect is near nil: with NO volatility term the holdout sized PF−1
+  is 0.811, slightly above the bands' 0.800. Volatility scales the mean win W and the mean loss L together, and the two
+  cancel in PF−1 = p / ((1 − p) · L/W) − 1. The four dummies per component are a little overfit (fwd 0.691 is the
+  lowest in the table).
+- **Its real job is the magnitudes**, which matter for the average trade (`AvgTradePct`), not for FlushFader's sizing.
+  There a continuous term is better than the bands, and the shapes rank log > sqrt > linear:
+  - log fits W and L best out of sample, and is cap-insensitive: it self-winsorises.
+  - Linear needs a cap; without one it is worse than the bands.
+  - The decile table shows why. The bands are flat inside each band (W fitted 1.70 across 40–60 bp while the actual runs
+    1.50 → 1.98), and log tracks the actual decile means closely. That is a power law, W ∝ volat^b.
+- **Every single term "beats" the bands by +0.010–0.011 credit on both holdouts, but so does dropping volatility
+  altogether** (+0.013). The gain is the bands' overfit going away, not information in the shape.
+
+**Recommendation (pending the user).** For sizing it makes no material difference. A one-parameter
+`ln(clip(volat, 40, 250 bp))` would replace 12 parameters (4 per component) with 3, with the same PF−1 and better
+calibrated W / L, and therefore a better `AvgTradePct`. Changing production would mean a refit (new β, new test pins)
+and a re-seal. Worth doing only together with the next refit of the model.
