@@ -18,6 +18,8 @@ not inherit that. Here every input comes from the base parquets in double:
        YOUNG_SCALE (0.8) × the model's PF−1 (the young sized PF−1 0.59 vs 0.73). The model is FIT on the barnum >= 22 book
        only (the fit, BasePf1 and the pins are V2's as they were); pf1_model = the model, pf1_fitted = what production
        emits (× YOUNG_SCALE when young).
+  ⭐ ATR5 GATE (user 2026-10-18, V2-12/V2-13, after WFF 10-14): no trade on a ticker-day whose 5-day ATR % (the 5 daily
+       rows before D, scripts/equity/atr5_candidates.py) is >= MAX_ATR5 (4.0 = 400 %); a NaN ATR5 is not gated.
 
 Outputs (out-dir, + _TAG):
   flushfaderv2_reference_trips.parquet   every trip passing the ENGINE-level predicates, V2 gate included (the Oms's
@@ -28,6 +30,8 @@ Outputs (out-dir, + _TAG):
                                          and a PIN TABLE of 200 book trades' (inputs → multiplier) for the F# tests
 
 Run from research/:
+  python -u scripts/equity/flushfaderv2_reference.py --coef data/flushfaderv2/v2_coefficients.json   # ⭐ THE PRODUCTION
+      REFERENCE since 2026-10-18 (the ATR5 gate): the V2-7 coefficients APPLIED — a refit would see the gated book
   python -u scripts/equity/flushfaderv2_reference.py                                    # fit on the full period
   python -u scripts/equity/flushfaderv2_reference.py --trips 'data/equity/flushfader/base_10d/*.parquet' --tag 10d \
       --coef data/flushfaderv2/v2_coefficients.json                                     # apply the full-period fit
@@ -42,6 +46,8 @@ ap.add_argument("--cands", default="data/v2_candidates/mr_candidate_1s_v2/*/*.pa
 ap.add_argument("--min-barnum", type=int, default=11)
 ap.add_argument("--young-below", type=int, default=22)
 ap.add_argument("--young-scale", type=float, default=0.8)
+ap.add_argument("--atr5", default="data/equity/atr5/candidates_atr5.parquet", help="per-ticker-day ATR5 (atr5_candidates.py)")
+ap.add_argument("--max-atr5", type=float, default=4.0, help="drop ticker-days with ATR5 >= this (inf = off)")
 ap.add_argument("--coef", default="", help="APPLY these coefficients instead of fitting (the 10-day seal set)")
 ap.add_argument("--out-dir", default="data/flushfaderv2")
 ap.add_argument("--tag", default="")
@@ -69,10 +75,11 @@ D = con.execute(f"""
            chg_since_run_first_low AS crf, consol_5m_lag1m, lows_since_first_low_600 AS l600, bars_since_first_low_600 AS b600,
            lows_since_first_low_300 AS l300, lows_since_first_low_180 AS l180, abs(eff_10m) AS eff10a,
            vol_10_bar, vol_60_bar, vol_1200_bar, dlv_1200, dlv2_1200, dv_0945_tape, sess_low, ols_slope_1200
-           , c.barnum
+           , c.barnum, x.atr5
     FROM read_parquet({args.trips}) t
     LEFT JOIN (SELECT ticker, date, barnum FROM read_parquet('{args.cands}', hive_partitioning = true)) c
            ON c.ticker = t.symbol AND c.date = t.trade_date
+    LEFT JOIN read_parquet('{args.atr5}') x ON x.ticker = t.symbol AND x.date = t.trade_date
     WHERE gap_60 < {args.door} AND lows_since_first_low_300 >= 6 AND lows_since_first_low_180 >= 3
       AND signal_sec <= 54000
     ORDER BY symbol, trade_date, signal_sec""").df()
@@ -80,6 +87,9 @@ log(f"{len(D):,} rows after the integer pre-filters")
 assert D.barnum.notna().all(), f"{D.barnum.isna().sum()} trips without a barnum"
 D = D[D.barnum >= args.min_barnum].reset_index(drop=True)
 log(f"{len(D):,} rows at barnum >= {args.min_barnum} ({(D.barnum < args.young_below).sum():,} young: barnum < {args.young_below})")
+hot = D.atr5.values >= args.max_atr5                                  # NaN compares False: not gated
+log(f"ATR5 gate (>= {args.max_atr5:g}): drops {hot.sum():,} rows on {D[hot].groupby(['symbol', 'trade_date']).ngroups} ticker-days; NaN ATR5 {D.atr5.isna().sum()}")
+D = D[~hot].reset_index(drop=True)
 
 def nz(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 with np.errstate(divide="ignore", invalid="ignore"):
@@ -175,7 +185,7 @@ log(f"multiplier mean {mult.mean():.4f}, range {mult.min():.3f}-{mult.max():.3f}
 
 def pf(r):
     g, l = r[r > 0].sum(), -r[r < 0].sum(); return np.inf if l == 0 else g / l
-rows = [f"# FlushFaderV2 reference from `{' + '.join(args.trips)}` (barnum >= {args.min_barnum}, young < {args.young_below} × {args.young_scale}) (full double precision){' — coefficients ' + args.coef if args.coef else ''}\n",
+rows = [f"# FlushFaderV2 reference from `{' + '.join(args.trips)}` (barnum >= {args.min_barnum}, young < {args.young_below} × {args.young_scale}, ATR5 < {args.max_atr5:g}) (full double precision){' — coefficients ' + args.coef if args.coef else ''}\n",
         "| set | n | PF (net of credit) | net % |", "|---|---|---|---|",
         f"| engine-level trips (V2 gate in) | {len(T):,} | {pf((T.ret_exit.values + 2*args.credit/T.entry_px.values)*100):.3f} | |",
         f"| book (px ≥ 1, mc=1) | {len(B):,} | {pf(R):.3f} | {R.sum():,.0f} |",

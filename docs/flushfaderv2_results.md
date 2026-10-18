@@ -517,3 +517,91 @@ Young trades by year: 2020 61 · 2021 166 · 2022 105 · 2023 48 · 2024 63 · 2
 
 ⏭ Production next: barnum in the Oms's universe, the gate and the 0.8 in the engine/sizing, the Parity re-seal
 against this reference.
+
+## V2-12 — the 5-day ATR % and ADR % (2026-10-18): no edge gradient; the extreme tail is a risk question, not a PF one
+
+**Why (user).** WFF 2026-10-14, a FlushFader long, fell from 2.05 to 0.16 in the last hour and was carried into a
+0.15 open (−92.7 %, as research also has it). WFF had enormous daily ranges, unlike an ordinary catalyst breakout.
+Would a 5-day ATR % (and ADR %) filter have kept it out?
+
+**Definitions (causal: only the 5 sessions before D, in the P·n scale).**
+- ATR5 % = mean(max(H, C₋₁) − min(L, C₋₁)) / C(D−1).
+- ADR5 % = mean(H / L − 1).
+- Spearman ρ between the two = 0.95.
+- `scripts/equity/atr5_filter.py`; full tables in `data/equity/atr5/atr5.md`.
+
+**WFF 10-14: ATR5 718 %, ADR5 458 %, above 99.99 % / 99.96 % of the FlushFader book.** (AEHL, the week's other
+loss, was ordinary: ATR5 17.6 %, the 61st percentile.)
+
+**FlushFader (the 36,200 book): flat deciles.**
+- ATR5 deciles PF−1 0.41–0.64, ADR5 0.43–0.62, no slope. Only the extreme tail differs:
+
+| ATR5 | trades | PF−1 | sized PF−1 | Σ sized %·units |
+|---|---|---|---|---|
+| ≥ 100 % | 333 | 0.30 | 0.19 | +121 |
+| ≥ 200 % | 82 (47 ticker-days, 34 tickers) | −0.01 | −0.53 | −149 |
+| ≥ 400 % | 28 | −0.30 | −0.76 | −151 |
+
+- ATR5 ≥ 200 % by year (trades / sized PF−1): 2020 4 / −0.60 · 2021 7 / 1.35 · 2022 15 / 0.20 · 2023 14 / 5.12 · 2024 25 /
+  −0.49 · 2025 8 / −0.92 · 2026 9 / −0.11. Most of the −149 is 2025 (−151).
+- ADR5 200–400 %: 117 trades @ −0.08 (it holds the book's worst trade, TDIC −84.3 %, ADR5 221 % but ATR5 26 %).
+- **The threshold does not hold out.** Picked on 2020–23 (by the sized gain of the cut), the best is 600 %, ≈ +1;
+  applied to 2024–26 it gains +173 from 6 trades. Picked on 2024–26, it is 200 %; applied to 2020–23 it LOSES −31.
+- The book never had a WFF-sized loss in this zone: the worst trade at ATR5 ≥ 200 % is −42 %.
+
+**The other systems: high range is neutral-to-good** (they are reversion trades that like volatility).
+
+| system | ATR5 top decile PF−1 (vs all) | ATR5 ≥ 100 % |
+|---|---|---|
+| LowFader | 6.50 (4.15) | 0 trades |
+| SpikeFader | 1.48 (1.33); top 1 % 1.51 | 31 @ 1.73 |
+| Snoozer long | 3.72 (1.78) | 21 |
+| Snoozer short | 0.82 (2.34), but the top 2 % is 6.11 | 9 |
+
+ADR5's top 2 % is weak for SpikeFader (62 trades @ 0.49) and the Snoozer long (19 @ 0.44); small, not pursued.
+
+**Reading.**
+- Neither measure grades the edge in any system.
+- For FlushFader the ATR5 ≥ 200 % tail (~12 trades a year, 0.23 % of the book) is break-even raw and negative sized
+  (the model up-sizes it: mean multiplier 1.12–1.34). A gate there costs almost nothing in expectancy and would have
+  kept WFF out. But the backtest cannot show it earns anything: the threshold does not hold out, and the sized gain
+  sits in a handful of 2025 trades.
+- So it is a RISK rule (the user's call), not a measured edge.
+
+## V2-13 — THE ATR5 GATE: no FlushFader entry at a 5-day ATR % >= 400 % (user 2026-10-18)
+
+**User ruling:** "Once you get burnt by a move like the one in WFF once, you learn quickly not to touch the stove again."
+A risk rule; V2-12 shows it cannot be credited with edge. Only FlushFader is gated; the other systems as they are.
+
+**The bands it chooses between** (the V2 book, ATR5 by fixed band):
+
+| ATR5 | trades | ticker-days | PF−1 | sized PF−1 | median % | Σ raw % | Σ sized | worst % |
+|---|---|---|---|---|---|---|---|---|
+| [100, 200) | 251 | 124 | 0.45 | 0.79 | +1.15 | +139 | +270 | −47.3 |
+| [200, 400) | 54 | 32 | 0.29 | 0.02 | +1.03 | +21 | +2 | −11.3 |
+| **[400, ∞)** | 28 | 15 | −0.30 | −0.76 | −0.01 | −22 | −151 | −41.7 |
+
+- [400, ∞) is concentrated (11 tickers; HUDI, TOP and ELPW are half of it). Its −151 is essentially ONE trade: OCG
+  2025-12-12, −41.7 % at multiplier 3.89 (−162). Without OCG the band is about +20 raw / +13 sized.
+- The two catastrophic losses on record in this zone, OCG and WFF (ATR5 718 %), both sit in it. [200, 400) never lost
+  more than 11 %.
+
+**Implementation.**
+- `scripts/equity/atr5_candidates.py` writes the ATR5 of every universe ticker-day:
+  `data/equity/atr5/candidates_atr5.parquet`, 1,478,663 rows, 60 at ≥ 400 %.
+  - The definition is the daily rows before D, in the P·n scale, with no episode split; NaN with fewer than 6 prior rows.
+  - ⚠ DuckDB's `greatest` / `least` skip NULLs, so a row without a previous close would get a "true range" of H − L. The
+    TR is set to NULL there instead. That changed 343 ticker-days, none at barnum ≥ 11.
+- `flushfaderv2_reference.py --max-atr5 4.0` drops ticker-days at ATR5 ≥ 4.0; a NaN ATR5 passes.
+  - ⭐ The production reference is now built with `--coef data/flushfaderv2/v2_coefficients.json`: the V2-7 model is
+    APPLIED, because a refit would see the gated book.
+  - Control: `--max-atr5 inf` reproduces the barnum-11 book in every column.
+  - The previous outputs are kept in `data/flushfaderv2/pre_atr5_2026-10-18/`.
+
+| reference | trades | PF net of credit | sized PF | net % | sized net % |
+|---|---|---|---|---|---|
+| barnum 11 (V2-11) | 36,200 | 1.579 | 1.796 | 21,172 | 28,400 |
+| **+ the ATR5 gate** | **36,172** | 1.581 | 1.804 | 21,192 | 28,548 |
+
+The gate removes exactly the 28 trades on 15 ticker-days of the [400, ∞) band (Σ sized −151.3): 3,285 engine-level
+trips on 46 ticker-days, and nothing else moves.
