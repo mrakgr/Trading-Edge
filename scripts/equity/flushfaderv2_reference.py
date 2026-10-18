@@ -12,6 +12,12 @@ not inherit that. Here every input comes from the base parquets in double:
        z = (clip(s20, S20Lo, S20Hi) − S20Mean) / S20Sd     (the fit set's 1 % / 99 % quantiles, mean, SD)
        a NaN s20 enters as z = 0 (the mean) — never seen on the book, a live guard
        multiplier = clip(PF−1(x) / BasePf1, 0.25, 4)
+  ⭐ LISTING AGE (user 2026-10-18, private docs/listing_age.md): the ticker-day's barnum (its session number in the episode,
+       mr_candidate_1s_v2) must be >= MIN_BARNUM (11; base_v19 itself is barnum >= 22, the sessions 11..21 come from the
+       splice scripts/equity/flushfader_run_base_v19_young.sh); a YOUNG trade (barnum < YOUNG_BELOW = 22) is sized at
+       YOUNG_SCALE (0.8) × the model's PF−1 (the young sized PF−1 0.59 vs 0.73). The model is FIT on the barnum >= 22 book
+       only (the fit, BasePf1 and the pins are V2's as they were); pf1_model = the model, pf1_fitted = what production
+       emits (× YOUNG_SCALE when young).
 
 Outputs (out-dir, + _TAG):
   flushfaderv2_reference_trips.parquet   every trip passing the ENGINE-level predicates, V2 gate included (the Oms's
@@ -30,7 +36,12 @@ import argparse, json, os, time
 import numpy as np, pandas as pd, duckdb
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", default="data/equity/flushfader/base_v19/*.parquet")
+ap.add_argument("--trips", nargs="+", default=["data/equity/flushfader/base_v19/*.parquet",
+                                              "data/equity/flushfader/young/base_v19_young/*.parquet"])
+ap.add_argument("--cands", default="data/v2_candidates/mr_candidate_1s_v2/*/*.parquet", help="the barnum source (hive)")
+ap.add_argument("--min-barnum", type=int, default=11)
+ap.add_argument("--young-below", type=int, default=22)
+ap.add_argument("--young-scale", type=float, default=0.8)
 ap.add_argument("--coef", default="", help="APPLY these coefficients instead of fitting (the 10-day seal set)")
 ap.add_argument("--out-dir", default="data/flushfaderv2")
 ap.add_argument("--tag", default="")
@@ -41,6 +52,7 @@ args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:6.1f}s]", *a, flush=True)
 sfx = f"_{args.tag}" if args.tag else ""
+os.makedirs(args.out_dir, exist_ok=True)
 
 # the gate and the flag (V2-6 / V2-7, user 2026-10-12)
 NEAR_LOW_LO, NEAR_LOW_HI = 0.0, 0.02        # drop dslo in (LO, HI]
@@ -57,11 +69,17 @@ D = con.execute(f"""
            chg_since_run_first_low AS crf, consol_5m_lag1m, lows_since_first_low_600 AS l600, bars_since_first_low_600 AS b600,
            lows_since_first_low_300 AS l300, lows_since_first_low_180 AS l180, abs(eff_10m) AS eff10a,
            vol_10_bar, vol_60_bar, vol_1200_bar, dlv_1200, dlv2_1200, dv_0945_tape, sess_low, ols_slope_1200
-    FROM read_parquet('{args.trips}')
+           , c.barnum
+    FROM read_parquet({args.trips}) t
+    LEFT JOIN (SELECT ticker, date, barnum FROM read_parquet('{args.cands}', hive_partitioning = true)) c
+           ON c.ticker = t.symbol AND c.date = t.trade_date
     WHERE gap_60 < {args.door} AND lows_since_first_low_300 >= 6 AND lows_since_first_low_180 >= 3
       AND signal_sec <= 54000
     ORDER BY symbol, trade_date, signal_sec""").df()
 log(f"{len(D):,} rows after the integer pre-filters")
+assert D.barnum.notna().all(), f"{D.barnum.isna().sum()} trips without a barnum"
+D = D[D.barnum >= args.min_barnum].reset_index(drop=True)
+log(f"{len(D):,} rows at barnum >= {args.min_barnum} ({(D.barnum < args.young_below).sum():,} young: barnum < {args.young_below})")
 
 def nz(m): return np.where(np.isnan(m.astype(float)), False, m).astype(bool)
 with np.errstate(divide="ignore", invalid="ignore"):
@@ -96,6 +114,8 @@ for i in range(len(T)):
     if px_ok[i] and ent[i] >= last_ext: keep[i] = True; last_ext = ext[i]
 B = T[keep].copy().reset_index(drop=True)
 R = (B.ret_exit.values + 2 * args.credit / B.entry_px.values) * 100
+young = (B.barnum.values < args.young_below)
+OLD = ~young                                  # the fit set: the V2 book as it was (barnum >= 22)
 log(f"book {len(B):,} trades" + ("" if args.tag else " (the slice study: 35,612)"))
 
 # ---- the design
@@ -138,35 +158,41 @@ def pf1_of(X, c):
 if args.coef:
     C = json.load(open(args.coef)); log(f"applying {args.coef}")
 else:
-    s = B.s20.values[~np.isnan(B.s20.values)]
+    s = B.s20.values[OLD & ~np.isnan(B.s20.values)]
     lo, hi = np.quantile(s, [0.01, 0.99]); zc = np.clip(s, lo, hi)
     C = {"s20_lo": float(lo), "s20_hi": float(hi), "s20_mean": float(zc.mean()), "s20_sd": float(zc.std())}
-    X = design(C); win = R > 0
+    X = design(C)[OLD]; RO = R[OLD]; win = RO > 0
     C.update({"beta_p": [float(v) for v in fit_logistic(X, win.astype(float))],
-              "beta_w": [float(v) for v in fit_loglink(X[win], R[win])],
-              "beta_l": [float(v) for v in fit_loglink(X[~win], -R[~win])]})
+              "beta_w": [float(v) for v in fit_loglink(X[win], RO[win])],
+              "beta_l": [float(v) for v in fit_loglink(X[~win], -RO[~win])]})
     C["base_pf1"] = float(pf1_of(X, C).mean())
-X = design(C); pf1 = pf1_of(X, C); mult = np.clip(pf1 / C["base_pf1"], 0.25, 4.0)
+X = design(C); pf1_model = pf1_of(X, C)
+pf1 = np.where(young, args.young_scale * pf1_model, pf1_model)        # ⭐ the young trades at YOUNG_SCALE
+mult = np.clip(pf1 / C["base_pf1"], 0.25, 4.0)
 B["gap_band"] = gap_band; B["volat_band"] = volat_band; B["rate600_fast"] = fast; B["s_tier"] = tier; B["dslo_flag"] = flag
-B["s20_z"] = X[:, 10]; B["pf1_fitted"] = pf1; B["multiplier"] = mult
+B["s20_z"] = X[:, 10]; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
 log(f"multiplier mean {mult.mean():.4f}, range {mult.min():.3f}-{mult.max():.3f}, at the 0.25 floor {(mult <= 0.25).mean()*100:.1f}%")
 
 def pf(r):
     g, l = r[r > 0].sum(), -r[r < 0].sum(); return np.inf if l == 0 else g / l
-rows = [f"# FlushFaderV2 reference from `{args.trips}` (full double precision){' — coefficients ' + args.coef if args.coef else ''}\n",
+rows = [f"# FlushFaderV2 reference from `{' + '.join(args.trips)}` (barnum >= {args.min_barnum}, young < {args.young_below} × {args.young_scale}) (full double precision){' — coefficients ' + args.coef if args.coef else ''}\n",
         "| set | n | PF (net of credit) | net % |", "|---|---|---|---|",
         f"| engine-level trips (V2 gate in) | {len(T):,} | {pf((T.ret_exit.values + 2*args.credit/T.entry_px.values)*100):.3f} | |",
         f"| book (px ≥ 1, mc=1) | {len(B):,} | {pf(R):.3f} | {R.sum():,.0f} |",
-        f"| book, sized ∝ V2 | {len(B):,} | {pf(R*mult):.3f} | {(R*mult).sum():,.0f} |", ""]
+        f"| book, sized ∝ V2 | {len(B):,} | {pf(R*mult):.3f} | {(R*mult).sum():,.0f} |",
+        f"| · barnum ≥ {args.young_below} | {OLD.sum():,} | {pf(R[OLD]):.3f} (sized {pf(R[OLD]*mult[OLD]):.3f}) | {R[OLD].sum():,.0f} |",
+        f"| · young: barnum {args.min_barnum}–{args.young_below - 1}, × {args.young_scale} | {young.sum():,} | {pf(R[young]):.3f} (sized {pf(R[young]*mult[young]):.3f}) | {R[young].sum():,.0f} |", ""]
 if not args.coef:
     bp, bw, bl = (np.array(C[k]) for k in ("beta_p", "beta_w", "beta_l"))
     rows += ["| term | β_p (odds ×) | β_W (×) | β_L (×) |", "|---|---|---|---|"]
     rows += [f"| {nm} | {bp[j]:+.6f} ({np.exp(bp[j]):.3f}) | {bw[j]:+.6f} ({np.exp(bw[j]):.3f}) | {bl[j]:+.6f} ({np.exp(bl[j]):.3f}) |" for j, nm in enumerate(NAMES)]
     rows += ["", f"s20: winsorise [{C['s20_lo']:.6f}, {C['s20_hi']:.6f}] bp/min, mean {C['s20_mean']:.6f}, SD {C['s20_sd']:.6f}; BasePf1 {C['base_pf1']:.10f}"]
     # the PIN TABLE: 200 book trades spread over the multiplier range, inputs at full precision
-    idx = np.unique(np.argsort(mult, kind="stable")[np.linspace(0, len(B) - 1, 200).astype(int)])
+    # (from the barnum >= 22 book only: the pins carry no barnum, so a young pin would not reproduce in the F# test)
+    oi = np.flatnonzero(OLD)
+    idx = oi[np.unique(np.argsort(mult[oi], kind="stable")[np.linspace(0, len(oi) - 1, 200).astype(int)])]
     C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7",
-              "fit": f"all years, V2 book n={len(B):,}, credit ${args.credit}/sh/side, from {args.trips}",
+              "fit": f"all years, V2 book n={int(OLD.sum()):,}, credit ${args.credit}/sh/side, from {args.trips[0]}",
               "design": NAMES, "gap_edges": [0, 1, 4, 40], "volat_edges_bp": [40, 60, 90, 140, 250], "rate600_fast_threshold": 0.07,
               "s_tier": "halts_today >= 1 and 300 <= secs_since_halt < 2400", "near_low_gate": [NEAR_LOW_LO, NEAR_LOW_HI],
               "dslo_flag": DSLO_FLAG, "s20_scale": S20_SCALE, "clip": [0.25, 4.0],

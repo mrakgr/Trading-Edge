@@ -462,3 +462,58 @@ ols_slope_1200) and book (+ dslo, dslo_flag, s20, s20_z, pf1_fitted).
 | full period 2020-01-02 .. 2026-08-21 `--from-bars` | **book 35,612 = 35,612** (multiplier Δ ≤ 7.6e-15); trips 195,764 shared, zero-diff (one exit_px 2e-16), + 34 Oms-only trips = ONE ticker-day, PSNYW 2025-08-27 (a warrant at $0.55: in today's candidate table, absent from base_v19 built 09-08 — universe drift, not the engine; all below $1, so no book effect) |
 | Oms tests | 100 / 100 (SizingTests: betas + constants digit for digit, 200 pins to 1e-9; FaderTests AXTI restated — V2's continuous s20 gives overlapping trips different pf1) |
 | controls | the session-low pushed AFTER the gate: sess_low differs on 589 / 1,112 (the trip set does NOT move — only the record would drift); s20 without the winsorising: 2 tests fail (pin 92 Δ 0.198) |
+
+## V2-11 — LISTING AGE: the floor moves to barnum 11, sessions 11–21 sized × 0.8 (2026-10-18)
+
+**Why.** Since S40e research has cut a listing's first 21 sessions (`barnum >= 22`). The live Oms applied no barnum
+floor at all, which the first live week's execution review found: a barnum-2 ticker traded live with no research trip.
+The user asked how the current systems do on the early sessions.
+
+**How.** The production engine (the private Parity harness) was run on only the barnum < 22 ticker-days of
+`mr_candidate_1s_v2` (8,762 ticker-days, 2016-08 … 2026-10). Every book is one position per ticker-day, so the slice is
+disjoint from the reference book.
+
+| barnum | trades | PF−1 | sized PF−1 | mean multiplier |
+|---|---|---|---|---|
+| 1 (first session) | 100 | 0.31 | 0.25 | 0.99 |
+| 2–5 | 851 | 0.10 | 0.26 | 0.98 |
+| 6–10 | 414 | 0.23 | 0.42 | 1.01 |
+| 11–21 | 628 | 0.32 | **0.59** | 0.98 |
+| ≥ 22 (the V2 book) | 35,612 | 0.53 | **0.73** | 1.00 |
+
+- The young sessions were flat to negative in 2022–2024 (barnum 1–21: 2022 0.01 · 2023 −0.30 · 2024 −0.02). They have
+  run at about 0.22–0.26 per half-year since 2025, and matched the book in 2020–21. The edge looks regime-dependent.
+- The model sizes young listings like everything else (mean multiplier ≈ 1): it has no listing-age term.
+- ⚠ **barnum 1 never reaches an engine in research.** The candidate SELECT's `rvol_0945_honest >= MinRvol0945` (0.0,
+  meant as no floor) is NULL on a first session (no volume history), and NULL >= 0 is false. Under any barnum floor
+  ≥ 2 this changes nothing.
+
+**User ruling 2026-10-18:**
+- The FlushFader floor moves to **barnum ≥ 11**.
+- A YOUNG trade (barnum 11–21) is sized at **0.8 × the model's PF−1** (0.59 / 0.73 = 0.81).
+- The other systems keep their gates as they are.
+
+**The reference rebuilt.**
+- `scripts/equity/flushfader_run_base_v19_young.sh` splices the young sessions onto base_v19: the exact base_v19
+  command on the barnum 11–21 ticker-days, `--min-barnum 11` → `data/equity/flushfader/young/base_v19_young` (76,550
+  engine trips on 1,790 ticker-days).
+  - Control: the same command on five ordinary days (2025-03-03 … 07, barnum ≥ 22, from the same v2 universe)
+    reproduces base_v19 exactly: 32,498 = 32,498 trips, 0 differences in entry, exit or return.
+- `flushfaderv2_reference.py` joins `barnum` from the universe, gates `barnum >= --min-barnum` (11), flags
+  `young = barnum < --young-below` (22) and sizes `pf1_fitted = --young-scale (0.8) × pf1_model` when young.
+  - The model is fitted on the barnum ≥ 22 book only, so the betas, BasePf1, s20 constants and pins are V2-7's.
+  - Control: `--min-barnum 22` on base_v19 alone reproduces the previous reference: `v2_coefficients.json` identical in
+    every key, the book identical in every column, trips 195,764 = 195,764.
+  - The previous outputs are kept in `data/flushfaderv2/pre_barnum_2026-10-18/`.
+
+| set | n | PF net of credit | sized PF | net % |
+|---|---|---|---|---|
+| the book (2020-01-02 … 2026-08-21) | **36,200** | 1.579 | 1.796 | 21,172 |
+| · barnum ≥ 22 (= the V2 book; prices identical, multiplier Δ ≤ 7e-16) | 35,612 | 1.583 | 1.798 | 20,925 |
+| · young, barnum 11–21, × 0.8 | 588 | 1.352 | 1.634 | 247 |
+
+Young trades by year: 2020 61 · 2021 166 · 2022 105 · 2023 48 · 2024 63 · 2025 106 · 2026 39. Engine-level trips:
+195,764 → 198,573.
+
+⏭ Production next: barnum in the Oms's universe, the gate and the 0.8 in the engine/sizing, the Parity re-seal
+against this reference.
