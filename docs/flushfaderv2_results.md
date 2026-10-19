@@ -747,3 +747,8 @@ engine + Sizing, 66 min).
 - **Book 35,185 = 35,185**, keys identical. Max |Δ|: entry/exit secs and px 0 (exit px 2e-16); dslo, s20_z, barnum,
   young 0; pf1_model / pf1_fitted 6.7e-15; multiplier 1.1e-14.
 - Engine-level signals 192,399 vs the reference's 192,365: the +34 are all PSNYW, the known extra of the previous seals.
+- **The live universe filter** (the Oms's `Universe.excluded`: mislabelled warrants, rights, units, preferreds,
+  closed-end funds; names from `ticker_reference`) applied to the book's 3,679 tickers: **8 trades on one ticker,
+  VCX** (Fundrise Innovation Fund, a closed-end fund). That is 0.02 % of the book, with sized net +7.9 of 28,308. The
+  reference and live trade the same universe to a rounding error. (PSNYW is excluded live too; it never reached the
+  book, being under $1.)
