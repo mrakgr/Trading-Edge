@@ -1071,3 +1071,152 @@ through the Client Portal Gateway (IBKR, Aug 2025: "retail clients are currently
 the Client Portal Gateway"; OAuth 1.0a is institutional, OAuth 2.0 for individuals "being considered"). The auction ticks
 exist only in the TWS API (IB Gateway / TWS). With the user's watch list (weak premarket, sorted by the 09:25 ask's distance
 from the prev close) the top 100 fit the default 100 lines without cycling: ask ≤ −1 % = 97 names a day, 68 % of the trades.
+
+## GF-29 — the gap-up continuation: can DOLLAR VOLUME replace the TRADE COUNT? And the calm tape by gap × premarket volume (2026-10-19; user: "using trade count doesn't sit well with me")
+
+`scripts/equity/gapfader_tape_dv.py` → `data/equity/gapfader/tape_dv.md`. GF-10/GF-11's trade: gap-up ≥ 4 %, rvol_pm ≥ 0.2,
+held the open at 10:00, bought then, out at the close (5,922 trades). Tape over 09:30–10:00: trades, active 1s bars, dollar
+volume (share volume × the 10:00 price), rvol30 (volume / avgvol20_prior). In-sample curiosity; quintile bands.
+
+Spearman ρ: trades vs dollar volume 0.83, trades vs active bars 0.90, trades vs rvol30 0.43, dollar volume vs volat_clk −0.01.
+
+| quintile Q1 → Q5 (rvol_pm ≥ 0.2) | PF clip +50 % | median % |
+|---|---|---|
+| **trades30** | **1.13 / 1.06 / 0.91 / 0.73 / 0.51** (monotone) | −0.29 / −0.00 / −0.46 / −1.60 / −4.19 |
+| dollar volume | 1.08 / 0.87 / 0.76 / 0.66 / 0.62 | −0.65 / −1.16 / −1.08 / −1.42 / −0.31 |
+| active bars | 0.91 / 1.00 / 0.68 / 0.83 / 0.60 | −0.19 / −0.08 / −1.51 / −1.15 / −3.03 |
+| rvol30 | 0.80 / 0.86 / 1.13 / 0.75 / 0.55 | −0.97 / −0.58 / +0.04 / −0.87 / −3.30 |
+
+**The substitution test** (median splits: 15.2k trades, $29.4M):
+
+| | n | median % | PF clip +50 % | net PF | years < 1 |
+|---|---|---|---|---|---|
+| few trades, large $ | 534 | **+0.08** | **1.18** | 1.27 | 5/11 |
+| few trades, small $ | 2,425 | −0.56 | 1.03 | 1.21 | 4/11 |
+| many trades, small $ | 534 | **−3.91** | 0.71 | 1.07 | 9/11 |
+| many trades, large $ | 2,426 | −1.80 | 0.63 | 0.76 | 6/11 |
+
+- **No: the trade count carries the information, the dollar volume does not.** At the same dollar volume, more trades is
+  worse; at the same trade count, more dollars is a little better.
+- **The average trade size ($ per trade) is not the clean version:** ρ 0.89 with the share price. Its medians rise with
+  it (−3.2 % → +0.1 %), but its PF is not monotone, and inside rvol_pm 1–5 it inverts.
+- Reading: the count is the number of separate decisions to trade. A held gap-up chased by thousands of small prints is
+  being distributed into (GF-10's "busy tape = distribution"); volume measures size, the edge is about the crowd.
+
+**The calm tape (volat_clk < 40 bp) by gap × rvol_pm**, net PF (0.7c) [n]:
+
+| gap \ rvol_pm | 0.2–0.5 | 0.5–1 | 1–2 | 2–5 | ≥ 5 | all |
+|---|---|---|---|---|---|---|
+| 4–6 % | 1.44 [241] | 1.62 [40] | 2.08 [26] | · [11] | · [7] | 1.47 [325] |
+| 6–10 % | 1.18 [333] | 0.99 [59] | 6.70 [33] | 1.80 [20] | · [10] | 1.26 [455] |
+| 10–20 % | 1.13 [334] | 1.22 [83] | 2.11 [41] | 11.77 [27] | · [19] | 1.31 [504] |
+| ≥ 20 % | 0.75 [76] | 1.83 [63] | 1.31 [45] | 0.81 [55] | 3.44 [75] | 1.22 [314] |
+
+Control, the WILD tape (≥ 80 bp), by gap: 2.62 [71] / 0.84 [189] / 0.62 [597] / 0.84 [1,364].
+
+- **The calm tape works at every gap size** (1.22–1.47 by gap). The wild tape loses everywhere except a 71-trade cell.
+- Premarket volume adds no clean structure on top. The big cells (6.70, 11.77) sit on 27–33 trades: noise, not a
+  finding. The calm × big gap × light premarket corner (≥ 20 %, rvol 0.2–0.5) is the one calm cell below 1 (0.75, 76 trades).
+- ⏭ The user: the early-day volatility finding goes into the swing momentum system later.
+
+## GF-30 — the gap-up INTRADAY SWING by tape COMBINATIONS: calm × few trades × volume persistence (2026-10-19; user: "low vol, low trade count, but high-volume persistence — a big player slowly accumulating?")
+
+`scripts/equity/gapfader_swing_combo.py` → `data/equity/gapfader/swing_combo.md`. GF-10's sample (gap-up ≥ 4 %, rvol_pm
+≥ 0.2), held the open at 10:00, bought then, out at the close: 5,922 trades. Cuts FIXED in advance: volat_clk < 40 bp
+(GF-11), trades30 terciles 7.7k / 28.6k (median 15.2k), volume persistence = volume 09:45–10:00 / 09:30–09:45, terciles
+0.49 / 0.79 (median 0.61: the volume normally decays). Net = 0.7c / share. ρ: volat–trades 0.41, volat–persistence 0.35.
+
+| volatility × trades (net PF) | few (T1) | mid (T2) | many (T3) |
+|---|---|---|---|
+| calm < 40 bp | 1.33 [751] | 1.39 [548] | 1.20 [299] |
+| not calm | 1.12 [1,222] | 1.01 [1,425] | **0.81** [1,674], 9/11 losing years |
+
+| calm · few trades (< median), by volume persistence | n / yr | median % | net PF | 2016–20 / 2021–26 | years < 1 |
+|---|---|---|---|---|---|
+| all | 95 | +0.07 | 1.33 | 1.63 / 1.21 | 2/11 |
+| **decaying (< median)** | 62 | +0.12 | **1.45** | **1.49 / 1.43** | 2/11 |
+| PERSISTENT (≥ median) — the user's cell | 33 | +0.02 | 1.12 | 1.88 / **0.85** | 3/11 |
+| did not decay at all (≥ 1) | 8 | +0.12 | 1.48 | 3.68 / 0.87 | 5/11 |
+
+- **Calm dominates.** The trade count matters mostly OUTSIDE the calm tape (1.12 → 0.81); inside it, little (1.33 / 1.39 /
+  1.20). The two overlap (ρ 0.41) rather than multiply.
+- **Volume persistence works the OTHER way:** across all held gap-ups the persistent tercile is the worst (0.87); inside
+  calm · few trades the persistent half fades after 2020 (0.85; the user's cell by year 0.51–3.24). Volume that keeps
+  coming after the open is distribution more often than accumulation (GF-10's "rising persistence" again).
+- **The stable combination: calm · few trades · decaying volume**, net PF 1.45 with both halves ≈ equal (1.49 / 1.43), 2/11
+  losing years, ~62 trades a year: modestly above calm alone (1.32). ⚠ Read off the complement of the tested cell: it
+  needs a holdout before it is a feature.
+- Premarket volume: this sample holds only rvol_pm ≥ 0.2. The weak-premarket gap-ups (the GF-2 fade side) were never
+  built for this trade (their tape features need a pass over the 1s bars).
+**BAR COUNTS on the calm tape** (user: "try bar counts"; act30 = active 1s bars 09:30–10:00, calm terciles 750 / 1,391):
+
+| calm tape | n / yr | net PF | 2016–20 / 2021–26 | years < 1 |
+|---|---|---|---|---|
+| few / mid / many bars | 48 each | 1.38 / 1.28 / 1.30 | 1.75 / 1.26 · 1.71 / 1.07 · 1.42 / 1.25 | 2 / 3 / 3 of 11 |
+| bars × trades disagree (few bars · many trades / many bars · few trades) | 6 / 6 | 1.34 / 1.03 | | |
+| **activity FADING** (active bars 09:45–10:00 / 09:30–09:45, lowest tercile < 0.82) | 48 | **1.53** | **1.58 / 1.51** | 2/11 |
+| activity middle (0.82–0.97) / persisting (≥ 0.97) | 48 / 48 | 1.10 / 1.33 | 1.17 / 1.06 · 2.30 / 1.07 | 4 / 4 of 11 |
+
+- On the calm tape the bar count IS the trade count (ρ 0.97); its level barely grades the trade.
+- **Its PERSISTENCE repeats the volume result**: activity that FADES after the open is the best (1.53, both halves
+  ≈ 1.5). Two measures now agree: a gap-up holding its open on a calm tape while the trading dies down is the best
+  intraday swing. The gap was repricing, not a frenzy. Not monotone (the middle tercile is the weakest), in-sample cuts.
+- ⏭ Better than more slicing: a FlushFader-style PF−1 model with volat, log(trades) and the volume / activity persistence
+  as continuous terms, scored on the year-block holdouts.
+
+## GF-31 — a CONTINUOUS PF−1 model for the gap-up swing: it LOSES to the simple cells (2026-10-19; user: "a continuous model, and throw in the slope")
+
+`scripts/equity/gapfader_swing_model.py` → `data/equity/gapfader/swing_model.md`; the slope from
+`scripts/equity/gapfader_slope30.py` (OLS of ln vwap over the 09:30–10:00 1s bars, bp/min; 22 s for 15,302 gap-ups).
+FlushFaderV2's machinery (logit p, log W, log L), every term continuous and standardised on the fit set: ln volat, ln(1 +
+trades), ln volume / activity persistence, the slope, the open → 10:00 return, ln gap, ln rvol_pm, ln dv20. Net 0.7c. Half
+holdouts: fit 2016–20 (1,407 trades) → apply 2021–26 (4,515), and the mirror.
+
+| model | sized PF−1, fwd / mirror (mean) | top third by prediction: net PF fwd / mirror |
+|---|---|---|
+| flat | −0.075 / 0.017 (−0.029) | 0.92 / 1.02 |
+| volatility | −0.003 / 0.344 (**0.170**) | 1.04 / **0.78** |
+| + trades | 0.007 / 0.085 (0.046) | 1.08 / 0.93 |
+| + volume / activity persistence | 0.022 / 0.014 (0.018) | 1.11 / 1.17 |
+| + slope, ret30 | 0.035 / −0.047 (−0.006) | 1.14 / 1.18 |
+| + gap, rvol_pm, dv20 (all) | 0.050 / 0.011 (0.031) | 1.37 / 1.00 |
+| slope alone | 0.031 / −0.005 (0.013) | 1.04 / **0.77** |
+| all but the slope terms | 0.066 / 0.093 (0.080) | 1.21 / 0.89 |
+
+- **No model is stable across both holdouts**; the simple rule (calm + activity fading, GF-30: 1.58 / 1.51) is better.
+- **Why: the effects are THRESHOLDS, not log-linear.** The full fit per SD of ln volat: odds ×0.79, W ×2.89, L ×2.17, so
+  λ = L/W ×0.75 and the model's PF−1 RISES slightly with volatility. The buckets say the reverse (calm 1.22–1.47, wild
+  0.62–0.84): a few huge wins on wild tapes inflate W, and a line in ln volat cannot express "fine below 40 bp,
+  collapsing above 80". (FlushFader's volatility was the opposite case: a smooth power law, V2-14.)
+- **The slope adds nothing**: alone 0.77 on one holdout; it restates ret30 (ρ 0.69) and the volume persistence (0.61).
+- ⏭ The next model: volatility as BANDS or a hinge at ~40 bp; winsorised returns for the W fit; then the persistence
+  terms. The trade stays an APPETIZER candidate (user): calm tape + fading activity, net PF ~1.5.
+
+## GF-32 — the swing rule on GAP-DOWNS that held their open: NO edge (2026-10-19; user: "would gap-downs that hold the open be positive as well?")
+
+`scripts/equity/gapfader_gapdown_swing.py` → `data/equity/gapfader/gapdown_swing.md`; the gap-down tape cached in
+`data/equity/gapfader/gapdown_tape.parquet` (131,358 gap-downs ≤ −4 %, all premarket volumes; GF-10/11's definitions; 63 s).
+Held the open at 10:00 (the last vwap before 10:00 ≥ the open), 10:00 → close, net 0.7c; the gap-up rule's cuts
+unchanged (calm < 40 bp, activity fading < 0.82). 70,814 held gap-downs.
+
+| held gap-downs | n / yr | net PF | 2016–20 / 2021–26 | years < 1 |
+|---|---|---|---|---|
+| all | 6,438 | 0.85 | 0.61 / 1.01 | 7/11 |
+| calm | 3,414 | 0.98 | 0.73 / 1.18 | 5/11 |
+| **calm · activity fading** | 1,298 | **0.99** | 0.90 / 1.05 | 6/11 |
+| wild (≥ 80 bp) | 1,036 | **0.70** | 0.45 / 0.83 | **11/11** |
+
+By rvol_pm (calm · fading): < 0.02 0.97 · 0.02–0.2 1.05 (7/11 losing years) · 0.2–1 0.85 · ≥ 1 0.86. By gap: −4…−6 % 1.05
+· −6…−10 % 0.94 · −10…−20 % 0.82 · ≤ −20 % 0.98.
+
+**Like for like with the gap-up sample (rvol_pm ≥ 0.2; user: "were you testing on high premarket volume?")** — worse:
+all 3,660 held: net PF 0.81 (9/11 losing years) · calm 0.89 · **calm · fading 0.85** (760; 1.07 / 0.74) · wild 0.72.
+Consistent with GF-4: heavy-premarket gap-downs CONTINUE (their short had PF 1.15–1.80), and holding the open until
+10:00 does not change that. (59 % of the held gap-downs are weak-premarket, rvol_pm < 0.02.)
+
+- **The rule does not carry over.** Volatility still SORTS (wild tapes lose in all 11 years), but only as a loser filter:
+  the calm cells reach break-even, not an edge.
+- Reading: the gap-down's edge is spent by 10:00. GF-12/13's trade buys the cross and sells by 10:00 (to the close PF
+  1.02), so a gap-down still above its open at 10:00 has already reverted. A gap-up holding quietly is the market
+  ACCEPTING the new price, and it continues. **The calm-tape swing is a gap-UP trade only**: the appetizer beside the
+  gap-down open trade, not its mirror.
