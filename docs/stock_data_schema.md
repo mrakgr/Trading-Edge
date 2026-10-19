@@ -111,6 +111,10 @@ done matters:
   raw_close`) uses information from after day D. That is harmless inside a ratio of two adjusted prices on the
   same scale. But in a filter or gate (e.g. "price ≥ $1") it silently selects stocks that will reverse-split
   later. This cost us a whole system's results once.
+- **Backward dividend adjustment can push prices negative.** Subtracting every later dividend from the past
+  prices (the additive method) takes a long-paying stock's early history below zero once the cumulative
+  dividends exceed the old price. Then logs, returns and price gates all break. The multiplicative method stays
+  positive but is still a lookahead.
 - **What we use instead is a causal forward scheme** (`docs/price_adjustment.md`). Each day keeps its raw price `P`,
   a cumulative split factor `n` built **only from splits up to day D**, and a cumulative dividend term. Every value
   depends only on events up to D, so this class of bug can't happen.
