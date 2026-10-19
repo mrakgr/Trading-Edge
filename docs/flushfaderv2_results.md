@@ -650,4 +650,100 @@ none 0.810.)
 **Recommendation (pending the user).** For sizing it makes no material difference. A one-parameter
 `ln(clip(volat, 40, 250 bp))` would replace 12 parameters (4 per component) with 3, with the same PF−1 and better
 calibrated W / L, and therefore a better `AvgTradePct`. Changing production would mean a refit (new β, new test pins)
-and a re-seal. Worth doing only together with the next refit of the model.
+and a re-seal. Worth doing only together with the next refit of the model. → **Done in V2-16 (2026-10-19), adopted.**
+
+## V2-15 — the near-low gate at 3 % instead of 2 %? (2026-10-19)
+
+**Question (user).** Raise the gate from dslo ∈ (0, 2 %] to (0, 3 %]: what is the (2 %, 3 %] band like?
+
+**Setup.** The books are replayed by `flushfaderv2_reference.py --near-low-hi H --coef data/flushfaderv2/v2_coefficients.json`
+(new option; `data/flushfaderv2/dslo3/`, tags g2 / g25 / g3), so the freed mc=1 slots refill. Control: g2 = the
+production book, 36,172 trades, multipliers identical. Tables: `scripts/equity/flushfaderv2_dslo3.py`
+(`data/flushfaderv2/dslo3/dslo3.md`). Flat and sized by the production coefficients, net of the credit.
+
+The band inside the production book (year columns: flat PF−1):
+
+| dslo | n | flat PF−1 | avg % | win % | mean mult | sized PF−1 | sized net | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| = 0 | 18,759 | 0.381 | 0.418 | 66.2 | 0.64 | 0.472 | 6,458 | 0.56 | 0.72 | 0.22 | 0.13 | 0.26 | 0.36 | 0.14 |
+| (2 %, 2.5 %] | 648 | 0.155 | 0.180 | 65.3 | 0.51 | 0.178 | 70 | 1.98 | 0.02 | −0.20 | 0.57 | −0.47 | 0.28 | 0.77 |
+| (2.5 %, 3 %] | 675 | 0.200 | 0.224 | 66.5 | 0.52 | 0.120 | 52 | 0.49 | −0.07 | 0.28 | 0.96 | −0.02 | 0.38 | 0.35 |
+| **(2 %, 3 %]** | 1,323 | **0.178** | 0.202 | 65.9 | 0.51 | 0.147 | **122** | 1.04 | −0.03 | −0.01 | 0.73 | −0.27 | 0.33 | 0.51 |
+| (3 %, 4 %) | 1,214 | 0.454 | 0.428 | 68.5 | 0.52 | 0.496 | 305 | 0.87 | 0.77 | 0.60 | 0.06 | 0.09 | 0.37 | 0.25 |
+| ≥ 4 % (flagged) | 14,876 | 0.947 | 0.844 | 70.6 | 1.53 | 1.063 | 21,663 | 1.39 | 0.96 | 0.74 | 0.70 | 1.02 | 0.74 | 1.03 |
+
+The gates replayed, production coefficients (in sample; year columns: sized PF−1):
+
+| gate drops dslo ∈ | n | flat PF−1 | flat net | sized PF−1 | sized net | Δ flat net | Δ sized net | sized max DD | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **(0, 2 %] — production** | 36,172 | 0.581 | 21,192 | 0.804 | 28,548 | — | — | 237 | 1.195 | 0.928 | 0.548 | 0.525 | 0.808 | 0.676 | 0.752 |
+| (0, 2.5 %] | 35,716 | 0.589 | 21,182 | 0.811 | 28,584 | −10 | +35 | 242 | 1.191 | 0.942 | 0.543 | 0.530 | 0.829 | 0.683 | 0.756 |
+| (0, 3 %] | 35,185 | 0.596 | 21,101 | 0.817 | 28,584 | −92 | +35 | 240 | 1.202 | 0.950 | 0.536 | 0.534 | 0.840 | 0.690 | 0.759 |
+
+Reading:
+- **The band is thin, not negative.** (2 %, 3 %] holds 1,323 trades at flat PF−1 0.18 (avg +0.20 %), negative in 3 of 7
+  years. It is between the near-low zone (≈ 0) and the 3–4 % band (0.45). The sizing already holds it at ~0.5 × the
+  mean multiplier, so it carries 0.4 % of the sized net.
+- **The refill.** The 3 % gate removes 1,323 trades (sized net +122, flat PF−1 0.18). Later trips of the same
+  ticker-days fill 336 of the freed slots (sized net +158, flat PF−1 0.40). Net effect: flat −92, sized +35.
+- With the production coefficients it is a wash. On the holdouts, with each gate's own refit, it is a small gain
+  (V2-16).
+
+## V2-16 — THE REFIT CANDIDATES on the holdouts: ln volatility and the 3 % gate are each worth ~+0.01 (2026-10-19)
+
+**Setup.** `flushfaderv2_reference.py` gains `--volat log`: the four band dummies become ONE column
+`ln(clip(volat, 40, 250 bp))` (V2-14's best shape), unstandardised, so the port needs only the clip. In apply mode the
+shape is read from the coefficient file (`volat_shape`, default bands).
+- Controls: apply mode with the production file gives the production book exactly. A bands fit with the ATR5 gate off
+  reproduces the V2-7 β, BasePf1 and s20 constants exactly (Δ = 0).
+
+Scoring: `scripts/equity/flushfaderv2_refit_holdout.py` (`data/flushfaderv2/dslo3/refit_holdout.md`).
+- The method is V2's: fit on one year block's barnum ≥ 22 trades, apply to the other; young trades × 0.8.
+- Two weightings:
+  - the research multiplier, normalised to mean 1;
+  - **PRODUCTION units**: clip(PF−1, 0.125, 2), not rescaled (`Sizer.fs`).
+- The normalised view is biased against a gate: the trades a gate removes are low-weight, so the normalisation deflates
+  the rest. **Use the production view to compare gates.**
+
+| gate | volatility | sized PF−1 fwd / mirror (mean), normalised | net (sum), normalised | **sized PF−1 fwd / mirror (mean), production units** | **net (sum), production units** | unit-trades | net / unit-trade | max DD fwd / mirror, production units |
+|---|---|---|---|---|---|---|---|---|
+| (0, 2 %] — production | 4 bands | 0.689 / 0.902 (0.796) | 28,654 | 0.690 / 0.902 (**0.796**) | **16,576** | 20,949 | 0.791 | 96 / 97 |
+| (0, 2 %] | ln volat | 0.705 / 0.908 (0.806) | 28,821 | 0.703 / 0.907 (**0.805**) | **16,776** | 21,056 | 0.797 | 72 / 94 |
+| (0, 3 %] | 4 bands | 0.711 / 0.904 (0.807) | 28,237 | 0.711 / 0.903 (**0.807**) | **16,837** | 20,973 | 0.803 | 96 / 105 |
+| **(0, 3 %]** | **ln volat** | 0.724 / 0.909 (0.817) | 28,298 | 0.721 / 0.908 (**0.815**) | **17,000** | 21,113 | **0.805** | **74** / 101 |
+
+Reading:
+- **ln volatility:** +0.009–0.010 sized PF−1 at either gate, both holdouts. Net +1.0–1.2 % in production units. The
+  forward max DD falls from 96 to 72–74. The parameter count per component falls from 4 to 1. It keeps V2-14's power law:
+  W ∝ volat^0.80, L ∝ volat^0.77 (fit on the 3 % book: 0.798 / 0.768), with odds ×0.93 per e-fold.
+- **The 3 % gate:** +0.010–0.011 sized PF−1. In production units net is +1.3–1.6 % on about the same capital (the
+  removed trades were sized near the 0.125 floor). The mirror max DD rises by 7–8.
+- **Combined (ln volat + 3 %): 0.796 → 0.815, net 16,576 → 17,000 (+2.6 %), forward DD 96 → 74.**
+- The full-period fit on the 3 % book: book mean PF−1 (BasePf1) 0.596 → 0.618. In production units, the mean position
+  is 0.594 → 0.616 units, the median 0.525 → 0.541, and 0.3 % of trades reach the 2-unit cap.
+  `data/flushfaderv2/dslo3/fit_log_g3/v2_coefficients.json`.
+
+| term (fit: 3 % gate, ln volat, n = 34,612) | β_p (odds ×) | β_W (×) | β_L (×) |
+|---|---|---|---|
+| 1 | +1.129957 (3.096) | −2.568573 (0.077) | −2.166973 (0.115) |
+| gap 1-3 | −0.091111 (0.913) | −0.011441 (0.989) | +0.089789 (1.094) |
+| gap 4-39 | −0.128391 (0.880) | +0.032263 (1.033) | +0.124652 (1.133) |
+| ln volat (clip 40–250 bp) | −0.074331 (0.928) | +0.798220 (2.222) | +0.768031 (2.156) |
+| rate600 fast | −0.120362 (0.887) | +0.026258 (1.027) | +0.039696 (1.040) |
+| S tier | +0.008054 (1.008) | −0.022309 (0.978) | −0.151376 (0.860) |
+| dslo ≥ 4 % | +0.233656 (1.263) | −0.005184 (0.995) | −0.116247 (0.890) |
+| s20 (standardised) | −0.087419 (0.916) | −0.031876 (0.969) | −0.048585 (0.953) |
+
+s20 winsorise [−106.535, 10.509] bp/min, mean −26.375, SD 21.351.
+
+**Status: ADOPTED (user 2026-10-19: "We'll adopt both changes. We always want more net with a better pf1").** ln volat
+plus the 3 % gate are now `flushfaderv2_reference.py`'s defaults. The fit on the full period is the production
+reference: `data/flushfaderv2/v2_coefficients.json`, book 35,185. The 2026-10-18 files are in
+`data/flushfaderv2/pre_refit_2026-10-19/`. Ported to the Oms (`Engine/Sizing.fs`: Dim 8, `lnVolat`;
+`Config.fs`: NearLowHi 0.03), with the 200 pins reproduced to 1e-9.
+
+**SEALED (2026-10-19):** `parity trips -s 2020-01-02 -e 2026-08-21 --from-bars --system flushfader` (the Oms
+engine + Sizing, 66 min).
+- **Book 35,185 = 35,185**, keys identical. Max |Δ|: entry/exit secs and px 0 (exit px 2e-16); dslo, s20_z, barnum,
+  young 0; pf1_model / pf1_fitted 6.7e-15; multiplier 1.1e-14.
+- Engine-level signals 192,399 vs the reference's 192,365: the +34 are all PSNYW, the known extra of the previous seals.

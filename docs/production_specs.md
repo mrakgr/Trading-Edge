@@ -17,6 +17,22 @@ low − 1, the signal bar included) → book **35,612**; **sizing V2 = A3 + [dsl
 user 2026-10-12), so V2 positions average ~1.15 units. Capped replay (cap 20, cross-fit) vs V1: net +13.6 %, max DD
 443 → 308, worst day −296 → −199 units, 80/80 months. Sealed in the Oms 2026-10-12 (see V2-10 in the V2 doc).
 
+**⭐ CURRENT SPEC (2026-10-19)** — the V2 line above, plus:
+- **Listing age** (V2-11, 2026-10-18): barnum ≥ 11; sessions 11–21 sized × 0.8 (base_v19 + the young splice
+  `scripts/equity/flushfader_run_base_v19_young.sh`).
+- **The ATR5 gate** (V2-13, 2026-10-18): no entry on a ticker-day with a 5-day ATR % ≥ 400 % (`data/equity/atr5/candidates_atr5.parquet`).
+- **The refit** (V2-15 / V2-16, 2026-10-19):
+  - the near-low gate widened to **0 < dslo ≤ 3 %**;
+  - the A3 volatility bands → ONE term **ln(clip(volat, 40, 250 bp))**, refitted on that book (fit set barnum ≥ 22,
+    34,612 trades, BasePf1 0.6184);
+  - holdout sized PF−1 0.796 → 0.815, net in production units +2.6 %.
+- **The Oms units:** 1 unit = 1 PF−1 = 15 % of equity, clip [0.125, 2] (since 2026-10-13; not the 0.519 scale above).
+- **Reference:** `python -u scripts/equity/flushfaderv2_reference.py` (the defaults ARE production), which writes
+  `data/flushfaderv2/v2_coefficients.json` and the book **35,185** trades: flat PF 1.596, sized 1.825, net 21,101 %
+  flat / 28,308 % sized.
+- `--coef data/flushfaderv2/v2_coefficients.json` reproduces it exactly. The previous files are in
+  `data/flushfaderv2/pre_refit_2026-10-19/`.
+
 **Signal**: new strict 1200-bar (≈20m) vwap low → buy next bar vwap; exit strict new 300-bar (≈5m) high → sell next
 bar vwap, else hold to the NEXT session's open (calendar-aware close 16:00 / 13:00). One leg per new 1200-bar high.
 Engine `TradingEdge.FlushFader` (Argu flags; `--base-run` = every spec gate OFF).

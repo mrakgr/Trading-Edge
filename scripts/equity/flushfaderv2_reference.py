@@ -6,9 +6,11 @@ not inherit that. Here every input comes from the base parquets in double:
     dslo = signal_vwap / sess_low − 1          (sess_low = the running session minimum, the signal bar included)
     s20  = ols_slope_1200 × 6e5                (bp/min; full 1200-bar window only, NaN otherwise)
 
-  V2 = the broad book (flushfader_broad_reference.py's mask, calendar-aware entry window) − dslo ∈ (0, 2 %]
+  V2 = the broad book (flushfader_broad_reference.py's mask, calendar-aware entry window) − dslo ∈ (0, 3 %] (2 % until 2026-10-19)
        (a NaN dslo is NOT gated — sess_low is never NaN at a signal), then raw px ≥ $1 + mc=1 greedy per ticker-day.
   sizing = A3 design + [dslo ≥ 4 %] + standardised s20:
+       ⭐ since 2026-10-19 (V2-16) the A3 volatility BANDS are ONE column ln(clip(volat, 40, 250 bp)) (--volat log;
+       --volat bands = V2-7's 4 dummies; apply mode follows the coefficient file's volat_shape)
        z = (clip(s20, S20Lo, S20Hi) − S20Mean) / S20Sd     (the fit set's 1 % / 99 % quantiles, mean, SD)
        a NaN s20 enters as z = 0 (the mean) — never seen on the book, a live guard
        multiplier = clip(PF−1(x) / BasePf1, 0.25, 4)
@@ -30,9 +32,10 @@ Outputs (out-dir, + _TAG):
                                          and a PIN TABLE of 200 book trades' (inputs → multiplier) for the F# tests
 
 Run from research/:
-  python -u scripts/equity/flushfaderv2_reference.py --coef data/flushfaderv2/v2_coefficients.json   # ⭐ THE PRODUCTION
-      REFERENCE since 2026-10-18 (the ATR5 gate): the V2-7 coefficients APPLIED — a refit would see the gated book
-  python -u scripts/equity/flushfaderv2_reference.py                                    # fit on the full period
+  python -u scripts/equity/flushfaderv2_reference.py                                    # ⭐ THE PRODUCTION REFERENCE since
+      2026-10-19 (V2-16): the fit on the full period (ln volat, gate 3 %, ATR5-gated, barnum >= 22 fit set);
+      --coef data/flushfaderv2/v2_coefficients.json reproduces it exactly (the 2026-10-18 V2-7 file:
+      data/flushfaderv2/pre_refit_2026-10-19/, with --near-low-hi 0.02)
   python -u scripts/equity/flushfaderv2_reference.py --trips 'data/equity/flushfader/base_10d/*.parquet' --tag 10d \
       --coef data/flushfaderv2/v2_coefficients.json                                     # apply the full-period fit
 """
@@ -51,6 +54,8 @@ ap.add_argument("--max-atr5", type=float, default=4.0, help="drop ticker-days wi
 ap.add_argument("--coef", default="", help="APPLY these coefficients instead of fitting (the 10-day seal set)")
 ap.add_argument("--out-dir", default="data/flushfaderv2")
 ap.add_argument("--tag", default="")
+ap.add_argument("--volat", choices=["bands", "log"], default="log", help="fit mode: the volatility term (V2-14/V2-16; log = production since 2026-10-19); apply mode reads it from --coef")
+ap.add_argument("--near-low-hi", type=float, default=0.03, help="the near-low gate drops dslo in (0, this] (0.03 = production since 2026-10-19, V2-15/V2-16; was 0.02)")
 ap.add_argument("--door", type=int, default=40)
 ap.add_argument("--credit", type=float, default=0.001)
 ap.add_argument("--mem", default="8GB")
@@ -61,7 +66,7 @@ sfx = f"_{args.tag}" if args.tag else ""
 os.makedirs(args.out_dir, exist_ok=True)
 
 # the gate and the flag (V2-6 / V2-7, user 2026-10-12)
-NEAR_LOW_LO, NEAR_LOW_HI = 0.0, 0.02        # drop dslo in (LO, HI]
+NEAR_LOW_LO, NEAR_LOW_HI = 0.0, args.near_low_hi   # drop dslo in (LO, HI] (0.03 = production since 2026-10-19)
 DSLO_FLAG = 0.04                            # sizing flag dslo >= this
 S20_SCALE = 6e5                             # ols_slope_1200 (ln/bar) -> bp/min
 EARLY = {"2016-11-25", "2017-07-03", "2017-11-24", "2018-07-03", "2018-11-23", "2018-12-24", "2019-07-03", "2019-11-29", "2019-12-24",
@@ -136,11 +141,17 @@ flag = nz(B.dslo.values >= DSLO_FLAG).astype(int)
 def zs20(x, c):
     z = (np.clip(x, c["s20_lo"], c["s20_hi"]) - c["s20_mean"]) / c["s20_sd"]
     return np.where(np.isnan(x), 0.0, z)
+VOLAT_CLIP = [40.0, 250.0]                  # V2-14: ln(clip(volat, 40, 250 bp)) — the engine gate is volat >= 40
+def volat_cols(c):
+    if c.get("volat_shape", "bands") == "log":
+        return [np.log(np.clip(B.volat.values, *c["volat_clip_bp"]))]
+    return [volat_band == k for k in range(1, 5)]
 def design(c):
-    return np.column_stack([np.ones(len(B)), gap_band == 1, gap_band == 2] + [volat_band == k for k in range(1, 5)]
+    return np.column_stack([np.ones(len(B)), gap_band == 1, gap_band == 2] + volat_cols(c)
                            + [fast, tier, flag, zs20(B.s20.values, c)]).astype(float)
-NAMES = ["1", "gap 1-3", "gap 4-39", "volat 60-90", "volat 90-140", "volat 140-250", "volat 250+", "rate600 fast", "S tier",
-         "dslo >= 4%", "s20 (standardised)"]
+def names(c):
+    v = ["ln volat (clip 40-250 bp)"] if c.get("volat_shape", "bands") == "log" else ["volat 60-90", "volat 90-140", "volat 140-250", "volat 250+"]
+    return ["1", "gap 1-3", "gap 4-39"] + v + ["rate600 fast", "S tier", "dslo >= 4%", "s20 (standardised)"]
 
 def fit_logistic(X, y, it=50):
     b = np.zeros(X.shape[1])
@@ -170,7 +181,8 @@ if args.coef:
 else:
     s = B.s20.values[OLD & ~np.isnan(B.s20.values)]
     lo, hi = np.quantile(s, [0.01, 0.99]); zc = np.clip(s, lo, hi)
-    C = {"s20_lo": float(lo), "s20_hi": float(hi), "s20_mean": float(zc.mean()), "s20_sd": float(zc.std())}
+    C = {"s20_lo": float(lo), "s20_hi": float(hi), "s20_mean": float(zc.mean()), "s20_sd": float(zc.std()), "volat_shape": args.volat}
+    if args.volat == "log": C["volat_clip_bp"] = VOLAT_CLIP
     X = design(C)[OLD]; RO = R[OLD]; win = RO > 0
     C.update({"beta_p": [float(v) for v in fit_logistic(X, win.astype(float))],
               "beta_w": [float(v) for v in fit_loglink(X[win], RO[win])],
@@ -180,7 +192,7 @@ X = design(C); pf1_model = pf1_of(X, C)
 pf1 = np.where(young, args.young_scale * pf1_model, pf1_model)        # ⭐ the young trades at YOUNG_SCALE
 mult = np.clip(pf1 / C["base_pf1"], 0.25, 4.0)
 B["gap_band"] = gap_band; B["volat_band"] = volat_band; B["rate600_fast"] = fast; B["s_tier"] = tier; B["dslo_flag"] = flag
-B["s20_z"] = X[:, 10]; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
+B["s20_z"] = X[:, -1]; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
 log(f"multiplier mean {mult.mean():.4f}, range {mult.min():.3f}-{mult.max():.3f}, at the 0.25 floor {(mult <= 0.25).mean()*100:.1f}%")
 
 def pf(r):
@@ -195,15 +207,15 @@ rows = [f"# FlushFaderV2 reference from `{' + '.join(args.trips)}` (barnum >= {a
 if not args.coef:
     bp, bw, bl = (np.array(C[k]) for k in ("beta_p", "beta_w", "beta_l"))
     rows += ["| term | β_p (odds ×) | β_W (×) | β_L (×) |", "|---|---|---|---|"]
-    rows += [f"| {nm} | {bp[j]:+.6f} ({np.exp(bp[j]):.3f}) | {bw[j]:+.6f} ({np.exp(bw[j]):.3f}) | {bl[j]:+.6f} ({np.exp(bl[j]):.3f}) |" for j, nm in enumerate(NAMES)]
+    rows += [f"| {nm} | {bp[j]:+.6f} ({np.exp(bp[j]):.3f}) | {bw[j]:+.6f} ({np.exp(bw[j]):.3f}) | {bl[j]:+.6f} ({np.exp(bl[j]):.3f}) |" for j, nm in enumerate(names(C))]
     rows += ["", f"s20: winsorise [{C['s20_lo']:.6f}, {C['s20_hi']:.6f}] bp/min, mean {C['s20_mean']:.6f}, SD {C['s20_sd']:.6f}; BasePf1 {C['base_pf1']:.10f}"]
     # the PIN TABLE: 200 book trades spread over the multiplier range, inputs at full precision
     # (from the barnum >= 22 book only: the pins carry no barnum, so a young pin would not reproduce in the F# test)
     oi = np.flatnonzero(OLD)
     idx = oi[np.unique(np.argsort(mult[oi], kind="stable")[np.linspace(0, len(oi) - 1, 200).astype(int)])]
-    C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7",
+    C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7" + (", ln volat V2-14/V2-16" if args.volat == "log" else ""),
               "fit": f"all years, V2 book n={int(OLD.sum()):,}, credit ${args.credit}/sh/side, from {args.trips[0]}",
-              "design": NAMES, "gap_edges": [0, 1, 4, 40], "volat_edges_bp": [40, 60, 90, 140, 250], "rate600_fast_threshold": 0.07,
+              "design": names(C), "gap_edges": [0, 1, 4, 40], **({} if args.volat == "log" else {"volat_edges_bp": [40, 60, 90, 140, 250]}), "rate600_fast_threshold": 0.07,
               "s_tier": "halts_today >= 1 and 300 <= secs_since_halt < 2400", "near_low_gate": [NEAR_LOW_LO, NEAR_LOW_HI],
               "dslo_flag": DSLO_FLAG, "s20_scale": S20_SCALE, "clip": [0.25, 4.0],
               "pins": [{"gap_60": int(B.gap_60.values[i]), "volat_bp": float(B.volat.values[i]), "l600": int(B.l600.values[i]),
