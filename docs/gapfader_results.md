@@ -1664,3 +1664,111 @@ n 31). 4–6 % gaps on stocks under $10 are about breakeven (0.96–1.01).
   vs 1.23. Leave it to the sizing model, not a hard cut.
 - 4–6 % gaps are the weak end (1.23, with 2016–20 at 0.85).
 - ⚠ Every cell here is 2–27 trades a year, after about 30 splits of one sample. Read it as shape for the model, not as rules.
+
+## GF-45 — THE SIZING MODEL for the weak-premarket gap-down long (2026-10-20, user)
+
+`scripts/equity/gapfader_sizing_model.py` → `data/equity/gapfader/sizing_model.md` (cache `sizing_tape.parquet`).
+FlushFaderV2's machinery: logit p, log W, log L by IRLS, PF−1 = p / ((1−p)·L/W) − 1.
+- **The trade as designed:** a LOO in the cross; half sold at 50 % of the gap and half at 75 % (resting limits,
+  trade-through) until 10:00; the rest at 10:00 (GF-21's maker exit); 0.40c.
+- **Gates knowable at the decision:** gap ≤ −4 % · open ≥ $1 · dv20 ≥ $1M · no early close · not NYSE-listed (today's map)
+  · **rvol28** < 0.02, where rvol28 = premarket volume 04:00–09:28 / avgvol20_prior. The census's rvol_pm ran to 09:30.
+- **The open as the auction price plus noise:** |e| lognormal, median 0.10 %, p90 0.65 % (the 10-19 gap watch). A trade
+  needs both the noisy and the true gap ≤ −4 %.
+- **The noise is harmless:** the model with the true gap scores the same, 0.860 / 0.518 vs 0.856 / 0.519.
+- **Size:** 50,564 trades, 4,597 / yr. Flat net PF 1.64: 2016–19 1.36 · 2020 1.53 · 2021–26 **1.76**, every year ≥ 1.24.
+
+**⚠ dv20's grade FLIPPED between the regimes.** Flat net PF by period:
+
+| | 2016–19 | 2020 | 2021–23 | 2024–26 |
+|---|---|---|---|---|
+| dv20 $1–5M | 1.24 | 1.63 | 1.88 | **2.63** |
+| dv20 ≥ $100M | **2.76** | 1.85 | 1.54 | 1.19 |
+| rvol28 < 0.001 | 1.79 | 1.77 | 2.58 | 2.83 |
+| rvol28 0.01–0.02 | 1.01 | 1.38 | 1.33 | 1.37 |
+| bars 0 | 2.17 | 2.30 | 2.63 | 3.13 |
+| bars ≥ 30 | 1.46 | 1.54 | 1.49 | 1.30 |
+
+- **rvol28 grades the same way in every period.** It is the one stable grade.
+- **Bars:** 0 bars is best in every period.
+- **dv20 went from liquid-is-best (2016–19) to thin-is-best (since 2021):** a smooth trend through the years, not noise.
+  GF-24's monotone dv20 table was the recent regime plus NYSE.
+- Gap and price grade weakly or not at all.
+
+**Holdouts.** Sized PF−1 = weights clip(PF−1 / fit mean, 0.25, 4), mean 1. Fits exclude 2020.
+
+| model | across regimes: fit 16–19 → 21–26 / the reverse | **inside the current regime: 21–23 → 24–26 / the reverse** | top / bottom third PF (current) |
+|---|---|---|---|
+| flat | 0.755 / 0.356 | 0.852 / 0.650 (mean 0.751) | — |
+| dv20 | 0.585 / 0.305 (worse than flat: the flip) | 0.965 / 0.742 (0.853) | 2.57 / 1.37 |
+| **dv20 + rvol (log + < 0.005 flag)** | 0.879 / 0.504 | **1.231 / 0.942 (1.086)** | **2.71–2.24 / 1.31–1.33** |
+| + bars | 0.820 / 0.551 | 1.205 / 0.914 (1.059) | 2.42 / 1.45 |
+| + bars + gap (log) | 0.856 / 0.519 | 1.206 / 0.855 (1.031) | |
+| + bars + gap + price | 0.916 / 0.550 | 1.230 / 0.880 (1.055) | |
+| no rvol (dv20 + bars + gap) | 0.737 / 0.395 | 1.059 / 0.748 (0.904) | |
+| no dv20 (rvol + bars + gap) | 0.939 / 0.519 | 1.120 / 0.807 (0.964) | |
+| gap alone | 0.745 / 0.342 | 0.829 / 0.620 (inverted: bottom third better) | 1.50 / 2.06 |
+
+**Reading:**
+- **The model is dv20 + rvol28.** In the current regime it lifts the sized PF−1 by **+45 %** over flat (1.086 vs 0.751), and
+  the top third runs at PF 2.2–2.7 vs 1.3 for the bottom third.
+- **rvol28 carries most of it.** It also works across regimes: the 2021–26 fit applied to 2016–19 gives 0.504 vs flat 0.356.
+- **Bars add nothing once rvol is in.** The zero-bar cell is the rvol28 ≈ 0 cell.
+- **The gap adds nothing.** Linear, log and sqrt all score the same; the gap alone is inverted.
+- **Price adds nothing beyond dv20.**
+- **The fit (2021–26, per SD):** dv20 odds × 0.83, λ × 0.96; rvol28 odds × 0.84, λ × 1.10. Thinner and quieter is better on
+  both legs. Predicted PF−1 p10 / p50 / p90 0.22 / 0.74 / 1.71: 5 % fall under the 0.125 floor and 4 % go above 2.
+- ⚠ **dv20 is a regime bet.** Watch it in the live journal. If thin names stop leading, refit or drop the term; rvol28
+  alone still sizes correctly.
+
+### GF-45b — the cutoff moved to 09:29 (rvol29, bars 08:29–09:29), and the bars as BUCKETS (2026-10-20, user)
+
+Same script; `data/equity/gapfader/sizing_model.md` now holds the 09:29 run (cache `sizing_tape29.parquet`). 49,662 trades;
+flat net PF 1.65 (2021–26 1.77). **Nothing changes:** within the current regime dv20 + rvol29 scores 1.105 sized PF−1 vs flat
+0.765 (+44 %).
+
+| current-regime holdouts (21–23 ↔ 24–26), sized PF−1 mean | 09:28 | **09:29** |
+|---|---|---|
+| dv20 + rvol (log + < 0.005 flag) | 1.086 | **1.105** |
+| + bars: ln(1 + b) + a b = 0 flag (the GF-45 shape) | 1.059 | 1.079 |
+| + bars as BUCKET dummies (1–9 / 10–29 / ≥ 30 vs 0) | — | 1.075 |
+| dv20 + bars, no rvol: continuous / buckets | 0.904 | 0.943 / 0.931 |
+
+- **Either shape, bars add nothing once rvol29 is in.** Without rvol they recover only part of its value (0.93–0.94 vs 1.105).
+- The < 0.005 flag is worth +0.008. Keep it or drop it; it doesn't matter.
+- The last premarket minute is busy. Moving the bars window from 08:28–09:28 to 08:29–09:29 shrinks the 0-bar cell by a
+  third (2016–19: 1,013 → 383 trades): many weak-premarket names print for the first time in 09:28–09:29.
+
+### GF-45c — each listing's own indicator cutoff: 09:29:25 Nasdaq, 09:29:50 NYSE American (2026-10-20, user)
+
+**rvolc** = premarket volume 04:00 → the listing's cutoff / avgvol20_prior. The cutoffs sit 5 s inside the measured LOO
+cutoffs (Nasdaq 09:29:30; NYSE American's freeze 09:29:55). Unmapped (delisted) names get 09:29:25. Same script; the md now
+holds this run (cache `sizing_tape_cut.parquet`). 49,523 trades; flat net PF 1.659 (2021–26 1.776).
+
+| current-regime holdouts, sized PF−1 mean | 09:28 | 09:29 | **listing cutoff** |
+|---|---|---|---|
+| flat | 0.751 | 0.765 | **0.772** |
+| dv20 + rvol (log) | — | 1.097 | 1.097 |
+| dv20 + rvol (log + < 0.005 flag) | 1.086 | 1.105 | **1.105** |
+
+The extra 25–50 s help the GATE (flat 0.765 → 0.772: the rvol < 0.02 screen drops a few more names that print late), not the
+model's grading. It's free, so it's the spec: **the indicators run to 09:29:25 (Nasdaq) / 09:29:50 (NYSE American)**. The
+fitted model on 2021–26 (per SD): dv20 odds × 0.825, λ × 0.962; rvolc odds × 0.836, λ × 1.103; the flag ≈ 1. Predicted PF−1
+p10 / p50 / p90 0.24 / 0.76 / 1.74.
+
+### GF-45d — the production coefficients (2026-10-20, user: "roll with 2021–2026")
+
+`data/equity/gapfader/gf_coefficients.json` (tracked, force-added), written by `scripts/equity/gapfader_sizing_model.py`'s last
+section. Contents:
+- **The fit:** dv20 + rvolc (ln dv20 · ln(rvol + 0.001) · rvol < 0.005), 2021-01 … 2026-09, n = 31,220.
+- **The gates** and **the indicator cutoffs** (XNAS 09:29:25, XASE 09:29:50, premarket from 04:00).
+- **Standardisation:** per term, the winsor bounds (the fit's 1 / 99 %), mean and sd.
+- β_p, β_w, β_l.
+- **200 pins** (ticker, date, dv20, rvol → PF−1) for the Oms tests. The script recomputes them from the JSON alone, max |Δ| 1.8e-15.
+
+**Fit vs 2024–26:** fitting on 2024–26 alone (16,697 trades) gives nearly the same coefficients (dv20 odds 0.773 vs 0.825,
+rvol 0.866 vs 0.836) and predictions with ρ = 0.982 to the 2021–26 fit. Scored on 2024–26 the two give 1.390 (in-sample)
+vs 1.345, so the doubled sample wins.
+
+Fit-mean PF−1 is **0.88** a trade. At one unit = 15 % of equity and ~20 trades a day, that is far more than the book allows:
+the 0.25 %-of-ADV cap and the book's unit cap will bind, and L2's sizing needs to handle a burst of entries all at 09:30.
