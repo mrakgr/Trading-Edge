@@ -1220,3 +1220,447 @@ Consistent with GF-4: heavy-premarket gap-downs CONTINUE (their short had PF 1.1
   1.02), so a gap-down still above its open at 10:00 has already reverted. A gap-up holding quietly is the market
   ACCEPTING the new price, and it continues. **The calm-tape swing is a gap-UP trade only**: the appetizer beside the
   gap-down open trade, not its mirror.
+
+### GF-33 — the gap-up when the open FAILS (2026-10-20; user: "maybe the hold doesn't matter")
+
+The user's hypothesis was that a gap-up fades in the first 30 min and then trends up, so a long from 10:00 (or the open) to
+the close might pay whether or not the open held. Tested on GF-10's sample: gap-up ≥ 4 %, rvol_pm ≥ 0.2, headline
+universe, 15,298 trades. Net = 0.7c / share. Script: `scripts/equity/gapfader_gapup_failed.py` → `data/equity/gapfader/gapup_failed.md`.
+
+10:00 → close (tradeable):
+
+| cell | n / yr | median % | net PF | net 2016–20 / 2021–26 | years < 1 |
+|---|---|---|---|---|---|
+| held · calm (GF-11) | 145 | +0.11 | **1.32** | 1.61 / 1.20 | 2/11 |
+| held · calm · fading (GF-30) | 47 | +0.09 | **1.56** | 1.54 / 1.57 | 3/11 |
+| **failed · calm** | 215 | −0.01 | **1.07** | 1.27 / 0.98 | 5/11 |
+| failed · calm · fading | 102 | −0.07 | 1.06 | 1.13 / 1.02 | 6/11 |
+| failed · not calm | 637 | −1.99 | 0.76 | 0.52 / 0.84 | 11/11 |
+| failed · wild (≥ 80 bp) | 275 | −4.33 | 0.68 | 0.42 / 0.76 | 11/11 |
+
+Failed · calm by year (net PF): 2016 0.39 · 2017 1.23 · 2018 1.31 · 2019 0.98 · 2020 1.60 · 2021 1.05 · 2022 0.85 ·
+2023 1.16 · 2024 1.51 · 2025 0.65 · 2026 0.95.
+
+Pockets inside failed · calm, all thin and in-sample:
+
+| pocket | n | net PF | years < 1 |
+|---|---|---|---|
+| rvol_pm ≥ 5 | 148 | 1.53 | 2/11 |
+| gap 6–10 % | 743 | 1.23 | 4/11 |
+| 0–2 % below the open at 10:00 | 1,237 | 1.11 | 4/11 |
+
+The pockets that go the other way:
+
+| pocket | net PF |
+|---|---|
+| gap 4–6 % | 0.77 |
+| rvol_pm 1–5 | 0.84 |
+| 5–10 % below the open | 0.95 |
+
+From the open (⚠ the split by 10:00's tape is NOT tradeable; it only describes the path):
+
+| cell | net PF |
+|---|---|
+| all gap-ups, open → close | 0.74 (11/11 losing years) |
+| calm days | 0.80 |
+| calm · held | 4.99 |
+| calm · failed | 0.27 |
+
+**Verdict: the hypothesis fails. The hold matters.**
+- A calm tape alone doesn't make the long work: failed · calm is about breakeven, 1.07 with 5/11 losing years, against
+  held · calm's 1.32.
+- The calm + fading rule doesn't carry over to failed opens (1.06).
+- Buying at the open loses even on the days that turn out calm (0.80). The first 30 min's fade is real, and it's not
+  "played out".
+- A calm day is only a good long once the open has held. The swing stays as GF-30: held · calm · fading.
+
+### GF-34 — the 09:30–10:00 volume profile, and held at 10:00 → failed at 10:30 (2026-10-20, user)
+
+Same sample as GF-33: gap-up ≥ 4 %, rvol_pm ≥ 0.2, out at the close, net 0.7c / share. Script:
+`scripts/equity/gapfader_profile30.py` → `data/equity/gapfader/profile30.md`, with the cache `profile30.parquet`.
+
+**(A) Where 10:00 sits in the first 30 min's volume profile.** `prof_pct` = the share of 09:30–10:00 volume traded below
+the 10:00 price. The control is the plain range position (ρ 0.93 with it).
+
+| prof_pct band at 10:00 | all | calm | not calm |
+|---|---|---|---|
+| 0.00–0.10 (a breakdown) | 0.74 | 1.24 | 0.71 |
+| 0.10–0.25 | 0.84 | 1.09 | 0.82 |
+| 0.25–0.50 | 0.77 | 1.10 | 0.75 |
+| 0.50–0.75 | 0.97 | 1.17 | 0.95 |
+| 0.75–0.90 | 0.91 | 1.21 | 0.89 |
+| 0.90–1.00 (a breakout) | 1.01 | 1.15 | 1.00 |
+
+- **Breakouts are only less bad.** On all and not-calm tapes the top of the profile is breakeven (1.00–1.05) and the
+  bottom loses (0.71–0.74).
+- On a calm tape the profile is flat (1.09–1.24): it adds nothing beyond "calm".
+- The range position tells the same story.
+- Inside calm · held, being at the TOP of the profile is the weakest band (1.21). The middle bands are the best: 1.61 at
+  0.25–0.50 and 1.41 at 0.50–0.75. That is against the ORB reading.
+- Inside calm · failed, only the deepest band holds up (0–0.25: 1.16). Every other band is about 0.95.
+
+**(B) Held at 10:00, then the open checked again at 10:30; bought at 10:30.**
+
+| calm (09:30–10:00) | n / yr | median % | net PF | net 2016–20 / 2021–26 | years < 1 |
+|---|---|---|---|---|---|
+| held 10:00 · held 10:30 | 119 | +0.18 | **1.38** | 1.51 / 1.32 | 2/11 |
+| **held 10:00 · FAILED 10:30** | 27 | +0.03 | **1.67** (clip 1.78 = raw) | 1.82 / 1.62 | **0/11** |
+| failed 10:00 · reclaimed 10:30 | 28 | +0.10 | 1.30 | 1.15 / 1.36 | 3/11 |
+| failed 10:00 · failed 10:30 | 187 | +0.02 | 1.18 | 1.45 / 1.07 | 5/11 |
+
+- The held-then-failed cell's yearly net PF is 1.04–2.43, every year above 1.
+- It is a **dip below the open after a calm hold**: median 0.67 % below the open at 10:30, p90 2.6 %.
+- Without the calm filter the same cell is tail-driven: 1.27 raw, 0.96 clipped.
+- Bought at 10:00 instead, those days lose: calm · held 10:00 · failed 10:30 is 0.49, losing in 11/11 years. The 10:00 → 10:30
+  drop is the loss, and the recovery after 10:30 is the gain.
+
+⇒ **Delaying the calm swing's entry to 10:30 helps:**
+
+| trade | buy at 10:00 | buy at 10:30 |
+|---|---|---|
+| calm · held | 1.32 (2/11 losing) | **1.44** (1/11 losing) |
+| calm · held · fading | 1.56 (3/11 losing) | **1.70** (1/11 losing) |
+
+The calm and fading tests are still measured at 10:00.
+
+The cells were found by splitting the same sample. A holdout and a time control (10:15 / 10:45) are needed before the
+10:30 entry is called a feature.
+
+### GF-35 — the VWAP instead of the open, and the volume-weighted z-score (2026-10-20, user)
+
+Same sample as GF-33/34. VWAP = the RTH VWAP from 09:30 (the 1s bars' volume at their vwaps). z = (price − VWAP) / sd, with
+sd = sqrt(Σ vol·(v − VWAP)² / Σ vol), where the volume is the count. At 10:00 the window is 09:30–10:00; at 10:30 it is
+09:30–10:30. Script: `scripts/equity/gapfader_vwap_z.py` → `data/equity/gapfader/vwap_z.md`, with the cache `vwap_z.parquet`.
+At 10:00 the price is above the VWAP for 35 % of trades and above the open for 39 %; the two agree 82 % of the time.
+Median z30 is −0.53 (p10 −1.66, p90 +1.24).
+
+**The open is the better reference.** 10:00 → close, calm:
+
+| | above | below |
+|---|---|---|
+| the open | **1.32** (2/11 losing) | 1.07 (5/11) |
+| the VWAP | 1.22 (2/11) | 1.11 (5/11) |
+| calm · fading, the open | **1.56** | 1.06 |
+| calm · fading, the VWAP | 1.45 | 1.08 |
+
+The two references crossed, calm, 10:00 → close:
+
+| cell | n / yr | net PF | net 2016–20 / 2021–26 | losing years |
+|---|---|---|---|---|
+| above the open · above the VWAP | 116 | 1.28 | 1.57 / 1.15 | 3/11 |
+| **above the open · BELOW the VWAP** | 29 | **1.48** | 1.82 / 1.38 | 2/11 |
+| below the open · above the VWAP | 38 | 1.08 | 1.17 / 1.05 | 3/11 |
+| below the open · below the VWAP | 178 | 1.06 | 1.29 / 0.97 | 6/11 |
+
+**Held the open, but pulled back under the VWAP** is the best cell. It's the same mechanism as GF-34 (B): a dip inside a day that held.
+
+At 10:30, bought at 10:30, calm: held at 10:00 → below at 10:30 is **1.67** with the open as reference (0/11 losing years),
+against 1.45 with the VWAP (2/11). The open stays the better reference.
+
+**The z-score has no clean gradient.** 10:00 → close, net PF by band:
+
+| z band at 10:00 | < −2 | −2…−1 | −1…−0.5 | −0.5…0 | 0…0.5 | 0.5…1 | 1…2 | ≥ 2 |
+|---|---|---|---|---|---|---|---|---|
+| not calm | 0.73 | 0.70 | 0.80 | 0.86 | 0.86 | 0.95 | 1.02 | 0.80 |
+| calm | 1.77 (n 157) | 1.08 | 1.16 | 0.94 | 1.21 | 1.41 | 1.09 | 1.40 (n 125) |
+
+| z band at 10:30, calm, bought 10:30 | < −2 | −2…−1 | −1…−0.5 | −0.5…0 | 0…0.5 | 0.5…1 | 1…2 | ≥ 2 |
+|---|---|---|---|---|---|---|---|---|
+| net PF | 1.64 | 1.31 | 1.07 | 1.26 | 0.97 | 1.33 | 1.58 | 1.94 (n 119) |
+
+- Not calm: the further below the VWAP, the worse, but no band is positive. Above z 2 it is overextended (0.80).
+- Calm: a U-shape. Both extremes are good, but they are thin (n 120–160, 2–4/11 losing years) and the middle is noise. That
+  is what split bands look like when the base cell (calm) is positive and the bands are small.
+- Inside calm · held at 10:00 the 10:30 bands have n 42–378 and jump around (1.13–2.18): too thin to read.
+
+**Verdict:** keep the open as the reference. The z-score adds no monotone grading on top of calm + held. The one consistent
+mechanism across GF-34 and GF-35 is **buying the dip in a calm gap-up that held its open**: below the VWAP at 10:00, or below
+the open at 10:30.
+
+### GF-36 — held the open at 09:45 AND 10:00 vs at 10:00 alone (2026-10-20, user)
+
+Same sample. px_15 = the last 1s vwap before 09:45 (cache `px15.parquet`). Script: `scripts/equity/gapfader_hold945.py` →
+`data/equity/gapfader/hold945.md`. **80 % of the 10:00 holders also held at 09:45** (calm too), so the extra check can only
+move a fifth of the trades.
+
+| 10:00 → close, net PF (losing years) | held 10:00 | held both | failed 09:45 · held 10:00 | held 09:45 · failed 10:00 |
+|---|---|---|---|---|
+| all | 0.94 (7/11) | 0.86 (8/11) | 1.31 (4/11; clip 0.97, tail-driven) | 0.74 (9/11) |
+| calm | 1.32 (2/11) | **1.33** (2/11) | 1.30 (4/11; 2.18 / 0.98 by half) | 1.13 (5/11) |
+| calm · fading | 1.56 (3/11) | **1.58** (4/11) | 1.49 (n 89) | 1.03 |
+
+Bought at 10:30 instead, calm: held 10:00 1.44 · held both 1.39 · reclaimed 1.61 · held 09:45 → failed 10:00 1.44.
+
+**Verdict: no gain.** Holding at 09:45 as well changes nothing on a calm tape: 1.33 vs 1.32, and 1.58 vs 1.56 with fading.
+The ones that failed at 09:45 and reclaimed the open by 10:00 are as good in 2016–20, but weaker since 2021 (0.98, with 2022–25
+all below 1). The single 10:00 check stays.
+
+### GF-37 — held at 10:00, bought at the next 30-minute low (2026-10-20, user)
+
+Same sample, held at 10:00. The trigger is the first 1s bar after 10:00 (before 15:30) whose vwap is below either (a) the
+previous 1,800 s' lowest vwap (a rolling 30-min low) or (b) the 09:30–10:00 low (the opening-range low). Entry = the next
+1s bar's vwap; out at the close. Script: `scripts/equity/gapfader_dip30.py` → `data/equity/gapfader/dip30.md`, with the cache
+`dip30.parquet`.
+
+| calm · held, net PF (losing years) | trades / yr | net PF |
+|---|---|---|
+| bought at 10:00 | 145 | 1.32 (2/11) |
+| bought at 10:30 | 145 | **1.44** (1/11) |
+| (a) rolling 30-min low (fires on 100 %, median 10:37) | 145 | 1.37 (1/11) |
+| (b) below the opening-range low (fires on 34 %, median 10:50) | 50 | **1.54** (2/11) |
+| (b)'s days bought at 10:00 | 50 | 0.23 (11/11) |
+| (b)'s non-trigger days bought at 10:00 | 95 | 4.95 (0/11) |
+
+With calm · fading: 10:00 1.56 · 10:30 1.70 · (a) 1.55 · (b) 1.60 (19 / yr, 5/11 losing years).
+
+- **(a) is just a delay.** A rolling 30-min low almost always prints within minutes after 10:00. It does no better than
+  buying at 10:30.
+- **(b) is a selection, not a better entry.** It buys only the third of the days that break the opening-range low (median
+  2.2 % below the 10:00 price; p10 −5.2 %), and those days lose if bought at 10:00 (0.23). It skips the two thirds that never
+  look back, which are the big winners (4.95).
+- Per trade it's better (mean +0.51 % vs +0.37 %), but the total is smaller. With $1 per trade, the sum of net % is:
+
+  | entry | total |
+  |---|---|
+  | 10:00 | 597 |
+  | 10:30 | 693 |
+  | (b) alone | 279 |
+  | **10:00 + a second unit at (b)** | **875** |
+
+- Without the calm filter, (b) depends on a few big winners: 1.20 raw, 0.99 clipped.
+- (b) by trigger time: 10:00–10:30 1.51 · 10:30–11:30 2.37 (n 157) · 11:30–13:30 0.98 · 13:30–15:30 0.86. Late breaks of the
+  low don't recover by the close.
+
+⇒ **The opening-range low works as an ADD, not as a replacement:** buy at 10:00 (or 10:30), and add on a break of the
+09:30–10:00 low before ~11:30. That is a scale-in in a calm, held gap-up. It still needs a holdout.
+
+### GF-38 — the calm gap-up swing at every premarket volume (2026-10-20, user)
+
+All gap-ups ≥ 4 % (153,513), headline universe, held at 10:00. One pass for everything, cached in `swing_allpm.parquet`.
+Script: `scripts/equity/gapfader_swing_allpm.py` → `data/equity/gapfader/swing_allpm.md`. **Control:** the rvol_pm ≥ 0.2 rows
+reproduce GF-30 / 34 / 37 exactly (1.32 / 1.44 / 1.54 / 1.56 / 1.70).
+
+| net PF (losing years) | rvol_pm < 0.02 | 0.02–0.05 | 0.05–0.2 | **≥ 0.2** |
+|---|---|---|---|---|
+| held gap-ups / yr | 3,104 | 1,003 | 941 | 538 |
+| calm share of held | 69 % | 65 % | 51 % | 27 % |
+| calm · bought 10:00 | 0.98 (4/11) | 1.09 (3/11) | 1.13 (2/11) | **1.32** (2/11) |
+| calm · bought 10:30 | 1.09 (4/11; 2021–26 0.88) | 1.11 (4/11) | 1.14 (5/11) | **1.44** (1/11) |
+| calm · at the OR-low break | 1.06 (6/11) | 1.15 (2/11) | 1.06 (5/11) | **1.54** (2/11) |
+| calm · fading · bought 10:00 | 0.98 (7/11) | 1.00 (4/11) | 1.05 (7/11) | **1.56** (3/11) |
+| calm · fading · bought 10:30 | 1.04 (8/11) | 0.99 (8/11) | 1.07 (5/11) | **1.70** (1/11) |
+
+- **The edge does NOT carry below rvol_pm 0.2.**
+  - Below 0.02 it is gone: 0.98 at 10:00. The 1.09 at 10:30 comes from 2016 and 2020, with 2021–26 at 0.88 and 2025 at 0.47.
+  - At 0.02–0.2 it is thin and positive: 1.09–1.14, 2021–26 1.04–1.06.
+- **The grade is premarket volume:** calm · 10:00 rises with it: 0.98 → 1.09 → 1.13 → 1.32. GF-26 already found the same
+  ordering for the open trade.
+- The refinements found on rvol_pm ≥ 0.2 do not transfer: activity fading, the 10:30 delay and the OR-low entry each add
+  0–0.04 below 0.2. They are features of the heavy-premarket gap-up only.
+- ⚠ 2020 has 7,314 calm trades below rvol_pm 0.02 (other years 400–3,400). This is not a data gap: in March–June 2020 there
+  were 4.5–8.3k gap-ups ≥ 4 % a month, during the COVID market-wide gaps, when a stock's own premarket volume is small
+  relative to the move.
+
+### GF-39 — the calm gap-up swing by 09:30–10:00 relative volume (2026-10-20, user)
+
+rvol30 = volume 09:30–10:00 / avgvol20_prior (the census's `rvol_30m`, checked by recomputation). Sample: GF-38's held
+gap-ups, every rvol_pm (65,449). Script: `scripts/equity/gapfader_rvol30.py` → `data/equity/gapfader/rvol30.md`.
+
+Correlations: ρ(rvol30, rvol_pm) = 0.66; ρ(rvol30, activity persistence) = −0.07, so heavy volume and fading activity
+coexist freely, as the user suspected; ρ(rvol30, volat_clk) = 0.17.
+
+| calm, 10:00 → close, net PF | rvol30 < 0.1 | 0.1–0.2 | 0.2–0.5 | 0.5–1 | **≥ 1** |
+|---|---|---|---|---|---|
+| calm | 1.04 | 1.00 | 1.02 | 1.07 | **1.29** (1/11 losing) |
+| calm · fading | 1.21 | 0.94 | 0.94 | 1.04 | **1.43** (1/11) |
+| calm · not fading | 1.00 | 1.02 | 1.05 | 1.09 | 1.23 (1/11) |
+
+**Only rvol30 ≥ 1 matters.** That's a first half hour that traded a whole average day's volume. Crossed with the premarket
+(calm, rvol30 ≥ 1):
+
+| rvol_pm | all: n / yr, 10:00 / 10:30, losing years | fading: n / yr, 10:00 / 10:30, losing years |
+|---|---|---|
+| < 0.02 | 33 / yr, 1.03 / 1.11, 6/11 | 13 / yr, 0.81 / 0.88 |
+| 0.02–0.2 | **132 / yr, 1.24 / 1.22, 1/11** | 42 / yr, 1.38 / 1.32, 3/11 |
+| ≥ 0.2 | **102 / yr, 1.53 / 1.55, 2/11** | **31 / yr, 1.91 / 1.97, 2/11** |
+
+- **Inside the heavy-premarket cell, rvol30 is the grade.** Calm · held · rvol_pm ≥ 0.2 (1.32 overall) splits into rvol30 ≥ 1 at
+  1.53 (1,120 trades) and rvol30 0.5–1 at 1.02 (328). Below 0.5 there are almost none.
+- **rvol30 ≥ 1 opens the 0.02–0.2 premarket band:** 1.24 with 1/11 losing years, 132 / yr. Without it that band is 1.09–1.13.
+- **Below rvol_pm 0.02 nothing works,** even at rvol30 ≥ 1.
+- Fading adds on top: 1.43 vs 1.23 at rvol30 ≥ 1, and 1.91 inside rvol_pm ≥ 0.2.
+
+⇒ The candidate swing book: **calm · held · rvol30 ≥ 1 · rvol_pm ≥ 0.02**, about 234 / yr. Its grades are rvol_pm, then
+fading. Same-sample caveat: the rvol30 ≥ 1 cut and the bands were read off this table; a holdout is needed.
+
+### GF-40 — rvol30 on the non-calm gap-up tape, and on gap-downs (2026-10-20, user)
+
+LONG, 10:00 → close, net 0.7c, every rvol_pm. Script: `scripts/equity/gapfader_rvol30_more.py` → `data/equity/gapfader/rvol30_more.md`
+(GF-38's and GF-32's caches). Net PF [losing years]:
+
+| gap-ups, held at 10:00 | rvol30 < 0.2 | 0.2–0.5 | 0.5–1 | 1–2 | ≥ 2 |
+|---|---|---|---|---|---|
+| calm < 40 bp | 1.01 [3] | 1.02 [6] | 1.07 [5] | 1.21 [3] | **1.61 [0/11]** (867) |
+| 40–80 bp | 1.09 [7] | 1.01 [5] | 1.11 [3] | **1.20 [2]** (2,325) | 1.16 [4] |
+| wild ≥ 80 bp | 0.94 [8] | 1.10, clip 0.80 [4] | 0.88 [8] | 0.89 [5] | **0.72, clip 0.52 [11/11]** |
+| failed · calm | 1.03 [7] | 0.97 [6] | 0.92 [10] | 1.09 [5] | 1.14 [6] |
+
+| gap-downs, long | rvol30 < 0.2 | 0.2–0.5 | 0.5–1 | 1–2 | ≥ 2 |
+|---|---|---|---|---|---|
+| held · calm | 0.90 [4] | 1.19 [4] | 0.90 [8] | 0.90 [7] | 1.14 [4] |
+| held · 40–80 bp | 0.74 [7] | 1.03 [4] | 0.95 [6] | 0.91 [8] | 0.82 [7] |
+| held · wild | 0.72 [7] | 0.72 [9] | 0.63 [10] | 0.41 [10] | 0.81 [8] |
+| failed · calm | 0.76 [7] | 1.00 [5] | 0.83 [10] | **0.74 [11/11]** | 0.66 [9] |
+| failed · 40–80 bp | 0.73 [4] | 1.03 [7] | 0.90 [6] | **0.72 [11/11]** | 0.80 [9] |
+
+**Heavy first-half-hour volume is a long signal only on a calm tape.**
+- On a wild gap-up tape it is the worst cell there is: rvol30 ≥ 2 gives 0.72, losing in all 11 years, tail-driven (clip 0.52).
+- The middle tape (40–80 bp) gets a small lift at rvol30 1–2: 1.20 with 2/11 losing years.
+- The strongest single cell is **calm · held · rvol30 ≥ 2: 1.61, 0/11 losing years, about 79 / yr, at any premarket volume**.
+- **Gap-downs: no long swing at any rvol30.** A gap-down that failed its open on heavy volume keeps falling to the close
+  (long 0.66–0.74, failed · rvol30 1–2 losing in all 11 years). That would be the SHORT side, which is parked under the
+  longs-only ruling (2026-10-16). GF-32 already found the gap-down long edge spent by 10:00.
+
+GF-40 restricted to **rvol_pm ≥ 0.2** (computed inline from the same script's `load` / `grid`). Below rvol30 0.5 the cells
+are tiny: a heavy premarket nearly always comes with a heavy first half hour.
+
+| gap-ups, held at 10:00, net PF [n, losing years] | rvol30 0.5–1 | 1–2 | ≥ 2 |
+|---|---|---|---|
+| calm | 1.02 [328, 5/11] | 1.32 [509, 2/11] | **1.84** [611, 2/11] |
+| 40–80 bp | 1.29, clip 1.01 [418] | **1.30** [655, 2/11] | 1.18 [783, 4/11] |
+| wild | 0.95 | 0.88 | 0.74, clip 0.52 [1,391, 11/11] |
+
+Gap-downs at rvol_pm ≥ 0.2 show no positive long cell with ≥ 400 trades (0.49–1.18).
+
+### GF-41 — gap-downs that FAILED the open at 10:00 as SHORTS (2026-10-20, user)
+
+SHORT at the first 1s vwap at/after 10:00, cover at the close. Net = 0.7c / share, **no borrow or locate fee**. Every rvol_pm,
+58,561 failed gap-downs ≤ −4 %. Script: `scripts/equity/gapfader_gapdown_short.py` → `data/equity/gapfader/gapdown_short.md`.
+
+| short net PF [losing years] | rvol30 < 0.2 | 0.2–0.5 | 0.5–1 | **1–2** | **≥ 2** |
+|---|---|---|---|---|---|
+| calm < 40 bp | 1.12 [7] | 0.89 [7] | 1.12 [1] | **1.28 [0/11]** (2,114) | **1.41 [2]** (854) |
+| 40–80 bp | 1.10 [7] | 0.84 [6] | 1.00 [5] | **1.26 [0/11]** (1,660) | 1.17 [3] |
+| wild ≥ 80 bp | 1.04 [6] | 0.93 [4] | 1.06 [3] | **1.35 [1]** (529) | 1.28 [3] |
+| rvol_pm ≥ 0.2 · not calm | 0.65 | 0.72 | 0.93 | **1.46 [0/11]** (685) | 1.17 [4] |
+
+**Heavy first-half-hour volume (rvol30 ≥ 1) turns a failed gap-down into a short on every tape.**
+- None of these depend on a few big winners: the +50 % clip leaves them unchanged.
+- Below rvol30 1 it is noise (0.84–1.12, 5–7 losing years).
+- All failed gap-downs together: 1.08, which has decayed (1.48 in 2016–20, 0.91 in 2021–26).
+
+**Failed · not calm · rvol30 ≥ 1:** 3,440 trades, 313 / yr, net **1.27**, 1/11 losing years (2023 0.86), 1.41 / 1.20 by half.
+Median short +0.79 %, mean net +0.86 %.
+
+| split | net PF [losing years] |
+|---|---|
+| rvol_pm < 0.02 | 1.04 |
+| rvol_pm 0.02–0.2 | **1.33 [0]** |
+| rvol_pm 0.2–1 | 1.23 [1] |
+| rvol_pm ≥ 1 | 1.43 [3] |
+| gap ≤ −20 % | **1.38 [1]** |
+| gap −4 … −20 % | 1.13–1.30 |
+| price $1–3 | **1.68** |
+| price $3–10 | 1.33 |
+| price $10–30 | 0.98 |
+| price ≥ $30 | 1.04 |
+| dv20 $1–5M | **1.46 [0]** |
+| dv20 $5–25M | 1.26 |
+| dv20 ≥ $25M | 0.92 |
+| ≥ 10 % below the prior close at 10:00 (95 % of the cell) | 1.28 |
+| < 10 % below | 0.90 |
+
+⚠ **The edge sits exactly where shorting is hardest.**
+- It lives in cheap (under $10), thin (dv20 under $25M), deeply gapped names: the hard-to-borrow end. The locate fee per share
+  there can be a large fraction of a +0.86 % mean.
+- 95 % are under the **SSR uptick rule** (down ≥ 10 % from the prior close). The short must rest above the NBB, so it has to
+  be a maker entry. That is our style anyway, but the fill rate is unknown.
+- This sits under the longs-only ruling (2026-10-16, borrow failures). Before it can be revived we need: a locate-cost tally
+  on these names (the Oms journals log locate quotes), a maker short-entry fill model under SSR, and a holdout.
+
+### GF-42 — the gap-up long swing (calm · held at 10:00 · rvol30 ≥ 1) by segment (2026-10-20, user)
+
+Base: 2,964 trades, 269 / yr, net **1.29** at 10:00 (1/11 losing years) and 1.31 at 10:30 (0/11). Every rvol_pm. Script:
+`scripts/equity/gapfader_swing_segments.py` → `data/equity/gapfader/swing_segments.md`. Net PF at 10:00 [losing years]:
+
+| grade | bands → |
+|---|---|
+| rvol_pm | < 0.02 1.03 [5] · 0.02–0.2 1.24 [1] · 0.2–1 1.41 [3] · **1–5 2.54** [2] (22 / yr) · ≥ 5 1.43 (4.19 → 0.82 by half) |
+| rvol30 | 1–2 1.21 [3] · 2–5 **1.52** [1] · ≥ 5 **2.36** [1] (18 / yr): monotone |
+| gap | 4–6 % 1.11 [5] · **6–10 % 1.49** [1] · 10–20 % 1.24 [2] · 20–40 % 1.42 [4] · ≥ 40 % 1.06 (5.54 → 0.49, decayed) |
+| price | $1–3 1.62 (n 74) · $3–10 1.27 · $10–30 1.38 · $30–100 1.30 · **≥ $100 1.07** [4] |
+| dv20 | **$1–5M 1.64** [1] · $5–25M 1.21 · $25–100M 1.03 [6] · ≥ $100M 1.37: U-shaped |
+| fading | 1.43 [1] vs 1.23 [1] |
+
+Two-way with rvol_pm (< 0.2 / ≥ 0.2):
+
+| | rvol_pm < 0.2 | rvol_pm ≥ 0.2 |
+|---|---|---|
+| dv20 $1–5M | 1.45 | **2.20 [0/11]** (274) |
+| dv20 $25–100M | 0.99 | 1.14 |
+| gap 6–10 % | 1.39 | **1.84** |
+| gap 4–6 % | 0.95 | 1.76 |
+| price $3–10 | 1.07 | 1.71 |
+| price ≥ $100 | 0.98 | 1.37 |
+
+**Reading:** the clean graders are **rvol30** (monotone), **rvol_pm** (monotone up to 5) and **fading**. dv20 is U-shaped:
+thin names are best and $25–100M is dead. Gap and price are noisy, except that ≥ 40 % gaps and ≥ $100 stocks are weak.
+
+Narrowing to the best cells reaches PF 2+ (dv20 $1–5M · rvol_pm ≥ 0.2: 2.20, 0/11), but on 25–30 trades a year, and every cut
+was read off this table. ⇒ The next step is a **PF−1 sizing model** (FlushFaderV2's method: logit p, log W, log L) on the base
+cell, with ln rvol30, ln rvol_pm, fading, the dv20 shape and a gap term, scored on the two half holdouts. That turns these
+graders into position size without hard cuts.
+
+### GF-43 — below the $1M dv20 floor (2026-10-20, user)
+
+The census starts at dv20 $250k, so this band is $0.25–1M: 46,020 gap-ups, with the tape built as in GF-38 (cache
+`swing_sub1m.parquet`). Script: `scripts/equity/gapfader_swing_sub1m.py` → `data/equity/gapfader/swing_sub1m.md`.
+
+| held at 10:00, net PF 10:00 [n, losing years] | dv20 $0.25–0.5M | $0.5–1M | $1–5M (GF-42) |
+|---|---|---|---|
+| calm | 0.97 [649, 6] | 1.19 [1,054, 3] | 1.09 [6,346, 4] |
+| not calm | 0.83 [5,510, **11/11**] | 0.87 [5,338, **11/11**] | 1.03 [11,584, 7] |
+| **calm · rvol30 ≥ 1** | **1.52** [160, 4] (raw 1.72) | **1.43** [206, 3] | **1.64** [693, 1] |
+| calm · rvol30 ≥ 2 | 2.15 [83, 2] | 1.67 [95, 3] | 1.54 [254, 3] |
+| calm · rvol30 ≥ 1 · rvol_pm ≥ 0.2 | 1.75 [92, 3] | 1.37 [111, 5] | **2.20** [274, 0] |
+| not calm · rvol30 ≥ 1 | **0.70** [1,508, 10/11] | **0.74** [1,486, 10/11] | 0.98 [2,913, 6] |
+
+- **The calm · rvol30 ≥ 1 rule holds below $1M** (1.43–1.52), but there are only ~34 trades / yr, with 3–4 losing years.
+  Fees take a visible share: $0.25–0.5M is 1.72 raw vs 1.52 net, with median price $7.69.
+- The year table (net PF): 2016 5.43 (8 trades) · 2017 1.11 · 2018 0.72 · 2019 2.94 · 2020 1.13 · 2021 1.11 · 2022 2.94 ·
+  2023 1.02 · 2024 2.15 · 2025 1.50 · 2026 1.42.
+- Fading and rvol_pm, the graders that worked from $1M up, are noise here (n 59–111).
+- **Thin and not calm is the worst place to be long:** 0.70–0.74, losing in 10–11 of 11 years.
+- ⚠ Our net PF charges only the 0.7c commission; the spread is not modelled, and it is widest exactly in these names.
+  Median 09:30–10:00 dollar volume is $1.3M, so capacity is fine for a small account, but a maker fill model is needed
+  before this band is trusted.
+
+⇒ Extend the swing's universe to dv20 ≥ $500k at most, and only under calm · rvol30 ≥ 1. The $1–5M band stays the core.
+
+### GF-44 — dv20 $1–5M · calm · held · rvol30 ≥ 1, by gap and price, with fading (2026-10-20, user)
+
+693 trades, 63 / yr, net 1.64 (1/11 losing years). Fading 1.76 vs not fading 1.52. Script:
+`scripts/equity/gapfader_dv15_breakdown.py` → `data/equity/gapfader/dv15_breakdown.md`. Net PF 10:00 [n, losing years]:
+
+| | all | fading | not fading |
+|---|---|---|---|
+| gap 4–6 % | 1.23 [209, 4] (0.85 in 2016–20) | 1.47 | 1.00 |
+| gap 6–10 % | **1.85** [232, 1] | 1.73 | 2.00 |
+| gap 10–20 % | **1.70** [159, 2] | 2.34 | 1.23 |
+| gap 20–40 % | 5.38 [63, 4] (7.98 → 2.71) | 2.24 [20] | 8.20 [43] |
+| price $1–3 | 1.50 [61, 5] | 0.66 | 3.76 |
+| price $3–10 | 1.38 [230, 2] (0.88 → 2.01) | **1.93** | **0.99** |
+| **price $10–30** | **2.03 [299, 0/11]** | 2.02 | 2.04 |
+| price ≥ $30 | 1.58 [103, 5] | 1.77 | 1.34 |
+
+Gap × price, all: the **$10–30 column is positive at every gap** (4–6 % 1.80 · 6–10 % 1.83 · 10–20 % 1.93 · 20–40 % 7.09,
+n 31). 4–6 % gaps on stocks under $10 are about breakeven (0.96–1.01).
+
+**Reading:**
+- The one segment that holds across the other splits is **price $10–30**: 2.03 with 0/11 losing years, about 27 / yr. It is
+  the same at every gap, and it doesn't care about fading (2.02 vs 2.04).
+- Inside this band **fading is not a consistent grader**. It helps at $3–10 (1.93 vs 0.99) and on 10–20 % gaps, but goes the
+  other way at $1–3 and on 6–10 % / 20–40 % gaps. The cells are 20–160 trades, i.e. noise. In the full base (GF-42) it was 1.43
+  vs 1.23. Leave it to the sizing model, not a hard cut.
+- 4–6 % gaps are the weak end (1.23, with 2016–20 at 0.85).
+- ⚠ Every cell here is 2–27 trades a year, after about 30 splits of one sample. Read it as shape for the model, not as rules.
