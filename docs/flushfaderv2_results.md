@@ -752,3 +752,51 @@ engine + Sizing, 66 min).
   VCX** (Fundrise Innovation Fund, a closed-end fund). That is 0.02 % of the book, with sized net +7.9 of 28,308. The
   reference and live trade the same universe to a rounding error. (PSNYW is excluded live too; it never reached the
   book, being under $1.)
+
+## V2-17 — how often are signal days THIN? (2026-10-21)
+
+**Question (user).** The first live week gave 10 · 9 · 6 · 5 · 1 tickers a day (10-14 … 10-20) against a 2026 book mean of
+~15. Is the pipeline losing signals, or is the market thin? And how often do such days happen?
+
+**Pipeline check.** `parity trips --from-bars` (all four systems) on the same days, after the backfill of 10-19 / 10-20:
+the reference makes exactly the live tickers every day — 10-14 10, 10-15 9, 10-16 6 (the week-1 review's runs), 10-19 5
+(FUFU AAME YMAT XLAB OCUL), 10-20 1 (AIXI: SpikeFader short 11:25, FlushFader long 11:51). **Nothing is lost live.**
+
+**Setup.** `scripts/equity/book_daily_counts.py` (tables: `data/flushfaderv2/daily_counts.md`): the distinct tickers per day
+of the four production reference books (FlushFaderV2 + LowFader + SpikeFader + Snoozer), 2020-01-02 … 2026-07-17 (the span
+all four cover), every trading day counted (no trade = 0). The driver: universe names (`mr_candidate_1s_v2`) whose day low
+is ≥ 10 % under the previous close (`low / close_m1 − 1 ≤ −10 %`, from `data/v2/daily_prices`).
+
+| year | mean / day | median | days ≤ 1 | days ≤ 5 | 5-day stretches with mean ≤ 6.2 (the live week) |
+|---|---|---|---|---|---|
+| 2020 | 18.6 | 14 | 2 | 9.9 % | 6.4 % |
+| 2021 | 21.6 | 16 | 0 | 0.4 % | 0 % |
+| 2022 | 10.3 | 9 | 3 | 14.7 % | 14.3 % |
+| 2023 | 7.6 | 7 | 3 | 28.0 % | **32.8 %** |
+| 2024 | 11.9 | 11 | 0 | 6.7 % | 2.4 % |
+| 2025 | 16.6 | 15 | 0 | 2.0 % | 0 % |
+| 2026 (to 07-17) | 15.5 | 15 | 0 | 1.5 % | 0 % |
+| all | 14.5 | 12 | 8 (0.5 %) | 9.6 % | 8.5 % |
+
+| names down ≥ 10 % (decile) | ≤ 8 | 9–11 | 12–13 | 14–16 | 17–18 | 19–21 | 22–27 | 28–34 | 35–51 | > 51 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| mean tickers / day | 7.7 | 9.7 | 10.5 | 11.4 | 12.8 | 13.2 | 14.9 | 17.0 | 18.2 | 31.6 |
+| days ≤ 5 | 32.1 % | 13.5 % | 10.1 % | 10.7 % | 9.5 % | 6.6 % | 1.7 % | 3.3 % | 2.5 % | 1.2 % |
+
+The driver in the live weeks and by month (2026, mean names down ≥ 10 % per day):
+
+| Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct (to 20th) |
+|---|---|---|---|---|---|---|---|---|---|
+| 32.7 | 48.6 | 32.2 | 25.0 | 40.5 | 48.3 | 40.9 | 25.5 | **13.7** | 24.9 |
+
+10-14 77 · 10-15 48 · 10-16 51 · **10-19 8 · 10-20 3** (the universe: ~1,086 names / day in June, 918 in October; no gap).
+
+Reading:
+- **A one-ticker day is rare (8 in 6½ years) but thin STRETCHES are not:** 8.5 % of all 5-day windows were as thin as the
+  live week, a third of 2023's. None in 2025–26 before September.
+- **Thin days cluster.** Lag-1 autocorrelation of the count 0.67 (lag 20: 0.23). After a thin day (≤ 6 tickers, the
+  bottom decile with ties: 14.5 % of days) the next is thin 43 % of the time. After a 20-day mean < 6, 43 % of days have ≤ 5.
+- **The count follows the market's flushes** (ρ 0.53 with names down ≥ 10 %; 0.55 with names up ≥ 20 %). 10-19 and 10-20
+  had 8 and 3 such names, the bottom decile; September 2026 was the quietest month of the year.
+- Many of the thinnest days are holiday-adjacent (2022-11-23/25, 2023-07-03, 2023-11-24, 2025-11-28).
+- **Verdict:** the live week is the market, not the system: a quiet tape, as in 2022–23. Expect weeks like it, in runs.
