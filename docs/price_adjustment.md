@@ -168,6 +168,31 @@ the cash.
 not a special case. It is implemented by the strict `>` in the dividend ASOF join
 in `03_daily_adjusted.sql`.
 
+## 4b. The dividend currency (fixed 2026-10-21)
+
+**`cash_amount` is quoted in the currency the dividend was DECLARED in, not the one the stock trades in.** US
+listings of Canadian and European issuers trade in USD on the SIP tape but declare in CAD / EUR / CHF / ILS: RY 1.76 CAD,
+TD 1.12 CAD, ENB 0.97 CAD, TTE 0.90 EUR, RACE 3.615 EUR, ALC 0.28 CHF. **2,713 records on 165 tape tickers** (CAD 2,493,
+then ILS, EUR, CHF, BMD, GBP, …). Until 2026-10-21 they were added to `C` as dollars: a CAD dividend was overstated by
+~35 %.
+
+The vendor's `currency` field is now in `dividends.csv` (its last column), and **the ingest converts every amount to
+USD** (`Database.dividendsSource`, shared by trading.db and the v2 build), so `daily_adjusted` and everything
+downstream is unchanged:
+
+| piece | rule |
+|---|---|
+| the rates | the ECB euro reference rates (`data/fx/eurofxref-hist.csv`, re-fetched whole by `backfill-daily` step 3b; free, every business day since 1999, ~30 currencies). Massive's forex history on our plan starts 2024-10 — too short |
+| the cross | USD per X = (USD per EUR) / (X per EUR) |
+| the date | the last ECB business day ON OR BEFORE the ex-date, at most 10 days stale; an ex-date past the file's end (an announced dividend) on a series still published takes the latest rate — the table is rebuilt daily |
+| USD, BMD (pegged), no currency (5 rows) | rate 1.0 |
+| no rate | a currency the ECB does not carry (TWD, ARS, PEN, LBP, …) or an ex-date before its ECB series starts (ILS before 2011): **the row is kept out of the tables** (1,345 rows, 11 on tape tickers); it stays in the CSV |
+| audit | the tables keep `currency`, `cash_amount_orig` and `fx_rate` (USD per unit) beside the converted `cash_amount` |
+
+Check: RY 2026-07-27, 1.76 CAD × 0.70898 = 1.2478 USD; `cum_div` steps by 1.2478 × n(ex−1) = 2.4956 (was 3.52).
+The vendor's labels are taken as given, though they are not always consistent (TTE: 0.90 EUR on 2026-09-30, 0.90 USD on
+2026-12-31).
+
 ## 5. The ingest keys (fixed 2026-08-12)
 
 Both reference tables were keyed on `(ticker, <event date>)` and upserted with

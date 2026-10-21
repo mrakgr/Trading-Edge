@@ -80,14 +80,9 @@ let private parseDividendResult (r: DividendResult) : Dividend option =
         }
     else None
 
-/// ⚠ `id` FIRST — it is the primary key. Changing this header intentionally
-/// INVALIDATES every existing monthly cache file (see cacheIsCurrent): a cache
-/// written under the old 7-column layout is missing rows that the old
-/// (ticker, ex_dividend_date) key dropped, so it must be re-fetched, not parsed.
-/// PUBLIC so the final data/dividends.csv writer uses the SAME serialization as
-/// the monthly cache. They used to be duplicated, and the copy in Program.fs was
-/// missed when `id` was added — producing a 7-column file the ingest rejected.
-/// `currency` (2026-10-21) LAST: adding it changed the header, so every monthly cache was re-fetched once.
+/// ⚠ `id` FIRST — it is the primary key. PUBLIC so the final data/dividends.csv writer uses the SAME serialization
+/// as `readCsv`. They used to be duplicated, and a copy in Program.fs was missed when `id` was added — producing a
+/// 7-column file the ingest rejected. `currency` (2026-10-21) LAST.
 let csvHeader = "id,ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type,currency"
 
 let dividendToCsvLine (d: Dividend) =
@@ -97,12 +92,14 @@ let dividendToCsvLine (d: Dividend) =
     let currencyStr = d.Currency |> Option.defaultValue ""
     $"{d.Id},{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType},{currencyStr}"
 
-/// Download all dividends for a single date range (sequential pagination)
-let private downloadDateRange
+/// Download all dividends for a single date range (sequential pagination), in one sort order (`desc`, the API's
+/// default, or `asc`).
+let private downloadDateRangeOrdered
     (httpClient: HttpClient)
     (apiKey: string)
     (startDateStr: string)
     (endDateStr: string)
+    (order: string)
     (ct: CancellationToken)
     : Async<Result<Dividend list, string>> =
     async {
@@ -112,7 +109,7 @@ let private downloadDateRange
             match nextUrl with
             | Some n when n.Contains "apiKey=" -> n
             | Some n -> $"{n}&apiKey={apiKey}"
-            | None -> $"{baseUrl}?ex_dividend_date.gte={startDateStr}&ex_dividend_date.lte={endDateStr}&limit=1000&apiKey={apiKey}"
+            | None -> $"{baseUrl}?ex_dividend_date.gte={startDateStr}&ex_dividend_date.lte={endDateStr}&limit=1000&order={order}&apiKey={apiKey}"
 
         let rec fetchPage (nextUrl: string option) : Async<Result<unit, string>> =
             async {
@@ -162,6 +159,34 @@ let private downloadDateRange
         | Ok () -> return Ok (results |> Seq.toList)
     }
 
+/// ⚠ THE API CAN SILENTLY RETURN AN INCOMPLETE CURRENT MONTH (2026-10-21, docs/massive_cli_gotchas.md). For ~15 minutes
+/// (08:51–09:04 UTC) the default (desc) range query for October skipped 100 of 446 records dated 2026-10-02 (ROP, RSG,
+/// SATA, … — a contiguous block of tickers at a page boundary) while `order=asc` returned all of them; a single-date
+/// query dropped others (10-21: 32 of 127). By 09:17 every shape agreed. Pages are OFFSET-based and sorted on a
+/// non-unique key, so a result set changing under the reader can skip rows. Past months agree in every order. So a
+/// month that is downloaded (= not cached: the current month and the future) is fetched in BOTH orders and merged by
+/// `id`, and a disagreement is reported — a mitigation, not a guarantee. Without it the ingest RETIRED the skipped ids
+/// (retireAbsentIds) until the next run.
+let private downloadDateRange
+    (httpClient: HttpClient)
+    (apiKey: string)
+    (startDateStr: string)
+    (endDateStr: string)
+    (ct: CancellationToken)
+    : Async<Result<Dividend list, string>> =
+    async {
+        let! desc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "desc" ct
+        let! asc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "asc" ct
+        match desc, asc with
+        | Error msg, _ | _, Error msg -> return Error msg
+        | Ok d, Ok a ->
+            let merged = (d @ a) |> List.distinctBy (fun x -> x.Id)
+            if merged.Length <> d.Length || merged.Length <> a.Length then
+                printfn "  ⚠ dividends %s..%s: desc %d, asc %d, merged %d (the API dropped records in one order)"
+                    startDateStr endDateStr d.Length a.Length merged.Length
+            return Ok merged
+    }
+
 /// Split a date range into monthly chunks as (year, month) pairs
 let private splitIntoMonths (startDate: DateTime) (endDate: DateTime) : (int * int) list =
     let rec loop (y, m) acc =
@@ -173,57 +198,58 @@ let private splitIntoMonths (startDate: DateTime) (endDate: DateTime) : (int * i
             loop (nextY, nextM) ((y, m) :: acc)
     loop (startDate.Year, startDate.Month) []
 
-/// Cache file path for a month
-let private monthCachePath (cacheDir: string) (year: int) (month: int) =
-    Path.Combine(cacheDir, $"{year}-{month:D2}.csv")
+/// Read a dividends CSV written by `dividendToCsvLine` (data/dividends.csv). A file in an older layout (no
+/// `currency` column) reads as EMPTY — the caller treats that as "no previous file".
+let readCsv (path: string) : Dividend list =
+    if not (File.Exists path) then []
+    else
+        let lines = File.ReadAllLines path
+        if lines.Length = 0 || lines.[0].Trim() <> csvHeader then []
+        else
+            lines
+            |> Array.skip 1 // header
+            |> Array.choose (fun line ->
+                let parts = line.Split(',')
+                if parts.Length >= 9 then
+                    Some ({
+                        Id = parts.[0]
+                        Ticker = parts.[1]
+                        ExDividendDate = DateTime.Parse parts.[2]
+                        CashAmount = float parts.[3]
+                        DeclarationDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
+                        PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
+                        Frequency = int parts.[6]
+                        DividendType = parts.[7]
+                        Currency = if String.IsNullOrWhiteSpace parts.[8] then None else Some parts.[8]
+                    } : Dividend)
+                else None)
+            |> Array.toList
 
-/// Write dividends to a CSV cache file
-let private writeCacheCsv (path: string) (dividends: Dividend list) =
-    use writer = new StreamWriter(path)
-    writer.WriteLine csvHeader
-    for d in dividends do
-        writer.WriteLine(dividendToCsvLine d)
+/// ⭐ THE CURRENT-MONTH GUARD (2026-10-21). A record of the PREVIOUS file that the fresh download lacks is carried
+/// over when (a) its ex-date is in the current month or later, (b) it is inside the requested range, and (c) the
+/// fresh download has NO record for the same (ticker, ex-date). (c) tells the two causes apart: the vendor re-keys a
+/// record under a new id (a replacement exists: the old id is retired, as the mirror rule wants), while a dropped
+/// page loses the record outright (no replacement: keep it). The vendor's 2026-10-21 fault was in the month it was
+/// still loading (docs/massive_cli_gotchas.md). A genuine deletion of a current-month record therefore lingers until
+/// its month is past, then is retired. Returns the merged list and the number carried.
+let carryOverDropped (previous: Dividend list) (fresh: Dividend list) (startDate: DateTime) (endDate: DateTime) (now: DateTime)
+    : Dividend list * int =
+    let since = DateTime(now.Year, now.Month, 1)
+    let freshIds = fresh |> Seq.map (fun d -> d.Id) |> Collections.Generic.HashSet
+    let freshKeys = fresh |> Seq.map (fun d -> d.Ticker, d.ExDividendDate) |> Collections.Generic.HashSet
+    let carried =
+        previous
+        |> List.filter (fun d ->
+            d.ExDividendDate >= since && d.ExDividendDate >= startDate && d.ExDividendDate <= endDate
+            && not (freshIds.Contains d.Id) && not (freshKeys.Contains((d.Ticker, d.ExDividendDate))))
+    fresh @ carried, carried.Length
 
-/// ⭐ A cache file is usable ONLY if its header matches the current layout.
-/// Old caches predate the `id` key, so they are missing every row the old
-/// (ticker, ex_dividend_date) key collided away. Treating them as valid would
-/// silently re-import the very data loss this change exists to fix — so a
-/// header mismatch means "not cached", and the month is re-downloaded.
-let private cacheIsCurrent (path: string) : bool =
-    try
-        use r = new StreamReader(path)
-        match r.ReadLine() with
-        | null -> false
-        | h -> h.Trim() = csvHeader
-    with _ -> false
-
-/// Read dividends from a cached CSV file. Only ever called on a file that
-/// cacheIsCurrent has already approved, so the column layout is known.
-let private readCacheCsv (path: string) : Dividend list =
-    let lines = File.ReadAllLines path
-    lines
-    |> Array.skip 1 // header
-    |> Array.choose (fun line ->
-        let parts = line.Split(',')
-        if parts.Length >= 9 then
-            Some ({
-                Id = parts.[0]
-                Ticker = parts.[1]
-                ExDividendDate = DateTime.Parse parts.[2]
-                CashAmount = float parts.[3]
-                DeclarationDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
-                PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
-                Frequency = int parts.[6]
-                DividendType = parts.[7]
-                Currency = if String.IsNullOrWhiteSpace parts.[8] then None else Some parts.[8]
-            } : Dividend)
-        else None)
-    |> Array.toList
-
-/// Download dividends with monthly chunking, caching, and max parallelism.
-/// Months before the current month are cached and not re-downloaded.
-/// The current month is always re-downloaded.
-/// Results are merged into outputCsvPath.
+/// Download dividends month by month, every month every run, all months in parallel.
+/// ⚠ NO CACHE (removed 2026-10-21). A monthly cache froze each past month at its first download, but the vendor keeps
+/// revising history: against a full re-download the cache had hidden 250 new ids, 66 deleted ids and 407 changed
+/// amounts/dates in months before 2026-09, back to 2003 — and the ingest's mirror rule (retire the ids the file no
+/// longer carries) cannot work on a file that is partly an old snapshot. The full range takes ~3 minutes (both
+/// orders, see downloadDateRange).
 let downloadDividendsWithConsoleProgress
     (httpClient: HttpClient)
     (apiKey: string)
@@ -234,35 +260,13 @@ let downloadDividendsWithConsoleProgress
     async {
         let effectiveEnd = endDate |> Option.defaultValue DateTime.Now
         let months = splitIntoMonths startDate effectiveEnd
-        let now = DateTime.Now
-        let currentYear, currentMonth = now.Year, now.Month
+        printfn "Dividend months: %d to download" months.Length
 
-        let cacheDir = "data/dividends_cache"
-        Directory.CreateDirectory cacheDir |> ignore
-
-        let cached, toDownload =
-            months
-            |> List.partition (fun (y, m) ->
-                // A month is cached if it's strictly before the current month AND the cache file
-                // exists AND its header matches the CURRENT layout (see cacheIsCurrent — an
-                // old-layout cache is missing rows and must be re-downloaded, not reused).
-                (y < currentYear || (y = currentYear && m < currentMonth))
-                && File.Exists(monthCachePath cacheDir y m)
-                && cacheIsCurrent (monthCachePath cacheDir y m))
-
-        printfn "Dividend months: %d total, %d cached, %d to download" months.Length cached.Length toDownload.Length
-
-        // Load cached months
-        let cachedDividends =
-            cached
-            |> List.collect (fun (y, m) -> readCacheCsv (monthCachePath cacheDir y m))
-
-        // Download remaining months in parallel (all at once)
-        let allResults = Collections.Concurrent.ConcurrentBag<int * int * Result<Dividend list, string>>()
+        let allResults = Collections.Concurrent.ConcurrentBag<Result<Dividend list, string>>()
         let completed = ref 0
 
         let tasks =
-            toDownload
+            months
             |> List.map (fun (y, m) ->
                 async {
                     let monthStart = DateTime(y, m, 1)
@@ -270,34 +274,21 @@ let downloadDividendsWithConsoleProgress
                     // Clamp to the requested range
                     let s = max monthStart startDate
                     let e = min monthEnd effectiveEnd
-                    let sStr = s.ToString "yyyy-MM-dd"
-                    let eStr = e.ToString "yyyy-MM-dd"
-                    let! result = downloadDateRange httpClient apiKey sStr eStr ct
-                    allResults.Add((y, m, result))
+                    let! result = downloadDateRange httpClient apiKey (s.ToString "yyyy-MM-dd") (e.ToString "yyyy-MM-dd") ct
+                    allResults.Add result
                     let n = Interlocked.Increment completed
-                    printfn "Downloaded month %d/%d: %04d-%02d" n toDownload.Length y m
+                    if n % 50 = 0 || n = months.Length then printfn "Downloaded month %d/%d" n months.Length
                 })
 
         do! tasks |> Async.Parallel |> Async.Ignore
 
-        // Collect and cache results
-        let mutable downloadedDividends = []
-        let mutable error = None
-        for (y, m, result) in allResults do
-            match result with
-            | Error msg when error.IsNone -> error <- Some msg
-            | Ok divs ->
-                downloadedDividends <- divs @ downloadedDividends
-                // Cache if it's a completed (past) month
-                if y < currentYear || (y = currentYear && m < currentMonth) then
-                    writeCacheCsv (monthCachePath cacheDir y m) divs
-            | _ -> ()
-
-        match error with
+        match allResults |> Seq.tryPick (function Error msg -> Some msg | Ok _ -> None) with
         | Some msg -> return Error msg
         | None ->
             let all =
-                (cachedDividends @ downloadedDividends)
-                |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker)
+                allResults
+                |> Seq.collect (function Ok divs -> divs | Error _ -> [])
+                |> Seq.sortBy (fun d -> d.ExDividendDate, d.Ticker)
+                |> Seq.toList
             return Ok all
     }

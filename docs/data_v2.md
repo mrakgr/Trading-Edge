@@ -8,7 +8,7 @@ production must build their data **the same way** (user). v2 is parquet built fr
 
 | what | where | built by | run time |
 |---|---|---|---|
-| raw inputs | `data/daily_aggregates/*.csv.gz`, `data/{splits,dividends,tickers}.csv` | `backfill-daily` downloads | — |
+| raw inputs | `data/daily_aggregates/*.csv.gz`, `data/{splits,dividends,tickers}.csv`, `data/fx/eurofxref-hist.csv` (the ECB rates the dividends are converted to USD with, 2026-10-21; docs/price_adjustment.md §4b) | `backfill-daily` downloads | — |
 | daily set | `data/v2/{daily_prices,splits,dividends,ticker_reference,split_corrections,daily_adjusted}.parquet` + `manifest.json` (previous build: `data/v2.prev/`) | `TradingEdge.Database build-v2`, or `backfill-daily` (after the v1 ingest) / `backfill-daily --v2-only` (VPS: no trading.db) | ~50 s (16 threads); 67 s / 4.2 GB peak at 4 threads |
 | research universe | `data/v2_candidates/mr_candidate_1s_v2/date=…/` (hive) + `liq_cache/` | `dotnet fsi scripts/equity/build_mr_candidate_1s.fsx -- --v2 data/v2` | full 2.5 min (2,534 slim days), cached rerun 11 s |
 | reference corpora | `data/v2_candidates/corpora/{flushfader_v49tkd_cand,flushfader_v17tkd_cand,spikefader_s44_whitelist,lowfader_wide_whitelist}.parquet` | exported once from v1 | — |

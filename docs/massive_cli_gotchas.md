@@ -52,6 +52,31 @@ After the fix the inventory returned to exactly the 53-split baseline and the
 validator was re-pinned (SHIFT 31 / REJECT 138; Polygon had corrected BMI's 2016
 split date itself).
 
+## ⚠ The dividends API can SILENTLY return an incomplete current month (2026-10-21)
+
+For a window of at least ~15 minutes (seen 08:51–09:04 UTC, gone by 09:17; a run at 08:15 was complete), different query
+shapes for the current month returned DIFFERENT result sets, each paginating to the end with no error:
+
+| query | records | dated 10-02 | dated 10-21 |
+|---|---|---|---|
+| `ex_dividend_date.gte=2026-10-01&.lte=2026-10-31` (default: `sort=ex_dividend_date&order=desc`) | 6,396 | **346** | 127 |
+| the same + `order=asc` | 6,496 | 446 | 127 |
+| `ex_dividend_date=2026-10-02` | 446 | 446 | — |
+| `ex_dividend_date=2026-10-21` | **32** | — | 32 |
+
+The desc range lost a contiguous block of tickers at a page boundary (page 5 ended at VVBVX, page 6 began at RGISX:
+ROP, RSG, SATA, SEMY, … skipped) — the same in three tries minutes apart. The pages are OFFSET-based (the cursor
+decodes to `ap=1000, 2000, …`) and sorted on `ex_dividend_date` alone, a non-unique key, so a result set that changes
+under the reader (likely the vendor's daily load: today's 10-21 records were arriving) can skip rows. Past months agree
+in every order and with our cache (sampled 2008 … 2026-09). The ingest's mirror rule then RETIRED the skipped ids
+until the next run.
+
+**Mitigation (`DividendDownload.downloadDateRange`): a month that is downloaded (= not cached: the current month and
+the future) is fetched in BOTH orders and merged by `id`** — it recovered all 100 in that window, but it is a mitigation,
+not a guarantee; a disagreement prints
+`⚠ dividends <from>..<to>: desc N, asc M, merged K`. Splits page the same way but were checked complete the same day
+(full range, desc = asc = our file, 28,648 ids); they are still fetched in one order.
+
 ## ⭐ Just use `backfill-daily`
 
 ```

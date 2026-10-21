@@ -177,32 +177,101 @@ let splitsSource (filePath: string) = $"""
             header = true
         )"""
 
-/// The dividends mirror (`data/dividends.csv`, always the FULL range).
-let dividendsSource (filePath: string) = $"""
+/// The dividends mirror (`data/dividends.csv`, always the FULL range), every row with its USD conversion.
+///
+/// ⭐ `cash_amount` OUT OF HERE IS IN THE TRADING CURRENCY — USD, the SIP tape's (2026-10-21). The vendor quotes each
+/// dividend in the currency it was DECLARED in (the CSV's `currency`): US listings of Canadian/European issuers (RY, TD,
+/// ENB, TTE, RACE, …) trade in USD but declare in CAD/EUR — 2,713 records on 165 tape tickers. Added to a USD price
+/// series as they were, a CAD dividend was overstated by ~35 %. The CSV stays a faithful vendor mirror; the conversion
+/// happens here, so `daily_adjusted` and everything downstream is unchanged.
+///
+/// The rate: the ECB euro reference rates (`data/fx/eurofxref-hist.csv`, `backfill-daily` step 3b), crossed through EUR
+/// (USD per X = USD-per-EUR / X-per-EUR), on the LAST ECB business day ON OR BEFORE the ex-date, at most 10 days stale —
+/// except an ex-date past the file's end (an announced dividend) on a series still published, which takes the latest
+/// rate (the table is rebuilt every day). USD, BMD (pegged 1:1) and a missing currency (5 rows) are 1.0.
+/// `fx_rate` = USD per 1 unit of `currency`; `cash_amount_orig` = the vendor's amount.
+/// A row with NO rate (fx_rate NULL: a currency the ECB does not carry — TWD, ARS, PEN, … — or an ex-date before its
+/// ECB series starts; 1,345 rows on 2026-10-21, 11 on tape tickers) is kept OUT of the tables: see `dividendsSource`.
+let dividendsConverted (filePath: string) (fxPath: string) = $"""
+        WITH raw AS (
+            SELECT
+                id,
+                ticker,
+                ex_dividend_date::DATE AS ex_dividend_date,
+                cash_amount,
+                CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END AS declaration_date,
+                CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END AS pay_date,
+                frequency,
+                dividend_type,
+                CASE WHEN currency = '' THEN NULL ELSE currency END AS currency
+            FROM read_csv('{filePath}',
+                columns = {{
+                    'id': 'VARCHAR',
+                    'ticker': 'VARCHAR',
+                    'ex_dividend_date': 'VARCHAR',
+                    'cash_amount': 'DOUBLE',
+                    'declaration_date': 'VARCHAR',
+                    'pay_date': 'VARCHAR',
+                    'frequency': 'INTEGER',
+                    'dividend_type': 'VARCHAR',
+                    'currency': 'VARCHAR'
+                }},
+                header = true)
+        ),
+        -- the ECB file is WIDE (Date, USD, JPY, …; "N/A" where a currency was not quoted): X per EUR, one row per (d, ccy)
+        ecb AS (
+            SELECT "Date"::DATE AS d, ccy, try_cast(v AS DOUBLE) AS per_eur
+            FROM (UNPIVOT (SELECT * FROM read_csv('{fxPath}', header = true, all_varchar = true))
+                  ON COLUMNS(* EXCLUDE ("Date")) INTO NAME ccy VALUE v)
+            WHERE try_cast(v AS DOUBLE) > 0
+        ),
+        usd_per AS (
+            SELECT e.d, e.ccy, u.per_eur / e.per_eur AS usd_per_unit
+            FROM ecb e JOIN ecb u ON u.d = e.d AND u.ccy = 'USD'
+            WHERE e.ccy <> 'USD'
+            UNION ALL
+            SELECT d, 'EUR', per_eur FROM ecb WHERE ccy = 'USD'
+        ),
+        series AS (SELECT ccy, max(d) AS last_d FROM usd_per GROUP BY ccy),
+        fx_end AS (SELECT max(d) AS end_d FROM usd_per),
+        j AS (
+            SELECT r.*, f.d AS fx_date, f.usd_per_unit
+            FROM raw r
+            ASOF LEFT JOIN usd_per f ON f.ccy = r.currency AND r.ex_dividend_date >= f.d
+        ),
+        rated AS (
+            SELECT j.*,
+                CASE
+                    WHEN currency IS NULL OR currency IN ('USD', 'BMD') THEN 1.0
+                    WHEN usd_per_unit IS NOT NULL
+                         AND (date_diff('day', fx_date, ex_dividend_date) <= 10
+                              OR (fx_date = s.last_d AND s.last_d >= e.end_d - 10)) THEN usd_per_unit
+                END AS fx_rate
+            FROM j LEFT JOIN series s ON s.ccy = j.currency CROSS JOIN fx_end e
+        )
         SELECT
             id,
             ticker,
-            ex_dividend_date::DATE AS ex_dividend_date,
-            cash_amount,
-            CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END AS declaration_date,
-            CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END AS pay_date,
+            ex_dividend_date,
+            cash_amount * fx_rate AS cash_amount,
+            declaration_date,
+            pay_date,
             frequency,
             dividend_type,
-            CASE WHEN currency = '' THEN NULL ELSE currency END AS currency
-        FROM read_csv('{filePath}',
-            columns = {{
-                'id': 'VARCHAR',
-                'ticker': 'VARCHAR',
-                'ex_dividend_date': 'VARCHAR',
-                'cash_amount': 'DOUBLE',
-                'declaration_date': 'VARCHAR',
-                'pay_date': 'VARCHAR',
-                'frequency': 'INTEGER',
-                'dividend_type': 'VARCHAR',
-                'currency': 'VARCHAR'
-            }},
-            header = true
-        )"""
+            currency,
+            cash_amount AS cash_amount_orig,
+            fx_rate
+        FROM rated"""
+
+/// What the tables load: the converted rows. ⚠ A row with no rate is DROPPED, not loaded with a NULL amount: v1's
+/// `cash_amount` is NOT NULL, DuckDB will not drop that constraint on an indexed table, and a NULL would poison the
+/// legacy `01_split_adjusted_prices.sql` (`GREATEST(1 - NULL, 1e-6)` = 1e-6). Count them with `dividendsUnrated`.
+let dividendsSource (filePath: string) (fxPath: string) =
+    $"SELECT * FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NOT NULL"
+
+/// The rows with no USD rate, by currency (for the build logs).
+let dividendsUnrated (filePath: string) (fxPath: string) =
+    $"SELECT currency, count(*) AS n FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NULL GROUP BY 1 ORDER BY 2 DESC, 1"
 
 /// The reference tickers snapshot (`data/tickers.csv`, RFC-4180-quoted; active AND delisted).
 let tickersSource (filePath: string) = $"""
@@ -428,12 +497,21 @@ let getSplitCount (connection: IDbConnection) : int64 =
 
 /// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader.
 /// The file is a MIRROR: ids it no longer carries are retired first (see
-/// `retireAbsentIds`). Returns the number of retired ids.
-let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
+/// `retireAbsentIds`). Returns the number of retired ids, of the file's rows kept out for want of a USD rate, and of
+/// those deleted from the table by this ingest (loaded by an ingest before the conversion existed).
+let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) (fxPath: string) : int64 * int64 * int64 =
     let retired = retireAbsentIds connection "dividends" filePath
+    // a row with no USD rate stays out of the table (see dividendsSource) — including one an earlier ingest loaded
+    // UNCONVERTED, before the conversion existed (2026-10-21)
+    let unrated =
+        connection.ExecuteScalar<int64>($"SELECT count(*) FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NULL")
+    let unratedDeleted =
+        connection.Execute(
+            $"DELETE FROM dividends WHERE id IN (SELECT id FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NULL)")
     let sql = $"""
-        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type, currency)
-        {dividendsSource filePath}
+        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type,
+                               currency, cash_amount_orig, fx_rate)
+        {dividendsSource filePath fxPath}
         ON CONFLICT(id) DO UPDATE SET
             ticker = excluded.ticker,
             ex_dividend_date = excluded.ex_dividend_date,
@@ -442,10 +520,12 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
             pay_date = excluded.pay_date,
             frequency = excluded.frequency,
             dividend_type = excluded.dividend_type,
-            currency = excluded.currency
+            currency = excluded.currency,
+            cash_amount_orig = excluded.cash_amount_orig,
+            fx_rate = excluded.fx_rate
     """
     connection.Execute(sql) |> ignore
-    retired
+    retired, unrated, int64 unratedDeleted
 
 /// Get count of dividends in database
 let getDividendCount (connection: IDbConnection) : int64 =

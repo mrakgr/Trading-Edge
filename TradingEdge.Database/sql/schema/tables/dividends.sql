@@ -18,20 +18,26 @@ CREATE TABLE IF NOT EXISTS dividends (
     id VARCHAR NOT NULL,
     ticker VARCHAR NOT NULL,
     ex_dividend_date DATE NOT NULL,
-    cash_amount DOUBLE NOT NULL,
+    cash_amount DOUBLE NOT NULL,   -- ⭐ in USD, the trading currency (converted at ingest since 2026-10-21; see below)
     declaration_date DATE,
     pay_date DATE,
     frequency INTEGER NOT NULL,
     dividend_type VARCHAR NOT NULL,
-    currency VARCHAR,          -- ISO 4217 of cash_amount; NOT always USD (see below). NULL = the vendor omitted it.
+    currency VARCHAR,          -- ISO 4217 the vendor DECLARED it in; NOT always USD (see below). NULL = the vendor omitted it.
+    cash_amount_orig DOUBLE,   -- the vendor's amount, in `currency`
+    fx_rate DOUBLE,            -- USD per 1 unit of `currency` (1.0 for USD); cash_amount = cash_amount_orig * fx_rate
     PRIMARY KEY(id)
 );
 
--- 2026-10-21: `currency` added. A database created before then gets the column here (CREATE TABLE IF NOT EXISTS
--- leaves an existing table alone); the next ingest fills it. cash_amount is in THIS currency: US listings of
--- Canadian/European issuers (RY, TD, ENB, TTE, RACE, ...) trade in USD but declare in CAD/EUR — 278 of 70,324
--- tape-ticker records in 2025-26. Consumers that sum cash into a USD series must convert or exclude non-USD rows.
+-- 2026-10-21: `currency`, `cash_amount_orig`, `fx_rate` added. A database created before then gets the columns here
+-- (CREATE TABLE IF NOT EXISTS leaves an existing table alone); the next ingest fills them. The vendor quotes each
+-- dividend in the currency it was declared in: US listings of Canadian/European issuers (RY, TD, ENB, TTE, RACE, ...)
+-- trade in USD but declare in CAD/EUR — 2,713 records on 165 tape tickers. The ingest (Database.dividendsSource)
+-- converts at the ECB reference rate of the ex-date, so cash_amount is USD and daily_adjusted needs no change. A row
+-- the ECB has no rate for is kept OUT of this table (it stays in dividends.csv).
 ALTER TABLE dividends ADD COLUMN IF NOT EXISTS currency VARCHAR;
+ALTER TABLE dividends ADD COLUMN IF NOT EXISTS cash_amount_orig DOUBLE;
+ALTER TABLE dividends ADD COLUMN IF NOT EXISTS fx_rate DOUBLE;
 
 -- The natural query path is no longer the primary key, so it needs its own index.
 CREATE INDEX IF NOT EXISTS idx_dividends_ticker_date ON dividends(ticker, ex_dividend_date);

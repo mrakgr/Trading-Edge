@@ -6,7 +6,7 @@ module TradingEdge.V2Build
 // (on the VPS) run this same command, so both get the same bytes from the same
 // code; trading.db (v1) stays for the legacy systems.
 //
-//   raw files (data/daily_aggregates/*.csv.gz, data/splits.csv, data/dividends.csv, data/tickers.csv)
+//   raw files (data/daily_aggregates/*.csv.gz, data/splits.csv, data/dividends.csv, data/fx/eurofxref-hist.csv, data/tickers.csv)
 //     -> a SCRATCH DuckDB file (disk, not RAM: 50M rows must fit an 8 GB VPS)
 //        daily_prices / splits / dividends  = Database.*Source (the v1 ingest's own SQL)
 //        ticker_reference                   = the previous v2 list UPSERTED with tickers.csv (v1 never
@@ -82,8 +82,9 @@ let build (cfg: V2Config) : int =
     let dailyGlob = Path.Combine(cfg.RawDir, "daily_aggregates", "*.csv.gz")
     let splitsCsv = Path.Combine(cfg.RawDir, "splits.csv")
     let dividendsCsv = Path.Combine(cfg.RawDir, "dividends.csv")
+    let fxCsv = Path.Combine(cfg.RawDir, "fx", "eurofxref-hist.csv")   // the dividends' USD conversion (Database.dividendsSource)
     let tickersCsv = Path.Combine(cfg.RawDir, "tickers.csv")
-    for f in [ splitsCsv; dividendsCsv; tickersCsv ] do
+    for f in [ splitsCsv; dividendsCsv; fxCsv; tickersCsv ] do
         if not (File.Exists f) then failwithf "v2: missing raw input %s" f
     let dayFiles = Directory.GetFiles(Path.Combine(cfg.RawDir, "daily_aggregates"), "*.csv.gz") |> Array.sort
     if dayFiles.Length = 0 then failwithf "v2: no day aggregates under %s" (Path.Combine(cfg.RawDir, "daily_aggregates"))
@@ -128,7 +129,9 @@ let build (cfg: V2Config) : int =
         exec c "ALTER TABLE daily_prices_raw DROP COLUMN file_date"
         exec c "ALTER TABLE daily_prices_raw RENAME TO daily_prices"
         exec c ("CREATE TABLE splits AS " + splitsSource (q splitsCsv))
-        exec c ("CREATE TABLE dividends AS " + dividendsSource (q dividendsCsv))
+        exec c ("CREATE TABLE dividends AS " + dividendsSource (q dividendsCsv) (q fxCsv))
+        let unrated = scalar<int64> c (sprintf "SELECT coalesce(sum(n), 0)::BIGINT FROM (%s)" (dividendsUnrated (q dividendsCsv) (q fxCsv)))
+        say (sprintf "dividends: converted to USD; %d rows kept out with no ECB rate" unrated)
         // ticker_reference: the previous list, upserted with the snapshot (a duplicate row in the snapshot collapses)
         exec c ($"""CREATE TABLE ticker_reference AS
                     WITH snap AS (SELECT ticker, any_value(name) AS name, type FROM ({tickersSource (q tickersCsv)}) GROUP BY ticker, type)
@@ -176,6 +179,7 @@ let build (cfg: V2Config) : int =
                   last_day_file = Path.GetFileName dayFiles.[dayFiles.Length - 1]
                   splits_sha256 = sha256 splitsCsv
                   dividends_sha256 = sha256 dividendsCsv
+                  fx_sha256 = sha256 fxCsv
                   tickers_sha256 = sha256 tickersCsv
                   ticker_base = Path.GetFullPath tickerBase |}
            outputs = Collections.Generic.Dictionary<string, string>(tables |> List.map (fun t -> Collections.Generic.KeyValuePair(t, sha256 (Path.Combine(staging, t + ".parquet"))))) |}

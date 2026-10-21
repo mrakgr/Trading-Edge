@@ -107,6 +107,7 @@ type IngestDataArgs =
     | [<AltCommandLine("-c")>] Csv_Dir of string
     | [<AltCommandLine("-s")>] Splits_File of string
     | Dividends_File of string
+    | Fx_File of string
     | Tickers_File of string
 
     interface IArgParserTemplate with
@@ -116,6 +117,7 @@ type IngestDataArgs =
             | Csv_Dir _ -> "Directory containing .csv.gz files (default: data/daily_aggregates)"
             | Splits_File _ -> "CSV file containing splits (default: data/splits.csv)"
             | Dividends_File _ -> "CSV file containing dividends (default: data/dividends.csv)"
+            | Fx_File _ -> "The ECB reference rates the dividends are converted to USD with (default: data/fx/eurofxref-hist.csv)"
             | Tickers_File _ -> "CSV file containing ETF/ETN ticker reference (default: data/tickers.csv)"
 
 /// ⭐ backfill-daily — the whole daily side in one shot (2026-08-08, user).
@@ -517,17 +519,26 @@ let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate
         downloadDividendsWithConsoleProgress httpClient apiKey startDate endDate cts.Token
         |> Async.RunSynchronously
     match result with
-    | Ok dividends ->
+    | Ok fresh ->
         printfn ""
-        printfn "Downloaded %d dividends" dividends.Length
+        printfn "Downloaded %d dividends" fresh.Length
         let outputPath = "data/dividends.csv"
-        use writer = new StreamWriter(outputPath)
-        // ⚠ Reuse DividendDownload's serialization rather than repeating it — this
-        // was duplicated, and the copy here was missed when `id` was added.
-        writer.WriteLine DividendDownload.csvHeader
-        for d in dividends do
-            writer.WriteLine(DividendDownload.dividendToCsvLine d)
-        printfn "Saved dividends to %s" (Path.GetFullPath outputPath)
+        // the current-month guard: a record the vendor's API dropped is carried over from the previous file
+        let dividends, carried =
+            DividendDownload.carryOverDropped (DividendDownload.readCsv outputPath) fresh startDate
+                (endDate |> Option.defaultValue DateTime.Now) DateTime.UtcNow
+        if carried > 0 then
+            printfn "  ⚠ carried over %d current-month dividends the download lacked (no replacement record): see DividendDownload.carryOverDropped" carried
+        let tmpPath = outputPath + ".tmp"
+        do
+          use writer = new StreamWriter(tmpPath)
+          // ⚠ Reuse DividendDownload's serialization rather than repeating it — this
+          // was duplicated, and the copy here was missed when `id` was added.
+          writer.WriteLine DividendDownload.csvHeader
+          for d in dividends |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker) do
+              writer.WriteLine(DividendDownload.dividendToCsvLine d)
+        File.Move(tmpPath, outputPath, true)
+        printfn "Saved %d dividends to %s" dividends.Length (Path.GetFullPath outputPath)
         true
     | Error msg ->
         printfn "Error downloading dividends: %s" msg
@@ -558,12 +569,13 @@ let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<
 /// The ingest + materialize step, callable with plain values (shared by
 /// `ingest-data` and `backfill-daily`).
 let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
-                      (dividendsFile: string) (tickersFile: string) =
+                      (dividendsFile: string) (fxFile: string) (tickersFile: string) =
     ensureDataDir ()
     printfn "Database: %s" (Path.GetFullPath dbPath)
     printfn "CSV directory: %s" (Path.GetFullPath csvDir)
     printfn "Splits file: %s" (Path.GetFullPath splitsFile)
     printfn "Dividends file: %s" (Path.GetFullPath dividendsFile)
+    printfn "FX rates file: %s" (Path.GetFullPath fxFile)
     printfn "Tickers file: %s" (Path.GetFullPath tickersFile)
     printfn ""
 
@@ -604,13 +616,15 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
 
     // Ingest dividends from CSV file using DuckDB's native CSV reader
     if File.Exists dividendsFile then
+        // the amounts are converted to USD at ingest: no rates file, no ingest (backfill-daily step 3b downloads it)
+        if not (File.Exists fxFile) then failwithf "dividends: the FX rates file %s is missing — run backfill-daily (step 3b) or pass --fx-file" fxFile
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let countBefore = getDividendCount connection
-        let retired = ingestDividendsFromCsv connection dividendsFile
+        let retired, unrated, unratedDeleted = ingestDividendsFromCsv connection dividendsFile fxFile
         let countAfter = getDividendCount connection
-        let newDividends = countAfter - countBefore + retired
+        let newDividends = countAfter - countBefore + retired + unratedDeleted
         sw.Stop()
-        printfn "Ingested %d new dividends, retired %d ids absent from the file (total: %d) in %.2fs" newDividends retired countAfter sw.Elapsed.TotalSeconds
+        printfn "Ingested %d new dividends, retired %d ids absent from the file, %d kept out with no USD rate (total: %d) in %.2fs" newDividends retired unrated countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Dividends file not found: %s" dividendsFile
 
@@ -658,6 +672,38 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
 
 /// Reference tickers (CS, ADRC, ETF, ETN, ETV, ETS; active AND delisted) -> CSV.
 /// Full-snapshot semantics by nature: the endpoint has no date range.
+/// The ECB euro reference rates, every business day since 1999 (~30 currencies): what the ingest converts the
+/// dividends to USD with (Database.dividendsSource). One small file (~0.6 MB zipped), re-fetched whole every run.
+let fxRatesFile = "data/fx/eurofxref-hist.csv"
+let private fxRatesUrl = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip"
+
+/// ⚠ A failed download KEEPS the previous file (a few days stale: the conversion tolerates it — an announced dividend
+/// past the file's end takes the latest rate) and is not an error, so an ECB outage cannot stop the daily build. Only
+/// a missing file is.
+let private runFxDownload (outputPath: string) : bool =
+    Directory.CreateDirectory(Path.GetDirectoryName outputPath) |> ignore
+    try
+        use http = new HttpClient(Timeout = TimeSpan.FromSeconds 60.0)
+        let bytes = http.GetByteArrayAsync(fxRatesUrl).GetAwaiter().GetResult()
+        use zip = new Compression.ZipArchive(new MemoryStream(bytes), Compression.ZipArchiveMode.Read)
+        let entry = zip.Entries |> Seq.find (fun e -> e.Name.EndsWith ".csv")
+        let tmp = outputPath + ".tmp"
+        do
+            use src = entry.Open()
+            use dst = File.Create tmp
+            src.CopyTo dst
+        File.Move(tmp, outputPath, true)
+        let lines = File.ReadLines outputPath |> Seq.truncate 2 |> Seq.toArray
+        printfn "  %s (latest %s)" outputPath (if lines.Length > 1 then lines.[1].Split(',').[0] else "?")
+        true
+    with ex ->
+        if File.Exists outputPath then
+            eprintfn "  ⚠ FX download failed (%s) — keeping %s from %s" ex.Message outputPath (File.GetLastWriteTime(outputPath).ToString "yyyy-MM-dd")
+            true
+        else
+            eprintfn "  FX download failed and there is no previous file: %s" ex.Message
+            false
+
 let private runTickersDownload (apiKey: string) (outputPath: string) : bool =
     printfn "Downloading reference tickers from Polygon (CS, ADRC, ETF, ETN, ETV, ETS)..."
     use httpClient = new HttpClient()
@@ -759,6 +805,8 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
     printfn ""
     printfn "[3/4] dividends (full range %s -> %s)" (formatDate refStart) (formatDate refEnd.Value)
     if not (runDividendsDownload config.ApiKey refStart refEnd) then ok <- false
+    printfn "[3b]  FX rates (ECB) -> %s" fxRatesFile
+    if not (runFxDownload fxRatesFile) then ok <- false
 
     // --- 4. reference tickers (CS/ADRC + ETF family, active AND delisted)
     printfn ""
@@ -778,7 +826,7 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
     else
         let v2Dir = args.GetResult(BackfillDailyArgs.V2_Dir, defaultValue = "data/v2")
         if not (args.Contains BackfillDailyArgs.V2_Only) then
-            runIngest dbPath "data/daily_aggregates" "data/splits.csv" "data/dividends.csv" "data/tickers.csv"
+            runIngest dbPath "data/daily_aggregates" "data/splits.csv" "data/dividends.csv" fxRatesFile "data/tickers.csv"
         if args.Contains BackfillDailyArgs.Skip_V2 then printfn "v2: SKIPPED (--skip-v2)"
         elif not (File.Exists (Path.Combine(v2Dir, "manifest.json"))) && not (args.Contains BackfillDailyArgs.V2_Only) then
             printfn "v2: %s not built yet — bootstrap it once with build-v2 --seed-tickers <v1 ticker_reference parquet>" v2Dir
@@ -807,6 +855,7 @@ let private handleIngestData (args: ParseResults<IngestDataArgs>) =
         (args.TryGetResult IngestDataArgs.Csv_Dir |> Option.defaultValue "data/daily_aggregates")
         (args.TryGetResult IngestDataArgs.Splits_File |> Option.defaultValue "data/splits.csv")
         (args.TryGetResult IngestDataArgs.Dividends_File |> Option.defaultValue "data/dividends.csv")
+        (args.TryGetResult IngestDataArgs.Fx_File |> Option.defaultValue fxRatesFile)
         (args.TryGetResult IngestDataArgs.Tickers_File |> Option.defaultValue "data/tickers.csv")
 
 let private handleDownloadTickers (config: MassiveConfig) (args: ParseResults<DownloadTickersArgs>) =
