@@ -89,7 +89,7 @@ Output: `data/splits.csv`.
 
 ### download-dividends
 
-Polygon dividends, monthly chunked, EVERY month re-fetched every run, each in both sort orders merged by id (no cache since 2026-10-21: the vendor revises history, and the API can drop records from a month it is loading — see docs/massive_cli_gotchas.md). Current-month records the download lacks with no replacement are carried over from the previous file.
+Polygon dividends, monthly chunked, EVERY month re-fetched every run, each in both sort orders merged by id (no cache since 2026-10-21: the vendor revises history, and the API can drop records from a month it is loading — see docs/massive_cli_gotchas.md). Current-month records the download lacks with no replacement are carried over from the previous file. Streamed: 16 months in flight, each written to `data/dividends.csv.parts/` as it completes, then assembled (peak ~0.6 GB RSS, was 3.7 GB).
 
 ```bash
 dotnet run --project TradingEdge.Database -- download-dividends [options]

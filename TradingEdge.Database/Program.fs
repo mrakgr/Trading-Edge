@@ -514,34 +514,16 @@ let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<Dow
 /// ⚠ Same whole-file rewrite semantics as runSplitsDownload — pass the FULL range.
 let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) : bool =
     use httpClient = new HttpClient()
-    use cts = new CancellationTokenSource()
-    let result =
-        downloadDividendsWithConsoleProgress httpClient apiKey startDate endDate cts.Token
-        |> Async.RunSynchronously
-    match result with
-    | Ok fresh ->
+    let outputPath = "data/dividends.csv"
+    // streamed month by month into the file (DividendDownload.downloadDividendsToCsv); 16 months in flight
+    match (downloadDividendsToCsv httpClient apiKey startDate endDate outputPath 16 CancellationToken.None).GetAwaiter().GetResult() with
+    | Ok (rows, carried) ->
         printfn ""
-        printfn "Downloaded %d dividends" fresh.Length
-        let outputPath = "data/dividends.csv"
-        // the current-month guard: a record the vendor's API dropped is carried over from the previous file
-        let dividends, carried =
-            DividendDownload.carryOverDropped (DividendDownload.readCsv outputPath) fresh startDate
-                (endDate |> Option.defaultValue DateTime.Now) DateTime.UtcNow
-        if carried > 0 then
-            printfn "  ⚠ carried over %d current-month dividends the download lacked (no replacement record): see DividendDownload.carryOverDropped" carried
-        let tmpPath = outputPath + ".tmp"
-        do
-          use writer = new StreamWriter(tmpPath)
-          // ⚠ Reuse DividendDownload's serialization rather than repeating it — this
-          // was duplicated, and the copy here was missed when `id` was added.
-          writer.WriteLine DividendDownload.csvHeader
-          for d in dividends |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker) do
-              writer.WriteLine(DividendDownload.dividendToCsvLine d)
-        File.Move(tmpPath, outputPath, true)
-        printfn "Saved %d dividends to %s" dividends.Length (Path.GetFullPath outputPath)
+        printfn "Saved %d dividends to %s%s" rows (Path.GetFullPath outputPath)
+            (if carried > 0 then sprintf " (%d carried over from the previous file: see DividendDownload.carryOverDropped)" carried else "")
         true
     | Error msg ->
-        printfn "Error downloading dividends: %s" msg
+        printfn "Error downloading dividends: %s (%s unchanged)" msg outputPath
         false
 
 let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<DownloadDividendsArgs>) =

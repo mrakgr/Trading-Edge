@@ -26,6 +26,8 @@
     <PackageReference Include="AWSSDK.S3" Version="4.0.14.2" />
     <PackageReference Include="FSharp.Data" Version="6.6.0" />
     <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
+    <!-- DividendDownload: `for … in channel.Reader.ReadAllAsync()` inside task { } -->
+    <PackageReference Include="FSharp.Control.TaskSeq" Version="0.4.0" />
     <!-- TradesDownload.writeTradesToParquet serializes Trade[] -> Parquet via in-memory DuckDB. -->
     <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
   </ItemGroup>

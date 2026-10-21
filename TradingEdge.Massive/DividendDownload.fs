@@ -7,6 +7,9 @@ open System.Net.Http
 open System.Text.Json
 open System.Text.Json.Serialization
 open System.Threading
+open System.Threading.Channels
+open System.Threading.Tasks
+open FSharp.Control
 
 let private jsonOptions =
     JsonFSharpOptions.Default()
@@ -198,32 +201,44 @@ let private splitIntoMonths (startDate: DateTime) (endDate: DateTime) : (int * i
             loop (nextY, nextM) ((y, m) :: acc)
     loop (startDate.Year, startDate.Month) []
 
-/// Read a dividends CSV written by `dividendToCsvLine` (data/dividends.csv). A file in an older layout (no
-/// `currency` column) reads as EMPTY — the caller treats that as "no previous file".
-let readCsv (path: string) : Dividend list =
+/// Parse one line written by `dividendToCsvLine`.
+let private parseCsvLine (line: string) : Dividend option =
+    let parts = line.Split(',')
+    if parts.Length >= 9 then
+        Some {
+            Id = parts.[0]
+            Ticker = parts.[1]
+            ExDividendDate = DateTime.Parse parts.[2]
+            CashAmount = float parts.[3]
+            DeclarationDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
+            PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
+            Frequency = int parts.[6]
+            DividendType = parts.[7]
+            Currency = if String.IsNullOrWhiteSpace parts.[8] then None else Some parts.[8]
+        }
+    else None
+
+/// The records of a dividends CSV (data/dividends.csv) dated ON OR AFTER `since` — the carry-over candidates — read
+/// line by line, so the 2M-row file is never held in memory. A file in an older layout (no `currency` column) reads as
+/// none: the caller treats that as "no previous file".
+let readCsvSince (path: string) (since: DateTime) : Dividend list =
     if not (File.Exists path) then []
     else
-        let lines = File.ReadAllLines path
-        if lines.Length = 0 || lines.[0].Trim() <> csvHeader then []
-        else
-            lines
-            |> Array.skip 1 // header
-            |> Array.choose (fun line ->
-                let parts = line.Split(',')
-                if parts.Length >= 9 then
-                    Some ({
-                        Id = parts.[0]
-                        Ticker = parts.[1]
-                        ExDividendDate = DateTime.Parse parts.[2]
-                        CashAmount = float parts.[3]
-                        DeclarationDate = if String.IsNullOrWhiteSpace parts.[4] then None else Some (DateTime.Parse parts.[4])
-                        PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
-                        Frequency = int parts.[6]
-                        DividendType = parts.[7]
-                        Currency = if String.IsNullOrWhiteSpace parts.[8] then None else Some parts.[8]
-                    } : Dividend)
-                else None)
-            |> Array.toList
+        use r = new StreamReader(path)
+        match r.ReadLine() with
+        | null -> []
+        | h when h.Trim() <> csvHeader -> []
+        | _ ->
+            let sinceStr = since.ToString "yyyy-MM-dd"
+            let acc = ResizeArray<Dividend>()
+            let mutable line = r.ReadLine()
+            while not (isNull line) do
+                // the ex-date is the third field, yyyy-MM-dd: compare the text before parsing the row
+                let parts = line.Split(',', 4)
+                if parts.Length >= 3 && String.CompareOrdinal(parts.[2], sinceStr) >= 0 then
+                    parseCsvLine line |> Option.iter acc.Add
+                line <- r.ReadLine()
+            List.ofSeq acc
 
 /// ⭐ THE CURRENT-MONTH GUARD (2026-10-21). A record of the PREVIOUS file that the fresh download lacks is carried
 /// over when (a) its ex-date is in the current month or later, (b) it is inside the requested range, and (c) the
@@ -244,51 +259,107 @@ let carryOverDropped (previous: Dividend list) (fresh: Dividend list) (startDate
             && not (freshIds.Contains d.Id) && not (freshKeys.Contains((d.Ticker, d.ExDividendDate))))
     fresh @ carried, carried.Length
 
-/// Download dividends month by month, every month every run, all months in parallel.
+/// Download every month of [startDate, endDate] into `outputPath` (data/dividends.csv), STREAMED (2026-10-21).
+///
 /// ⚠ NO CACHE (removed 2026-10-21). A monthly cache froze each past month at its first download, but the vendor keeps
 /// revising history: against a full re-download the cache had hidden 250 new ids, 66 deleted ids and 407 changed
-/// amounts/dates in months before 2026-09, back to 2003 — and the ingest's mirror rule (retire the ids the file no
-/// longer carries) cannot work on a file that is partly an old snapshot. The full range takes ~3 minutes (both
-/// orders, see downloadDateRange).
-let downloadDividendsWithConsoleProgress
+/// amounts/dates in months before 2026-09, back to 2003 — and the ingest's mirror rule cannot work on a file that is
+/// partly an old snapshot. So every month is fetched every run, in both orders (see downloadDateRange).
+///
+/// ⭐ STREAMED: the months go through a channel to `workers` workers; each merges its month (both orders + the
+/// current-month carry-over) and writes it to `<outputPath>.parts/yyyy-MM.csv` at once; a reporter (the only reader
+/// of the results channel) counts and prints; the file is then assembled from the parts in month order and swapped in.
+/// So only `workers` months are in memory at a time. The old shape — all 298 months in parallel, every record held
+/// until the end, plus the whole previous file for the carry-over — peaked at 3.7 GB RSS on a 7 GB VPS.
+/// Any failed month fails the whole download and leaves `outputPath` untouched. Returns (rows written, rows carried).
+let downloadDividendsToCsv
     (httpClient: HttpClient)
     (apiKey: string)
     (startDate: DateTime)
     (endDate: DateTime option)
+    (outputPath: string)
+    (workers: int)
     (ct: CancellationToken)
-    : Async<Result<Dividend list, string>> =
-    async {
+    : Task<Result<int * int, string>> =
+    task {
         let effectiveEnd = endDate |> Option.defaultValue DateTime.Now
         let months = splitIntoMonths startDate effectiveEnd
-        printfn "Dividend months: %d to download" months.Length
+        let now = DateTime.UtcNow
+        // the carry-over candidates: the previous file's current-month-and-later rows only
+        let previous =
+            readCsvSince outputPath (DateTime(now.Year, now.Month, 1))
+            |> List.groupBy (fun d -> d.ExDividendDate.Year, d.ExDividendDate.Month)
+            |> Map.ofList
+        let partsDir = outputPath + ".parts"
+        if Directory.Exists partsDir then Directory.Delete(partsDir, true)
+        Directory.CreateDirectory partsDir |> ignore
+        let partPath (y: int, m: int) = Path.Combine(partsDir, $"{y}-{m:D2}.csv")
+        printfn "Dividend months: %d to download, %d at a time" months.Length workers
 
-        let allResults = Collections.Concurrent.ConcurrentBag<Result<Dividend list, string>>()
-        let completed = ref 0
+        let todo = Channel.CreateUnbounded<int * int>()
+        for ym in months do
+            do! todo.Writer.WriteAsync(ym, ct)
+        todo.Writer.Complete()
+        let results = Channel.CreateUnbounded<Result<int * int, string>>()
 
-        let tasks =
-            months
-            |> List.map (fun (y, m) ->
-                async {
+        let worker () =
+            task {
+                for ym in todo.Reader.ReadAllAsync(ct) do
+                    let y, m = ym
                     let monthStart = DateTime(y, m, 1)
-                    let monthEnd = monthStart.AddMonths(1).AddDays(-1)
-                    // Clamp to the requested range
                     let s = max monthStart startDate
-                    let e = min monthEnd effectiveEnd
-                    let! result = downloadDateRange httpClient apiKey (s.ToString "yyyy-MM-dd") (e.ToString "yyyy-MM-dd") ct
-                    allResults.Add result
-                    let n = Interlocked.Increment completed
-                    if n % 50 = 0 || n = months.Length then printfn "Downloaded month %d/%d" n months.Length
-                })
+                    let e = min (monthStart.AddMonths(1).AddDays(-1)) effectiveEnd
+                    let! r =
+                        Async.StartAsTask(
+                            downloadDateRange httpClient apiKey (s.ToString "yyyy-MM-dd") (e.ToString "yyyy-MM-dd") ct,
+                            cancellationToken = ct)
+                    match r with
+                    | Error msg -> do! results.Writer.WriteAsync(Error $"{y}-{m:D2}: {msg}", ct)
+                    | Ok fresh ->
+                        let prev = previous |> Map.tryFind (y, m) |> Option.defaultValue []
+                        let merged, carried = carryOverDropped prev fresh s e now
+                        if carried > 0 then
+                            printfn "  ⚠ %d-%02d: carried over %d dividends the download lacked (no replacement record)" y m carried
+                        let lines =
+                            merged |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker, d.Id) |> List.map dividendToCsvLine
+                        do! File.WriteAllLinesAsync(partPath (y, m), lines, ct)
+                        do! results.Writer.WriteAsync(Ok (merged.Length, carried), ct)
+            }
 
-        do! tasks |> Async.Parallel |> Async.Ignore
+        // the reporter: the only reader of `results`, so the only owner of the totals
+        let reporter =
+            task {
+                let mutable finished = 0
+                let mutable rows = 0
+                let mutable carried = 0
+                let mutable error = None
+                for r in results.Reader.ReadAllAsync(ct) do
+                    finished <- finished + 1
+                    match r with
+                    | Ok (n, c) -> rows <- rows + n; carried <- carried + c
+                    | Error msg -> if error.IsNone then error <- Some msg
+                    if finished % 50 = 0 || finished = months.Length then
+                        printfn "Downloaded month %d/%d" finished months.Length
+                return (match error with Some msg -> Error msg | None -> Ok (rows, carried))
+            }
 
-        match allResults |> Seq.tryPick (function Error msg -> Some msg | Ok _ -> None) with
-        | Some msg -> return Error msg
-        | None ->
-            let all =
-                allResults
-                |> Seq.collect (function Ok divs -> divs | Error _ -> [])
-                |> Seq.sortBy (fun d -> d.ExDividendDate, d.Ticker)
-                |> Seq.toList
-            return Ok all
+        let! _ = Task.WhenAll [| for _ in 1 .. workers -> worker () |]
+        results.Writer.Complete()
+        let! outcome = reporter
+
+        match outcome with
+        | Error msg ->
+            Directory.Delete(partsDir, true)
+            return Error msg
+        | Ok (rows, carried) ->
+            let tmp = outputPath + ".tmp"
+            do
+                use w = new StreamWriter(tmp)
+                w.WriteLine csvHeader
+                for ym in months do
+                    for line in File.ReadLines(partPath ym) do
+                        w.WriteLine line
+            File.Move(tmp, outputPath, true)
+            Directory.Delete(partsDir, true)
+            return Ok (rows, carried)
     }
