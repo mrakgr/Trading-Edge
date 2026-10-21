@@ -39,6 +39,9 @@ type private DividendResult = {
 
     [<JsonPropertyName("dividend_type")>]
     DividendType: string
+
+    [<JsonPropertyName("currency")>]
+    Currency: string option
 }
 
 [<CLIMutable>]
@@ -73,6 +76,7 @@ let private parseDividendResult (r: DividendResult) : Dividend option =
             PayDate = r.PayDate |> Option.bind tryParseDate
             Frequency = r.Frequency
             DividendType = if String.IsNullOrWhiteSpace r.DividendType then "CD" else r.DividendType
+            Currency = r.Currency |> Option.filter (String.IsNullOrWhiteSpace >> not)
         }
     else None
 
@@ -83,13 +87,15 @@ let private parseDividendResult (r: DividendResult) : Dividend option =
 /// PUBLIC so the final data/dividends.csv writer uses the SAME serialization as
 /// the monthly cache. They used to be duplicated, and the copy in Program.fs was
 /// missed when `id` was added — producing a 7-column file the ingest rejected.
-let csvHeader = "id,ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type"
+/// `currency` (2026-10-21) LAST: adding it changed the header, so every monthly cache was re-fetched once.
+let csvHeader = "id,ticker,ex_dividend_date,cash_amount,declaration_date,pay_date,frequency,dividend_type,currency"
 
 let dividendToCsvLine (d: Dividend) =
     let exDateStr = d.ExDividendDate.ToString("yyyy-MM-dd")
     let declDateStr = d.DeclarationDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
     let payDateStr = d.PayDate |> Option.map (fun dt -> dt.ToString("yyyy-MM-dd")) |> Option.defaultValue ""
-    $"{d.Id},{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType}"
+    let currencyStr = d.Currency |> Option.defaultValue ""
+    $"{d.Id},{d.Ticker},{exDateStr},{d.CashAmount},{declDateStr},{payDateStr},{d.Frequency},{d.DividendType},{currencyStr}"
 
 /// Download all dividends for a single date range (sequential pagination)
 let private downloadDateRange
@@ -199,7 +205,7 @@ let private readCacheCsv (path: string) : Dividend list =
     |> Array.skip 1 // header
     |> Array.choose (fun line ->
         let parts = line.Split(',')
-        if parts.Length >= 8 then
+        if parts.Length >= 9 then
             Some ({
                 Id = parts.[0]
                 Ticker = parts.[1]
@@ -209,6 +215,7 @@ let private readCacheCsv (path: string) : Dividend list =
                 PayDate = if String.IsNullOrWhiteSpace parts.[5] then None else Some (DateTime.Parse parts.[5])
                 Frequency = int parts.[6]
                 DividendType = parts.[7]
+                Currency = if String.IsNullOrWhiteSpace parts.[8] then None else Some parts.[8]
             } : Dividend)
         else None)
     |> Array.toList

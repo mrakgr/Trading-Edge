@@ -187,7 +187,8 @@ let dividendsSource (filePath: string) = $"""
             CASE WHEN declaration_date = '' THEN NULL ELSE declaration_date::DATE END AS declaration_date,
             CASE WHEN pay_date = '' THEN NULL ELSE pay_date::DATE END AS pay_date,
             frequency,
-            dividend_type
+            dividend_type,
+            CASE WHEN currency = '' THEN NULL ELSE currency END AS currency
         FROM read_csv('{filePath}',
             columns = {{
                 'id': 'VARCHAR',
@@ -197,7 +198,8 @@ let dividendsSource (filePath: string) = $"""
                 'declaration_date': 'VARCHAR',
                 'pay_date': 'VARCHAR',
                 'frequency': 'INTEGER',
-                'dividend_type': 'VARCHAR'
+                'dividend_type': 'VARCHAR',
+                'currency': 'VARCHAR'
             }},
             header = true
         )"""
@@ -430,7 +432,7 @@ let getSplitCount (connection: IDbConnection) : int64 =
 let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
     let retired = retireAbsentIds connection "dividends" filePath
     let sql = $"""
-        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type)
+        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type, currency)
         {dividendsSource filePath}
         ON CONFLICT(id) DO UPDATE SET
             ticker = excluded.ticker,
@@ -439,7 +441,8 @@ let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) : int6
             declaration_date = excluded.declaration_date,
             pay_date = excluded.pay_date,
             frequency = excluded.frequency,
-            dividend_type = excluded.dividend_type
+            dividend_type = excluded.dividend_type,
+            currency = excluded.currency
     """
     connection.Execute(sql) |> ignore
     retired

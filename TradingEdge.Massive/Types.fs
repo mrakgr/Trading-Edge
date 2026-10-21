@@ -66,6 +66,10 @@ type Dividend = {
     PayDate: DateTime option
     Frequency: int
     DividendType: string
+    /// The currency `cash_amount` is quoted in (ISO 4217, e.g. USD, CAD, EUR) — NOT always USD and NOT always the
+    /// trading currency: US listings of Canadian/European issuers (RY, TD, ENB, TTE, RACE, …) trade in USD but declare
+    /// in CAD/EUR (measured 2026-10-21: 278 of 70,324 tape-ticker records in 2025–26). None when the vendor omits it.
+    Currency: string option
 }
 
 /// Daily OHLCV price data

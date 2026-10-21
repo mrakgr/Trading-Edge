@@ -23,8 +23,15 @@ CREATE TABLE IF NOT EXISTS dividends (
     pay_date DATE,
     frequency INTEGER NOT NULL,
     dividend_type VARCHAR NOT NULL,
+    currency VARCHAR,          -- ISO 4217 of cash_amount; NOT always USD (see below). NULL = the vendor omitted it.
     PRIMARY KEY(id)
 );
+
+-- 2026-10-21: `currency` added. A database created before then gets the column here (CREATE TABLE IF NOT EXISTS
+-- leaves an existing table alone); the next ingest fills it. cash_amount is in THIS currency: US listings of
+-- Canadian/European issuers (RY, TD, ENB, TTE, RACE, ...) trade in USD but declare in CAD/EUR — 278 of 70,324
+-- tape-ticker records in 2025-26. Consumers that sum cash into a USD series must convert or exclude non-USD rows.
+ALTER TABLE dividends ADD COLUMN IF NOT EXISTS currency VARCHAR;
 
 -- The natural query path is no longer the primary key, so it needs its own index.
 CREATE INDEX IF NOT EXISTS idx_dividends_ticker_date ON dividends(ticker, ex_dividend_date);
