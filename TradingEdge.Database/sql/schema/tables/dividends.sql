@@ -29,15 +29,13 @@ CREATE TABLE IF NOT EXISTS dividends (
     PRIMARY KEY(id)
 );
 
--- 2026-10-21: `currency`, `cash_amount_orig`, `fx_rate` added. A database created before then gets the columns here
--- (CREATE TABLE IF NOT EXISTS leaves an existing table alone); the next ingest fills them. The vendor quotes each
--- dividend in the currency it was declared in: US listings of Canadian/European issuers (RY, TD, ENB, TTE, RACE, ...)
--- trade in USD but declare in CAD/EUR — 2,713 records on 165 tape tickers. The ingest (Database.dividendsSource)
--- converts at the ECB reference rate of the ex-date, so cash_amount is USD and daily_adjusted needs no change. A row
--- the ECB has no rate for is kept OUT of this table (it stays in dividends.csv).
-ALTER TABLE dividends ADD COLUMN IF NOT EXISTS currency VARCHAR;
-ALTER TABLE dividends ADD COLUMN IF NOT EXISTS cash_amount_orig DOUBLE;
-ALTER TABLE dividends ADD COLUMN IF NOT EXISTS fx_rate DOUBLE;
+-- 2026-10-21: `currency`, `cash_amount_orig`, `fx_rate`. The vendor quotes each dividend in the currency it was
+-- declared in: US listings of Canadian/European issuers (RY, TD, ENB, TTE, RACE, ...) trade in USD but declare in
+-- CAD/EUR — 2,713 records on 165 tape tickers. The ingest (Database.dividendsSource) converts at the ECB reference rate
+-- of the ex-date, so cash_amount is USD and daily_adjusted needs no change. A row the ECB has no rate for is kept OUT
+-- of this table (it stays in dividends.csv).
+-- ⭐ The ingest DROPS and recreates this table from this file every run (Database.replaceFromCsv), so a new column
+-- needs no migration: change the definition here and in Database.dividendsSource.
 
 -- The natural query path is no longer the primary key, so it needs its own index.
 CREATE INDEX IF NOT EXISTS idx_dividends_ticker_date ON dividends(ticker, ex_dividend_date);

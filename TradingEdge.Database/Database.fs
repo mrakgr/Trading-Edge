@@ -448,42 +448,39 @@ let upsertSplits (connection: IDbConnection) (splits: Split array) : int =
 /// BOTH — the event stacks (AAPL 2020-08-31 became a 16x two-leg split, which the
 /// tape corroboration REJECTED, so the 4:1 was not applied at all; 753 retired
 /// split ids, 903 duplicate (ticker, date) pairs against 185 in Polygon's own
-/// file). So before the upsert, every id the file no longer carries is deleted.
+/// file).
 ///
-/// ⚠ GUARD: the files are rewritten WHOLE by their download verbs, so a
-/// narrow-range download would make this delete the table's history
-/// (docs/massive_cli_gotchas.md). Retiring more than `maxRetireFraction` of the
-/// table is refused — `backfill-daily` always fetches the full range.
+/// ⭐ So the table is REBUILT from the file on every ingest (2026-10-21, user): dropped, recreated from its schema file
+/// (`sql/schema/tables/<table>.sql`, the one definition: primary key and indexes) and filled — the rule the v2 build
+/// already follows. It replaced an upsert on `id` plus a delete of the ids the file no longer carries: the same rows,
+/// but every new column needed an ALTER-TABLE migration, and DuckDB will not alter a constraint on an indexed table.
+/// One transaction: a failed load leaves the old table as it was.
+///
+/// ⚠ GUARD (kept): the files are rewritten WHOLE by their download verbs, so a narrow-range download would replace the
+/// table's history with that range (docs/massive_cli_gotchas.md). If more than `maxRetireFraction` of the table's ids
+/// are absent from the file, the rebuild is refused — `backfill-daily` always fetches the full range.
 let private maxRetireFraction = 0.10
 
-let private retireAbsentIds (connection: IDbConnection) (table: string) (filePath: string) : int64 =
+/// Rebuild `table` from `source` (a SELECT over `filePath`). Returns the ids the rebuild retires (in the table, absent
+/// from the file) and the ids it adds.
+let private replaceFromCsv (connection: IDbConnection) (table: string) (filePath: string) (source: string) : int64 * int64 =
+    let fileIds = $"SELECT id FROM read_csv('{filePath}', header = true)"
     let total = connection.ExecuteScalar<int64>($"SELECT COUNT(*) FROM {table}")
-    let absent =
-        connection.ExecuteScalar<int64>(
-            $"SELECT COUNT(*) FROM {table} WHERE id NOT IN (SELECT id FROM read_csv('{filePath}', header = true))")
-    if total > 0L && float absent > maxRetireFraction * float total then
-        failwithf "%s: the file %s would retire %d of %d ids (> %.0f%%) — a narrow-range download? The splits/dividends files must be FULL RANGE (docs/massive_cli_gotchas.md)."
-            table filePath absent total (maxRetireFraction * 100.0)
-    connection.Execute($"DELETE FROM {table} WHERE id NOT IN (SELECT id FROM read_csv('{filePath}', header = true))") |> ignore
-    absent
+    let retired = connection.ExecuteScalar<int64>($"SELECT COUNT(*) FROM {table} WHERE id NOT IN ({fileIds})")
+    if total > 0L && float retired > maxRetireFraction * float total then
+        failwithf "%s: the file %s would retire %d of %d ids (> %.0f%%) — a narrow-range download? The splits/dividends files must be FULL RANGE (docs/massive_cli_gotchas.md). The table is unchanged."
+            table filePath retired total (maxRetireFraction * 100.0)
+    let added = connection.ExecuteScalar<int64>($"SELECT COUNT(*) FROM ({source}) WHERE id NOT IN (SELECT id FROM {table})")
+    use tx = connection.BeginTransaction()
+    connection.Execute($"DROP TABLE {table}", transaction = tx) |> ignore
+    connection.Execute(loadEmbeddedSql $"tables.{table}.sql", transaction = tx) |> ignore
+    connection.Execute($"INSERT INTO {table} {source}", transaction = tx) |> ignore
+    tx.Commit()
+    retired, added
 
-/// Bulk ingest splits directly from a CSV file using DuckDB's native CSV reader.
-/// The file is a MIRROR: ids it no longer carries are retired first (see
-/// `retireAbsentIds`). Returns the number of retired ids.
-let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 =
-    let retired = retireAbsentIds connection "splits" filePath
-    let sql = $"""
-        INSERT INTO splits (id, ticker, execution_date, split_from, split_to, split_ratio)
-        {splitsSource filePath}
-        ON CONFLICT(id) DO UPDATE SET
-            ticker = excluded.ticker,
-            execution_date = excluded.execution_date,
-            split_from = excluded.split_from,
-            split_to = excluded.split_to,
-            split_ratio = excluded.split_ratio
-    """
-    connection.Execute(sql) |> ignore
-    retired
+/// Rebuild `splits` from its CSV (see replaceFromCsv). Returns (retired, added).
+let ingestSplitsFromCsv (connection: IDbConnection) (filePath: string) : int64 * int64 =
+    replaceFromCsv connection "splits" filePath (splitsSource filePath)
 
 /// Get count of daily prices in database
 let getDailyPriceCount (connection: IDbConnection) : int64 =
@@ -495,37 +492,13 @@ let getSplitCount (connection: IDbConnection) : int64 =
 
 // --- Dividends ---
 
-/// Bulk ingest dividends directly from a CSV file using DuckDB's native CSV reader.
-/// The file is a MIRROR: ids it no longer carries are retired first (see
-/// `retireAbsentIds`). Returns the number of retired ids, of the file's rows kept out for want of a USD rate, and of
-/// those deleted from the table by this ingest (loaded by an ingest before the conversion existed).
+/// Rebuild `dividends` from its CSV, converted to USD (see replaceFromCsv, dividendsSource). Returns (retired, added,
+/// kept out with no USD rate).
 let ingestDividendsFromCsv (connection: IDbConnection) (filePath: string) (fxPath: string) : int64 * int64 * int64 =
-    let retired = retireAbsentIds connection "dividends" filePath
-    // a row with no USD rate stays out of the table (see dividendsSource) — including one an earlier ingest loaded
-    // UNCONVERTED, before the conversion existed (2026-10-21)
     let unrated =
         connection.ExecuteScalar<int64>($"SELECT count(*) FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NULL")
-    let unratedDeleted =
-        connection.Execute(
-            $"DELETE FROM dividends WHERE id IN (SELECT id FROM ({dividendsConverted filePath fxPath}) WHERE fx_rate IS NULL)")
-    let sql = $"""
-        INSERT INTO dividends (id, ticker, ex_dividend_date, cash_amount, declaration_date, pay_date, frequency, dividend_type,
-                               currency, cash_amount_orig, fx_rate)
-        {dividendsSource filePath fxPath}
-        ON CONFLICT(id) DO UPDATE SET
-            ticker = excluded.ticker,
-            ex_dividend_date = excluded.ex_dividend_date,
-            cash_amount = excluded.cash_amount,
-            declaration_date = excluded.declaration_date,
-            pay_date = excluded.pay_date,
-            frequency = excluded.frequency,
-            dividend_type = excluded.dividend_type,
-            currency = excluded.currency,
-            cash_amount_orig = excluded.cash_amount_orig,
-            fx_rate = excluded.fx_rate
-    """
-    connection.Execute(sql) |> ignore
-    retired, unrated, int64 unratedDeleted
+    let retired, added = replaceFromCsv connection "dividends" filePath (dividendsSource filePath fxPath)
+    retired, added, unrated
 
 /// Get count of dividends in database
 let getDividendCount (connection: IDbConnection) : int64 =

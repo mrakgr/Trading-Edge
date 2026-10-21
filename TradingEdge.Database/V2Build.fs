@@ -18,7 +18,7 @@ module TradingEdge.V2Build
 // The whole set is rebuilt every run, as v1 rebuilds daily_adjusted: splits and dividends are
 // corrected retroactively and n / cum_div are cumulative, so an append would leave old rows stale.
 // Guards: duplicate keys refuse (v1's primary keys would have caught them); splits / dividends
-// shrinking > 10 % against the previous build refuse (v1's retireAbsentIds guard).
+// shrinking > 10 % against the previous build refuse (v1's replaceFromCsv guard).
 // =============================================================================
 
 open System
@@ -140,7 +140,7 @@ let build (cfg: V2Config) : int =
                     SELECT p.ticker, p.name, p.type FROM '{q tickerBase}' p ANTI JOIN snap s USING (ticker, type)""")
         say "raw files loaded"
 
-        // the guards v1's primary keys and retireAbsentIds gave us
+        // the guards v1's primary keys and replaceFromCsv gave us
         let dup (t: string) (key: string) = scalar<int64> c (sprintf "SELECT count(*) FROM (SELECT %s FROM %s GROUP BY ALL HAVING count(*) > 1)" key t)
         for t, key in [ "daily_prices", "ticker, date"; "splits", "id"; "dividends", "id"; "ticker_reference", "ticker, type" ] do
             let n = dup t key

@@ -605,12 +605,10 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
     // Ingest splits from CSV file using DuckDB's native CSV reader
     if File.Exists splitsFile then
         let sw = System.Diagnostics.Stopwatch.StartNew()
-        let countBefore = getSplitCount connection
-        let retired = ingestSplitsFromCsv connection splitsFile
+        let retired, added = ingestSplitsFromCsv connection splitsFile
         let countAfter = getSplitCount connection
-        let newSplits = countAfter - countBefore + retired
         sw.Stop()
-        printfn "Ingested %d new splits, retired %d ids absent from the file (total: %d) in %.2fs" newSplits retired countAfter sw.Elapsed.TotalSeconds
+        printfn "Rebuilt splits: %d new, %d retired (absent from the file), total %d, in %.2fs" added retired countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Splits file not found: %s" splitsFile
 
@@ -619,12 +617,10 @@ let private runIngest (dbPath: string) (csvDir: string) (splitsFile: string)
         // the amounts are converted to USD at ingest: no rates file, no ingest (backfill-daily step 3b downloads it)
         if not (File.Exists fxFile) then failwithf "dividends: the FX rates file %s is missing — run backfill-daily (step 3b) or pass --fx-file" fxFile
         let sw = System.Diagnostics.Stopwatch.StartNew()
-        let countBefore = getDividendCount connection
-        let retired, unrated, unratedDeleted = ingestDividendsFromCsv connection dividendsFile fxFile
+        let retired, added, unrated = ingestDividendsFromCsv connection dividendsFile fxFile
         let countAfter = getDividendCount connection
-        let newDividends = countAfter - countBefore + retired + unratedDeleted
         sw.Stop()
-        printfn "Ingested %d new dividends, retired %d ids absent from the file, %d kept out with no USD rate (total: %d) in %.2fs" newDividends retired unrated countAfter sw.Elapsed.TotalSeconds
+        printfn "Rebuilt dividends: %d new, %d retired (absent from the file), %d kept out with no USD rate, total %d, in %.2fs" added retired unrated countAfter sw.Elapsed.TotalSeconds
     else
         printfn "Dividends file not found: %s" dividendsFile
 

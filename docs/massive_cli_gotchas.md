@@ -42,9 +42,11 @@ corroboration in `02_split_corrections.sql` REJECTED it → the split was not
 applied at all (the table read −74% across the split day). The dividends side
 was fine: its duplicates are Polygon's own, present in the file.
 
-**The rule now** (`Database.fs` `retireAbsentIds`, called by both CSV ingests):
-before the upsert, every id the file no longer carries is DELETED, and the log
-line says how many (`retired N ids absent from the file`). ⚠ Because the two
+**The rule now** (since 2026-10-21 `Database.fs` `replaceFromCsv`, called by both CSV ingests; until then
+`retireAbsentIds` + an upsert, the same rows): the table is **rebuilt from the file** on every ingest — dropped,
+recreated from `sql/schema/tables/<table>.sql`, filled, in one transaction (a failed load keeps the old table; tested
+with a duplicate id) — as the v2 build does. The log says how many ids it retired (`N retired (absent from the
+file)`). ⚠ Because the two
 download verbs rewrite the file whole, a narrow-range file would make this
 delete the table's history — so retiring more than 10% of a table is REFUSED
 with a message pointing here. `backfill-daily` always fetches the full range.
