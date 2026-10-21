@@ -6,7 +6,8 @@ Daily part (data/v2/daily_adjusted — the CAUSAL scheme, docs/price_adjustment.
   pc_total   = close(D−1) × n(D−1)/n(D) − (cum_div(D) − cum_div(D−1)) / n(D)     the previous close in D's raw share terms
                                                                                 (the Oms LowFader's prevCloseTotal)
   gap        = open(D) / pc_total − 1                                          (open = the official opening print)
-  avgvol20_prior, dv20_prior                                                    the 20 PRIOR sessions only (D excluded)
+  avgvol20_prior, dv20_prior                                                    the 20 PRIOR sessions only (D excluded), inside
+                                                                                D's EPISODE (a > 45-day gap breaks it: GF-46)
   the previous session must be at most 4 calendar days back (else the row is dropped: a stale prev close)
 Intraday part (data/intraday_1s_slim, raw 1s vwap bars 04:00–20:00, the whole market):
   pm_vol / pm_dv          04:00 – 09:29:59                          knowable at 09:30
@@ -22,7 +23,7 @@ Universe: ticker_reference type CS / ADRC minus the Oms's mislabel exclusions (w
 issues, the CEF list — TradingEdge.Oms/Universe.fs, mirrored below), raw open >= $0.50 (bands later), dv20_prior >= $250k.
 
 Run from research/:
-    python -u scripts/equity/gapfader_census.py > data/equity/gapfader/census.log 2>&1; echo exit $?
+    python -u scripts/equity/gapfader_census.py > logs/gapfader_census.log 2>&1; echo exit $?
 """
 import argparse, os, re, time
 import numpy as np, pandas as pd, duckdb
@@ -64,17 +65,23 @@ con.register("uni", pd.DataFrame({"ticker": UNI}))
 
 # ---------------------------------------------------------------- 1. the daily gaps
 G = con.execute(f"""
-    WITH d AS (
+    -- ⭐ GF-46 (2026-10-21): the 20-session averages run inside an EPISODE (a > 45-calendar-day gap between a ticker's
+    -- rows starts a new one — scripts/equity/build_daily_episodes_causal_view.sql, the Oms's barnums / volume20s), so a
+    -- recycled ticker's window cannot reach into an earlier listing (ARIA 2026-08 had 17 of ARIAD's 2017 rows)
+    WITH e0 AS (SELECT a.*, CASE WHEN a.date - lag(a.date) OVER (PARTITION BY a.ticker ORDER BY a.date) > 45 THEN 1 ELSE 0 END AS brk
+                FROM 'data/v2/daily_adjusted.parquet' a JOIN uni USING (ticker)),
+    ep AS (SELECT *, sum(brk) OVER (PARTITION BY ticker ORDER BY date) AS episode FROM e0),
+    d AS (
       SELECT a.ticker, a.date, a.open, a.high, a.low, a.close, a.volume, a.n, a.cum_div,
              lag(a.date) OVER w AS prev_date, lag(a.close) OVER w AS prev_close_raw, lag(a.n) OVER w AS n_prev,
              lag(a.cum_div) OVER w AS cd_prev,
              lead(a.open) OVER w AS open_next_raw, lead(a.n) OVER w AS n_next, lead(a.cum_div) OVER w AS cd_next,
              lead(a.date) OVER w AS next_date,
-             avg(a.volume / a.n) OVER (w ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) * a.n AS avgvol20_prior,
-             avg(a.volume * a.close) OVER (w ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS dv20_prior,
-             count(*) OVER (w ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS n_prior
-      FROM 'data/v2/daily_adjusted.parquet' a JOIN uni USING (ticker)
-      WINDOW w AS (PARTITION BY a.ticker ORDER BY a.date))
+             avg(a.volume / a.n) OVER (we ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) * a.n AS avgvol20_prior,
+             avg(a.volume * a.close) OVER (we ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS dv20_prior,
+             count(*) OVER (we ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING) AS n_prior
+      FROM ep a
+      WINDOW w AS (PARTITION BY a.ticker ORDER BY a.date), we AS (PARTITION BY a.ticker, a.episode ORDER BY a.date))
     SELECT *, prev_close_raw * n_prev / n - (cum_div - cd_prev) / n AS pc_total,
            (open_next_raw * n_next / n) + (cd_next - cum_div) / n AS open_next_total
     FROM d

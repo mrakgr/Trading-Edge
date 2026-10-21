@@ -1787,5 +1787,25 @@ ARIAD Pharmaceuticals from early 2017 → avgvol20_prior 6.97M, dv20 $166M for a
 The Oms's `Reference.volume20s` (1,100-day window) leaves those tickers OUT (no 20 rows): the live system cannot trade
 them, so they are trades in the backtest that live would not take, each carrying an unrelated company's dv20. Not refitted;
 the fix is an episode break (a > 45-day gap between rows, as `barnum`) in the census window, then a refit of GF-45.
+
+**FIXED + REFITTED the same day (user):** the census's 20-session windows now run inside the episode (`(ticker, episode)`,
+the rule of `scripts/equity/build_daily_episodes_causal_view.sql`), as does the Oms's `Reference.volume20s` (so the two agree
+exactly: 11,974 census rows over 23 days, worst 8e-16). Census 1,278,260 → 1,272,551 rows (5,796 out, 87 in, 118 values
+moved); the gap-down pool (open ≥ $1, dv20 ≥ $1M, gap ≤ −4 %, rvol_pm < 0.02) 73,693 → 73,176 (520 out, 3 in, spread over
+every year). GF-45 refitted on it (`gf_coefficients.json`; the previous fit kept as `gf_coefficients_pre_gf46.json`, the
+report as `sizing_model_pre_gf46.md`):
+
+| | before | after |
+|---|---|---|
+| trades (NYSE removed) / fit set 2021–26 | 49,523 / 31,220 | 49,044 / 30,804 |
+| flat net PF 2021–26 | 1.776 | 1.764 |
+| current-regime holdout, flat sized PF−1 (mean of 21–23→24–26 and back) | 0.772 | 0.760 |
+| … dv20 + rvol (log + < 0.005 flag), THE MODEL | **1.105** | **1.087** (+43 % over flat, unchanged) |
+| beta_p | 0.7227 / −0.1921 / −0.1794 / −0.0330 | 0.7171 / −0.1805 / −0.1737 / −0.0206 |
+| beta_w | 1.0657 / −0.0682 / 0.0266 / −0.0069 | 1.0619 / −0.0709 / 0.0308 / −0.0039 |
+| beta_l | 1.2011 / −0.1075 / 0.1249 / 0.0200 | 1.1978 / −0.1088 / 0.1329 / 0.0280 |
+| fit-mean PF−1 | 0.8805 | 0.8675 |
+
+The rows that left were mildly profitable trades the live system could never take; the model's lift is unchanged.
 Related: ARIA's type. `ticker_reference` lists ARIA as CS (Ariad) AND ETF (the new security), so a CS/ADRC universe keeps the
 ETF; the live universe (`Reference.csAdrRows`) does the same.
