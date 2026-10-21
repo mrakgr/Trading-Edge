@@ -1772,3 +1772,20 @@ vs 1.345, so the doubled sample wins.
 
 Fit-mean PF−1 is **0.88** a trade. At one unit = 15 % of equity and ~20 trades a day, that is far more than the book allows:
 the 0.25 %-of-ADV cap and the book's unit cap will bind, and L2's sizing needs to handle a burst of entries all at 09:30.
+
+## GF-46 — ⚠ the census's 20-session window reaches back to an EARLIER LISTING (found 2026-10-21, porting dv20 to the Oms)
+
+`gapfader_census.py` computes `avgvol20_prior` / `dv20_prior` with `ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING` over a
+ticker's daily rows with NO date bound and no break between listings. When a ticker is recycled, the window mixes the two
+companies. ARIA 2026-08-13: 3 rows of the new ARIA (the Aria Opportunities ETF, a few hundred shares a day) plus 17 rows of
+ARIAD Pharmaceuticals from early 2017 → avgvol20_prior 6.97M, dv20 $166M for a security that trades ~$1k a day.
+
+| census rows | 20-row window spans > 1,100 days | spans > 60 days | in the model's pool (open ≥ $1, dv20 ≥ $1M, gap ≤ −4 %, rvol_pm < 0.05, no early close) with a > 1,100-day window |
+|---|---|---|---|
+| 1,278,260 | 4,333 (0.34 %) | 6,221 | **495** (~1.5 % of the pool) |
+
+The Oms's `Reference.volume20s` (1,100-day window) leaves those tickers OUT (no 20 rows): the live system cannot trade
+them, so they are trades in the backtest that live would not take, each carrying an unrelated company's dv20. Not refitted;
+the fix is an episode break (a > 45-day gap between rows, as `barnum`) in the census window, then a refit of GF-45.
+Related: ARIA's type. `ticker_reference` lists ARIA as CS (Ariad) AND ETF (the new security), so a CS/ADRC universe keeps the
+ETF; the live universe (`Reference.csAdrRows`) does the same.
