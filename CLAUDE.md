@@ -59,8 +59,11 @@ only for the LowFlyer control. **2026-09-29:** 69 dead tables were archived to
 ## 🛑 Experiment execution discipline (2026-08-27 OOM postmortem)
 
 1. **Every experiment run MUST write a live log file.** Redirect the run's stdout+stderr
-   straight to a file next to its output directory (`... > data/<run>.log 2>&1`) so progress
-   and the engine's own ETA are inspectable mid-run with `tail -f`. **Never pipe a run
+   straight to a file **under `logs/`** (`... > logs/<run>.log 2>&1`) so progress
+   and the engine's own ETA are inspectable mid-run with `tail -f`. ⚠ Since 2026-10-21 logs
+   do NOT go in `data/` (user: it had filled with 250 logs and 48 dead run outputs; the old
+   logs are in `logs/data/`, the dead outputs in `data_archive/`). `data/` holds inputs and
+   run OUTPUTS (tables, parquets, result `.md`) only. **Never pipe a run
    through `tail`/`head`** — they buffer until process exit, which is how a 2h16m base pass
    died silently at 94.5% (OOM-killed, no summary, invisible for an hour). If you catch a
    run whose output is being buffered instead of logged, RESTART it with proper logging.
