@@ -33,3 +33,6 @@ logs/*
 .tmp/
 *.csproj.lscache
 Trading-Edge.code-workspace
+
+# residual run outputs moved out of data/ on 2026-10-21 (data_archive/README.md, MANIFEST.tsv)
+data_archive/
