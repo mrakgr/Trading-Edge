@@ -800,3 +800,82 @@ Reading:
   had 8 and 3 such names, the bottom decile; September 2026 was the quietest month of the year.
 - Many of the thinnest days are holiday-adjacent (2022-11-23/25, 2023-07-03, 2023-11-24, 2025-11-28).
 - **Verdict:** the live week is the market, not the system: a quiet tape, as in 2022–23. Expect weeks like it, in runs.
+
+## V2-18 — names down ≥ 90 % from their 1-year high (2026-10-22, after AMOD)
+
+**Why:** live 2026-10-21 lost −912 on AMOD: bought 1,132 sh @ ~1.83 at 13:51, LULD-halted 13:58 (1.68 → 1.34), reopened
+14:08 @ 1.10, out @ 1.02 at 14:30. AMOD was **96.5 % below its 1-year high** (52.00 on 2025-11-06, D's raw scale) at the
+entry. User: how do the ≥ 90 % names behave?
+
+`scripts/equity/flushfaderv2_dd52.py` → `data/flushfaderv2/dd52.md` + `dd52_book.parquet` (log `logs/flushfaderv2_dd52.log`).
+dd = 1 − signal_vwap / hi365, hi365 = max(high·n) over D's EPISODE's rows in [D − 365 d, D), ÷ n(D) — causal, the
+book's prices being day D's raw prints (checked on split days). The book: the production reference (35,185 trades),
+r net of the $0.001 credit. Rows whose window spans < 300 days (17 %) are kept apart.
+
+| dd from 1y high | n | share | PF flat | PF sized | mean r % | mean mult | p05 r % |
+|---|---|---|---|---|---|---|---|
+| < 50 % | 13,687 | 38.9 % | 1.661 | 1.907 | +0.602 | 1.02 | −5.02 |
+| 50–70 % | 6,255 | 17.8 % | 1.676 | 1.943 | +0.620 | 0.92 | −5.21 |
+| 70–80 % | 3,120 | 8.9 % | 1.591 | 1.895 | +0.589 | 0.97 | −5.40 |
+| 80–90 % | 2,877 | 8.2 % | 1.587 | 1.845 | +0.632 | 1.02 | −5.54 |
+| 90–95 % | 1,251 | 3.6 % | 1.484 | 1.842 | +0.615 | 1.13 | −7.70 |
+| ≥ 95 % | 1,882 | 5.3 % | 1.413 | 1.681 | +0.607 | 1.09 | −7.84 |
+| window < 300 d | 6,113 | 17.4 % | 1.513 | 1.600 | +0.559 | 0.99 | −5.66 |
+| all | 35,185 | 100 % | 1.596 | 1.825 | +0.600 | 1.00 | −5.49 |
+
+| year | PF < 90 % (n) | PF ≥ 90 % (n) |
+|---|---|---|
+| 2020 | 1.845 (5,860) | 1.651 (172) |
+| 2021 | 1.839 (6,227) | 1.451 (32) |
+| 2022 | 1.222 (2,112) | 1.279 (328) |
+| 2023 | 1.405 (1,905) | 1.008 (399) |
+| 2024 | 1.652 (3,319) | 1.530 (696) |
+| 2025 | 1.670 (4,263) | 1.421 (909) |
+| 2026 | 1.385 (2,253) | 1.712 (597) |
+
+Control — is it volatility in disguise (the sizing model prices volat)? No: worse in **every** volat band, and the gap
+widens with volatility — the model sizes the ≥ 90 % names up with the band without their edge rising with it.
+
+| volat band | PF < 90 % (n) | PF ≥ 90 % (n) | mult < 90 % | mult ≥ 90 % |
+|---|---|---|---|---|
+| 0 | 1.437 (13,713) | 1.366 (787) | 0.85 | 0.90 |
+| 1 | 1.640 (7,523) | 1.324 (1,149) | 1.01 | 1.02 |
+| 2 | 1.905 (3,786) | 1.515 (932) | 1.23 | 1.20 |
+| 3 | 2.397 (844) | 1.700 (247) | 1.84 | 1.74 |
+| 4 | 3.230 (73) | 1.408 (18) | 2.18 | 2.40 |
+
+- **The ≥ 90 % names are profitable but weaker:** PF 1.41–1.48 vs 1.59–1.68; the MEAN return is the same (+0.61 %), the
+  tail fatter (p05 −7.8 % vs −5.0 %; losses worse than −20 %: 0.77 % of trades vs 0.22 %, 3.5×).
+- 5 of 7 years worse (2022 and 2026 better) — a sizing input, not a gate: removing 8.9 % of the book would cut real
+  profit. The natural use is a term in the V2 sizing model (they are over-sized today: mean mult 1.09–1.13 for a PF−1
+  ~0.6× the book's).
+- Not studied yet: the halt itself (AMOD's loss was the halt gap; `ht` counts halts only BEFORE the signal).
+
+## V2-19 — the drawdown as a SIZING TERM, on the holdouts: not worth it (2026-10-22)
+
+User: "on the PF sized basis there really isn't that much difference in the 50-90 buckets. Only the >= 95% bucket is
+noticeably worse … it might not be bad to introduce a variable." `scripts/equity/flushfaderv2_dd52_holdout.py`
+(`logs/flushfaderv2_dd52_holdout.log`): V2-16's method on V2-18's book (fit one year block's barnum ≥ 22 trades, apply
+to the other; PRODUCTION units clip(PF−1, 0.125, 2)). A window shorter than a year uses the history it has, so here
+dd ≥ 90 % is 10.5 % of the book (8.9 % in V2-18, which set the short windows apart). **Control: the baseline reproduces
+V2-16's adopted row exactly** (0.721 / 0.908, net 16,999 vs 17,000).
+
+| model | sized PF−1 fwd | mirror | **mean** | **net (sum)** | unit-trades | net / unit-trade | max DD fwd / mirror |
+|---|---|---|---|---|---|---|---|
+| production (control) | 0.721 | 0.908 | **0.815** | **16,999** | 21,113 | 0.805 | 74 / 101 |
+| + [dd ≥ 95 %] | 0.730 | 0.909 | **0.819** | **16,685** | 20,736 | 0.805 | 78 / 101 |
+| + [dd ≥ 90 %] | 0.726 | 0.908 | **0.817** | **16,499** | 20,591 | 0.801 | 65 / 100 |
+| + [90–95 %] + [≥ 95 %] | 0.728 | 0.907 | **0.817** | **16,490** | 20,581 | 0.801 | 68 / 100 |
+| + ln(px / 1y high), clip 2 % | 0.720 | 0.907 | **0.814** | **16,396** | 20,603 | 0.796 | 68 / 102 |
+
+Full-period fit of [dd ≥ 95 %]: odds × 0.977, wins × 1.096, **losses × 1.196** — the fatter tail of V2-18, and the
+term cuts those trades' PF−1 by ~30 %.
+
+- **Every shape buys ≤ +0.004 sized PF−1 and costs 1.8–3.5 % of net.** The net per unit-trade is unchanged (0.805):
+  the term moves capital off trades that still earn the book's average per unit. By the V2-16 rule ("more net with a
+  better pf1") none qualifies.
+- Why V2-18's gap does not carry over (not proven, a reading): in the SIZED column only ≥ 95 % stood out (1.681 vs
+  1.825), and the term mostly fits that as bigger losses AND bigger wins (× 1.196 / × 1.096). Sizing those trades down
+  removes both, so PF−1 barely moves while net falls.
+- **Verdict: NOT ADOPTED** (recommendation; the user decides). AMOD's loss is a HALT problem (held through an LULD
+  pause), not a drawdown-sizing problem — the next study if any.
