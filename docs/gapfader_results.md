@@ -1809,3 +1809,62 @@ report as `sizing_model_pre_gf46.md`):
 The rows that left were mildly profitable trades the live system could never take; the model's lift is unchanged.
 Related: ARIA's type. `ticker_reference` lists ARIA as CS (Ariad) AND ETF (the new security), so a CS/ADRC universe keeps the
 ETF; the live universe (`Reference.csAdrRows`) does the same.
+
+## GF-47 — the opening print's CONDITION CODES at the listing venue (2026-10-23, user: "do Nasdaq and AMEX always use 17?")
+
+The bulk trades tape, 2026-10-16 / 19 / 20, every Nasdaq (exchange 12) and NYSE American (exchange 1) listing, the listing
+venue's own prints 09:29–09:35 carrying 16 (Market Center Official Open), 17 (Market Center Opening Trade), 18 (Reopening
+Trade) or 25 (Opening Prints):
+
+| | NYSE American | Nasdaq |
+|---|---|---|
+| tickers printing at the listing venue | 229 / 232 / 229 | 3,268 / 3,331 / 3,296 |
+| with a 17 | 177 / 197 / 176 (77–85 %) | 99.1–99.8 % |
+| **a 16 and no 17** | **52 / 35 / 53 (15–23 %)** | 18 / 6 / 28 |
+| neither | 0 | 0–2 |
+| 18 or 25 from the listing venue | never | never |
+| both: the same price and size | 100 % | 100 % |
+| both: the 16's timestamp | the same ms | the same ms (93–96 %) or later, never earlier |
+
+16 and 17 never appear on one print; where both come they report the SAME cross. ⇒ **The cross is the first listing-venue
+print carrying 16 OR 17.** GF-24's "the largest condition-17 print" missed the cross on ~1 in 5 NYSE American names (its
+76.1 % agreement with the official open may partly be this). The live system takes 16 or 17.
+
+
+**16 is a REPORT, not a trade** (Massive's conditions API, 2026-10-23): 16 Market Center Official Open and 15 Market Center
+Official Close have `updates_volume / updates_open_close / updates_high_low` all FALSE (CTA / UTP 'Q' and 'M'); 17, 19, 25,
+8, 18, 28 update all three. So the 16 duplicates the 17 print's volume, and is the ONLY record of the official open where
+no 17 comes. ⚠ **The 1s bar convention keeps both** (`TradeFilters`: 15 and 16 are neither in the always-kept open/close
+set nor in the excluded set): the 09:30:00 bar counts the cross volume TWICE wherever the 17 and the 16 both come (99 % of
+Nasdaq names, ~80 % of NYSE American), and the 16:00 bar the close's (15). Research and the live bars share the filter, so
+parity holds; the open/close bars' volumes are inflated. Fixing it = 15 + 16 into the excluded set, a rebuild of the 1s
+bars and a re-seal of every engine (backlog).
+
+**How much the bars keep** (`keepByMask` on the raw tape, 5 days): 95–100 % of the 16 reports and 97–100 % of the 15
+reports pass the filter (they are ordinary prints to it), and the kept 15 + 16 volume is **9.5 % (2017-04-03), 14.7 %
+(2021), 15.6 % (2024), 17.8 % / 16.7 % (2026-08-10 / 10-20) of the day's 1s-bar volume** — the close's 15 duplicating the
+closing auction (whose own print is condition 8; 19 never appears). Ticker-days with a 17 and a 16 (the open doubled): 73–84 %
+in every year sampled (2 days a year, 2016–26). ⚠ So every volume feature touching the 16:00 bar, and dollar-volume
+totals over the whole day, carry this inflation — to be fixed and every system revalidated (user 2026-10-23: next).
+
+## GF-48 — CONSISTENCY of the system as built in the Oms (2026-10-23, user: "max drawdown, worst daily / weekly / monthly loss, the worst losing streaks")
+
+`scripts/equity/gapfader_consistency.py` (output `data/equity/gapfader/consistency.md`, not tracked). The GF-45c trades
+(same gates, same auction-price noise), the Oms's exit (ONE target at 50 % to 10:00, then the 10:00 vwap; 0.40c) and the
+Oms's sizing at a FIXED 8,000 (pf1 from gf_coefficients.json; clip [0.125, 2] × 15 % of equity; the 0.25 %-of-dv20 cap; the
+day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 50 % / 100 % under $3; minimum notional 200).
+15,523 of 49,044 trades taken (~6 a day; the book binds daily). P&L in % of the 8,000, not compounded.
+
+| period | max drawdown | worst day | worst week | worst month | losing streak: days / weeks / months | losing days / weeks / months | net PF |
+|---|---|---|---|---|---|---|---|
+| all 2016-08 .. 2026-09 | **29.4 %** (2022-11-03 → 11-09) | −11.5 % (2022-11-04) | −17.2 % (2022-11-07 wk) | −7.3 % (2022-11) | 9 / 3 / 2 | 22 / 12 / 6 % | 2.16 |
+| 2016–19 (out of sample: the fit is 2021–26) | 13.1 % | −8.2 % | −10.1 % | −2.8 % | 9 / 3 / 2 | 34 / 26 / 15 % | 1.37 |
+| 2020 | 6.5 % | −6.5 % | −2.0 % | none | 3 / 1 / 0 | 17 / 4 / 0 % | 2.60 |
+| 2021–23 | 29.4 % | −11.5 % | −17.2 % | −7.3 % | 4 / 2 / 1 | 19 / 7 / 3 % | 2.29 |
+| 2024–26 | 8.0 % | −7.0 % | −4.7 % | none | 4 / 2 / 0 | 14 / 3 / 0 % | 2.96 |
+
+- The worst stretch is ONE week, November 2022: LUNG −39.9 % on a 2-unit position (−10.1 % of equity), then BVS, RDNT.
+- ⚠ Optimistic: the model is in-sample on 2021–26 and the rank puts the top-pf1 names first; every LOO fills at the open
+  and the target fills on the trade-through (the Oms works the exit as a maker AFTER the trade-through bar); the P&L per
+  year (+97 % in 2016–19, +300–470 % since 2021, at 8k) is not an expectation. The drawdown and streak columns are the
+  ones to plan with; 2016–19 the honest guide.
