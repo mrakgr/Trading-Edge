@@ -31,8 +31,11 @@
 //   ~/.claude/plans/let-s-go-with-this-velvety-milner.md
 // for the design rationale (timestamp/venue study, schema, sizing).
 //
-// Filter (DECISION 2 + 7 — ALL venues; open/close prints override everything):
+// Filter (DECISION 2 + 7 — ALL venues; open/close prints override everything but the markers):
 //   * size > 0  AND  price > 0   (garbage guard; also keeps ln(vwap) safe downstream)
+//   * ⭐ (2026-10-24) NEVER an official open / close MARKER {15,16}: they restate a print already on the tape
+//     (TradeFilters.markerConditions; 9.5-18 % of the old corpus's volume). A corpus built with them has no
+//     `.filter` stamp; this builder refuses to add marker-free days to it (below).
 //   * KEEP if:  opening/closing print {17,25,19,8}          -- unconditional (D7)
 //       OR ( sip-participant <= 50 ms (when both nonzero)   -- delta cap
 //            AND NOT in exclude set {2,7,10,13,20,21,22,29,32,52,53} )  -- conditions
@@ -128,6 +131,7 @@ type CliArgs =
     | [<AltCommandLine("-e")>] End_Date of string
     | [<AltCommandLine("-n")>] Limit of int
     | Ns_Precision
+    | Stage_Dir of string
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -135,6 +139,7 @@ type CliArgs =
             | Start_Date _ -> "First date to build (yyyy-MM-dd, inclusive). Default: earliest available trades file."
             | End_Date _ -> "Last date to build (yyyy-MM-dd, inclusive). Default: latest available trades file."
             | Limit _ -> "Cap on the number of days built this run (applied after date filter). Default: no cap."
+            | Stage_Dir _ -> "STAGE each day's trades file here (an SSD directory) with one sequential copy, the next day's copy running while the current day builds; each copy is deleted after use. ⭐ 2026-10-24: the trades live on a 5,400 rpm HDD behind WSL's 9P mount (/mnt/d): DuckDB's column reads get ~40 MB/s from it, a sequential copy 139 MB/s. Default: read in place."
             | Ns_Precision -> "Build at the tape's NANOSECOND precision. ⚠ NOT the default any more: the live feed is MILLISECOND, so an ns corpus disagrees with live by ~23k trades/day. The ns corpus was deleted 2026-08-22. Use this only to reproduce a pre-2026-08-22 result, and ALWAYS with TE_1S_OUT_DIR pointing somewhere else — mixing precisions inside one corpus is undetectable afterwards."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_all_1s_bars.fsx")
@@ -189,6 +194,17 @@ if not (File.Exists precisionMarker) then
     File.WriteAllText(precisionMarker,
         (match precision with Bars.Millisecond -> "MILLISECOND" | Bars.Nanosecond -> "NANOSECOND") + "\n")
 
+// ⚠⚠ THE SAME FOR THE FILTER (2026-10-24): days built with the official open / close markers (15, 16) and days built
+// without them must never share a corpus — the volumes differ by 9.5-18 % and nothing in a file says which it is. A
+// marker-free corpus carries `.filter` = MARKERS_DROPPED; the old corpus (data/intraday_1s_slim, built before) has none.
+let filterMarker = Path.Combine(outDir, ".filter")
+let filterNow = "MARKERS_DROPPED 15,16"
+if existingDays > 0 && not (File.Exists filterMarker && (File.ReadAllText filterMarker).Contains filterNow) then
+    eprintfn "🛑 %s holds %d day(s) built WITH the official open/close markers (no `.filter` stamp '%s')." outDir existingDays filterNow
+    eprintfn "   This builder drops them (TradeFilters.markerConditions). Set TE_1S_OUT_DIR to a marker-free corpus."
+    exit 1
+if not (File.Exists filterMarker) then File.WriteAllText(filterMarker, filterNow + "\n")
+
 // SSD spill dir for the per-day sort (keep any DuckDB spill off the HDD).
 let spillDir = Path.Combine(outDir, ".duckdb_tmp")
 Directory.CreateDirectory spillDir |> ignore
@@ -241,8 +257,7 @@ Directory.CreateDirectory spillDir |> ignore
 // maxBucket / MaxSipDeltaNs. Early closes are moot at a 24:00 bound (earlyEnd =
 // regularEnd), so the branch that used to select between them is gone.
 
-let buildOne (date: string) : double =
-    let inPath = Path.Combine(tradesDir, $"{date}.parquet")
+let buildOne (date: string) (inPath: string) : double =
     let outPath = Path.Combine(outDir, $"{date}.parquet")
     // ⭐ Write to `.tmp` and MOVE into place only on success — the same pattern
     // S3Download.fs uses for its csv.gz/parquet conversions. Without it, killing
@@ -356,15 +371,60 @@ printfn "trades parquets available: %d" availableDates.Length
 printfn "already built:             %d" alreadyDone.Count
 printfn "to process this run:       %d" todo.Length
 
+// ⭐ STAGING (--stage-dir, 2026-10-24): one sequential copy per day to the SSD, prefetched one day ahead, so the HDD
+// serves one long read instead of DuckDB's many small ones (3.5x faster through WSL's 9P mount).
+let stageDir = parsed.TryGetResult Stage_Dir
+stageDir |> Option.iter (fun d ->
+    Directory.CreateDirectory d |> ignore
+    for stale in Directory.GetFiles(d, "*.parquet*") do try File.Delete stale with _ -> ())
+let stage (date: string) : Threading.Tasks.Task<string> =
+    let src = Path.Combine(tradesDir, $"{date}.parquet")
+    match stageDir with
+    | None -> Threading.Tasks.Task.FromResult src
+    | Some d ->
+        Threading.Tasks.Task.Run(fun () ->
+            let dst = Path.Combine(d, $"{date}.parquet")
+            // Large reads: File.Copy's small buffer gets ~55 MB/s through the 9P mount, 16 MB blocks ~139 MB/s (dd bs=16M).
+            // ⚠ 16 MB reads failed with ENOMEM ("Cannot allocate memory") on 19 of 540 days under memory pressure (the 9P
+            // client's large contiguous kernel buffers; 11.7 GB was available): 4 MB blocks, and a failed copy is retried.
+            let copyOnce () =
+                use i = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.Read, 1, FileOptions.SequentialScan)
+                use o = new FileStream(dst + ".part", FileMode.Create, FileAccess.Write, FileShare.None, 1)
+                let buf = Array.zeroCreate<byte> (4 <<< 20)
+                let mutable n = i.Read(buf, 0, buf.Length)
+                while n > 0 do
+                    o.Write(buf, 0, n)
+                    n <- i.Read(buf, 0, buf.Length)
+            let rec copy attempt =
+                try copyOnce ()
+                with :? IOException as ex when attempt < 5 ->
+                    eprintfn "staging %s: %s (attempt %d of 5, retrying)" date ex.Message attempt
+                    Threading.Thread.Sleep(5000 * attempt)
+                    copy (attempt + 1)
+            copy 1
+            File.Move(dst + ".part", dst, true)
+            dst)
+if stageDir.IsSome then printfn "staging:                   %s (one day ahead)" stageDir.Value
+
 if todo.Length = 0 then
     printfn "Nothing to do."
 else
     let outerSw = Diagnostics.Stopwatch.StartNew()
     let mutable totalSeconds = 0.0
+    let mutable next = stage todo.[0]
     for i = 0 to todo.Length - 1 do
         let date = todo.[i]
+        // this day's copy first, THEN the next day's (one HDD reader at a time); a failed copy fails this day only
+        let waitSw = Diagnostics.Stopwatch.StartNew()
+        let staged = try Choice1Of2 next.Result with ex -> Choice2Of2 ex
+        let waited = waitSw.Elapsed.TotalSeconds
+        next <- (if i + 1 < todo.Length then stage todo.[i + 1] else Threading.Tasks.Task.FromResult "")
         try
-            let elapsed = buildOne date
+            let inPath = match staged with Choice1Of2 p -> p | Choice2Of2 ex -> raise ex
+            let elapsed =
+                try buildOne date inPath
+                finally if stageDir.IsSome then (try File.Delete inPath with _ -> ())
+            if stageDir.IsSome then printf "(staging wait %.1fs) " waited
             totalSeconds <- totalSeconds + elapsed
             let outSize = FileInfo(Path.Combine(outDir, $"{date}.parquet")).Length
             printfn "[%d/%d] %s  %.1fs  out=%.1f MB"

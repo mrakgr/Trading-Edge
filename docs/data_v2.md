@@ -68,3 +68,70 @@ busted prints); home took the current files. `backfill-daily` never re-downloads
 row count and content hash) and dropped (`scripts/db/archive_and_drop.py`); the file compacted 22.79 → 7.68 GB with every
 kept object, constraint and view verified identical (`scripts/db/compact.py`). The pre-cleanup file is kept as
 `data/trading.pre_cleanup.db` until the user deletes it.
+
+## The marker-free 1s corpus (2026-10-24/25)
+
+**Why.** Codes 15 (Market Center Official Close) and 16 (Market Center Official Open) are markers, not trades. The
+condition table marks them Hi/Lo N, Op/Cl N, Volume N, and each one restates a print already on the tape:
+- on the listing venue, a copy of its 17 / 8 cross;
+- elsewhere, a copy of that venue's first or last trade;
+- NYSE Arca also restates Nasdaq's closing cross: AUR 10-20, the 8.25M-share cross counted three times.
+
+The 1s filter kept them (GF-47): 9.5–18 % of a day's bar volume.
+
+How often a marker copies a real print (same ticker, size and price that day):
+
+| day | 16 copies | 15 copies | volume found nowhere else |
+|---|---|---|---|
+| 2017-06-15 | 99.1 % | 99.5 % | ≤ 0.05 % |
+| 2022-03-15 | 98.6 % | 86.9 % | ≤ 0.03 % |
+| 2026-10-20 | 96.1 % | 78.8 % | ≤ 0.11 % |
+
+The unmatched markers are almost all ≤ 100 shares.
+
+**The fix.**
+- `TradeFilters.markerConditions = {15, 16}`.
+- `Bars.fs` drops them FIRST, before the auction override, in both the SQL (the corpus builder) and `keepByMask` (the
+  Oms's `L1.eligible`).
+- The lit-only `whereClauseSql` lineage (1m bars) still counts them.
+- `build_all_1s_bars.fsx` stamps `.filter` = MARKERS_DROPPED and refuses to add marker-free days to a corpus without the
+  stamp (the old `data/intraday_1s_slim` has none).
+
+**The build.**
+- `data/intraday_1s_slim_v3/`: 2,567 days, 0 missing, 198 GB.
+- `--stage-dir`: the trades are on a 5,400 rpm HDD behind WSL's 9P mount. DuckDB's column reads got ~40 MB/s; one
+  sequential 4 MB-block copy to the SSD gets ~139 MB/s, so a day takes ~5–11 s instead of 30–40 s.
+- 16 MB blocks failed with ENOMEM on 19 days under memory pressure; 4 MB blocks plus a retry fixed it.
+- Effect on 10-20: −16.7 % bar volume, −10.3 % 09:30–09:45 dollar volume. On the same ticker-day the new
+  dv_0945_tape is 0.879× the old (median; p10 0.768, p90 0.998).
+
+**Iso-trip study, 2016-08 … 2026-10-22.**
+- OLD = today's code on the old corpus at $2M (`TradingEdge.Parity`, `out/volfix/old`, private repo).
+- NEW = the marker-free corpus, the candidate table at $1M (`data/v3_candidates`), FlushFader's own floor lowered to
+  match (`parity --min-dv0945-tape`), each book cut at dv_0945_tape ≥ X.
+- Script: `out/volfix/iso.py` (private repo).
+
+"vs old" = trips at the floor ÷ trips on the old corpus at $2M; PF is equal-weight (sized in parentheses).
+
+| floor | universe vs old | FlushFader vs old (reproduced), PF (sized) | SpikeFader vs old, PF | Snoozer vs old, PF | LowFader vs old, PF |
+|---|---|---|---|---|---|
+| old $2M | 1,482,156 ticker-days | 39,117, 1.525 (1.739) | 3,424, 2.254 | 1,596, 2.904 | 322, 3.273 |
+| $1.50M | 1.021 | 1.023 (99.6 %), 1.534 (1.744) | 1.047, 2.291 | 1.121, 2.613 | 1.075, 2.939 |
+| $1.75M | **1.001** | 1.005 (99.5 %), 1.529 (1.740) | 1.013, 2.275 | 1.033, 2.778 | 1.065, 2.953 |
+| **$1.80M** | 0.998 | **1.002 (99.4 %)**, 1.530 (1.745) | 1.007, 2.273 | 1.016, 2.801 | 1.062, 2.950 |
+| $1.85M | 0.994 | 0.998 (99.3 %), 1.528 (1.744) | **1.001**, 2.267 | **1.003**, 2.821 | 1.059, 2.956 |
+| $2.00M | 0.982 | 0.987 (98.5 %), 1.534 (1.751) | 0.982, 2.253 | 0.954, 2.895 | 1.056, 2.996 |
+
+- **FlushFader is indifferent to the fix:** 99.4 % of trips identical at $1.80M, PF 1.525 → 1.530. SpikeFader is
+  slightly better.
+- The Snoozer is at the old level at $1.85M. A looser floor adds weaker names: at $1.50M +12 % trips, PF 2.90 → 2.61.
+- **Recommendation: the floor $2M → $1.80M**, the FlushFader iso point (the universe's is $1.75M). It lives in three
+  places, which must change together:
+  - the candidate table (`--min-dv`);
+  - FlushFader's `MinDv0945Tape`;
+  - the Oms's `Gate.MinDv0945Tape`.
+- ⚠ **LowFader moves at EVERY floor** (+40 trips at mean +2.28 %, PF 2.29; −15 at +3.70 %, PF 8.21): its own volume
+  features changed, not the floor. `rr = vol_60 / (vol_0945_tape / 15)` divides by the 09:30–09:45 volume, which held
+  the duplicated opening cross, so rr rises and more signals pass `rr >= 2` (A grade `rr >= 5`). Also, 6 of the 40
+  are names now under its $20M upper cap (`OrdMaxDv0945Tape`). Iso would scale these: rr ≈ /0.88 (2 → ~2.3, 5 → ~5.7),
+  the cap $20M → ~$17.6M. A LowFader re-tune, for the user.

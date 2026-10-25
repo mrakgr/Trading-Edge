@@ -52,6 +52,20 @@ let closingPrintConditions : int Set = Set.ofList [
 let openingAndClosingPrintConditions =
     openingPrintConditions + closingPrintConditions
 
+/// ⭐ MARKERS, NOT TRADES (2026-10-24, docs/gapfader_results.md GF-47 / GF-49): 15 Market Center Official Close and
+/// 16 Market Center Official Open restate the price and size of a print that is already on the tape (the condition
+/// table: Hi/Lo N, Op/Cl N, Volume N). Every venue publishes its own: on the listing venue a copy of its 17 / 8 cross,
+/// elsewhere a copy of that venue's first / last trade, and NYSE Arca restates Nasdaq's closing cross a second time.
+/// Measured on 5 days 2017-2026: 79-99.5 % of the markers copy a real print of the same ticker, size and price; the
+/// rest carry <= 0.11 % of the markers' volume. Kept, they were 9.5-18 % of a day's 1s-bar volume.
+/// ⚠ Only the 1s convention drops them (Bars.fs: the 1s corpus and the Oms's bars), BEFORE the auction override (a
+/// marker never carries 17/25/19/8, measured 0, but must not be rescued by one). This module's lit-only lineage
+/// (`whereClauseSql`: the 1m bars, TradeLoader, trade_filters.py) still counts them.
+let markerConditions : int Set = Set.ofList [
+    15  // Market Center Official Close
+    16  // Market Center Official Open
+]
+
 /// True iff the conditions array means we should drop this trade.
 /// Opening/closing prints override the exclude set — we always keep auction
 /// prints even when they coincide with an excluded condition code.
@@ -82,6 +96,9 @@ let excludeSetSql =
     "[2, 7, 10, 13, 20, 21, 22, 29, 32, 52, 53]::UTINYINT[]"
 
 let openCloseSetSql = "[17, 25, 19, 8]::UTINYINT[]"
+
+/// `markerConditions` (the 1s convention only: Bars.fs)
+let markerSetSql = "[15, 16]::UTINYINT[]"
 
 let conditionsSqlClause =
     sprintf "(list_has_any(conditions, %s) OR NOT list_has_any(conditions, %s))"

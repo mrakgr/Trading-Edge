@@ -7,15 +7,19 @@ The rows are the ticker's daily_adjusted rows, whatever their gaps (no episode s
 The live twin is TradingEdge.Oms Reference.atr5s (pinned to this file by ReferenceTests).
 Run from research/:  python -u scripts/equity/atr5_candidates.py > data/equity/atr5/candidates_atr5.log 2>&1; echo exit $?
 """
-import os, time
+import argparse, os, time
 import duckdb
+ap = argparse.ArgumentParser()
+ap.add_argument("--cands", default="data/v2_candidates/mr_candidate_1s_v2", help="the candidate table (hive): the ticker-days to cover")
+ap.add_argument("--out", default="data/equity/atr5/candidates_atr5.parquet")
+args = ap.parse_args()
 T0 = time.time()
-OUT = "data/equity/atr5/candidates_atr5.parquet"
+OUT = args.out
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 con = duckdb.connect(); con.execute("SET memory_limit='16GB'"); con.execute("SET threads=8"); con.execute("SET preserve_insertion_order=false")
 con.execute(f"""
 COPY (
-  WITH k AS (SELECT DISTINCT ticker, date FROM read_parquet('data/v2_candidates/mr_candidate_1s_v2/*/*.parquet', hive_partitioning = true)),
+  WITH k AS (SELECT DISTINCT ticker, date FROM read_parquet('{args.cands}/*/*.parquet', hive_partitioning = true)),
        a AS (SELECT ticker, date, high * n AS h, low * n AS l, close * n AS c FROM 'data/v2/daily_adjusted.parquet'
              WHERE ticker IN (SELECT DISTINCT ticker FROM k)),
        -- ⚠ DuckDB's greatest / least SKIP a NULL: a row without a previous close has NO true range (not H - L)

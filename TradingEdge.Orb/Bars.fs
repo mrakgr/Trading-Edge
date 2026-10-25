@@ -12,6 +12,7 @@ module TradingEdge.Orb.Bars
 //   trf_id = 0   (LIT ONLY — TRFs dropped)        no trf_id filter — TRFs KEPT
 //   no SIP-delta cap                              sip - participant <= 50 ms
 //   open/close override the EXCLUDE SET only      open/close override the cap TOO
+//   counts the 15/16 open/close MARKERS           drops them, auction code or not (2026-10-24)
 //   no price guard                                price > 0
 //
 // The 1s convention is DECISION 2 (all venues) + DECISION 7 (auction prints are
@@ -65,6 +66,9 @@ let openCloseSetSql = TradeFilters.openCloseSetSql
 /// `[2, 7, 10, 13, 20, 21, 22, 29, 32, 52, 53]::UTINYINT[]`
 let excludeSetSql = TradeFilters.excludeSetSql
 
+/// `[15, 16]::UTINYINT[]` — the official open / close MARKERS (TradeFilters.markerConditions): not trades, dropped first
+let markerSetSql = TradeFilters.markerSetSql
+
 /// The bucketing clock (DECISION 1): SIP publish time, falling back to the
 /// venue clock only when SIP is 0. Live-parity — the live feed comes via a SIP.
 let tsExprSql = "COALESCE(NULLIF(sip_timestamp, 0), participant_timestamp)"
@@ -105,20 +109,22 @@ let private tsAtSql (p: TimestampPrecision) (col: string) =
     | Millisecond -> sprintf "((%s // 1000000) * 1000000)" col
 
 /// DECISION 7 — auction prints bypass BOTH the delta cap and the exclude set.
+/// ⭐ (2026-10-24) An official open / close MARKER (15, 16) is not a trade: it never enters a bar, auction code or not.
 let conditionsAndDeltaSqlAt (p: TimestampPrecision) =
-    sprintf
-        "(
-              list_has_any(conditions, %s)
-              OR (
-                  ( sip_timestamp = 0
-                    OR participant_timestamp = 0
-                    OR (%s - %s) <= %d )
-                  AND NOT list_has_any(conditions, %s)
+    let sip = tsAtSql p "sip_timestamp"
+    let participant = tsAtSql p "participant_timestamp"
+    $"""(
+              NOT list_has_any(conditions, {markerSetSql})
+              AND (
+                  list_has_any(conditions, {openCloseSetSql})
+                  OR (
+                      ( sip_timestamp = 0
+                        OR participant_timestamp = 0
+                        OR ({sip} - {participant}) <= {MaxSipDeltaNs} )
+                      AND NOT list_has_any(conditions, {excludeSetSql})
+                  )
               )
-          )"
-        openCloseSetSql
-        (tsAtSql p "sip_timestamp") (tsAtSql p "participant_timestamp")
-        MaxSipDeltaNs excludeSetSql
+          )"""
 
 let conditionsAndDeltaSql = conditionsAndDeltaSqlAt Nanosecond
 
@@ -169,6 +175,7 @@ let private maskOfSet (s: int Set) =
 
 let excludeMask = maskOfSet TradeFilters.excludeConditions
 let openCloseMask = maskOfSet TradeFilters.openingAndClosingPrintConditions
+let markerMask = maskOfSet TradeFilters.markerConditions
 
 let maskOf (conditions: int[]) : uint64 =
     let mutable m = 0UL
@@ -199,6 +206,7 @@ let maskOfBytes (conditions: Collections.Generic.IReadOnlyList<byte>) : uint64 =
 let inline keepByMask (mask: uint64) (sipTs: int64) (participantTs: int64)
                       (price: float) (size: float) : bool =
     size > 0.0 && price > 0.0
+    && mask &&& markerMask = 0UL // never an official open / close marker (15, 16): not a trade (2026-10-24)
     && (mask &&& openCloseMask <> 0UL // keep if the trade is an open or a close trade
         || (sipTs = 0L || participantTs = 0L || sipTs - participantTs <= MaxSipDeltaNs) // or if the delta between sip and participant timestamps is small enough
            && mask &&& excludeMask = 0UL) // and there are no exclude conditions
