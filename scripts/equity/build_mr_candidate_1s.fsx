@@ -10,7 +10,7 @@
 // >= 10/15 bars — was the last 1m-bar dependency in the FlushFader path, and it blind-spots
 // the thinnest tapes (60% of dv-qualified tkds fail it). It is replaced by two tape floors:
 //
-//   (A') LIQUIDITY  — dv_0945_tape >= $2M   (Σ vwap·volume, 09:30-09:45, raw dollars)
+//   (A') LIQUIDITY  — dv_0945_tape >= $1.6M (Σ vwap·volume, 09:30-09:45, raw dollars; $2M until 2026-10-25, the marker-free corpus)
 //                     AND n_eff_shannon >= 25 (see below).
 //   (B)  UNIVERSE/CONTEXT — CS/ADRC via `daily_episodes`. ⚠ NO WARMUP (S40, user
 //                     2026-08-01): the >= 21-prior-bars clause was vestigial — nothing in
@@ -122,7 +122,7 @@ type CliArgs =
             match this with
             | Db _ -> "DuckDB database path (default: data/trading.db)."
             | Slim_Dir _ -> "Directory of 1s slim parquet files (default: data/intraday_1s_slim)."
-            | Min_Dv _ -> "dv_0945_tape floor in raw dollars (default: 2e6)."
+            | Min_Dv _ -> "dv_0945_tape floor in raw dollars (default: 1.6e6 since 2026-10-25, the marker-free 1s corpus: docs/data_v2.md; was 2e6)."
             | Min_Neff _ -> "n_eff_shannon floor — ⚠ RETIRED as the gate (S43u), 0 = off (default: 0)."
             | Min_Bars _ -> "n_bars_1s floor over [09:30,09:45) = 900 - gap count. THE (A') gate (default: 200)."
             | Pattern _ -> "File pattern inside slim-dir (default *.parquet). e.g. '2025-0[1-6]-*.parquet' for a pilot window (2026-09-05)."
@@ -138,7 +138,7 @@ let parsed =
 
 let dbPath  = parsed.TryGetResult Db |> Option.defaultValue "data/trading.db"
 let slimDir = parsed.TryGetResult Slim_Dir |> Option.defaultValue "data/intraday_1s_slim"
-let minDv   = parsed.TryGetResult Min_Dv |> Option.defaultValue 2e6
+let minDv   = parsed.TryGetResult Min_Dv |> Option.defaultValue 1.6e6   // = the Oms's Gate.MinDv0945Tape (user 2026-10-25)
 // ⭐ S43u (user): n_eff_shannon RETIRED as the (A') gate, replaced by a GAP COUNT.
 // Why: the 09:30 opening auction print is a median 26% (p90 58%) of ALL 09:30-09:45
 // volume, so exp(Shannon H) over per-second volume shares is substantially a measure of
