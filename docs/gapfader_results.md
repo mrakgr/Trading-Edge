@@ -1868,3 +1868,120 @@ day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 5
   and the target fills on the trade-through (the Oms works the exit as a maker AFTER the trade-through bar); the P&L per
   year (+97 % in 2016–19, +300–470 % since 2021, at 8k) is not an expectation. The drawdown and streak columns are the
   ones to plan with; 2016–19 the honest guide.
+
+## GF-49 — the DEATH-SPIRAL rule: refuse a stock down ≥ 95 % in a year (2026-10-26, user, after NIVF)
+
+`scripts/equity/gapfader_spiral.py` → `data/equity/gapfader/spiral.{md,parquet}`. User: "we need to avoid trading stocks
+that are down more than 95 % in the past year", after NIVF on the first live day.
+
+NIVF had been reverse-split again and again, and its share count `n` went from 1 to 0.000002 since its 2024 listing.
+- **The book:** GF-45's (same gates, noise and seed) with the Oms's exit (ONE target at 50 % to 10:00) and production units
+  (clip(PF−1, 0.125, 2) from gf_coefficients.json): 49,044 trades.
+- **The feature:** chg_1y = close(D−1)·n(D−1) / (close(Y)·n(Y)) − 1, with Y the last session ≤ D−1 − 365 days inside the
+  ticker's episode (docs/price_adjustment.md: causal through every reverse split).
+- **History:** 14.4 % of trades have less than a year of history (reported apart: the change since the listing).
+
+| chg_1y | n | PF flat | PF units | mean % | Σ units·r |
+|---|---|---|---|---|---|
+| ≤ −99 % | 340 | 1.22 | 1.71 | +0.35 | +2.1 |
+| −99 … −95 % | 621 | 1.45 | 1.57 | +0.62 | +3.7 |
+| −95 … −90 % | 712 | 2.33 | 3.08 | +1.30 | +10.3 |
+| −90 … −75 % | 2,800 | 1.47 | 1.68 | +0.63 | +21.8 |
+| −75 … 0 % | 19,836 | 1.44 | 1.56 | +0.53 | +127.5 |
+| > 0 % | 17,659 | 1.69 | 1.86 | +0.73 | +126.9 |
+| < 1 year of history | 7,076 | 2.11 | 2.61 | +1.11 | +92.3 |
+| ALL | 49,044 | 1.62 | 1.80 | +0.70 | +384.6 |
+
+**The rule at −95 %:**
+- It refuses 961 trades (1.96 %; 4.66 % of 2024–26), which made PF 1.36 flat / 1.61 units and +5.7 of the book's +384.6.
+- The kept book: PF units 1.80 → **1.81**, Σ −1.5 %.
+- By regime, refused vs kept: 2016–19 0.66 [42] vs 1.32 · 2020 1.27 [36] vs 1.55 · 2021–23 **2.03** [115] vs 1.62 ·
+  2024–26 1.36 [768] vs 1.86. In the current regime the spirals are the weaker trades, but they are still profitable.
+- **Disproportion test:** 2 % of the book moves PF +0.2 %. That is consistent with a quality filter, not a hidden selector.
+- The threshold sweep (−80 … −99 %) moves PF units by −0.012 … +0.004. Only −95 % and beyond are not negative.
+
+**NIVF in the book:** 17 trades since 2024; the 9 with chg_1y ≤ −95 % (from 2025-05) sum to −5.8 %.
+
+⚠ **What the backtest cannot see:** the exit. A spiral name sells off for hours, and the Oms's maker exit then rests on
+the ask while the price falls through it (NIVF 2026-10-26: the 10:00 exit was still unfilled at 11:38). The book exits
+at the 10:00 1s vwap.
+
+**The rule is cheap insurance, not an edge.** Decision: the user's (2026-10-26).
+
+## GF-50 — ACTIVITY floors: the 20-session median of active 1s bars, and the median dollar volume (2026-10-26, user, after NIVF)
+
+`scripts/equity/build_daily_bars.py` → `data/equity/daily_bars/` (new): per ticker-day RTH / premarket active 1s bars, trades
+and volume, from the marker-free 1s corpus (2,568 days, 2 min). `scripts/equity/gapfader_bars20.py` →
+`data/equity/gapfader/bars20.{md,parquet}`. The book is GF-49's: 49,044 trades, the Oms's exit and units.
+
+User's hypothesis: NIVF's one huge day (144M dollars on 2026-09-30) lifted its MEAN dv20 and made a thin name look safe.
+The features, over the 20 prior sessions in the episode:
+- `bars20_med`, the median count of active 1s bars;
+- `dv20_med` (user: "let's also introduce median 20d volume"), the median dollar volume;
+- `spike` = dv20 (mean) / dv20_med;
+- `vol_top1`, the biggest session's share of the 20 sessions' volume.
+
+**⚠ The thin and spiky names are GapFader's BEST trades.**
+
+| slice | n | PF flat | PF units |
+|---|---|---|---|
+| bars20_med < 250 | 3,776 | **2.41** | **3.13** |
+| bars20_med 2,000–4,000 | 11,440 | 1.51 | 1.61 |
+| bars20_med 8,000–16,000 | 2,418 | 1.33 | 1.23 |
+| dv20_med < $0.5M | 5,677 | **2.55** | **3.46** |
+| dv20_med ≥ $25M | 13,334 | 1.49 | 1.55 |
+| spike ≥ 5 | 8,322 | **2.20** | **3.01** |
+| spike < 1.25 | 28,050 | 1.40 | 1.47 |
+| ALL | 49,044 | 1.62 | 1.80 |
+
+- **Every floor cuts the edge far beyond chance.** Against the iso-trip control (the same n refused at random, 200 draws):
+
+  | rule | Δ PF units | random p5 … p95 |
+  |---|---|---|
+  | bars20_med < 250 | −0.091 | −0.014 … +0.014 |
+  | dv20_med < $1M | −0.229 | ±0.02 |
+  | spike ≥ 5 | −0.170 | ±0.02 |
+
+- **It holds in every regime.** bars20_med < 500, refused vs kept: 2016–19 1.64 vs 1.23 · 2020 1.75 vs 1.52 · 2021–23 2.63 vs
+  1.49 · 2024–26 2.68 vs 1.65. This is GF-18 / GF-45 again: the surprises and the thin names carry the edge.
+- **NIVF on 2026-10-26 would have passed both floors.** Its 20 prior sessions: dv20 mean $14.9M, median **$2.32M**, spike 6.4,
+  bars20_med **3,545** (1,102 … 20,599 a day). By the median it was not thin.
+- **Capping the size by the median** (MaxNotional = 0.25 % × dv20_med instead of the mean; 8k equity, $200 floor): $ PF 1.81 →
+  1.69, total −20 %, 2024–26 −28 %. NIVF is untouched (its cap would have been $5.8k against a $421 position).
+- **What did go wrong on NIVF is the EXIT.** The 10:00 time stop's maker exit rested on the ask while the stock fell, and it
+  sold at 11:52–11:53 at 1.18 / 1.17. That is −11.7 % against about −6.5 % at the 10:00 price the backtest assumes (the sell
+  went out at 1.25 = the ask), so roughly half the loss is the exit's.
+
+⇒ No activity floor: it removes the edge. The open question is the time-stop exit on a falling name (the user's call).
+
+## GF-51 — the PREVIOUS SESSION's activity: bar count and dollar volume on D−1 (2026-10-26, user)
+
+`scripts/equity/gapfader_prevday.py` → `data/equity/gapfader/prevday.{md,parquet}`. The book is GF-50's.
+- `bars_d1`: RTH active 1s bars on D−1.
+- `dv_d1`: D−1's dollar volume.
+- `rel_d1` = dv_d1 / dv20_med.
+
+**The quieter the previous session, the better the trade: even more strongly than over 20 days.**
+
+| slice | n | PF flat | PF units |
+|---|---|---|---|
+| bars_d1 < 250 | 1,683 | **4.76** | **5.57** |
+| bars_d1 250–500 | 3,229 | 2.67 | 3.06 |
+| bars_d1 4,000–8,000 | 8,636 | 1.38 | 1.39 |
+| bars_d1 ≥ 16,000 | 581 | 1.19 | 1.11 |
+| dv_d1 < $0.25M | 1,618 | **5.90** | **7.58** |
+| dv_d1 ≥ $25M | 15,617 | 1.50 | 1.58 |
+| rel_d1 < 0.25 (yesterday quiet vs the median) | 682 | 3.65 | 5.38 |
+| rel_d1 ≥ 5 (yesterday busy) | 5,050 | 1.81 | 2.16 |
+
+- **Every floor cuts the edge far beyond the iso control.** bars_d1 < 500: Δ PF units −0.178 against random ±0.014; dv_d1 <
+  $1M: −0.206 against ±0.016. The quiet-yesterday trades lead in every regime: bars_d1 < 500, 2021–23 4.56 vs 1.49 · 2024–26
+  4.63 vs 1.65.
+- **A busy yesterday** (rel_d1 ≥ 5) is neutral: Δ −0.032, inside the random band's edge.
+- **NIVF on 2026-10-26** would have passed these too: D−1 (10-23) 3,348 bars, $1.59M.
+
+⚠ **This is where the backtest's execution model is weakest.** PF 4.8–5.9 on names that barely traded the day before is too
+good to take at face value. In a thin name the target "fills" on any trade-through print, however small, and the 10:00 exit
+fills at the first 1s vwap. Neither has to hold for our size. The next study (the user's concern, "whether we'll be able to
+tap into those live"): an execution-realistic book. The target needs volume through the level ≥ our shares, the 10:00 exit
+pays the spread, and the comparison is made by activity bucket.
