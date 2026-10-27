@@ -37,7 +37,7 @@ t50 = C.tf_50.astype("float64").fillna(np.inf)
 C["r"] = (np.where(t50 < 36000, C.open + 0.5 * (C.pc_total - C.open), C.x_36000) / C.open - 1 - 0.004 / C.open) * 100
 
 # production sizing: Model.size (Engine/GapFader.fs) from gf_coefficients.json
-J = json.load(open("data/equity/gapfader/gf_coefficients.json"))
+J = json.load(open("data/equity/gapfader/gf_coefficients_pre_gf54.json"))
 raw = {"ldv": np.log(C.dv20_prior.values), "lrv": np.log(C.rvolc.values + 0.001), "rv5": (C.rvolc.values < 0.005) * 1.0}
 X = [np.ones(len(C))]
 for s in J["standardise"]:

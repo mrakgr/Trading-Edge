@@ -38,7 +38,7 @@ t = C.tf_50.astype("float64").fillna(np.inf)
 C["r"] = np.where(t < 36000, C.open + 0.5 * (C.pc_total - C.open), C.x_36000) / C.open - 1 - 0.004 / C.open
 log(f"{len(C):,} trades {C.date.min()} .. {C.date.max()}")
 # ---- pf1 from the production coefficients
-J = json.load(open("data/equity/gapfader/gf_coefficients.json"))
+J = json.load(open("data/equity/gapfader/gf_coefficients_pre_gf54.json"))
 raw = {"ldv": np.log(C.dv20_prior.values), "lrv": np.log(C.rvolc.values + 0.001), "rv5": 1.0 * (C.rvolc.values < 0.005)}
 X = [np.ones(len(C))] + [((np.clip(raw[s["term"]], *s["winsor"]) if s["winsor"][0] is not None else raw[s["term"]]) - s["mean"]) / s["sd"] for s in J["standardise"]]
 X = np.column_stack(X); p = 1 / (1 + np.exp(-X @ J["beta_p"]))

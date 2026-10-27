@@ -1985,3 +1985,141 @@ good to take at face value. In a thin name the target "fills" on any trade-throu
 fills at the first 1s vwap. Neither has to hold for our size. The next study (the user's concern, "whether we'll be able to
 tap into those live"): an execution-realistic book. The target needs volume through the level ≥ our shares, the 10:00 exit
 pays the spread, and the comparison is made by activity bucket.
+
+## GF-52 — the 60-session MEDIAN dollar volume (2026-10-27, user, after NIVF and GIXI)
+
+`scripts/equity/gapfader_dv60.py` → `data/equity/gapfader/dv60.{md,parquet}`. The book is GF-51's (49,044 trades).
+- `dv60_med`: the median of volume × close over the 60 prior sessions in the episode (fewer for a younger listing; 96.5 % have 60).
+- `surge` = dv20_med / dv60_med: the last 20 sessions against the last 60.
+
+**Why:** NIVF passed GF-50's 20-session median ($2.32M) because its 20 sessions were the death-spiral frenzy (09-30: $144M,
+859M shares at $0.17). Over 60 sessions its median is **$224k** (Aug and Sep ~$150k a day): surge ≈ 10. GIXI (listed
+2026-09-02, 37 sessions) is thin on both: $99k over 20, $166k over all 37; one day (10-12, $184M) carried 83 % of its 20
+sessions' dollars, so the MEAN gate ($11.0M ≥ $1M) passed it.
+
+**The thinner over 60 sessions, the better the trade — a cleaner gradient than over 20.**
+
+| dv60_med decile | n | PF flat | PF units |
+|---|---|---|---|
+| D1 < $0.149M | 4,905 | **2.48** | **3.30** |
+| D2 $0.149–0.719M | 4,904 | 2.19 | 2.80 |
+| D3 $0.72–1.72M | 4,904 | 1.63 | 1.80 |
+| D4 $1.72–3.22M | 4,905 | 1.44 | 1.57 |
+| D5–D9 $3.2–85M | 24,521 | 1.33–1.48 | 1.43–1.62 |
+| D10 > $85M | 4,905 | 1.64 | 1.77 |
+| ALL | 49,044 | 1.62 | 1.80 |
+
+| surge | n | PF flat | PF units |
+|---|---|---|---|
+| < 0.5 | 932 | 2.32 | 2.74 |
+| 0.8–1.25 | 24,324 | 1.53 | 1.66 |
+| 2–4 | 3,741 | 1.88 | 2.50 |
+| 4–8 | 1,616 | 2.11 | 2.76 |
+| ≥ 8 | 2,178 | 1.90 | 2.52 |
+
+- **D1 leads in every year** 2016–2026 (flat 1.72–3.21; the book 1.21–2.03). D2 leads in 10 of 11 (2021: 1.45 vs 1.81).
+- **Every floor cuts the edge far beyond the iso control.** dv60_med < $0.25M refuses 13.1 %: Δ PF units −0.159 against random
+  ±0.019, −107.5 of Σ units·r (−28 %); < $1M: −0.251, −44 %. The refused thin trades lead in every regime: < $0.25M,
+  2016–19 2.02 vs 1.27 · 2020 2.08 vs 1.52 · 2021–23 2.71 vs 1.52 · 2024–26 2.41 vs 1.66.
+- **NIVF's shape** (dv60_med < $0.25M and surge ≥ 4): 2,297 trades, PF 2.29 / 2.95 — better than the book. A surge is no
+  warning sign either: surge ≥ 4 refused = 1.98 / 2.62, Δ −0.050.
+- **The sizing already leans this way**: dv60_med ~ pf1 Spearman −0.335 (the model's `ldv` is the MEAN dv20); the units
+  PF exceeds the flat one most in the thin deciles (D1 3.30 vs 2.48).
+
+⇒ Ranked on dv60_med, GapFader's edge sits in the thin names — the ones that hurt us live on 10-26 (NIVF, GIXI). Whether
+that edge is capturable is GF-51's open question: the execution-realistic book, by this decile. Not yet tested: whether
+dv60_med adds to pf1 (dv60_med deciles within pf1 bands).
+
+## GF-53 — an alternative sizing model on the 60-session MEDIAN dollar volume (2026-10-27, user)
+
+`scripts/equity/gapfader_dv60_model.py` → `data/equity/gapfader/dv60_model.{md,parquet}`. GF-45's book verbatim (49,044
+trades after GF-46, seed 20261020); the current model refits to `gf_coefficients.json` exactly (max |Δβ| 0) and gives the
+live pf1 of 10-26 exactly (NIVF 0.371, GIXI 0.840). Only `ldv = ln dv20_prior` (the 20-session MEAN) is swapped; rvol's two
+terms stay, and so do the gates (dv20_prior ≥ $1M). Each model is fitted and scored on the same trade, on two trades: the
+DESIGN trade GF-45 was fitted on (½ at 50 % / ½ at 75 %) and the one the OMS RUNS (one target at 50 %).
+
+**The 60-session median beats the 20-session mean on every holdout, on both trades.**
+
+| model | current regime (fit 21–23 ↔ 24–26), sized PF−1 design / Oms trade | units PF−1 design / Oms | across regimes (16–19 ↔ 21–26), sized design / Oms |
+|---|---|---|---|
+| flat | 0.760 / 0.723 | 0.760 / 0.723 | 0.563 / 0.521 |
+| **current: ln dv20 mean + rvol** | **1.087** / 1.027 | 1.064 / 1.011 | 0.636 / 0.577 |
+| **dv60_med + rvol** | **1.214** / **1.140** | **1.177** / **1.119** | **0.809** / **0.746** |
+| dv20_med + rvol | 1.219 / 1.141 | 1.186 / 1.122 | 0.736 / 0.673 |
+| both (dv20 mean + dv60_med) + rvol | 1.165 / 1.088 | 1.119 / 1.057 | 0.751 / 0.688 |
+| dv60_med + surge + rvol | 1.209 / 1.131 | 1.174 / 1.111 | 0.749 / 0.686 |
+
+- Over flat, the lift on the current regime grows from +43 % to **+60 %** (design trade); across regimes it doubles, +13 % → +44 %.
+- **The statistic matters more than the window.** A 20-session MEDIAN does as well inside the current regime (1.219), but the
+  60-session one carries across regimes (0.809 vs 0.736). Adding the mean back to dv60_med makes it WORSE (1.165): the mean
+  is noise once the median is in.
+- **Σ units·r (production's clip):** A→B +164.4 vs +136.3 (+21 %); B→A +126.8 vs +134.0 (−5 %). The units PF improves both
+  ways; the total does not.
+- Fitted as production (2021–26, design trade): ln dv60_med per SD odds × 0.780, W × 0.877, L × 0.840 (current's ln dv20:
+  0.835 / 0.932 / 0.897) — the same direction, steeper. Mean predicted PF−1 0.853 vs 0.867; Spearman between the two
+  models +0.858; at the 0.125 floor 7.7 % vs 4.8 %, at the 2-unit cap 4.8 % both.
+- **Where they disagree most** (in-sample): 1,849 trades the new model sizes ≥ 2× the current (median dv20 mean $41.7M,
+  dv60_med $0.11M — a quiet name with a spike in its 20 sessions) are only flat PF 1.35, units 1.49 current vs 1.45 new;
+  the 1.25–2× band (4,119, dv60_med $0.149M) is PF 2.24, units 2.71 vs 2.63. The model's gain is in the ranking of the bulk
+  (0.8–1.25×: 10,982 trades, units 2.98 → 3.10), not in its upsizing of the spike names.
+
+**NIVF and GIXI on 10-26 would have been sized LARGER, not smaller:**
+
+| ticker | dv20 mean | dv60_med | rvol | pf1 current (= live) | pf1 dv60_med | units |
+|---|---|---|---|---|---|---|
+| NIVF | $14.93M | $0.224M | 0.0140 | 0.371 | 0.735 | 0.37 → 0.73 |
+| GIXI | $11.03M | $0.166M | 0.0033 | 0.840 | 1.274 | 0.84 → 1.27 |
+
+Both are the "quiet name, one spike" shape. The system's cap (MaxNotional = 0.25 % × dv20_prior, the mean) is untouched
+here; on the median it would bind hard (GIXI: $415). GF-50 measured a median-based cap at −20 % of P&L.
+
+## GF-54 — THE PRODUCTION REFIT on the 60-session MEDIAN: the model, the gates, the cap; the $500k floor; the Oms's trade (2026-10-27, user)
+
+`scripts/equity/gapfader_model_v2.py` → `data/equity/gapfader/model_v2.{md,parquet}` and **`gf_coefficients_gf54.json`**
+(production's `gf_coefficients.json` untouched until the Oms switches).
+
+**User rulings:**
+- **The volume estimates are 60-session MEDIANS** in the model, the gates and the cap: dv60_med = median(volume × close),
+  vol60_med = median(volume / n) × n(D) (shares on D's scale), over the 60 prior sessions in the episode. A younger
+  listing uses all its prior sessions, 20 at the least (the census and the Oms's Reference need 20) — "I like that
+  approach". rvol = premarket volume / vol60_med, in the terms and in the rvol < 0.02 gate.
+- **The floor is dv60_med ≥ $500k**, replacing dv20_prior ≥ $1M: "to trade we actually need counter parties". The
+  backtest's PF below it (GF-52) is discounted as not a quantity we can trade.
+- **The cap**: MaxNotional = 0.25 % × dv60_med.
+- **Fitted on the trade the Oms runs**: one target at 50 % to 10:00, then the 10:00 1s vwap.
+
+The book is GF-45's with the volume swapped; the census pool is pre-filtered on the new rvol (premarket to 09:30 /
+vol60_med < 0.05). GF-45's rows keep their exact auction-price noise; a new row draws from a seed of its own (ticker,
+date). Their tape is GF-45's cache plus `sizing_tape_cut_ext.parquet` (5,718 rows, the same query).
+
+| book | n | flat PF | 2016–19 | 2020 | 2021–23 | 2024–26 |
+|---|---|---|---|---|---|---|
+| **dv60_med ≥ $500k, rvol60 < 0.02** | **38,055** | **1.566** | 1.272 | 1.562 | 1.570 | 1.773 |
+| … GF-45's gates pass too | 34,620 | 1.520 | 1.255 | 1.549 | 1.515 | 1.672 |
+| … not in GF-45's | 3,435 | 2.092 | 1.439 | 1.783 | 2.049 | 2.997 |
+| … fewer than 60 sessions behind the medians | 1,163 | 3.350 | 3.111 | 1.370 | 4.107 | 4.121 |
+
+(GF-45's book on the same trade: 49,044 trades, flat PF 1.621.) Sessions behind the medians: 20–29: 380 · 30–39: 308 ·
+40–49: 249 · 50–59: 226 · 60: 36,892.
+
+**The models on this book:**
+
+| model | current regime (21–23 ↔ 24–26): sized / units PF−1 · Σ units·r | across regimes (16–19 ↔ 21–26): sized / units |
+|---|---|---|
+| flat | 0.671 / 0.671 · +45.9 / +54.4 | 0.467 / 0.467 |
+| current: ln dv20 mean + rvol20 | 0.829 / 0.827 · +55.1 / +75.8 | 0.502 / 0.499 |
+| **ln dv60_med + rvol20** | **0.847 / 0.846** · +55.7 / +76.9 | **0.515 / 0.510** |
+| ln dv60_med + rvol60 | 0.845 / 0.843 · +54.7 / +76.6 | 0.492 / 0.491 |
+
+- **dv60_med beats the mean** in every column, by a little: +0.018 in the current regime, +0.013 across regimes; Σ
+  units·r +0.6 / +1.1. Most of GF-53's lift came from ranking the thin names, which the floor removes.
+- **⚠ rvol on the median does NOT help as a term**: −0.002 in the current regime, −0.023 across regimes against rvol on
+  the mean (beside dv60_med). Within noise; the user's ruling decides which goes into production.
+- **Young listings (< 60 sessions behind the medians) lead**: 1,163 trades at PF 3.35 (4.1 in 2021–26). Small n.
+- **The fit (2021–26, n = 21,910; ln dv60_med + rvol60), per SD:** ln dv60_med odds × 0.771, W × 0.930, L × 0.826;
+  ln rvol60 0.865 / 1.019 / 1.101; rvol60 < 0.005 0.933 / 1.002 / 1.036.
+- **Predicted PF−1:** p10 / p50 / p90 0.25 / 0.65 / 1.21, mean 0.692 (GF-45's 0.867). 3.8 % sit at the 0.125 floor and
+  none reach the 2-unit cap, so GapFader takes less capacity than before (the user: free it for FlushFader).
+  In-sample units PF 1.879 vs flat 1.663.
+- **Calibration** (in-sample deciles): predicted PF−1 0.14 → 1.42, realised 0.24 → 1.88; deciles 1–5 realise 0.24–0.42.
+- **10-26's NIVF (dv60_med $224k) and GIXI ($166k) are below the floor**: neither would have traded.

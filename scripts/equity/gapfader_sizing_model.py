@@ -197,7 +197,8 @@ s = YR >= 2021
 print(f"\nPredicted PF−1 on 2021–26: p10 / p50 / p90 {np.quantile(m_r[s], [.1, .5, .9]).round(2)}; below the 0.125 floor {(m_r[s] < 0.125).mean() * 100:.0f} %; "
       f"above 2 {(m_r[s] > 2).mean() * 100:.0f} %. Applied to 2016–19 (the other regime): sized PF−1 "
       f"{(lambda w: pf(R[E], w / w.mean()) - 1)(np.clip(m_r[E] / m_r[s].mean(), 0.25, 4)):.3f} vs flat {pf(R[E]) - 1:.3f}")
-# ---- THE PRODUCTION COEFFICIENTS (user 2026-10-20: dv20 + rvolc, fitted on 2021–26) → data/equity/gapfader/gf_coefficients.json
+# ---- THE (then) PRODUCTION COEFFICIENTS (user 2026-10-20: dv20 + rvolc, fitted on 2021–26) → data/equity/gapfader/gf_coefficients_pre_gf54.json
+# (production's gf_coefficients.json since 2026-10-27 is GF-54's, gapfader_model_v2.py: a rerun here no longer touches it)
 import json
 TERMS = ["ldv", "lrv", "rv5"]; FIT = YR >= 2021
 mm, (bp, bw, bl) = model(TERMS, FIT)
@@ -221,13 +222,13 @@ COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/ga
         "pins": [{"ticker": C.ticker.values[i], "date": C.date.values[i], "dv20_prior": float(C.dv20_prior.values[i]),
                   "rvol": float(C.rvolc.values[i]), "pf1": float(mm[i])} for i in sorted(idx)]}
 os.makedirs("data/equity/gapfader", exist_ok=True)
-json.dump(COEF, open("data/equity/gapfader/gf_coefficients.json", "w"), indent=1)
+json.dump(COEF, open("data/equity/gapfader/gf_coefficients_pre_gf54.json", "w"), indent=1)
 # self-check: recompute the pins from the JSON alone
 def pf1_from_json(dv, rv, J):
     raw = {"ldv": np.log(dv), "lrv": np.log(rv + 0.001), "rv5": 1.0 * (rv < 0.005)}
     x = [1.0] + [((np.clip(raw[s["term"]], *s["winsor"]) if s["winsor"][0] is not None else raw[s["term"]]) - s["mean"]) / s["sd"] for s in J["standardise"]]
     x = np.array(x); p = 1 / (1 + np.exp(-x @ J["beta_p"])); return p / ((1 - p) * np.exp(x @ J["beta_l"]) / np.exp(x @ J["beta_w"])) - 1
-J = json.load(open("data/equity/gapfader/gf_coefficients.json"))
+J = json.load(open("data/equity/gapfader/gf_coefficients_pre_gf54.json"))
 err = max(abs(pf1_from_json(q["dv20_prior"], q["rvol"], J) - q["pf1"]) for q in J["pins"])
 assert err < 1e-12, err
-print(f"\nwrote data/equity/gapfader/gf_coefficients.json: fit n={int(FIT.sum()):,}, fit-mean PF−1 {mm[FIT].mean():.4f}, 200 pins (max |Δ| recomputed from the JSON {err:.1e})")
+print(f"\nwrote data/equity/gapfader/gf_coefficients_pre_gf54.json: fit n={int(FIT.sum()):,}, fit-mean PF−1 {mm[FIT].mean():.4f}, 200 pins (max |Δ| recomputed from the JSON {err:.1e})")
