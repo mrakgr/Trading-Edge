@@ -1871,6 +1871,9 @@ day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 5
 
 ## GF-49 — the DEATH-SPIRAL rule: refuse a stock down ≥ 95 % in a year (2026-10-26, user, after NIVF)
 
+**Status 2026-10-28: REJECTED** (user): superseded by the dv60_med ≥ $500k floor (GF-54), which keeps only 105 of
+these 961 trades. See the end of GF-55.
+
 `scripts/equity/gapfader_spiral.py` → `data/equity/gapfader/spiral.{md,parquet}`. User: "we need to avoid trading stocks
 that are down more than 95 % in the past year", after NIVF on the first live day.
 
@@ -2123,3 +2126,40 @@ date). Their tape is GF-45's cache plus `sizing_tape_cut_ext.parquet` (5,718 row
   In-sample units PF 1.879 vs flat 1.663.
 - **Calibration** (in-sample deciles): predicted PF−1 0.14 → 1.42, realised 0.24 → 1.88; deciles 1–5 realise 0.24–0.42.
 - **10-26's NIVF (dv60_med $224k) and GIXI ($166k) are below the floor**: neither would have traded.
+
+## GF-55 — CONSISTENCY of the system as deployed since 2026-10-27 (2026-10-28, user: "its % of profitable days, weeks and months")
+
+`scripts/equity/gapfader_consistency_v2.py` (output `data/equity/gapfader/consistency_v2.md`, not tracked). GF-48's method
+on GF-54's book (`model_v2.parquet`):
+- **The system:** the gates dv60_med ≥ $500k · rvol60 < 0.02; GF-54's model; the cap 0.25 % × dv60_med; ONE target at
+  50 % to 10:00.
+- **The sizing:** the Oms's at a FIXED 8,000 (no compounding), the day's signals ranked by pf1 into the 10-unit / 100 %-
+  margin book.
+- **Taken:** 13,991 of 38,055 trades; the rest fell below the 200 minimum notional once the book was full.
+- A period with no trade is not counted.
+
+| period | profitable days | profitable weeks | profitable months | net PF | max drawdown | worst day / week / month | losing streak d / w / m |
+|---|---|---|---|---|---|---|---|
+| all 2016-08 .. 2026-09 | **72 %** | **81 %** | **89 %** (109/122) | 1.71 | 19.0 % | −9.8 / −12.2 / −8.0 % | 6 / 3 / 2 |
+| 2016–19 (out of sample) | 64 % | 71 % | 80 % | 1.26 | 13.6 % | −6.7 / −11.1 / −5.8 % | 6 / 3 / 2 |
+| 2020 | 80 % | 92 % | 100 % | 2.38 | 4.1 % | −3.3 / −0.7 / +8.5 % | 4 / 2 / 0 |
+| 2021–23 | 71 % | 79 % | 86 % | 1.64 | 19.0 % | −8.4 / −12.2 / −8.0 % | 4 / 3 / 2 |
+| 2024–26 | 81 % | 94 % | 100 % (33/33) | 2.30 | 17.0 % | −9.8 / −10.5 / +1.5 % | 4 / 2 / 0 |
+
+- **By year:** profitable months were lowest in 2017 (58 %) and 2023 (75 %). Every year was net positive (2016's five
+  months +13 % … 2025 +246 % of E).
+- **Frequency:** trades on 2,400 of ~2,630 weekdays, a median of 5 a day.
+- **Vs GF-48 (the 20-session mean, the $1M floor):**
+  - losing months 6 % → 11 % and PF 2.16 → 1.71;
+  - the max drawdown 29.4 % → 19.0 %.
+  - The $500k floor drops the thinnest names: the best backtest PF (GF-52), but not tradeable at our size.
+- ⚠ **The same optimism as GF-48:**
+  - the model is in-sample on 2021–26 (2016–19 is the honest guide);
+  - every LOO fills at the open and the target on the trade-through;
+  - FlushFader does not compete for the book;
+  - The P&L per year is not an expectation.
+
+**GF-49's death-spiral rule: REJECTED (user 2026-10-28).** "The new 60d median volume feature supersedes it. The big issue
+with these death-spiral stocks is the liquidity and not their overall trend." The check: of GF-49's 961 trades with
+chg_1y ≤ −95 %, only 105 (11 %) pass dv60_med ≥ $500k. They are 0.28 % of GF-54's book, with a flat PF of 1.44 there vs
+the book's 1.57.
