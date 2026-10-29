@@ -134,6 +134,7 @@ type BackfillDailyArgs =
     | V2_Only
     | Skip_V2
     | V2_Dir of string
+    | Events_Since_Days of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -147,6 +148,7 @@ type BackfillDailyArgs =
             | V2_Only -> "Download, then build data v2 (parquet) only — trading.db is never opened. The production VPS runs this."
             | Skip_V2 -> "Do not rebuild data v2 after the v1 ingest."
             | V2_Dir _ -> "Data v2 directory (default: data/v2)."
+            | Events_Since_Days _ -> "Splits and dividends: download only the N days up to the end date, on top of the existing files — their older rows kept, every row from then on replaced (later ones dropped: the live Oms reads the trading day's events only), nothing carried over. The production VPS runs this (user 2026-10-29). Default: the full range and the year ahead, the files rewritten whole (research)."
 
 type DownloadTickersArgs =
     | [<AltCommandLine("-o")>] Output_File of string
@@ -463,7 +465,15 @@ let private handleDownloadBulkTrades (config: MassiveConfig) (args: ParseResults
 /// endpoint has no merge. Callers must pass the FULL history range (2003-01-01
 /// -> today + lead, since splits are announced ahead); a narrow range silently
 /// truncates split_adjusted_prices. See docs/massive_cli_gotchas.md.
-let private runSplitsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) : bool =
+/// `recent` (production, user 2026-10-29): the range is downloaded ON TOP OF the existing file — its rows executed before
+/// `startDate` are kept, every row from `startDate` on comes from the download (DividendDownload's recent mode, the same
+/// rule). Otherwise the whole file is rewritten from the download (pass the FULL range).
+let private runSplitsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) (recent: bool) : bool =
+    let outputPath = "data/splits.csv"
+    if recent && not (File.Exists outputPath) then
+        printfn "Error: %s is missing: a recent-only download needs the existing file (run the full range once)" outputPath
+        false
+    else
     use httpClient = new HttpClient()
     use cts = new CancellationTokenSource()
     let result =
@@ -473,15 +483,27 @@ let private runSplitsDownload (apiKey: string) (startDate: DateTime) (endDate: D
     | Ok splits ->
         printfn ""
         printfn "Downloaded %d splits" splits.Length
-        let outputPath = "data/splits.csv"
-        use writer = new StreamWriter(outputPath)
-        // ⚠ `id` FIRST — Polygon's record id is the PRIMARY KEY. Keying on
-        // (ticker, execution_date) collapsed reverse/forward split PAIRS to a
-        // single leg; see sql/schema/tables/splits.sql.
-        writer.WriteLine("id,ticker,execution_date,split_from,split_to,split_ratio")
-        for split in splits do
-            let dateStr = split.ExecutionDate.ToString("yyyy-MM-dd")
-            writer.WriteLine($"{split.Id},{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
+        // the rows kept: the existing file's before the range (execution_date is the third field, yyyy-MM-dd)
+        let before = startDate.ToString "yyyy-MM-dd"
+        let kept =
+            if not recent then []
+            else
+                File.ReadLines outputPath |> Seq.skip 1
+                |> Seq.filter (fun line -> let p = line.Split(',', 4) in p.Length >= 3 && String.CompareOrdinal(p.[2], before) < 0)
+                |> List.ofSeq
+        let tmp = outputPath + ".tmp"
+        do
+            use writer = new StreamWriter(tmp)
+            // ⚠ `id` FIRST — Polygon's record id is the PRIMARY KEY. Keying on
+            // (ticker, execution_date) collapsed reverse/forward split PAIRS to a
+            // single leg; see sql/schema/tables/splits.sql.
+            writer.WriteLine("id,ticker,execution_date,split_from,split_to,split_ratio")
+            for line in kept do writer.WriteLine line
+            for split in splits do
+                let dateStr = split.ExecutionDate.ToString("yyyy-MM-dd")
+                writer.WriteLine($"{split.Id},{split.Ticker},{dateStr},{split.SplitFrom},{split.SplitTo},{split.SplitRatio}")
+        File.Move(tmp, outputPath, true)
+        if recent then printfn "Kept %d splits executed before %s from the existing file" kept.Length before
         printfn "Saved splits to %s" (Path.GetFullPath outputPath)
         true
     | Error msg ->
@@ -509,14 +531,14 @@ let private handleDownloadSplits (config: MassiveConfig) (args: ParseResults<Dow
         | None -> ""
 
     printfn "Downloading splits from %s%s" (formatDate startDate) endDateStr
-    runSplitsDownload config.ApiKey startDate endDate |> ignore
+    runSplitsDownload config.ApiKey startDate endDate false |> ignore
 
-/// ⚠ Same whole-file rewrite semantics as runSplitsDownload — pass the FULL range.
-let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) : bool =
+/// ⚠ Same semantics as runSplitsDownload: a whole-file rewrite (pass the FULL range), or `recent` on top of the existing file.
+let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate: DateTime option) (recent: bool) : bool =
     use httpClient = new HttpClient()
     let outputPath = "data/dividends.csv"
     // streamed month by month into the file (DividendDownload.downloadDividendsToCsv); 16 months in flight
-    match (downloadDividendsToCsv httpClient apiKey startDate endDate outputPath 16 CancellationToken.None).GetAwaiter().GetResult() with
+    match (downloadDividendsToCsv httpClient apiKey startDate endDate outputPath recent 16 CancellationToken.None).GetAwaiter().GetResult() with
     | Ok (rows, carried) ->
         printfn ""
         printfn "Saved %d dividends to %s%s" rows (Path.GetFullPath outputPath)
@@ -546,7 +568,7 @@ let private handleDownloadDividends (config: MassiveConfig) (args: ParseResults<
         | None -> ""
 
     printfn "Downloading dividends from %s%s" (formatDate startDate) endDateStr
-    runDividendsDownload config.ApiKey startDate endDate |> ignore
+    runDividendsDownload config.ApiKey startDate endDate false |> ignore
 
 /// The ingest + materialize step, callable with plain values (shared by
 /// `ingest-data` and `backfill-daily`).
@@ -736,7 +758,10 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
 
     printfn "=== backfill-daily ==="
     printfn "  aggregates : %s -> %s (parallelism %d)" (formatDate startDate) (formatDate endDate) parallelism
-    printfn "  splits/divs: FULL RANGE (whole-file rewrite — see docs/massive_cli_gotchas.md)"
+    let eventsSince = args.TryGetResult BackfillDailyArgs.Events_Since_Days
+    match eventsSince with
+    | Some n -> printfn "  splits/divs: the last %d days to the end date, on top of the existing files (--events-since-days)" n
+    | None -> printfn "  splits/divs: FULL RANGE (whole-file rewrite — see docs/massive_cli_gotchas.md)"
     printfn "  database   : %s" (Path.GetFullPath dbPath)
     printfn ""
 
@@ -773,16 +798,20 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
             for (d, m) in failed |> List.truncate 5 do
                 eprintfn "  FAILED %s: %s" (formatDate d) m
 
-    // --- 2/3. splits + dividends, ALWAYS full-range (the CSVs are rewritten whole).
-    // End date leads the calendar: splits are announced months ahead.
-    let refStart = DateTime(2003, 1, 1)
-    let refEnd = Some (endDate.AddYears 1)
+    // --- 2/3. splits + dividends: full-range (the CSVs rewritten whole), or with --events-since-days the recent range
+    // on top of the existing files (production). The full range leads the calendar by a year (splits are announced
+    // months ahead); the recent range ENDS AT THE END DATE (user 2026-10-29): the live Oms reads the events of the
+    // trading day itself only (Reference.fs: dividends going ex on D, splits executing on D), never later ones.
+    let recent = eventsSince.IsSome
+    let refStart = match eventsSince with Some n -> endDate.AddDays(float -n) | None -> DateTime(2003, 1, 1)
+    let refEnd = Some (if recent then endDate else endDate.AddYears 1)
+    let rangeName = if recent then "recent" else "full range"
     printfn ""
-    printfn "[2/4] splits (full range %s -> %s)" (formatDate refStart) (formatDate refEnd.Value)
-    if not (runSplitsDownload config.ApiKey refStart refEnd) then ok <- false
+    printfn "[2/4] splits (%s %s -> %s)" rangeName (formatDate refStart) (formatDate refEnd.Value)
+    if not (runSplitsDownload config.ApiKey refStart refEnd recent) then ok <- false
     printfn ""
-    printfn "[3/4] dividends (full range %s -> %s)" (formatDate refStart) (formatDate refEnd.Value)
-    if not (runDividendsDownload config.ApiKey refStart refEnd) then ok <- false
+    printfn "[3/4] dividends (%s %s -> %s)" rangeName (formatDate refStart) (formatDate refEnd.Value)
+    if not (runDividendsDownload config.ApiKey refStart refEnd recent) then ok <- false
     printfn "[3b]  FX rates (ECB) -> %s" fxRatesFile
     if not (runFxDownload fxRatesFile) then ok <- false
 

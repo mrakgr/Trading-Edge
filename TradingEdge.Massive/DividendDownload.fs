@@ -272,24 +272,36 @@ let carryOverDropped (previous: Dividend list) (fresh: Dividend list) (startDate
 /// So only `workers` months are in memory at a time. The old shape — all 298 months in parallel, every record held
 /// until the end, plus the whole previous file for the carry-over — peaked at 3.7 GB RSS on a 7 GB VPS.
 /// Any failed month fails the whole download and leaves `outputPath` untouched. Returns (rows written, rows carried).
+///
+/// ⭐ `recent` (production, user 2026-10-29): the range is downloaded ON TOP OF the existing file — its rows dated
+/// before `startDate` are kept as they are, every row from `startDate` on comes from the download, and NOTHING is
+/// carried over. Why: the carry-over put a REVISED dividend back in at its old date (PUTKF 2026-10-29: moved 10-08 ->
+/// 11-09 under the same id, carried back into October — a duplicate id, the v2 build refused, the Oms did not start).
+/// The live system needs the recent events only; research keeps the full rewrite. No existing file = an error.
 let downloadDividendsToCsv
     (httpClient: HttpClient)
     (apiKey: string)
     (startDate: DateTime)
     (endDate: DateTime option)
     (outputPath: string)
+    (recent: bool)
     (workers: int)
     (ct: CancellationToken)
     : Task<Result<int * int, string>> =
     task {
+      if recent && not (File.Exists outputPath) then
+        return Error $"{outputPath} is missing: a recent-only download needs the existing file (run the full range once)"
+      else
         let effectiveEnd = endDate |> Option.defaultValue DateTime.Now
         let months = splitIntoMonths startDate effectiveEnd
         let now = DateTime.UtcNow
-        // the carry-over candidates: the previous file's current-month-and-later rows only
+        // the carry-over candidates: the previous file's current-month-and-later rows only (none for a recent-only run)
         let previous =
-            readCsvSince outputPath (DateTime(now.Year, now.Month, 1))
-            |> List.groupBy (fun d -> d.ExDividendDate.Year, d.ExDividendDate.Month)
-            |> Map.ofList
+            if recent then Map.empty
+            else
+                readCsvSince outputPath (DateTime(now.Year, now.Month, 1))
+                |> List.groupBy (fun d -> d.ExDividendDate.Year, d.ExDividendDate.Month)
+                |> Map.ofList
         let partsDir = outputPath + ".parts"
         if Directory.Exists partsDir then Directory.Delete(partsDir, true)
         Directory.CreateDirectory partsDir |> ignore
@@ -353,13 +365,23 @@ let downloadDividendsToCsv
             return Error msg
         | Ok (rows, carried) ->
             let tmp = outputPath + ".tmp"
+            let mutable kept = 0
             do
                 use w = new StreamWriter(tmp)
                 w.WriteLine csvHeader
+                if recent then
+                    // the existing file's rows before the range, as they are (the ex-date is the third field, yyyy-MM-dd)
+                    let before = startDate.ToString "yyyy-MM-dd"
+                    for line in File.ReadLines outputPath |> Seq.skip 1 do
+                        let parts = line.Split(',', 4)
+                        if parts.Length >= 3 && String.CompareOrdinal(parts.[2], before) < 0 then
+                            w.WriteLine line
+                            kept <- kept + 1
                 for ym in months do
                     for line in File.ReadLines(partPath ym) do
                         w.WriteLine line
             File.Move(tmp, outputPath, true)
             Directory.Delete(partsDir, true)
-            return Ok (rows, carried)
+            if recent then printfn "Kept %d dividends dated before %s from the existing file" kept (startDate.ToString "yyyy-MM-dd")
+            return Ok (rows + kept, carried)
     }
