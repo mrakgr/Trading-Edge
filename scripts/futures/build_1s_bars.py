@@ -1,13 +1,15 @@
 """The futures 1-second bars, in the EQUITY corpus's shape (data/intraday_1s_slim) plus the volume delta (2026-10-26).
 
-Input: /mnt/d/trading-edge-bulk/futures/level1_tick/<ROOT>/<year>_<CONTRACT>.parquet, Sierra Chart's trade-by-trade
-tape, one file per contract, NOT rolled. Each row is one FILL: trade_price / bid / ask × 1e9 from a float32 (87.9 is
-stored as 87900001526, so prices are rounded here to the root's GRID); trade_size; trade_side (+1 = the buyer
+Input: /mnt/d/trading-edge-bulk/futures/ticks/<ROOT>/<year>_<CONTRACT>.parquet (scripts/futures/build_ticks.py, since
+2026-10-28; level1_tick/ before), Sierra Chart's trade-by-trade tape, one file per contract, NOT rolled. Each row is one
+FILL: price / bid / ask as Sierra's float32 (87.9 is 87.90000153, so prices are rounded here to the root's GRID, on the
+×1e9 integer the first batch stored: round(float64(price) × 1e9) gives it back exactly); size; side (+1 = the buyer
 aggressed, −1 = the seller; never 0); the bid / ask just before the fill (no sizes); a µs UTC timestamp. Before
 2020-08-21 that timestamp is whole seconds plus a row counter, and real ms only from 2020-08-23
 (docs/futures_data.md), so a second is the finest real unit in both eras. From 2015-01-01 only (user 2026-10-26: the
 quotes start mid-2014). ⚠ Futures prices can be NEGATIVE: CLK20 traded down to −40.32 on 2020-04-20/21 (5,481 fills),
-which a `trade_price > 0` filter silently dropped from the first build. Only a null price is dropped.
+which a `price > 0` filter silently dropped from the first build. Only a null price is dropped. (fill_pos, the sweep
+marker, is not used here.)
 
 Output: data/futures/intraday_1s/YYYY-MM-DD.parquet, one file per ET calendar date, every contract, sorted by
 (ticker, bucket):
@@ -31,6 +33,9 @@ Two passes:
   2. by date: the contracts are split into the per-date files, each sorted, and the per-contract files deleted. Pass 2
      always rebuilds the WHOLE corpus, so adding contracts later (ES, MNQ) means rerunning pass 1 for everything.
 A source without its parquet footer (a truncated transfer: ZTU26 2026-10-26) is skipped and named.
+OFF-BOOK PRINTS (user 2026-10-29): the fills listed in data/futures/blocks.parquet (scripts/futures/find_blocks.py: VX
+blocks / ECRP, 76 fills, 0.0099 % of VX's volume) are dropped, each matched to exactly one fill, and counted in the
+manifest's `blocks`. They stay in ticks/. Rerun find_blocks.py before this when ticks/ changes.
 
   cd research && python -u scripts/futures/build_1s_bars.py > logs/futures_intraday_1s.log 2>&1; echo exit $?
 """
@@ -50,13 +55,16 @@ import pandas as pd
 # ⚠ Prices are on SIERRA's scale, not always CME's: 6J is stored as 0.6916 = 100 × CME's 0.006916 (tick 0.00005, CME's
 # 0.0000005). A grid finer than float32's precision at the price (6J at 1e-7: residual 0.5) fails the residual check.
 GRID = {
-    'MES': 0.25, 'NQ': 0.25,
+    'MES': 0.25, 'ES': 0.25, 'NQ': 0.25, 'YM': 1.0, 'VX': 0.01,
     'CL': 0.01, 'MCL': 0.01, 'NG': 0.001, 'RB': 0.0001,
     'HG': 0.0005, 'MHG': 0.0005, 'MGC': 0.1,
     'HE': 0.025, 'ZC': 0.25, 'ZS': 0.25,
     'ZN': 1 / 128, 'ZB': 1 / 64, 'ZT': 1 / 512, 'SR3': 0.0025,
     '6A': 0.00001, '6B': 0.00001, '6C': 0.00001, '6E': 0.00001, '6N': 0.00001, '6S': 0.00001,
     '6J': 0.000005, '6Z': 0.0000005,
+    # the micro / E-mini FX (2026-10-28): grids at or finer than CME's ticks, on the same Sierra scale caveat as 6J; the
+    # manifest's measured tick and the residual check settle them
+    'M6E': 0.00001, 'M6A': 0.00001, 'E7': 0.00001, 'MJY': 0.000005, 'M6J': 0.001,
 }
 FROM_US = 1_420_070_400_000_000          # 2015-01-01 00:00 UTC in µs
 MAX_RESIDUAL = 0.05                       # grid units: a wrong grid gives ~0.5; float32 noise at 1e-5 FX grids ~0.02, and
@@ -65,13 +73,15 @@ MAX_RESIDUAL = 0.05                       # grid units: a wrong grid gives ~0.5;
 
 def parse():
     p = argparse.ArgumentParser()
-    p.add_argument('--src', default='/mnt/d/trading-edge-bulk/futures/level1_tick')
+    p.add_argument('--src', default='/mnt/d/trading-edge-bulk/futures/ticks')
     p.add_argument('--out', default='data/futures/intraday_1s')
     p.add_argument('--contracts-dir', default='data/futures/.contracts')
     p.add_argument('--stage-dir', default='data/futures/.stage')
     p.add_argument('--workers', type=int, default=3)
     p.add_argument('--threads', type=int, default=4, help='DuckDB threads per worker')
     p.add_argument('--memory-limit', default='4GB', help='DuckDB memory per worker')
+    p.add_argument('--blocks', default='data/futures/blocks.parquet',
+                   help="the off-book prints to drop (scripts/futures/find_blocks.py; '' = none)")
     return p.parse_args()
 
 
@@ -104,16 +114,20 @@ def connect(threads: int, memory_limit: str, temp_dir: str):
     return con
 
 
-def convert(con, root: str, contract: str, staged: str, out_path: str) -> dict:
+def convert(con, root: str, contract: str, staged: str, out_path: str, blocks: str) -> dict:
     g = round(GRID[root] * 1e9)          # the grid in the file's ×1e9 units (an integer for every root)
+    # the off-book prints (scripts/futures/find_blocks.py: blocks / ECRP) are dropped on (timestamp, price, size), each
+    # key naming exactly one fill (find_blocks checks it); the count goes in the manifest
+    con.execute(f"""
+        create or replace temp view b as
+        select timestamp, price, size from read_parquet('{blocks}') where ticker = '{contract}'""" if blocks else
+        "create or replace temp view b as select null::BIGINT timestamp, null::FLOAT price, null::INTEGER size where false")
     con.execute(f"""
         create or replace temp view t as
-        select timestamp ts, trade_side side, trade_size sz,
-               round(trade_price / {g}) * {g} / 1e9 px,
-               abs(trade_price - round(trade_price / {g}) * {g}) / {g} resid,
-               bid_price = ask_price cross_fill, bid_price < ask_price quoted
-        from read_parquet('{staged}')
-        where event_type = 3 and trade_size > 0 and trade_price is not null and timestamp >= {FROM_US}""")
+        select ts, side, sz, round(n / {g}) * {g} / 1e9 px, abs(n - round(n / {g}) * {g}) / {g} resid, cross_fill, quoted
+        from (select timestamp ts, side, size sz, round(price::DOUBLE * 1e9) n, bid = ask cross_fill, bid < ask quoted
+              from read_parquet('{staged}') anti join b using (timestamp, price, size)
+              where size > 0 and price is not null and timestamp >= {FROM_US})""")
     tmp = out_path + '.tmp'
     con.execute(f"""
         copy (
@@ -135,8 +149,12 @@ def convert(con, root: str, contract: str, staged: str, out_path: str) -> dict:
         select min(d) from (select p - lag(p) over (order by p) d from (select distinct round(px * 1e9) p from t))
         where d > 0""").fetchone()[0]
     rows_in = con.execute(f"select count(*) from read_parquet('{staged}')").fetchone()[0]
+    n_blocks = con.execute("select count(*) from b").fetchone()[0]
+    dropped = con.execute(f"select count(*) from read_parquet('{staged}') semi join b using (timestamp, price, size)").fetchone()[0]
+    if dropped != n_blocks:
+        raise RuntimeError(f'{n_blocks} off-book prints listed, {dropped} matched in the tick file')
     bars = con.execute(f"select count(*) from read_parquet('{out_path}')").fetchone()[0]
-    return dict(root=root, contract=contract, rows_in=rows_in, rows_kept=st[0], bars=bars,
+    return dict(root=root, contract=contract, rows_in=rows_in, rows_kept=st[0], blocks=n_blocks, bars=bars,
                 first_sec=st[4], last_sec=st[5], quoted=st[2], cross_share=st[3],
                 tick=None if tick is None else tick / 1e9, max_residual=st[1])
 
@@ -166,11 +184,11 @@ def pass1(a, jobs) -> tuple[list, list]:
         while (job := staged_q.get()) is not None:
             root, contract, staged, out_path = job
             try:
-                r = convert(con, root, contract, staged, out_path)
+                r = convert(con, root, contract, staged, out_path, a.blocks)
                 with lock:
                     results.append(r)
                     print(f'{len(results):5}/{len(jobs)} {time.time() - t0:7.1f}s  {contract:8} rows {r["rows_kept"]:>11,} '
-                          f'bars {r["bars"]:>10,}  tick {r["tick"]}  resid {r["max_residual"] or 0:.4f}  '
+                          f'blocks {r["blocks"]:>3}  bars {r["bars"]:>10,}  tick {r["tick"]}  resid {r["max_residual"] or 0:.4f}  '
                           f'quoted {r["quoted"] or 0:.3f}  cross {r["cross_share"] or 0:.5f}', flush=True)
             except Exception as e:
                 if os.path.exists(out_path + '.tmp'):
@@ -219,6 +237,8 @@ def pass2(a):
 
 def main():
     a = parse()
+    if a.blocks and not os.path.exists(a.blocks):
+        raise SystemExit(f'{a.blocks}: no off-book list (run scripts/futures/find_blocks.py first, or --blocks "")')
     os.makedirs(a.stage_dir, exist_ok=True)
     os.makedirs(a.out, exist_ok=True)
     files = sorted(glob.glob(f'{a.src}/*/*.parquet'))
@@ -246,6 +266,7 @@ def main():
     man = pd.concat([pd.read_parquet(man_path), new]) if os.path.exists(man_path) and len(new) else new
     if len(man):
         man = man.drop_duplicates('contract', keep='last').sort_values(['root', 'first_sec'])
+        man['blocks'] = man['blocks'].fillna(0).astype(int) if 'blocks' in man else 0   # (rows of a run before the column)
         man.to_parquet(man_path, index=False)
     bad = man[man.max_residual > MAX_RESIDUAL] if len(man) else man
     for c, e in failures:

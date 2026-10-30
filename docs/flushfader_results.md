@@ -18571,3 +18571,209 @@ diff; `scripts/equity/flushfader_run_base_10d.sh` = the research base over the h
 **Status.** Scanner = THE BROAD BOOK, sealed; signals carry the A3 multiplier. Not built: the order-management layer (the
 20-unit cap on summed multipliers of OPEN positions, one open position per ticker, FCFS skip-not-queue, the equity fraction
 per unit — S49ag/S49ai) and the LowFader / SpikeFader / Snoozer ports (tomorrow).
+
+## S49ak — MAKER ENTRY CAPS, quote-driven, on 3,500 book trips (user, 2026-10-30)
+
+Live, the cap came off on 10-26 and the uncapped maker entry has CHASED bounces (−57 bp against the model on 33 legs,
+10-26…29). The question: where between no cap and the signal price should a maker buy's limit stop?
+`scripts/equity/flushfader_cap_sim.py` (→ `data/equity/flushfader_cap_sim/`): 500 random trips per year of
+`broad_reference_book` (2020-01 … 2026-08, seed 20261030), a $1,000 buy per trip that JOINS the NBBO bid and follows it
+both ways (the Oms's MakeSpreadRth; the old price live 0.216 s after each re-pricing), never above a cap FIXED at the
+signal, from the end of the signal second to the trip's exit. Quotes: Massive REST per trip (463 s for 3,500). Prints: the
+bulk tape (lit = not FINRA TRF). Fill models lit / queue (the displayed bid ahead of us) / hidden (and the bid's size ahead
+of a price below the bid). Outcome at the book's exit_px; the model fills every trip at entry_px (+38.6 bp on $3.48M).
+The book's prices are on the raw tape scale (12 of 12 exact); the MA caps' bars match the book's signal vwap to p99 14 bp.
+
+| cap (fixed at the signal) | lit Δ $ | queue Δ $ | hidden Δ $ | queue: unfilled (their model P&L) | queue: years Δ > 0 |
+|---|---|---|---|---|---|
+| none: entry vs the model −4.1 bp (lit) / −13.5 bp (queue) | 0 | 0 | 0 | 2 | — |
+| the signal price | +16 | **−957** | −1,080 | 298 (+$10,027) | 2 / 7 |
+| signal + 1 tick | +103 | +559 | +417 | 172 (+$5,993) | 5 / 7 |
+| **signal + 3 ticks** | **+586** | **+630** | **+646** | 88 (+$3,155) | **6 / 7** (lit 7 / 7) |
+| signal + 100 bp | +481 | +456 | +433 | 59 (+$2,685) | 6 / 7 |
+| ¼ of the way to ma30 | +584 | +100 | 0 | 176 (+$5,686) | 4 / 7 |
+| ½ of the way to ma30 | +467 | +161 | +174 | 107 (+$3,503) | 4 / 7 |
+| ma10 | +503 | +328 | +311 | 76 (+$2,505) | 4 / 7 |
+| ma15 | +346 | +352 | +311 | 61 (+$1,978) | 4 / 7 |
+
+Δ = P&L against no cap on the same 3,500 trips; +$630 = +1.8 bp of the notional, +7 % of the uncapped queue P&L
+(+$8,578). Queue, by year, signal + 3 ticks: +114 / +87 / +42 / −26 / +202 / +154 / +58 (2020…2026); + 100 bp:
++156 / +12 / +12 / −6 / +131 / +94 / +58.
+
+- **The signal cap loses behind a queue:** its 298 unfilled trips make +$10,027 in the model — the trips that run away
+  from the bid are the winners (the 10-27 live study's finding, at scale). One tick of room halves the misses; three
+  ticks leave 88.
+- **A few ticks of room beats a cap tied to the chart.** The MA caps win only without a queue; behind one they are
+  +$100…352 and positive in 4 of 7 years.
+- **The sim understates the chase.** On the live sessions' tape (the private repo's sim7.py) the same rule pays
+  −18 bp (mean) less than live did uncapped; live's uncapped entries cost −57 bp, the sim's −13.5. A cap saves at least
+  this much live.
+- Ticks are relative: + 3 ticks is ~250 bp on a $1.20 name, 6 bp on a $50 one; + 100 bp is flat. They come out alike.
+
+### S49ak-2 — more caps and their max() combinations, by share price (user, 2026-10-30)
+
+The user's guess: the tick rules carry the cheap names, the bp rules the expensive ones, so max(+k ticks, +x bp) should
+win. Same 3,500 trips (logs/flushfader_cap_sim2.log), queue fill model, Δ $ against no cap:
+
+| cap | all | years > 0 | < $2 (515) | $2–5 (1,143) | $5–10 (756) | $10–20 (545) | > $20 (541) |
+|---|---|---|---|---|---|---|---|
+| the signal price | −957 | 2 / 7 | −498 | −897 | +162 | −67 | **+343** |
+| signal + 1 tick | +559 | 5 / 7 | +94 | −47 | +195 | +13 | +304 |
+| signal + 2 ticks | +512 | 5 / 7 | −57 | +128 | +180 | −55 | +317 |
+| **signal + 3 ticks** | **+630** | **6 / 7** | +98 | +112 | +166 | −47 | +302 |
+| signal + 4 ticks | +573 | 6 / 7 | +63 | +88 | +143 | +17 | +262 |
+| signal + 50 bp | −103 | 4 / 7 | **−428** | +66 | +98 | −38 | +198 |
+| signal + 100 bp | +456 | 6 / 7 | −48 | +258 | +115 | −7 | +138 |
+| signal + 150 bp | +249 | 6 / 7 | −131 | +210 | +34 | +33 | +104 |
+| signal + 200 bp | +206 | 5 / 7 | −28 | +163 | +12 | −16 | +75 |
+| signal + 250 bp | +263 | 6 / 7 | +142 | +64 | −18 | +28 | +47 |
+| signal + 300 bp | +67 | 5 / 7 | +38 | +9 | −18 | +13 | +25 |
+| max(+3 ticks, +50 bp) | +473 | 6 / 7 | +98 | +112 | +104 | −38 | +198 |
+| max(+3 ticks, +100 bp) | +565 | 4 / 7 | +98 | +222 | +115 | −7 | +138 |
+| max(+3 ticks, +150 bp) | +477 | 6 / 7 | +98 | +210 | +34 | +33 | +104 |
+| max(+4 ticks, +150 bp) | +394 | 7 / 7 | +63 | +160 | +34 | +33 | +104 |
+
+(All 16 combinations and the hidden model are in the log; hidden ranks the same, + 3 ticks +$646.)
+
+**The guess is the wrong way round:**
+- **Expensive names want a TIGHT cap.** Above $20 even the plain signal cap wins (+$343). A bp cap is loose there
+  (100 bp on a $50 name is 50 ticks) and gives the chase back: + 100 bp +$138, + 300 bp +$25.
+- **Cheap names need a few ticks of room, which a bp cap cannot give.** Under $2, 50 bp is less than one tick, so it
+  floors to the signal cap and misses the runners (−$428).
+- **So max(ticks, bp) is looser exactly where tight wins.** Above $20 its bp half takes over and gives back half of
+  the + 3 ticks gain; under $2 it equals the tick rule. No combination beats plain + 3 ticks overall.
+- **A few ticks is right at every price because the chase is measured in ticks:** the bid follows a bounce a tick at a
+  time. Three ticks is ~200 bp of room on a $1.50 name and 6 bp on a $50 one.
+- **+ 1 … 4 ticks is a plateau** (+$512 … +$630; 5–6 of 7 years): the result does not hang on the exact k. Per-bucket
+  winners differ by less than the year-to-year swing (± $100–200), so a price-dependent k would be fitting noise.
+
+### S49ak-3 — the MA caps, 2 … 15 bars, and the STABILITY of every cap (user, 2026-10-30)
+
+The user: MA caps would be more principled. Same 3,500 trips (logs/flushfader_cap_sim3.log); each MA is the mean of the
+last n present-second vwaps up to the signal, fixed at the signal, floored to the tick. Δ $ against no cap; t = the
+per-trip gain summed by day, mean / SE over days (queue model):
+
+| cap | lit Δ | queue Δ | hidden Δ | queue: years > 0 | queue: t | queue: worst year | queue: unfilled | median room above the signal |
+|---|---|---|---|---|---|---|---|---|
+| ma2 | +187 | −207 | −353 | 4 / 7 | −0.43 | −348 | 225 | 1 tick |
+| ma3 | +473 | −121 | −193 | 4 / 7 | −0.31 | −223 | 172 | 2 ticks |
+| ma4 | +552 | +115 | +23 | 3 / 7 | 0.33 | −104 | 138 | |
+| ma5 | +635 | +294 | +221 | 3 / 7 | 0.97 | −89 | 115 | 3 ticks |
+| ma6 | +577 | +314 | +252 | 3 / 7 | 1.10 | −85 | 101 | |
+| ma7 | +641 | +359 | +278 | 3 / 7 | 1.32 | −64 | 90 | 3 ticks |
+| ma8 | +553 | +301 | +267 | 3 / 7 | 1.15 | −61 | 87 | |
+| ma9 | +499 | +361 | +324 | 5 / 7 | 1.49 | −53 | 79 | |
+| ma10 | +503 | +328 | +311 | 4 / 7 | 1.40 | −70 | 76 | 4 ticks |
+| ma11 | +482 | +281 | +243 | 4 / 7 | 1.25 | −77 | 74 | |
+| ma12 | +436 | +321 | +290 | 4 / 7 | 1.46 | −64 | 70 | |
+| ma13 | +388 | +363 | +329 | 3 / 7 | 1.71 | −24 | 65 | |
+| ma14 | +367 | +290 | +250 | 3 / 7 | 1.38 | −37 | 65 | |
+| ma15 | +346 | +352 | +311 | 4 / 7 | 1.74 | −26 | 61 | 5 ticks |
+| *signal + 3 ticks* | +586 | **+630** | +646 | 6 / 7 | 2.01 | −26 | 88 | 3 ticks |
+| *max(+4 ticks, +150 bp)* | +378 | +394 | +377 | **7 / 7** | 2.42 | **+20** | 15 | |
+
+- **No MA beats the tick rules behind a queue**, and the MAs are the least stable caps tested: they LOSE in
+  2022–2024 for nearly every n (ma7: −29 / −64 / −35) and win in 2020 / 2025 / 2026. Without a queue ma5 / ma7 match
+  + 3 ticks (+$635 / +641, 7 of 7 years) — the difference is the queue.
+- **Why:** an MA's room is the depth of the flush. ma5 and ma7 sit a median 3 ticks above the signal (+ 3 ticks' room),
+  but a SHALLOW flush gives one tick (behind a queue, the runner is missed) and a DEEP flush many (the chase runs). A
+  fixed room in ticks is the same every time. (Not the cause: an MA below the signal price — under 0.1 % of trips.)
+- **The stability ranking** (all 46 caps in the log): the loosest caps change the fewest trips and are the most reliable
+  per trip — + 250 bp t 3.43 (52 trips), max(+4 ticks, +200 bp) 3.20 (72), max(+3 ticks, +150 bp) 2.70 (141, worst year
+  −$1), max(+4 ticks, +150 bp) 2.42 (129, the only cap positive in all 7 years, the years' SD $31). The biggest total,
+  + 3 ticks (+$630, t 2.01, 549 trips changed), swings more. With 46 caps tested, a t of 2–3.4 favours no single one.
+
+### S49ak-4 — the 4× check: 2,000 trips per year, 14,000 (user, 2026-10-30)
+
+"If the tick rule ends up being competitive on 4x the data we'll adopt it next week." Same script, `--per-year 2000`
+(the 3,500 are a subset; logs/flushfader_cap_sim_2k.log, data/equity/flushfader_cap_sim_2k/). 13,999 simulated; the
+model +$66,796 on $13.9M (+48.0 bp); 56 min, 5.9 GB peak. Δ $ against no cap:
+
+| cap | lit | queue | hidden | queue: t (by day) | queue: worst year | queue: years' SD | queue: years > 0 | queue: unfilled |
+|---|---|---|---|---|---|---|---|---|
+| the signal price | +868 | −11 | −560 | −0.01 | −625 | 393 | 4 / 7 | 1,156 |
+| **signal + 1 tick** | +1,486 | **+3,209** | **+2,452** | **3.61** | +40 | 241 | **7 / 7** | 673 |
+| signal + 2 ticks | +823 | +1,972 | +1,584 | 2.66 | **+220** | 86 | **7 / 7** | 478 |
+| **signal + 3 ticks** | +980 | +1,899 | +1,844 | 3.06 | **+204** | **83** | **7 / 7** | 373 |
+| signal + 4 ticks | +924 | +1,629 | +1,461 | 2.98 | +116 | 166 | **7 / 7** | 297 |
+| signal + 100 bp | +1,452 | +1,736 | | 3.11 | +85 | 148 | 7 / 7 | 238 |
+| max(+1 tick, +50 bp) | +1,139 | +2,511 | | 3.50 | +195 | 140 | 7 / 7 | 431 |
+| max(+4 ticks, +150 bp) | +872 | +1,011 | +963 | 3.04 | +32 | 84 | 7 / 7 | 92 |
+| ma6 | +1,549 | +2,082 | +1,822 | 3.61 | −231 (2021) | 282 | 6 / 7 | 416 |
+| ma7 | +1,528 | +1,967 | +1,740 | 3.63 | −121 (2021) | 244 | 6 / 7 | 374 |
+
+Queue, by year (2020 … 2026): + 1 tick +426 / +40 / +829 / +555 / +432 / +577 / +350; + 2 ticks +220 / +237 / +450 /
++352 / +229 / +242 / +242; + 3 ticks +263 / +208 / +218 / +204 / +312 / +255 / +439; ma7 +425 / −121 / +247 / +217 /
++114 / +483 / +601.
+
+**What held and what changed at 4×:**
+- **Held: the tick rules win, at every k.** All of + 1 … 4 ticks are positive in every year under the queue model,
+  t 2.7–3.6. + 3 ticks has the smallest swing of any large gain (worst year +$204, the years' SD $83).
+- **Changed: + 1 tick moved to the top** of the totals (+$3,209 queue, +$2,452 hidden), from mid-table at 500 a year.
+  It also leaves the most trips unfilled of the tick rules (673 vs 373 at + 3 ticks, worth +$22.5k vs +$12.6k in the
+  model), so it leans hardest on the queue model being right — and on the live tape the sim's queue was optimistic for
+  a large order behind a deep bid (FUFU 10-19).
+- **Changed: the MAs recover** (ma6 / ma7 ≈ +$2,000, t 3.6). The 2022–2024 losses at 500 a year were noise. They keep a
+  losing year (2021) and the largest swings (SD $244–282).
+- **Changed: max(+4 ticks, +150 bp) falls behind** (+$1,011), still positive in every year.
+- **Changed: the signal cap is ≈ 0** (−$11), not −$957. It still leaves the most trips unfilled (1,156).
+- The user's per-price guess (ticks for the cheap names, bp for the expensive) does not hold at 4× either: the tick
+  rules are positive in every price bucket except $10–20, where every rule is near 0.
+
+**Verdict: the tick rule is competitive on 4× the data → adopt it (user: next week).** + 1 tick has the largest total
+but the most misses; + 2 / + 3 ticks give ~60 % of that with the steadiest years and half the misses.
+
+### S49ak-5 — LowFader's entries: NO cap (user, 2026-10-30: "we might need a different rule for those")
+
+Every trip of `lowfader_reference_book` (221, 2020-01 … 2026-06; held to the close, a median 6.2 h; median signal price
+$24, p10 $5.5, p90 $96), the same script and caps (`--book …lowfader… --out data/equity/lowfader_cap_sim`,
+logs/lowfader_cap_sim.log; 3.8 min). The model: +$7,735 on $216k (**+357 bp a trade**, against FlushFader's +48).
+
+| cap | lit Δ $ | queue Δ $ | hidden Δ $ | queue: unfilled (their model P&L) | queue: years > 0 |
+|---|---|---|---|---|---|
+| none: entry vs the model **+4.4 bp** (lit) / **−3.1 bp** (queue) | 0 | 0 | 0 | 0 | — |
+| the signal price | −215 | −317 | −312 | 13 (+$635) | 3 / 7 |
+| signal + 1 tick | −94 | −90 | −89 | 9 (+$348) | 4 / 7 |
+| signal + 3 ticks | −121 | −70 | −68 | 5 (+$250) | 4 / 7 |
+| signal + 50 bp | −22 | +33 | +34 | 2 (+$69) | 5 / 7 |
+| signal + 100 bp | −45 | −5 | −5 | 1 (+$58) | 3 / 7 |
+| signal + 150 … 300 bp, max(…, + 150 bp) | | +25 … +35 | | 0 — 2 trips changed | 2 / 7 |
+| ma7 / ma10 / ma15 | −95 / | −57 / +30 / +18 | | 3 / 2 / 1 | |
+
+- **There is no chase to stop:** LowFader's names are liquid and higher-priced; uncapped fills at the model (−3 bp).
+  Every cap tight enough to bind misses a few trips, and at +357 bp a trade one miss (~$50) outweighs the bp it saves.
+  The loose caps (+ 150 bp and up) change 2 trips of 221: nothing.
+- **The rule of thumb behind both systems:** a cap pays when the chase it stops costs more than its misses —
+  FlushFader chases −13.5 bp a trade (queue) for a +48 bp edge; LowFader −3 bp for +357 bp.
+- **So the cap is a FLUSHFADER rule, not an L3 one.** The Oms merges the engines' trips per ticker and L3 caps on the
+  signal's price; a cap must come with the FlushFader signal (its own level) and LowFader's must stay uncapped.
+  (The Snoozers' entries are uncapped already: §S53, uncapped wins on both sides.)
+
+### S49ak-6 — the bp caps' ROUNDING: floor vs nearest vs ceiling (user, 2026-10-30)
+
+Every cap above is floored to the tick (as the live entry cap: an off-grid cap replace-stormed on 09-30). Floored, a bp
+cap on a cheap name is 0 or 1 tick of room depending on where the signal vwap falls in its cent (+ 50 bp on $1.2030
+→ 1.20 = the signal cap; on $1.2070 → 1.21). Rerun on the same 14,000 trips with the bp part rounded to the nearest tick
+and up (`--only`, logs/flushfader_cap_sim_2k_round.log, 34 min). **Control: the 108 floored columns equal §S49ak-4's to
+the cent.** Queue model, Δ $ against no cap:
+
+| cap | floor | nearest | ceiling | floor: t / worst yr | nearest: t / worst yr | ceiling: t / worst yr |
+|---|---|---|---|---|---|---|
+| signal + 50 bp | +1,958 | **+1,969** | +1,368 | 2.50 / +134 | 2.91 / +40 | 2.15 / +35 |
+| signal + 100 bp | **+1,736** | +1,246 | +1,394 | 3.11 / +85 | 2.39 / −11 | 3.03 / +125 |
+| signal + 150 bp | +1,100 | **+1,219** | +890 | 2.48 / +33 | 3.33 / +54 | 2.63 / +22 |
+| signal + 200 bp | +782 | **+906** | +820 | 2.45 / −20 | 3.58 / +46 | 3.50 / +28 |
+| signal + 250 bp | **+676** | +505 | +370 | 3.13 / +38 | 2.60 / +9 | 1.97 / +3 |
+| signal + 300 bp | **+496** | +389 | +384 | 3.30 / −2 | 2.77 / −2 | 3.04 / −8 |
+| max(+1 tick, + 50 bp) | **+2,511** | +1,969 | +1,368 | 3.50 / +195 | 2.91 / +40 | 2.15 / +35 |
+| max(+3 ticks, + 50 bp) | +1,765 | **+1,783** | +1,593 | 3.19 / +65 | 3.29 / +50 | 2.97 / +11 |
+| max(+3 ticks, + 150 bp) | +1,127 | **+1,219** | +998 | 3.06 / +82 | 3.76 / +60 | 3.24 / +55 |
+| *signal + 1 tick* | *+3,209* | | | *3.61 / +40* | | |
+| *signal + 3 ticks* | *+1,899* | | | *3.06 / +204* | | |
+
+- **Rounding UP never helps:** the ceiling is the worst of the three on 8 of the 9 rows. Nearest wins 5, floor 4, by
+  amounts inside the noise. Rounding moves a bp cap by at most one tick, which on the cheap names makes it a tick rule
+  with jitter — it does not turn the bp rules into winners.
+- Where nearest helps (under $2: + 50 bp +$614 vs +$161 floored) it loses in $2–5 (+$419 vs +$881).
+- **The tick-vs-bp comparison stands as floored**, which is also how the live cap must round. The shortlist is
+  unchanged: + 1 tick (+$3,209), max(+1 tick, + 50 bp) floored (+$2,511), + 3 ticks (+$1,899, the steadiest).
