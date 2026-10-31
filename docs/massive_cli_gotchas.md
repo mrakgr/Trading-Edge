@@ -77,7 +77,13 @@ until the next run.
 the future) is fetched in BOTH orders and merged by `id`** — it recovered all 100 in that window, but it is a mitigation,
 not a guarantee; a disagreement prints
 `⚠ dividends <from>..<to>: desc N, asc M, merged K`. Splits page the same way but were checked complete the same day
-(full range, desc = asc = our file, 28,648 ids); they are still fetched in one order.
+(full range, desc = asc = our file, 28,648 ids).
+
+**⭐ Since 2026-10-31 (user) both — dividends per month, splits over the whole range — are fetched in BOTH orders and
+accepted only when the two return the same ids**; a disagreement fetches both again (30 s apart, 10 attempts), then
+fails the download and leaves the file untouched. The dividends' carry-over of current-month records the download lacked
+is gone: it carried PUTKF's revised dividend (10-08 → 11-09, the same id) back to its old month, a duplicate id that
+stopped the ingest and the v2 build (VPS 10-29, home 10-31).
 
 ## ⭐ Just use `backfill-daily`
 

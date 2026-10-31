@@ -28,8 +28,13 @@ the new model fitted on 2021–26, 200 pins). GF-45's model is kept as gf_coeffi
 
   cd research && python -u scripts/equity/gapfader_model_v2.py > data/equity/gapfader/model_v2.md 2> logs/gapfader_model_v2.log; echo exit $?
 """
-import hashlib, json, os, sys, time
+import argparse, hashlib, json, os, sys, time
 import numpy as np, pandas as pd, duckdb
+ap = argparse.ArgumentParser()
+# the production coefficients' path; 2026-10-31 (user: "keep the coefficients as they are") the holder's-return rebuild
+# wrote its refit beside them (gf_coefficients_holder_refit.json) and production kept its own
+ap.add_argument("--coefficients-out", default="data/equity/gapfader/gf_coefficients.json")
+args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:7.1f}s]", *a, file=sys.stderr, flush=True)
 FLOOR = 5e5
@@ -106,7 +111,7 @@ def own_noise(t: str, d: str) -> float:          # a new row's noise from a seed
     g = np.random.default_rng(int.from_bytes(hashlib.sha256(f"{t}|{d}|20261027".encode()).digest()[:8], "little"))
     return float(np.exp(g.normal(np.log(0.001), np.log(6.5) / 1.2816)) * g.choice([-1, 1]))
 e = np.array([NOISE[(t, d)] if (t, d) in NOISE else own_noise(t, d) for t, d in zip(C.ticker, C.date)])
-C["gap_est"] = C.open * (1 + e) / C.pc_total - 1
+C["gap_est"] = (C.open * (1 + e) - C.div_m1) / C.close_m1 - 1      # the auction price's holder's return (user 2026-10-31)
 C["in_gf45"] = ~new & (C.dv20_prior >= 1e6) & (C.rvolc < 0.02)    # GF-45's gates take it too (its noise kept)
 C = C[(C.gap <= -0.04) & (C.gap_est <= -0.04) & (C.rvol60 < 0.02)].copy().reset_index(drop=True)
 t50 = C.tf_50.astype("float64").fillna(np.inf)
@@ -221,7 +226,7 @@ COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/ga
         "fit_mean_pf1": float(mm[FIT].mean()),
         "pins": [{"ticker": C.ticker.values[i], "date": C.date.values[i], "dv60_med": float(C.dv60_med.values[i]),
                   "vol60_med": float(C.vol60_med.values[i]), "rvol": float(C.rvol60.values[i]), "pf1": float(mm[i])} for i in sorted(pins_idx)]}
-OUT = "data/equity/gapfader/gf_coefficients.json"
+OUT = args.coefficients_out
 json.dump(COEF, open(OUT, "w"), indent=1)
 def pf1_from_json(dv, rv, J):
     raw = {"lm60": np.log(dv), "lrv60": np.log(rv + 0.001), "rv5_60": 1.0 * (rv < 0.005)}
@@ -231,6 +236,6 @@ J = json.load(open(OUT))
 err = max(abs(pf1_from_json(q["dv60_med"], q["rvol"], J) - q["pf1"]) for q in J["pins"])
 assert err < 1e-12, err
 print(f"\nwrote {OUT}: fit n={int(FIT.sum()):,}, fit-mean PF−1 {mm[FIT].mean():.4f}, 200 pins (max |Δ| recomputed from the JSON {err:.1e})")
-C.assign(pf1_new=mm, units_new=u)[["ticker", "date", "open", "gap", "gap_est", "dv20_prior", "dv60_med", "vol60_med", "n60", "rvolc", "rvol60", "r1", "in_gf45", "pf1_new", "units_new"]] \
+C.assign(pf1_new=mm, units_new=u)[["ticker", "date", "open", "close_m1", "div_m1", "gap", "gap_est", "dv20_prior", "dv60_med", "vol60_med", "n60", "rvolc", "rvol60", "r1", "in_gf45", "pf1_new", "units_new"]] \
     .to_parquet("data/equity/gapfader/model_v2.parquet")
 log("done")

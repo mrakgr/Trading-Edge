@@ -539,10 +539,9 @@ let private runDividendsDownload (apiKey: string) (startDate: DateTime) (endDate
     let outputPath = "data/dividends.csv"
     // streamed month by month into the file (DividendDownload.downloadDividendsToCsv); 16 months in flight
     match (downloadDividendsToCsv httpClient apiKey startDate endDate outputPath recent 16 CancellationToken.None).GetAwaiter().GetResult() with
-    | Ok (rows, carried) ->
+    | Ok rows ->
         printfn ""
-        printfn "Saved %d dividends to %s%s" rows (Path.GetFullPath outputPath)
-            (if carried > 0 then sprintf " (%d carried over from the previous file: see DividendDownload.carryOverDropped)" carried else "")
+        printfn "Saved %d dividends to %s" rows (Path.GetFullPath outputPath)
         true
     | Error msg ->
         printfn "Error downloading dividends: %s (%s unchanged)" msg outputPath

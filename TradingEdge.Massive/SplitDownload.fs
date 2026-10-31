@@ -44,12 +44,13 @@ let private baseUrl = "https://api.polygon.io/v3/reference/splits"
 let private maxRetries = 5
 let private baseDelayMs = 200
 
-/// Download all splits from the Massive API for a date range
-let downloadSplits
+/// Download all splits from the Massive API for a date range, in one sort order (`desc` or `asc`)
+let private downloadSplitsOrdered
     (httpClient: HttpClient)
     (apiKey: string)
     (startDate: DateTime)
     (endDate: DateTime option)
+    (order: string)
     (progress: (int -> int -> unit) option)
     (ct: CancellationToken)
     : Async<Result<Split list, string>> =
@@ -69,7 +70,7 @@ let downloadSplits
                     match endDateStr with
                     | Some e -> $"{baseQuery}&execution_date.lte={e}"
                     | None -> baseQuery
-                $"{withEnd}&limit=1000&apiKey={apiKey}"
+                $"{withEnd}&limit=1000&order={order}&apiKey={apiKey}"
 
         let rec fetchPage (nextUrl: string option) (pageCount: int) : Async<Result<unit, string>> =
             async {
@@ -140,6 +141,45 @@ let downloadSplits
         | Error msg -> return Error msg
         | Ok () -> return Ok (allSplits |> Seq.toList)
     }
+
+/// ⭐ THE TWO ORDERS MUST AGREE (user 2026-10-31): the splits endpoint pages like the dividends one — OFFSET pages on a
+/// non-unique sort key — so a result set changing under the reader (the vendor's daily load) can skip rows silently
+/// (docs/massive_cli_gotchas.md, 2026-10-21: seen on the dividends; the splits were complete that day). The range is
+/// fetched in BOTH orders and accepted only when both return the same ids; a disagreement fetches both again after
+/// `agreeRetryMs`, up to `agreeAttempts` times, and then fails the download, which leaves splits.csv untouched (on the VPS
+/// the wrapper retries the backfill, then starts REDUCING: deploy/vps/oms_day.ps1). A skipped split would be worse than
+/// a skipped dividend: n(t) would miss the ratio, and every price comparison across it would carry a ×ratio error.
+/// The same rule as DividendDownload.downloadDateRange.
+let private agreeAttempts = 10
+let private agreeRetryMs = 30_000
+
+let downloadSplits
+    (httpClient: HttpClient)
+    (apiKey: string)
+    (startDate: DateTime)
+    (endDate: DateTime option)
+    (progress: (int -> int -> unit) option)
+    (ct: CancellationToken)
+    : Async<Result<Split list, string>> =
+    let rec attempt (n: int) =
+        async {
+            let! desc = downloadSplitsOrdered httpClient apiKey startDate endDate "desc" progress ct
+            let! asc = downloadSplitsOrdered httpClient apiKey startDate endDate "asc" progress ct
+            match desc, asc with
+            | Error msg, _ | _, Error msg -> return Error msg
+            | Ok d, Ok a ->
+                let ids (xs: Split list) = xs |> List.map (fun x -> x.Id) |> Set.ofList
+                let di, ai = ids d, ids a
+                if di = ai then return Ok (d |> List.distinctBy (fun x -> x.Id))
+                elif n >= agreeAttempts then
+                    return Error (sprintf "splits: desc %d and asc %d ids still disagree after %d attempts" di.Count ai.Count n)
+                else
+                    printfn "  ⚠ splits: desc %d, asc %d ids (%d in one order only), attempt %d: both again in %d s"
+                        di.Count ai.Count (Set.count (Set.union (di - ai) (ai - di))) n (agreeRetryMs / 1000)
+                    do! Async.Sleep agreeRetryMs
+                    return! attempt (n + 1)
+        }
+    attempt 1
 
 /// Download splits with console progress reporting
 let downloadSplitsWithConsoleProgress

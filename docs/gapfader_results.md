@@ -2163,3 +2163,32 @@ on GF-54's book (`model_v2.parquet`):
 with these death-spiral stocks is the liquidity and not their overall trend." The check: of GF-49's 961 trades with
 chg_1y ≤ −95 %, only 105 (11 %) pass dv60_med ≥ $500k. They are 0.28 % of GF-54's book, with a flat PF of 1.44 there vs
 the book's 1.57.
+
+## GF-56 — the gap as the HOLDER'S RETURN; the −50 % split guard (2026-10-31, user)
+
+**User:** "switch both systems [GapFader and LowFader] to the holder's return since that is the correct approach".
+The gap was `open / pc_total − 1` — the back-adjusted convention LowFader's `chg_1d` had kept through the causal
+migration (S43br) and GapFader reused. It is now the holder's return from D−1's close (docs/price_adjustment.md §2):
+
+    gap = [(P·n(D) − P1·n(D−1)) + (C(D) − C(D−1))] / (P1·n(D−1)) = (P − div_m1) / close_m1 − 1
+
+`gapfader_census.py` keeps `close_m1`, `div_m1` and `pc_total = close_m1 + div_m1` (the price whose holder's return is 0:
+the target's other end, unchanged); `gapfader_model_v2.py`'s auction gap and `gapfader_consistency_v2.py`'s LOO limit
+(`close_m1 × 0.96 + div_m1`) follow. **The production coefficients are kept** (user: the model has no gap term);
+`model_v2.py --coefficients-out` wrote the refit beside them (`gf_coefficients_holder_refit.json`, not used).
+
+**The effect, with the auction noise held fixed** (the previous book, its own noise recovered, under the new gates):
+3 of 38,055 candidates drop out, all on an ex-dividend day; at 8k the traded book is 13,992 trades / +$111,112 / PF 1.707
+against 13,991 / +$111,147 / 1.707 — every year identical but 2020 (−$35). LowFader: identical on all 10,472 ex-dividend
+ticker-days 2020-01 … 2026-06 (the one trade, AOS 2020-07-30, unchanged).
+
+⚠ **The full rebuild reshuffled ~9 % of the book's membership (3,449 rows) for an unrelated reason:** GF-45's rows draw
+their auction noise SEQUENTIALLY in the pool's order (seed 20261020), so the 137 fewer gap rows of the rebuilt census
+(the daily data revised since 10-21) shifted every later draw across the `gap_est ≤ −4 %` gate. The rebuilt book's
+stats are the same in substance (consistency_v2.md: days / weeks / months profitable 72 / 82 / 89 % vs 72 / 81 / 89 %,
+PF 1.71 both, +137 % vs +138 %). A per-row seed (as the newer rows already use) would make rebuilds stable.
+The previous outputs: data/equity/gapfader/pre_holder_20261031/.
+
+**The −50 % guard** (the Oms's GapVerdict.SplitSuspect): GF-54's book at 8k has 9 trades below a −50 % gap, together
+−$42 (such real gaps average −6.0 % a trade); refusing them is free, and it stops a vendor split dated D that the tape
+never shows (OIO 2026-04-24: a −67 % "gap") from being bought at the model's deepest size.

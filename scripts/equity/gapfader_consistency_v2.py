@@ -8,7 +8,7 @@ GF-48's method (gapfader_consistency.py) on GF-54's book (gapfader_model_v2.py -
 THE SIZE AS THE OMS SIZES IT, at a FIXED equity E (the Oms sizes on 8,000; no compounding; results in % of E):
   units = clip(pf1, 0.125, 2); notional = min(units × 15 % × E, 0.25 % × dv60_med)
   the day's signals ranked by pf1, each takes what the book has left: Σ units ≤ 10, Σ notional × req ≤ 100 % × E (req 50 %,
-  100 % under $3); below the minimum notional min(2.5 % E, 1k) refused; shares = floor(notional / (pc × 0.96)), filled at
+  100 % under $3); below the minimum notional min(2.5 % E, 1k) refused; shares = floor(notional / the LOO limit), the limit = close_m1 × 0.96 + div_m1, filled at
   the open.
 A period with no trade is not counted (neither a win nor a loss). Weeks = ISO weeks, months = calendar months.
 Run from research/:
@@ -20,14 +20,17 @@ T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:7.1f}s]", *a, file=sys.stderr, flush=True)
 E = float(sys.argv[1]) if len(sys.argv) > 1 else 8000.0
 C = pd.read_parquet("data/equity/gapfader/model_v2.parquet")
-C["pc"] = C.open / (1 + C.gap)
+# the margin tier's previous close (Lightspeed's: the close in today's shares) and the LOO's limit — the price whose
+# holder's return is −4 % (the Oms's priceAtChange; user 2026-10-31: the gap is the holder's return)
+C["pc"] = C.close_m1
+C["limit"] = C.close_m1 * 0.96 + C.div_m1
 C["r"] = C.r1 / 100
 C["pf1"] = C.pf1_new
 log(f"{len(C):,} trades {C.date.min()} .. {C.date.max()}")
 UNIT, MAXU, MINN = 0.15 * E, 10.0, min(0.025 * E, 1000.0)
 C = C.sort_values(["date", "pf1", "ticker"], ascending=[True, False, True]).reset_index(drop=True)
 shares = np.zeros(len(C)); refused = 0; bound = {"units": 0, "margin": 0, "dv60cap": 0}
-pf1, dv60, pc = C.pf1.values, C.dv60_med.values, C.pc.values
+pf1, dv60, pc, limit = C.pf1.values, C.dv60_med.values, C.pc.values, C.limit.values
 for d, idx in C.groupby("date").indices.items():
     used_u, used_m = 0.0, 0.0
     for i in idx:
@@ -38,7 +41,7 @@ for d, idx in C.groupby("date").indices.items():
         take = min(want, (MAXU - used_u) * UNIT, (E - used_m) / req)
         if take < want: bound["units" if (MAXU - used_u) * UNIT <= (E - used_m) / req else "margin"] += 1
         if take < MINN: refused += 1; continue
-        n = np.floor(take / (pc[i] * 0.96))
+        n = np.floor(take / limit[i])
         if n < 1: refused += 1; continue
         shares[i] = n; used_u += take / UNIT; used_m += take * req
 C["shares"] = shares

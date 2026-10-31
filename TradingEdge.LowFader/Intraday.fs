@@ -3,6 +3,27 @@ module TradingEdge.LowFader.Intraday
 open System
 open TradingEdge.RollingMa
 
+/// ⭐ THE PREVIOUS CLOSE, in day D's raw share terms (docs/price_adjustment.md), as research's universe carries it
+/// (mr_candidate_1s_v2): close_m1 = close(D−1) · n(D−1)/n(D), and div_m1 = (C(D−1) − C(D)) / n(D) — the dividend going
+/// ex on D in the same terms, ≤ 0. CloseM1 nan = unknown (an IPO day, a stale table).
+[<Struct>]
+type PriorClose = { CloseM1: float; DivM1: float }
+
+let noPriorClose = { CloseM1 = nan; DivM1 = 0.0 }
+
+/// ⭐ THE HOLDER'S RETURN from D−1's close to `price` on D (user 2026-10-31: "the correct approach"; LowFader's chg_1d and
+/// GapFader's gap): [(P·n(D) − P1·n1) + (C(D) − C1)] / (P1·n1), divided through by n(D) = (price − div_m1) / close_m1 − 1.
+/// Until 2026-10-31 both gates read price / (close_m1 + div_m1) − 1, the back-adjusted convention the causal migration
+/// had kept (S43br); the two agree but on an ex-dividend day (0.39 % of GapFader's gap rows; 14 of its 38,055 book
+/// candidates and 0 of LowFader's 221 reference trades flip). nan when the close is unknown.
+let changeFromPrevClose (prior: PriorClose) (price: float) =
+    if prior.CloseM1 > 0.0 then (price - prior.DivM1) / prior.CloseM1 - 1.0 else nan
+
+/// The price on D whose holder's return is `change` (changeFromPrevClose's inverse): close_m1 · (1 + change) + div_m1 —
+/// GapFader's LOO limit (change −4 %) and its target's zero point (change 0)
+let priceAtChange (prior: PriorClose) (change: float) = prior.CloseM1 * (1.0 + change) + prior.DivM1
+
+
 // ===========================================================================
 // FlushFader — 1-SECOND-bar intraday MEAN REVERSION (long-only): the
 // production-tier successor to DipRiderV6 (1m), running on the SurgeRider
@@ -673,7 +694,7 @@ type IntradayConfig =
       OrdMinLows600: int         // lows_since_first_low_600 >= this (default 40)
       OrdMinRate600: float       // lows/bars over the 600 leg >= this (default 0.15)
       OrdMinRr: float            // vol_60 (time-clock) / (vol_0945_tape/15) >= this (default 2.0)
-      OrdMaxChg1d: float         // signal vwap / (close_m1 + div_m1) - 1 <= this (default -0.04)
+      OrdMaxChg1d: float         // the holder's return close(D−1) -> signal vwap (changeFromPrevClose) <= this (default -0.04)
       OrdMaxGapAdj60: int        // gap_adj_60 <= this (default 60 — WIDE-VG, §L22; STRICT = <= 30, post-hoc)
       OrdMinDv60: float          // dollar_vol_60 (TIME-clock, 60 tradeable s) >= this (default 1e6 — §L7: the spec is dead under $1M/min)
       OrdMinLows120: int         // ⭐ §L13 (user 2026-09-05): lows_since_first_low_120 >= this (default 30)
@@ -853,8 +874,8 @@ type RrLegCounts() =
         if rr >= 2.0 then c2 <- c2 + 1
         if rr >= 3.0 then c3 <- c3 + 1
 
-type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevCloseTotal: float) =
-    // prevCloseTotal = close_m1 + div_m1 in D's raw scale (nan when unknown -> the chg_1d ordinal gate fails closed)
+type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prior: PriorClose) =
+    // prior = close_m1 / div_m1 in D's raw scale (CloseM1 nan when unknown -> the chg_1d ordinal gate fails closed)
     // S43bc: short days use their own entry cutoff (see EntryEndSecShort doc).
     let isEarlyClose = TradingEdge.Orb.Timezone.early_closes.Contains day
     let entryEndSec = if isEarlyClose then cfg.EntryEndSecShort else cfg.EntryEndSec
@@ -2365,7 +2386,7 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly, prevClos
             && counters600.EventsSinceFirst >= cfg.OrdMinLows600
             && counters600.BarsSinceFirst > 0 && float counters600.EventsSinceFirst / float counters600.BarsSinceFirst >= cfg.OrdMinRate600
             && (match tVolSum60.State with ValueSome v60 when vol0945Tape > 0.0 -> v60 / (vol0945Tape / 15.0) >= cfg.OrdMinRr | _ -> false)
-            && (not (Double.IsNaN prevCloseTotal) && prevCloseTotal > 0.0 && bar.vwap / prevCloseTotal - 1.0 <= cfg.OrdMaxChg1d)
+            && (let c = changeFromPrevClose prior bar.vwap in not (Double.IsNaN c) && c <= cfg.OrdMaxChg1d)
             && adjGap60 <= cfg.OrdMaxGapAdj60
             && (match tDvSum60.State with ValueSome dv -> dv >= cfg.OrdMinDv60 | ValueNone -> false)
             && counters120.EventsSinceFirst >= cfg.OrdMinLows120

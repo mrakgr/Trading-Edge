@@ -816,7 +816,7 @@ let collectTrips (cfg: Config) (secDir: string)
                     do! requests.Writer.WriteAsync { Date = date; Cands = cands; Reply = reply.Writer }
                     for struct (c, bars) in reply.Reader.ReadAllAsync() do
                         if bars.Length > 0 then
-                            let sys = IntradaySystem(cfg.Intraday, c.Ticker, date, c.CloseM1 + (if Double.IsNaN c.DivM1 then 0.0 else c.DivM1))
+                            let sys = IntradaySystem(cfg.Intraday, c.Ticker, date, { CloseM1 = c.CloseM1; DivM1 = (if Double.IsNaN c.DivM1 then 0.0 else c.DivM1) })
                             for b in bars do sys.Process b
                             sys.Flatten bars.[bars.Length - 1]
                             dayOut.Add(struct (c, Seq.toArray sys.Positions, true))

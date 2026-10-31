@@ -3,9 +3,13 @@ and how often?"). Descriptive: one row per CS/ADRC ticker-day whose open gaps >=
 knowable at entry and the outcomes. Nothing here is a rule yet.
 
 Daily part (data/v2/daily_adjusted — the CAUSAL scheme, docs/price_adjustment.md):
-  pc_total   = close(D−1) × n(D−1)/n(D) − (cum_div(D) − cum_div(D−1)) / n(D)     the previous close in D's raw share terms
-                                                                                (the Oms LowFader's prevCloseTotal)
-  gap        = open(D) / pc_total − 1                                          (open = the official opening print)
+  close_m1   = close(D−1) × n(D−1)/n(D)                                         the previous close in D's raw share terms
+  div_m1     = (cum_div(D−1) − cum_div(D)) / n(D)                               the dividend going ex on D, same terms (<= 0)
+  gap        = (open(D) − div_m1) / close_m1 − 1                                ⭐ THE HOLDER'S RETURN close(D−1) -> open(D)
+                                                                                (user 2026-10-31; the Oms's changeFromPrevClose;
+                                                                                until then open / pc_total − 1)
+  pc_total   = close_m1 + div_m1                                                the price on D whose holder's return is 0 (the
+                                                                                target's other end; fill_sec below)
   avgvol20_prior, dv20_prior                                                    the 20 PRIOR sessions only (D excluded), inside
                                                                                 D's EPISODE (a > 45-day gap breaks it: GF-46)
   the previous session must be at most 4 calendar days back (else the row is dropped: a stale prev close)
@@ -40,7 +44,7 @@ args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:7.1f}s]", *a, flush=True)
 os.makedirs(args.out_dir, exist_ok=True)
-con = duckdb.connect(); con.execute("SET memory_limit='8GB'"); con.execute("SET threads=6")
+con = duckdb.connect(); con.execute("SET memory_limit='4GB'"); con.execute("SET threads=6")
 
 # ---------------------------------------------------------------- the universe (Universe.fs mirrored)
 CEF = {"CCD", "CGO", "CHI", "CHW", "CHY", "CPZ", "CSQ", "HERZ", "SDHY", "VCX", "RVII", "BPRE", "CFND"}
@@ -87,7 +91,9 @@ G = con.execute(f"""
     FROM d
     WHERE date BETWEEN '{args.from_}' AND '{args.to}' AND prev_date IS NOT NULL AND date - prev_date <= 4
       AND n_prior = 20 AND dv20_prior >= {args.min_dv20} AND open >= {args.min_open}""").df()
-G["gap"] = G.open / G.pc_total - 1.0
+G["close_m1"] = G.prev_close_raw * G.n_prev / G.n
+G["div_m1"] = (G.cd_prev - G.cum_div) / G.n
+G["gap"] = (G.open - G.div_m1) / G.close_m1 - 1.0           # the holder's return (user 2026-10-31)
 G = G[np.isfinite(G.gap) & (G.gap.abs() >= args.min_gap)].copy()
 G["date"] = G.date.astype(str)
 log(f"daily gaps |gap| >= {args.min_gap:.0%}: {len(G):,} ticker-days, {G.date.nunique():,} days (up {int((G.gap > 0).sum()):,}, down {int((G.gap < 0).sum()):,})")

@@ -60,6 +60,7 @@ point of use:
 | an absolute price floor ($1 / $2 / $5) | **`P(t)` — raw, directly** |
 | to compare prices across time (channels, MAs, gap %) | `P(t)·n(t)` |
 | **the return of a position held t1 → t2** | `[ (P2·n2 − P1·n1) + (C2 − C1) ] / (P1·n1)` |
+| ⭐ the change from the previous close (LowFader's `chg_1d`, GapFader's gap; since 2026-10-31) | the same, t1 = D−1's close: `(P − div_m1) / close_m1 − 1` |
 | a prior/forward value expressed in day D's raw scale | `P(t) · n(t)/n(D)` |
 | a total-return index (research only) | `P(t)·n(t) + C(t)` |
 

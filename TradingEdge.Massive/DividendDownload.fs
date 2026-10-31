@@ -166,10 +166,17 @@ let private downloadDateRangeOrdered
 /// (08:51–09:04 UTC) the default (desc) range query for October skipped 100 of 446 records dated 2026-10-02 (ROP, RSG,
 /// SATA, … — a contiguous block of tickers at a page boundary) while `order=asc` returned all of them; a single-date
 /// query dropped others (10-21: 32 of 127). By 09:17 every shape agreed. Pages are OFFSET-based and sorted on a
-/// non-unique key, so a result set changing under the reader can skip rows. Past months agree in every order. So a
-/// month that is downloaded (= not cached: the current month and the future) is fetched in BOTH orders and merged by
-/// `id`, and a disagreement is reported — a mitigation, not a guarantee. Without it the ingest RETIRED the skipped ids
-/// (retireAbsentIds) until the next run.
+/// non-unique key, so a result set changing under the reader can skip rows. Past months agree in every order.
+/// ⭐ THE TWO ORDERS MUST AGREE (user 2026-10-31): every month is fetched in BOTH orders and accepted only when both
+/// return the same ids; a disagreement fetches both again after `agreeRetryMs`, up to `agreeAttempts` times, and then
+/// fails the month — and so the download, which leaves the file untouched (on the VPS the wrapper retries the backfill,
+/// then starts REDUCING: deploy/vps/oms_day.ps1). Bounded so a vendor fault can never hang the morning's backfill. It
+/// replaced the merge of the two orders AND the carry-over of records the download lacked (carryOverDropped, removed:
+/// it carried PUTKF's revised dividend back to its old month — the same id twice, 2026-10-29 and 10-31, and the ingest
+/// and the v2 build refused). Without either the ingest RETIRES a skipped id (retireAbsentIds) until the next run.
+let private agreeAttempts = 10
+let private agreeRetryMs = 30_000
+
 let private downloadDateRange
     (httpClient: HttpClient)
     (apiKey: string)
@@ -177,18 +184,26 @@ let private downloadDateRange
     (endDateStr: string)
     (ct: CancellationToken)
     : Async<Result<Dividend list, string>> =
-    async {
-        let! desc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "desc" ct
-        let! asc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "asc" ct
-        match desc, asc with
-        | Error msg, _ | _, Error msg -> return Error msg
-        | Ok d, Ok a ->
-            let merged = (d @ a) |> List.distinctBy (fun x -> x.Id)
-            if merged.Length <> d.Length || merged.Length <> a.Length then
-                printfn "  ⚠ dividends %s..%s: desc %d, asc %d, merged %d (the API dropped records in one order)"
-                    startDateStr endDateStr d.Length a.Length merged.Length
-            return Ok merged
-    }
+    let rec attempt (n: int) =
+        async {
+            let! desc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "desc" ct
+            let! asc = downloadDateRangeOrdered httpClient apiKey startDateStr endDateStr "asc" ct
+            match desc, asc with
+            | Error msg, _ | _, Error msg -> return Error msg
+            | Ok d, Ok a ->
+                let ids (xs: Dividend list) = xs |> List.map (fun x -> x.Id) |> Set.ofList
+                let di, ai = ids d, ids a
+                if di = ai then return Ok (d |> List.distinctBy (fun x -> x.Id))
+                elif n >= agreeAttempts then
+                    return Error (sprintf "dividends %s..%s: desc %d and asc %d ids still disagree after %d attempts"
+                                      startDateStr endDateStr di.Count ai.Count n)
+                else
+                    printfn "  ⚠ dividends %s..%s: desc %d, asc %d ids (%d in one order only), attempt %d: both again in %d s"
+                        startDateStr endDateStr di.Count ai.Count (Set.count (Set.union (di - ai) (ai - di))) n (agreeRetryMs / 1000)
+                    do! Async.Sleep agreeRetryMs
+                    return! attempt (n + 1)
+        }
+    attempt 1
 
 /// Split a date range into monthly chunks as (year, month) pairs
 let private splitIntoMonths (startDate: DateTime) (endDate: DateTime) : (int * int) list =
@@ -218,66 +233,24 @@ let private parseCsvLine (line: string) : Dividend option =
         }
     else None
 
-/// The records of a dividends CSV (data/dividends.csv) dated ON OR AFTER `since` — the carry-over candidates — read
-/// line by line, so the 2M-row file is never held in memory. A file in an older layout (no `currency` column) reads as
-/// none: the caller treats that as "no previous file".
-let readCsvSince (path: string) (since: DateTime) : Dividend list =
-    if not (File.Exists path) then []
-    else
-        use r = new StreamReader(path)
-        match r.ReadLine() with
-        | null -> []
-        | h when h.Trim() <> csvHeader -> []
-        | _ ->
-            let sinceStr = since.ToString "yyyy-MM-dd"
-            let acc = ResizeArray<Dividend>()
-            let mutable line = r.ReadLine()
-            while not (isNull line) do
-                // the ex-date is the third field, yyyy-MM-dd: compare the text before parsing the row
-                let parts = line.Split(',', 4)
-                if parts.Length >= 3 && String.CompareOrdinal(parts.[2], sinceStr) >= 0 then
-                    parseCsvLine line |> Option.iter acc.Add
-                line <- r.ReadLine()
-            List.ofSeq acc
-
-/// ⭐ THE CURRENT-MONTH GUARD (2026-10-21). A record of the PREVIOUS file that the fresh download lacks is carried
-/// over when (a) its ex-date is in the current month or later, (b) it is inside the requested range, and (c) the
-/// fresh download has NO record for the same (ticker, ex-date). (c) tells the two causes apart: the vendor re-keys a
-/// record under a new id (a replacement exists: the old id is retired, as the mirror rule wants), while a dropped
-/// page loses the record outright (no replacement: keep it). The vendor's 2026-10-21 fault was in the month it was
-/// still loading (docs/massive_cli_gotchas.md). A genuine deletion of a current-month record therefore lingers until
-/// its month is past, then is retired. Returns the merged list and the number carried.
-let carryOverDropped (previous: Dividend list) (fresh: Dividend list) (startDate: DateTime) (endDate: DateTime) (now: DateTime)
-    : Dividend list * int =
-    let since = DateTime(now.Year, now.Month, 1)
-    let freshIds = fresh |> Seq.map (fun d -> d.Id) |> Collections.Generic.HashSet
-    let freshKeys = fresh |> Seq.map (fun d -> d.Ticker, d.ExDividendDate) |> Collections.Generic.HashSet
-    let carried =
-        previous
-        |> List.filter (fun d ->
-            d.ExDividendDate >= since && d.ExDividendDate >= startDate && d.ExDividendDate <= endDate
-            && not (freshIds.Contains d.Id) && not (freshKeys.Contains((d.Ticker, d.ExDividendDate))))
-    fresh @ carried, carried.Length
-
 /// Download every month of [startDate, endDate] into `outputPath` (data/dividends.csv), STREAMED (2026-10-21).
 ///
 /// ⚠ NO CACHE (removed 2026-10-21). A monthly cache froze each past month at its first download, but the vendor keeps
 /// revising history: against a full re-download the cache had hidden 250 new ids, 66 deleted ids and 407 changed
 /// amounts/dates in months before 2026-09, back to 2003 — and the ingest's mirror rule cannot work on a file that is
-/// partly an old snapshot. So every month is fetched every run, in both orders (see downloadDateRange).
+/// partly an old snapshot. So every month is fetched every run, in both orders, which must agree (see downloadDateRange).
 ///
-/// ⭐ STREAMED: the months go through a channel to `workers` workers; each merges its month (both orders + the
-/// current-month carry-over) and writes it to `<outputPath>.parts/yyyy-MM.csv` at once; a reporter (the only reader
+/// ⭐ STREAMED: the months go through a channel to `workers` workers; each downloads its month (both orders, agreeing)
+/// and writes it to `<outputPath>.parts/yyyy-MM.csv` at once; a reporter (the only reader
 /// of the results channel) counts and prints; the file is then assembled from the parts in month order and swapped in.
 /// So only `workers` months are in memory at a time. The old shape — all 298 months in parallel, every record held
-/// until the end, plus the whole previous file for the carry-over — peaked at 3.7 GB RSS on a 7 GB VPS.
-/// Any failed month fails the whole download and leaves `outputPath` untouched. Returns (rows written, rows carried).
+/// until the end — peaked at 3.7 GB RSS on a 7 GB VPS.
+/// Any failed month fails the whole download and leaves `outputPath` untouched. Returns the rows written.
 ///
 /// ⭐ `recent` (production, user 2026-10-29): the range is downloaded ON TOP OF the existing file — its rows dated
-/// before `startDate` are kept as they are, every row from `startDate` on comes from the download, and NOTHING is
-/// carried over. Why: the carry-over put a REVISED dividend back in at its old date (PUTKF 2026-10-29: moved 10-08 ->
-/// 11-09 under the same id, carried back into October — a duplicate id, the v2 build refused, the Oms did not start).
-/// The live system needs the recent events only; research keeps the full rewrite. No existing file = an error.
+/// before `startDate` are kept as they are and every row from `startDate` on comes from the download (2026-10-29,
+/// after PUTKF's duplicate stopped the Oms). The live system needs the recent events only; research keeps the full
+/// rewrite. No existing file = an error.
 let downloadDividendsToCsv
     (httpClient: HttpClient)
     (apiKey: string)
@@ -287,21 +260,13 @@ let downloadDividendsToCsv
     (recent: bool)
     (workers: int)
     (ct: CancellationToken)
-    : Task<Result<int * int, string>> =
+    : Task<Result<int, string>> =
     task {
       if recent && not (File.Exists outputPath) then
         return Error $"{outputPath} is missing: a recent-only download needs the existing file (run the full range once)"
       else
         let effectiveEnd = endDate |> Option.defaultValue DateTime.Now
         let months = splitIntoMonths startDate effectiveEnd
-        let now = DateTime.UtcNow
-        // the carry-over candidates: the previous file's current-month-and-later rows only (none for a recent-only run)
-        let previous =
-            if recent then Map.empty
-            else
-                readCsvSince outputPath (DateTime(now.Year, now.Month, 1))
-                |> List.groupBy (fun d -> d.ExDividendDate.Year, d.ExDividendDate.Month)
-                |> Map.ofList
         let partsDir = outputPath + ".parts"
         if Directory.Exists partsDir then Directory.Delete(partsDir, true)
         Directory.CreateDirectory partsDir |> ignore
@@ -312,7 +277,7 @@ let downloadDividendsToCsv
         for ym in months do
             do! todo.Writer.WriteAsync(ym, ct)
         todo.Writer.Complete()
-        let results = Channel.CreateUnbounded<Result<int * int, string>>()
+        let results = Channel.CreateUnbounded<Result<int, string>>()
 
         let worker () =
             task {
@@ -328,14 +293,10 @@ let downloadDividendsToCsv
                     match r with
                     | Error msg -> do! results.Writer.WriteAsync(Error $"{y}-{m:D2}: {msg}", ct)
                     | Ok fresh ->
-                        let prev = previous |> Map.tryFind (y, m) |> Option.defaultValue []
-                        let merged, carried = carryOverDropped prev fresh s e now
-                        if carried > 0 then
-                            printfn "  ⚠ %d-%02d: carried over %d dividends the download lacked (no replacement record)" y m carried
                         let lines =
-                            merged |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker, d.Id) |> List.map dividendToCsvLine
+                            fresh |> List.sortBy (fun d -> d.ExDividendDate, d.Ticker, d.Id) |> List.map dividendToCsvLine
                         do! File.WriteAllLinesAsync(partPath (y, m), lines, ct)
-                        do! results.Writer.WriteAsync(Ok (merged.Length, carried), ct)
+                        do! results.Writer.WriteAsync(Ok fresh.Length, ct)
             }
 
         // the reporter: the only reader of `results`, so the only owner of the totals
@@ -343,16 +304,15 @@ let downloadDividendsToCsv
             task {
                 let mutable finished = 0
                 let mutable rows = 0
-                let mutable carried = 0
                 let mutable error = None
                 for r in results.Reader.ReadAllAsync(ct) do
                     finished <- finished + 1
                     match r with
-                    | Ok (n, c) -> rows <- rows + n; carried <- carried + c
+                    | Ok n -> rows <- rows + n
                     | Error msg -> if error.IsNone then error <- Some msg
                     if finished % 50 = 0 || finished = months.Length then
                         printfn "Downloaded month %d/%d" finished months.Length
-                return (match error with Some msg -> Error msg | None -> Ok (rows, carried))
+                return (match error with Some msg -> Error msg | None -> Ok rows)
             }
 
         let! _ = Task.WhenAll [| for _ in 1 .. workers -> worker () |]
@@ -363,7 +323,7 @@ let downloadDividendsToCsv
         | Error msg ->
             Directory.Delete(partsDir, true)
             return Error msg
-        | Ok (rows, carried) ->
+        | Ok rows ->
             let tmp = outputPath + ".tmp"
             let mutable kept = 0
             do
@@ -383,5 +343,5 @@ let downloadDividendsToCsv
             File.Move(tmp, outputPath, true)
             Directory.Delete(partsDir, true)
             if recent then printfn "Kept %d dividends dated before %s from the existing file" kept (startDate.ToString "yyyy-MM-dd")
-            return Ok (rows + kept, carried)
+            return Ok (rows + kept)
     }
