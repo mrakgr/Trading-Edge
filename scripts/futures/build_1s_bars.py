@@ -34,7 +34,7 @@ Two passes:
      always rebuilds the WHOLE corpus, so adding contracts later (ES, MNQ) means rerunning pass 1 for everything.
 A source without its parquet footer (a truncated transfer: ZTU26 2026-10-26) is skipped and named.
 OFF-BOOK PRINTS (user 2026-10-29): the fills listed in data/futures/blocks.parquet (scripts/futures/find_blocks.py: VX
-blocks / ECRP, 76 fills, 0.0099 % of VX's volume) are dropped, each matched to exactly one fill, and counted in the
+blocks / ECRP by causal rules, 108 fills, 0.0125 % of VX's volume, 2026-11-01) are dropped, each matched to exactly one fill, and counted in the
 manifest's `blocks`. They stay in ticks/. Rerun find_blocks.py before this when ticks/ changes.
 
   cd research && python -u scripts/futures/build_1s_bars.py > logs/futures_intraday_1s.log 2>&1; echo exit $?

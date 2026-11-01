@@ -2198,3 +2198,237 @@ pre-holder book minus the 3 ex-dividend rows — 38,052 trades, r1 identical (vs
 **The −50 % guard** (the Oms's GapVerdict.SplitSuspect): GF-54's book at 8k has 9 trades below a −50 % gap, together
 −$42 (such real gaps average −6.0 % a trade); refusing them is free, and it stops a vendor split dated D that the tape
 never shows (OIO 2026-04-24: a −67 % "gap") from being bought at the model's deepest size.
+
+## GF-57 — the gap-up long swing entered on a DIP: the efficiency ratio after 10:00 (2026-11-01, user)
+
+**User:** "stocks gapping up on high rvol during the first 30m do well if they hold up the open ... would [they] be better
+entries when the efficiency ratio is < 0? What about < −0.3 or < −0.6? ... Maybe improving the momentum strategy is
+simply a matter of finding better entries in such stocks?" `scripts/equity/gapfader_er_entry.py` →
+`data/equity/gapfader/er_entry.md` (cache `er_minutes.parquet`). GF-42's book (held at 10:00 · rvol30 ≥ 1 · calm), 2,705
+names; the first minute from 10:00 with the signed ER of the 1-minute vwaps over 20 / 30 minutes below the threshold, in
+at the next minute's first 1s vwap, out at the close, net 0.7c. Controls on the SAME names: bought at 10:00, and at a
+random minute from the triggered entries' own times. (10:00 here is net PF 1.27; GF-42's 1.29 was on the census before
+its 10-31 rebuild.)
+
+| calm book | n (% of book) | median entry | price vs 10:00 | net PF | years < 1 | same names @10:00 | @ random time |
+|---|---|---|---|---|---|---|---|
+| bought at 10:00 | 2,705 (100) | 10:00 | — | **1.27** | 3/11 | — | — |
+| ER20 < 0 | 2,705 (100) | 10:05 | 0 bp | 1.29 | 2/11 | 1.27 | 1.28 |
+| ER20 < −0.3 | 2,697 (100) | 10:24 | −11 bp | 1.27 | 1/11 | 1.27 | 1.25 |
+| ER20 < −0.6 | 2,112 (78) | 11:40 | −45 bp | 1.15 | 4/11 | 0.85 | 0.86 |
+| ER30 < 0 | 2,705 (100) | 10:10 | −6 bp | 1.27 | 2/11 | 1.27 | 1.30 |
+| ER30 < −0.3 | 2,649 (98) | 10:52 | −22 bp | 1.23 | 2/11 | 1.21 | 1.20 |
+| ER30 < −0.6 | 949 (35) | 12:32 | −119 bp | 1.21 | 4/11 | **0.37** | **0.53** |
+
+- **ER < 0 and < −0.3 are not a dip filter:** nearly every name dips that much within minutes, so they are "buy a few
+  minutes later" and tie the 10:00 entry and the random time (1.23–1.29).
+- **ER < −0.6 is a real signal, but about the NAME, not the entry.** The names that dip that hard are the day's weak
+  ones: bought at 10:00 they make 0.85 (ER20) / 0.37 (ER30). The dip entry rescues them (1.15 / 1.21, and it beats a
+  random time on the same names: 0.86 / 0.53), but the book it leaves is smaller and worse than buying everything at
+  10:00. ⚠ The complement ("never dipped < −0.6", 2.73–7.16) is known only at the close: NOT tradeable.
+- **Requiring the price still above the open at the entry** changes nothing material (1.15–1.26).
+- **The non-calm tape stays dead** at every threshold (0.90–0.99; GF-40), though ER30 < −0.6 again beats its own
+  names at 10:00 (0.31) and at random times (0.38).
+
+**Verdict:** a better ENTRY does not improve the swing. The 10:00 entry stays; the deep dip (ER30 < −0.6, −1.2 % under
+the 10:00 price at the median) is a candidate ADD, like GF-37's opening-range-low break: on the names that reach it,
+it pays where the 10:00 position does not.
+
+## GF-58 — the dip entry by ROC30 and the 30-minute OLS slope instead of ER30 (2026-11-01, user)
+
+**User:** "Instead of ER30, I wonder if the 30m OLS slope would be a better feature to use? Or even the 30m ROC?"
+`scripts/equity/gapfader_dip_signals.py` → `data/equity/gapfader/dip_signals.md`. GF-57's book, entry and controls; over
+the same 31 minute points: ROC30 = P[m] / P[m−30] − 1; OLS30 = the least-squares slope of ln P × 30 (the fitted change
+over the window). Each also at the threshold that triggers the same 35 % of the book as ER30 < −0.6.
+
+| calm book (10:00: net PF 1.27) | n (% of book) | median entry | price vs 10:00 | mean % | net PF | 2016–20 / 2021–26 | years < 1 | same names @10:00 | @ random time |
+|---|---|---|---|---|---|---|---|---|---|
+| ER30 < −0.6 | 949 (35) | 12:32 | −119 bp | +0.17 | 1.21 | 1.13 / 1.30 | 4/11 | 0.37 | 0.53 |
+| ROC30 < −2.82 % (35 %) | 950 (35) | 10:32 | −156 bp | +0.44 | 1.31 | 1.34 / 1.29 | 0/11 | 0.73 | 0.91 |
+| **OLS30 < −2.77 % (35 %)** | 950 (35) | 10:35 | −153 bp | +0.50 | **1.36** | 1.40 / 1.33 | 1/11 | 0.77 | 0.91 |
+| ROC30 < −2 % | 1,548 (57) | 10:30 | −89 bp | +0.35 | 1.28 | 1.25 / 1.31 | 1/11 | 0.94 | 0.98 |
+| ROC30 < −3 % | 841 (31) | 10:32 | −176 bp | +0.49 | 1.34 | 1.33 / 1.35 | 0/11 | 0.69 | 0.92 |
+| ROC30 < −5 % | 193 (7) | 10:35 | −381 bp | +0.22 | 1.11 | 0.90 / 1.34 | 3/11 | 0.35 | 0.70 |
+| OLS30 < −2 % | 1,508 (56) | 10:34 | −85 bp | +0.38 | 1.30 | 1.32 / 1.28 | 1/11 | 0.96 | 1.04 |
+| OLS30 < −3 % | 815 (30) | 10:36 | −179 bp | +0.52 | 1.37 | 1.37 / 1.37 | 1/11 | 0.72 | 0.91 |
+| OLS30 < −5 % | 207 (8) | 10:36 | −350 bp | +0.37 | 1.21 | 1.06 / 1.37 | 4/11 | 0.46 | 0.71 |
+
+(At 0 / −1 % both trigger on 83–100 % of the book within minutes and tie the 10:00 entry, as ER30 < 0 / −0.3.)
+- **At equal selectivity the slope beats ER30:** 1.36 vs 1.21, ROC30 1.31. ER needs a STRAIGHT decline, which comes late
+  (median 12:32); a 2–3 % drop in the 30 minutes after 10:00 (median 10:32–10:36) is the better buy, steady across
+  2016–20 / 2021–26, at most 1 losing year.
+- **The timing is real:** on the same names, 10:00 makes 0.72–0.77 and a random time 0.91; the dip entry 1.34–1.37.
+- **Not deeper:** past −5 % (7–8 % of the book) it fades (1.11–1.21, 3–4 losing years): those are breaking down.
+- **Stand-alone vs 10:00:** OLS30 < −3 % has the higher PF (1.37 vs 1.27) on 30 % of the trades; its total (815 ×
+  +0.52 %) is half of buying everything at 10:00 (2,705 × +0.32 %). The open question is the ADD: 10:00 on every name
+  plus a second unit at the dip.
+
+## GF-59 — the gap-up swing at the POSITION level: 10:00 plus an add on the OLS30 dip (2026-11-01, user)
+
+`scripts/equity/gapfader_dip_add.py` → `data/equity/gapfader/dip_add.md`. GF-58's calm book (2,705 names): one unit at
+10:00 on every name, a second equal-notional unit at the first OLS30 < threshold (GF-58's entry), both out at the
+close, net 0.7c / share each. Totals in % of one unit's notional.
+
+| book | adds | units | total (unit-%) | per unit | position PF | 2016–20 / 2021–26 | years < 1 | worst position | p1 position | days < −10 unit-% |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 10:00 alone | 0 | 2,705 | +879 | +0.325 | **1.274** | 1.26 / 1.29 | 3/11 | −58.8 | −9.6 | 44 |
+| 2 units at 10:00 (plain doubling) | 2,705 | 5,410 | +1,757 | +0.325 | 1.274 | 1.26 / 1.29 | 3/11 | −117.6 | −19.2 | 148 |
+| + add at OLS30 < −2 % | 1,508 | 4,213 | +1,452 | +0.345 | 1.299 | 1.30 / 1.30 | 1/11 | −111.3 | −16.7 | 101 |
+| ↳ the add at a random time | 1,508 | 4,213 | +999 | +0.237 | 1.196 | 1.19 / 1.20 | 3/11 | −117.9 | −16.5 | 113 |
+| **+ add at OLS30 < −3 %** | 815 | 3,520 | **+1,304** | +0.370 | **1.313** | 1.30 / 1.33 | **1/11** | −108.8 | −15.8 | 92 |
+| ↳ the add at a random time | 815 | 3,520 | +721 | +0.205 | 1.161 | 1.19 / 1.14 | 4/11 | −117.6 | −16.5 | 97 |
+| + add at OLS30 < −4 % | 424 | 3,129 | +1,213 | +0.388 | 1.325 | 1.28 / 1.38 | 2/11 | −108.8 | −15.1 | 74 |
+| ↳ the add at a random time | 424 | 3,129 | +769 | +0.246 | 1.193 | 1.14 / 1.25 | 4/11 | −117.6 | −16.2 | 86 |
+| + add at OLS30 < −5 % | 207 | 2,912 | +956 | +0.328 | 1.273 | 1.24 / 1.31 | 3/11 | −108.8 | −13.1 | 61 |
+
+- **The add pays:** at −3 % it lifts the total by +48 % (+425 unit-%) for 30 % more units; the added unit earns +0.52 %
+  against the 10:00 unit's +0.325 %, and the position PF rises 1.274 → 1.313 with one losing year instead of three.
+- **The timing is the edge:** the same adds at a random time make LESS than not adding (+0.205 % a unit; 1.161).
+- **The cost is the tail:** the add doubles up on the names that are falling. The p1 position goes −9.6 → −15.8 unit-%,
+  the worst −58.8 → −108.8 (a calm gap-up that collapsed: the add at −3 % went down with it), the days losing more
+  than 10 unit-% 44 → 92. Still lighter than plain doubling (148), which earns the same PF with twice the capital.
+- −3 % and −4 % are the candidates (1.313 / 1.325; −4 % has 2 losing years). Not a live system: this book is research
+  (GF-30..44) and would compete with FlushFader for buying power from 10:00.
+
+## GF-60 — STOPS on the gap-up swing: every one loses (2026-11-01, user)
+
+**User:** "The net and the PF is too low to really consider trading it seriously. I wonder if we could improve it by
+using stops and targets? Let's start with stops." `scripts/equity/gapfader_swing_stops.py` →
+`data/equity/gapfader/swing_stops.md` (cache `swing_1s_calm.parquet`, the book's 1s bars 10:00–16:00, 19.6M). The calm
+book's 10:00 unit (2,705 names, net PF 1.274); a stop triggers on the first 1s vwap at or below it after the entry and
+fills at the NEXT second's vwap (slippage −3…−6 bp at the median).
+
+| stop | stopped % | net PF | years < 1 | p1 % | the stopped, held to the close | the stopped, realized |
+|---|---|---|---|---|---|---|
+| none | 0 | **1.274** | 3/11 | −9.6 | — | — |
+| entry − 1 % | 66 | 1.102 | 3/11 | −1.8 | −0.72 % (PF 0.59) | −1.10 % |
+| entry − 2 % | 47 | 1.081 | 6/11 | −2.8 | −1.59 % (0.33) | −2.09 % |
+| entry − 3 % | 32 | 1.129 | 5/11 | −3.7 | −2.56 % (0.18) | −3.10 % |
+| entry − 5 % | 14 | 1.235 | 3/11 | −5.6 | −4.81 % (0.04) | −5.12 % |
+| entry − 8 % | 4 | 1.257 | 3/11 | −8.3 | −7.74 % (0.02) | −8.15 % |
+| the open | 46 | 1.142 | 3/11 | −6.5 | −1.29 % (0.37) | −1.69 % |
+| the open − 1 % | 26 | 1.194 | 4/11 | −7.0 | −2.56 % (0.17) | −2.96 % |
+| the open − 2 % | 16 | 1.209 | 4/11 | −7.4 | −3.54 % (0.12) | −4.02 % |
+| the 09:30–10:00 low | 28 | 1.203 | 3/11 | −7.1 | −2.38 % (0.15) | −2.69 % |
+| the 09:30–10:00 low − 1 % | 16 | 1.225 | 4/11 | −7.5 | −3.72 % (0.09) | −4.09 % |
+
+- **The stops do pick losers** (held to the close the stopped trades make PF 0.02–0.59), **but they sell the low:**
+  every stopped group realizes LESS than it would have held (−0.3 … −0.5 % a trade), i.e. after the stop those names
+  RECOVER. That is GF-58/59's dip from the other side — the −3 % drop is where buying pays (+0.52 % a unit), so a stop
+  there sells into the reversion.
+- Only the tail is cut (p1 −9.6 % → −1.8 … −8.3 %), at a PF cost everywhere; the wide stops (−5 / −8 %) converge on no
+  stop. Structural stops (the open, the 09:30–10:00 low; median 2.3 / 3.5 % under the entry) are no better.
+- **Verdict: no stop.** The trade's intraday dynamics are mean-reverting; the tail is a sizing question, not a stop.
+
+## GF-61 — TARGETS on the gap-up swing: every one loses too (2026-11-01, user)
+
+**User:** "Targets are next ... We could also make use of the slope, ROC and EF features and try using them as targets."
+`scripts/equity/gapfader_swing_targets.py` → `data/equity/gapfader/swing_targets.md`. GF-60's book and caches (+ the
+09:30–10:00 high, `swing_hi30_calm.parquet`). Limits fill AT the target on a trade-through; signal exits at the next
+minute's first 1s vwap; the rest at the close.
+
+| exit | exited % | median exit | net PF | years < 1 | the exited, held to the close | the exited, realized |
+|---|---|---|---|---|---|---|
+| none: the close | 0 | 16:00 | **1.274** | 3/11 | — | — |
+| entry + 1 / 2 / 3 % | 68 / 49 / 35 | 10:14 / 10:37 / 10:58 | 0.998 / 1.104 / 1.140 | 4 / 4 / 3 | +1.43 / +2.42 / +3.44 % | +0.96 / +1.95 / +2.95 % |
+| entry + 5 / 8 / 10 % | 19 / 7 / 5 | 11:43 / 12:42 / 13:15 | 1.234 / 1.262 / 1.275 | 3 / 3 / 2 | +5.21 / +8.12 / +9.89 % | +4.94 / +7.92 / +9.91 % |
+| the 09:30–10:00 high | 65 | 10:12 | 1.004 | 5/11 | +1.52 % | +1.03 % |
+| entry + 0.5 / 1 / 2 × the morning range | 46 / 22 / 6 | 10:53 / 11:52 / 12:47 | 1.151 / 1.261 / 1.277 | 3 / 3 / 3 | +2.65 / +4.20 / +6.08 % | +2.29 / +4.10 / +6.14 % |
+| OLS30 > 2 / 3 / 5 % (window after the entry) | 51 / 26 / 6 | 10:57 / 11:01 / 11:00 | 1.098 / 1.151 / 1.252 | 3 / 3 / 3 | +1.31 / +2.51 / +4.87 % | +0.86 / +1.90 / +4.38 % |
+| ROC30 > 2 / 3 / 5 % (window after the entry) | 53 / 27 / 6 | 10:54 / 10:58 / 11:01 | 1.118 / 1.176 / 1.235 | 3 / 3 / 3 | +1.24 / +2.41 / +5.26 % | +0.85 / +1.90 / +4.52 % |
+| ER30 > 0.3 / 0.6 (window after the entry) | 98 / 43 | 11:05 / 12:46 | 1.110 / 1.218 | 3 / 3 | +0.35 / +1.54 % | +0.11 / +1.35 % |
+
+(From 10:00 the signals' window still holds the 09:30–10:00 run and they fire at 10:01 — undoing the entry: 0.93–1.21.)
+- **Every target sells too early:** the exited trades would have made MORE held to the close (+0.1 … +0.7 % a trade).
+  Only targets so far out that they rarely fill (+10 %, 2 × the morning range: 5–6 %) tie no target.
+- **With GF-60 the trade's shape is ASYMMETRIC:** dips after 10:00 revert (a stop sells the low, an add at −3 % pays),
+  rallies CONTINUE (a target sells the run). The PF lives in the right tail: no stop, no target, the add on the dip.
+- **Verdict:** exits do not lift the swing past GF-59's 1.31. The levers left are the SELECTION (GF-44: dv20 $1–5M ·
+  price $10–30 was 2.03) and the HOLD (the winners still running at 16:00 suggest testing past the close).
+
+## GF-62 — the gap-up swing HELD PAST THE CLOSE, winners and losers apart (2026-11-01, user)
+
+**User:** "test whether holding these trades for a few days would be better than exiting at the close. We should take
+into account winners and losers as separate categories." `scripts/equity/gapfader_swing_hold.py` →
+`data/equity/gapfader/swing_hold.md`. The calm book's 10:00 unit; the holder's return on daily_adjusted (raw P, causal n
+and cum_div; no split fell inside any hold); a winner / loser = the trade's net at D's close (52 % / 48 %).
+
+**What the hold adds after D's close:**
+
+| exit | all | WINNERS at the close: mean · PF | LOSERS at the close: mean · PF |
+|---|---|---|---|
+| D+1 open | +0.19 % (1.36) | +0.03 % · 1.05 | **+0.37 % · 1.90** |
+| D+1 close | +0.30 % (1.23) | +0.22 % · 1.16 | +0.38 % · 1.33 |
+| D+3 close | +0.44 % (1.23) | +0.38 % · 1.19 | +0.50 % · 1.28 |
+| D+5 close | +0.36 % (1.15) | +0.22 % · 1.09 | +0.52 % · 1.22 |
+
+**The whole trade (10:00 → the exit):**
+
+| policy | mean | net PF | 2016–20 / 2021–26 | years < 1 | p1 | worst |
+|---|---|---|---|---|---|---|
+| out at D's close | +0.325 % | 1.274 | 1.26 / 1.29 | 3/11 | −9.6 % | −58.8 % |
+| **hold all to D+1's open** | +0.518 % | **1.426** | 1.34 / 1.53 | **0/11** | −9.8 % | −66.2 % |
+| hold all to D+1's close | +0.622 % | 1.374 | 1.34 / 1.41 | 0/11 | −13.4 % | −67.0 % |
+| hold all to D+3's close | +0.768 % | 1.354 | 1.33 / 1.38 | 1/11 | −17.7 % | −73.4 % |
+| hold all to D+5's close | +0.687 % | 1.263 | 1.22 / 1.31 | 1/11 | −19.8 % | −75.5 % |
+| hold the LOSERS to D+1's open, winners out at the close | +0.499 % | 1.436 | 1.33 / 1.56 | 1/11 | −9.8 % | −66.2 % |
+| hold the WINNERS to D+3's close, losers out at the close | +0.528 % | 1.301 | 1.33 / 1.27 | 2/11 | −12.2 % | −58.8 % |
+
+- **The overnight is where the hold pays, and it pays on the LOSERS:** a name down at the close gains +0.37 % to the next
+  open (PF 1.90; −2 … 0 % at the close: PF 2.01) — the OVERNIGHT REVERSAL (S43bq, the LongSnoozer's mechanism), not
+  the winners running. Small winners (0 … +5 %) add nothing overnight (PF 0.93–0.99).
+- **Only the BIG winners keep running:** > +5 % at the close adds +1.1 % by D+3 (PF 1.35–1.41); 240 trades in 10 years.
+- **Best:** hold everything to D+1's open (MOO): PF 1.274 → 1.426, mean +0.33 → +0.52 %, no losing year, the tail
+  unchanged at p1 (the worst trade −58.8 → −66.2 %). Longer holds add mean but widen the tail (p1 −13 … −20 %) at a
+  lower PF.
+- ⚠ Overnight it is a carry: it needs overnight buying power (Reg T, not the intraday 4×) beside FlushFader's carries.
+
+## GF-63 — the overnight loser reversal: partly the Snoozers' last hour, and ONLY on the calm tape (2026-11-01, user)
+
+**User:** "Maybe it is a different pattern. Snoozers only look at declines in the last hour. Besides looking into that,
+I am curious if the loser reversal effect is also present on stocks whose tape isn't calm during the first 30m."
+`scripts/equity/gapfader_overnight_reversal.py` → `data/equity/gapfader/overnight_reversal.md`. GF-57's held gap-ups
+with rvol30 ≥ 1 bought at 10:00; a loser = net ≤ 0 at D's close; the overnight = the holder's return close(D) →
+open(D+1); the last hour = the close / the 15:00 minute vwap − 1.
+
+| overnight PF (n) · 2016–20 / 2021–26 | CALM | NOT calm |
+|---|---|---|
+| winners at the close | 1.05 (1,408) · 1.08 / 1.02 | **1.23** (2,371) · 1.61 / 1.09 |
+| **losers at the close** | **1.90** (1,293) · 1.41 / 2.46 | 0.90 (3,254) · 1.15 / 0.82 |
+| losers · last hour fell ≥ 2 % | 4.01 (83) · 2.77 / 4.77 | 1.06 (937) |
+| losers · last hour fell 0.5–2 % | 1.86 (392) | 1.24 (636) |
+| losers · last hour flat ±0.5 % | 1.74 (607) | 1.04 (570) |
+| losers · last hour rose > 0.5 % | 1.38 (211) · 0.59 / 2.36 | **0.63** (1,111): −1.39 % a night |
+| losers · down by 15:00, NOT falling in the last hour | **1.62** (775) · 1.12 / 2.21 | 0.70 (1,660) |
+| losers · last hour < −0.5 % (the Snoozers' shape) | **2.33** (475) · 1.81 / 2.87 | 1.10 (1,573) |
+| losers · net ≤ −5 % | 2.00 (173) · 0.97 / 3.57 | **0.76** (1,975): −0.93 % a night |
+| losers · net −5 … 0 % | 1.72–2.01 (1,120) | 1.32–1.42 (1,279) |
+
+- **Calm: TWO effects stacked.** The Snoozers' last-hour decline grades it (PF 4.01 → 1.86 → 1.74 → 1.38 as the last
+  hour goes from −2 % to rising), but losers that were down by 15:00 and did NOT fall in the last hour still revert
+  (1.62, mean +0.23 %): a DAY-loser reversal beside the Snoozers' pattern. Both are stronger in 2021–26.
+- **Not calm: no reversal — MOMENTUM.** The winners keep rising overnight (1.23, +0.65 % a night; rising into the close
+  1.32), and the deep losers keep falling (≤ −5 %: 0.76; rising in the last hour but still a loser: 0.63). Only the
+  moderate losers (−5 … 0 %) revert (1.32–1.42), and weakly in 2021–26 (1.07–1.15).
+- So the first 30 minutes' volatility separates two overnight regimes: a calm open → the day's losers revert; a wild
+  open → the day's move continues. ⚠ The non-calm book's intraday leg loses (GF-40: 0.89 at 10:00), so its overnight
+  momentum is a separate trade (bought at the close), not an extension of the swing.
+
+**GF-63 b — held for a few days (from D's close; mean % · PF):**
+
+| group | n | D+1 open | D+1 close | D+3 close | D+5 close | D+3: 2016–20 / 2021–26 |
+|---|---|---|---|---|---|---|
+| CALM · losers | 1,293 | +0.37 · 1.90 | +0.38 · 1.33 | +0.50 · 1.28 | +0.52 · 1.22 | 1.14 / 1.42 |
+| CALM · losers, the Snoozers' shape | 475 | +0.61 · 2.33 | +0.48 · 1.32 | +0.85 · 1.40 | **+1.17 · 1.45** | 1.08 / 1.72 |
+| CALM · the day-loser | 775 | +0.23 · 1.62 | +0.32 · 1.32 | +0.27 · 1.16 | +0.12 · 1.06 | 1.15 / 1.17 |
+| CALM · winners | 1,408 | +0.03 · 1.05 | +0.22 · 1.16 | +0.38 · 1.19 | +0.22 · 1.09 | 1.26 / 1.12 |
+| NOT calm · winners | 2,371 | **+0.65 · 1.23** | −0.69 · 0.87 | −1.83 · 0.77 | **−2.38 · 0.75** | 0.72 / 0.79 |
+| NOT calm · losers | 3,254 | −0.32 · 0.90 | −1.37 · 0.75 | −1.98 · 0.76 | **−2.48 · 0.75** | 0.65 / 0.79 |
+| NOT calm · losers net ≤ −5 % | 1,975 | −0.93 · 0.76 | −2.36 · 0.64 | −3.72 · 0.62 | **−4.64 · 0.61** | 0.45 / 0.69 |
+
+- **Calm:** the day-loser reversal is an OVERNIGHT effect (PF 1.62 → 1.06 by D+5); the Snoozers' shape keeps
+  paying for days (+1.17 % by D+5, PF 1.45, 1.72 in 2021–26). The winners stay mildly positive.
+- **Not calm: the multi-day drift is DOWN for everyone.** The winners' overnight pop (+0.65 %) is the high: by D+5
+  they are −2.4 %, the losers −2.5 %, the deep losers −4.6 % (a long PF 0.61–0.77 in both halves). A wild-open,
+  heavy-volume gap-up is a multi-day SHORT from its close (GF-4's heavy-volume gap-ups fade; GF-41's failed gap-down
+  short) — parked with the shorts (borrow; the user's longs-only ruling).

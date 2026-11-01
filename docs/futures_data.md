@@ -283,7 +283,7 @@ orphan fix raised the depth, which made the row look like an open order to cut a
 orphan again. Fixed: an orphan row is never tested as a cut. 6NU19 and 6BU20 are IDENTICAL. ⚠ The run peaked at
 13.9 GB RSS on a 15 GB machine: still to find which file is heavy.
 
-### The off-book prints: `data/futures/blocks.parquet` (VX, 2026-10-29)
+### The off-book prints: `data/futures/blocks.parquet` (VX, 2026-10-29; causal rules 2026-11-01)
 
 The 1s-bar build stopped on VX's rounding check: 37 fills on half cents (21.335, 18.475). CFE prices VX **block and
 ECRP trades in 0.005 steps** ([CFE block/ECRP sheet](https://cdn.cboe.com/resources/membership/cfe-block-ecrp-trades.pdf)),
@@ -291,30 +291,55 @@ while book trades print on cents, so these are certainly off-book. Many sit poin
 21.335 against a 19.65 bid, 18.625 against 22.20. Sierra records CFE's off-book Trade messages as ordinary fills with
 an aggressor side, and its 40-byte record has no condition field.
 
-`scripts/futures/find_blocks.py` lists a fill when either rule fires (the rules are in its header):
-1. **grid:** the price is off the trade grid (VX: 0.01);
-2. **outlier:** a normal quote (0 < spread ≤ 4 ticks of 0.05), the fill ≥ 3 ticks outside it, ≥ 3 ticks from the
-   median of both the 10 fills before and the 10 after (same side), and alone in its millisecond.
+`scripts/futures/find_blocks.py` lists a fill when either rule fires (the rules are in its header). ⭐ **Both are
+CAUSAL** (user 2026-11-01: "any rules we use to filter trades should be strictly causal"):
+1. **grid:** the price is off the contract's trade grid (VX: 0.01; `grids.parquet`);
+2. **quote:** a fill NOT part of a sweep prints ≥ 3 quote ticks AND ≥ 25 bp outside a normal quote (0 < spread ≤ 4
+   ticks). Not part of a sweep = the first fill of its millisecond and, where Sierra marks sweeps (CME only), not
+   marked middle / last.
+
+**The 25 bp floor (user 2026-11-01).** Over the other 31 roots (7.8B fills) the 3-tick rule alone listed 34,581 fills:
+RB 14,736 · NG 7,180 · CL 7,022 · MGC 1,681 · NQ 1,244 · ES 75 · the other 25 roots 1,643. They are FAST-MARKET prints,
+not blocks: clustered at the 18:00 reopen (a quote from before the daily break), the 10:30 EIA reports, the 14:25–14:30
+energy settlement and 08:30; 1–2 lots, a median 1–15 bp from the quote. 3 ticks is ~75 bp on VX (a tick 24 bp) but
+0.2–4 bp on most CME roots (RB 0.44, NQ 0.17 bp a tick). ≥ 25 bp keeps every VX quote-rule print (a median 94 bp out,
+18,913 contracts) and about 470 CME fills (NG 271, CL 98, RB 32, ...).
 
 | VX 2020-09..2026-10 | fills | share of the volume |
 |---|---|---|
-| grid only | 22 | 0.0024 % |
-| both | 15 | 0.0011 % |
-| outlier only (blocks on whole cents) | 39 | 0.0064 % |
-| **listed** | **76** | **0.0099 %** of 69.6M fills |
+| grid only | 22 | |
+| both | 15 | |
+| quote only (blocks on whole cents) | 71 | |
+| **listed** | **108** | **0.0125 %** of 69.6M fills |
 
-- **The outlier rule finds blocks the grid can't:** VXN24 2024-07-12, 2,610 contracts at 11.65, a point below a 12.65
-  bid; VXQ21 1,933 at 20.80; VXJ25 800; VXJ23 797.
-- **Without "alone in its ms",** 49 more fills were flagged, mostly 1–5 lots on crash days (2024-08-05, the
-  2025-04-06 reopen, 2022-02-27, 2023-03-19). They were sweeps: several fills in one millisecond, past the pre-trade
-  quote. Every one of the 37 off-grid blocks is alone in its millisecond.
-- **Unseen:** a whole-cent block priced near the quote. The CME roots are not scanned: whether CME blocks reach
-  Sierra's tape is unknown, and before 2020-08 the millisecond test cannot be made.
+**How the quote rule was chosen (2026-11-01, measured on the tape):**
+- **The quote is not stale.** Of the fills that open their millisecond, 99.98 % (VX, 26.3M) and 99.998 % (ES, 340.7M)
+  print at or inside the pre-trade quote; ≥ 3 ticks out: VX 64 + 22 at exactly 3 ticks, ES 75 (1–5 lots, 90
+  contracts: fast-market prints against a quote a few ms old, kept as a negligible cost of one rule for every root).
+- **Sweeps must be excluded.** A sweep's later fills carry the quote from BEFORE the sweep: VX 4,866 of them print
+  ≥ 3 ticks outside it (the next quote moved to the print for 3,029: the book really was swept), ES 11.2M. The quote
+  rule alone would delete them, crash-day sweeps included.
+- **Sierra's sweep marker (fill_pos) is all 0 on VX** (CFE's feed gives it nothing to mark); on ES 74 % of fills are
+  marked. The millisecond test stands in for it on VX, and backs it up on CME (the marker is a lower bound).
+- **After a VX quote-rule print the quote is back where it was for 59 of the first 64**: off-book.
+- **Left in, they wreck the bars:** of the 49 on whole cents, 33 are a 1s bar by themselves (sitting 3–71 ticks off
+  the market) and they move their 30s bars by a median 4.2 ticks / 0.95 % (p90 12 ticks, max −8.0 %: VXN24
+  2024-07-12, 2,610 lots at 11.65 against a 12.65 bid). Size matters as much as distance: VXJ23's 797 lots 8 ticks out
+  move their 1s bar −1.8 %, and the exactly-3-tick prints include VXK24's 2,500 lots.
+- **Tried and dropped:** the 10-fill median before AND after (10-29; lookahead), a 3σ test against the last 100 fills
+  (the flagged prints sit at a median 9.8σ, but 3σ alone flags 3–4 % of ALL VX fills: over 100 fills the price often
+  sits on one or two levels, so a one-tick move is several σ), and a 10-tick threshold (it leaves the big 3–8 tick
+  blocks in).
+- **Ground truth would cost $650** (Cboe DataShop "CFE Futures Trades", 2018-03 on: `off_order_book_type`,
+  `buy/sell_order_num_legs`; not bought, user 2026-11-01).
+- **Unseen:** a whole-cent block priced near the quote (harmless to the bars). Before 2020-08 the millisecond test
+  cannot be made, so those fills get the grid rule only. CME blocks are reported outside the Globex book, and the ES
+  scan finds nothing like VX's; the other CME roots are scanned next (report only).
 - **Ground truth, if ever wanted (not bought, user 2026-10-29: too pricey):** Databento's XCBF.PITCH labels them exactly:
   side None, publisher `XCBF.PITCH.XOFF`. Its daily statistics (block and ECRP volume per contract) cost $4.87 for
   2020-09..2026-10; trades cost $3–40 a day. Massive's futures trades have no condition, block or aggressor field,
   and cover no CFE.
-- ⚠ The scan is numpy, one contract at a time (0.76 GB, 10 s for VX). A DuckDB window `quantile_disc` ignores
+- ⚠ The scan is numpy, one contract at a time (0.7 GB, 10 s for VX). A DuckDB window `quantile_disc` ignores
   `memory_limit`: three runs of it hit 13.5 GB and crashed the editor.
 
 `build_1s_bars.py` drops the listed fills on (ticker, timestamp, price, size), checks each one matches exactly one

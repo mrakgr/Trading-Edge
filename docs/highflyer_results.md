@@ -12858,3 +12858,66 @@ prints 0.49 or 0.52 on a given day. Script `scripts/equity/breadth_gate_smoothin
 - Engine wiring of the low-float tilt / filter (decide modest incremental value vs data dependency).
 - Float × rvol and float × move interaction grids.
 - Engine wiring of the float filter / sizing tilt.
+
+---
+
+<a id="v5"></a>
+
+# v5 — HighFlyer on CAUSAL data (2026-11-01, user: "we'll have to run it on data that is causal only")
+
+**Why.** The engine reads `split_adjusted_prices`, BACK-adjusted for every later split and dividend — the CLAUDE.md
+lookahead class (a $1 floor on it admits names that later reverse-split). It also makes the book unreproducible: the
+documented June command (§ Reproduction) now gives **3,577 trips, PF raw 1.741 / clip 1.688** (breadth + ≥2005; was
+4,245 / 1.960 / 1.600; unfiltered 5,884 vs 6,647) with the engine and the view's SQL unchanged — the inputs were rebuilt
+(data v2, re-downloaded splits / dividends) and back-adjustment rewrote the history. (Pass `--db-path data/trading.db`:
+the engine's default is the pre-split path.)
+
+**The port:** `scripts/equity/highflyer_port.py --scale back|causal` re-implements the production entry and exit
+(QullaSystem's windows exactly: partial windows count, the 28-calendar-day volume means over [d − 28, d), the 14-TR
+ATRs skipping undefined TRs, the 126-value runner max, history = barsSeen > 21 counted after the signal bar; entry at
+the close, exit at the open of bar i + 6). **Control: `--scale back` reproduces the engine's 5,884 trips exactly**
+(returns to 7e-15, every feature, the open flags). `--scale causal` runs on `daily_adjusted`: P·n for the channel /
+ATR / tightness / runner, the HOLDER's return for the move and the trade, volume in original shares (v / n) for rvol,
+raw P·v for the dollar volume, raw P for the $1 floor and the fade.
+
+| breadth > 0.5 · ≥ 2005 | trips | win | PF raw | PF clip | mean | clip mean | median | post-2015 clip |
+|---|---|---|---|---|---|---|---|---|
+| back-adjusted (= the engine today) | 3,577 | 53.6 % | 1.741 | 1.688 | +2.03 % | +1.89 % | +0.48 % | 1.620 |
+| **causal** | **3,608** | 53.4 % | **1.731** | **1.678** | +2.00 % | +1.86 % | +0.46 % | **1.620** |
+
+- **HighFlyer passes the disproportion test:** 123 trips change (3.4 % of the book) and the PF moves −0.6 %. The 46
+  dropped include 14 whose RAW close was under $1 (the back-adjusted floor admitted them; PF 1.95 together); the 77
+  added make PF 1.52. 72 shared trips differ in return by a mean 0.07 % (dividends counted by the holder's return).
+- ⚠ Still on the old pipeline: the breadth gate (`data/equity/momentum_v0/breadth.parquet`). Market-wide and
+  MA-ratio-based, so little exposed, but not yet rebuilt causally.
+- Output: `data/equity/highflyer_repro/port_{back,causal}.parquet`. Costs are still not modelled (as in v3).
+
+## v5b — the first 30 minutes' volatility as a feature (2026-11-01, user)
+
+**User:** "see if using the volatility of first 30m as a feature makes a difference ... Back then I had no idea that
+30m volatility had such a strong effect". `scripts/equity/highflyer_volat30.py` → `data/equity/highflyer_repro/volat30.md`
+(cache `volat30.parquet`). The causal book (v5), breadth > 0.5, entries 2016-08..2026-05 (the 1s corpus): 1,840 trips.
+volat30 = GapFader's volat_clk on the ENTRY day (mean |ln| change of consecutive 30-second slot vwaps over
+09:30–10:00, bp), known six hours before the close entry. Median 42 bp (p10 19 … p90 86); ρ 0.43 with the daily log
+ATR, ~0 with rvol.
+
+| cell (clip PF) | n | PF raw | **PF clip** | mean | median | clip 2016–20 / 2021–26 |
+|---|---|---|---|---|---|---|
+| all | 1,840 | 1.64 | **1.60** | +2.02 % | +0.33 % | 1.72 / 1.49 |
+| volat30 < 20 bp | 209 | 1.69 | 1.69 | +1.09 % | −0.04 % | 1.42 / 2.09 |
+| 20–30 | 285 | 1.47 | 1.34 | +1.37 % | +0.69 % | 2.02 / 0.89 |
+| 30–40 | 380 | 1.61 | 1.61 | +1.74 % | +0.75 % | 1.91 / 1.34 |
+| 40–60 | 520 | 1.94 | **1.88** | +3.01 % | +0.86 % | 1.83 / 1.93 |
+| 60–100 | 325 | 1.61 | 1.57 | +2.38 % | +0.46 % | 1.58 / 1.56 |
+| ≥ 100 bp | 121 | 1.16 | 1.16 | +0.84 % | −1.89 % | 1.18 / 1.15 |
+| calm (< 40 bp, GapFader's line) | 874 | 1.57 | 1.52 | +1.46 % | +0.27 % | 1.85 / 1.24 |
+| **relative: volat30 / daily log ATR < 0.10** | 1,047 | 1.81 | **1.74** | +2.51 % | +0.32 % | 1.89 / 1.62 |
+| relative quintiles Q1 … Q5 | 368 each | 1.75 / 1.96 / 1.60 / 1.54 / 1.36 | 1.65 / 1.87 / 1.60 / 1.51 / 1.36 | | | Q4 / Q5: 5 losing years each |
+
+- **Not GapFader's effect.** The CALM opens are not better here (< 40 bp: 1.52 vs 1.60); the absolute bands are a
+  hump peaking at 40–60 bp, and only the wildest 7 % (≥ 100 bp, median −1.9 %) are clearly bad.
+- **What does separate is the morning RELATIVE to the stock's own volatility:** a morning wilder than its daily ATR
+  implies (rel ≥ 0.10) is the weak half (Q4 / Q5: 1.51 / 1.36, five losing years each); rel < 0.10 lifts the clip PF
+  1.60 → 1.74 and the mean +2.02 → +2.51 % on 57 % of the book, in both halves (1.89 / 1.62).
+- A modest feature, not GapFader's regime switch: worth carrying as a sizing / filter candidate; at 1,840 trips the
+  quintile differences are suggestive, not conclusive.
