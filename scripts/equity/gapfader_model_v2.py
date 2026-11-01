@@ -15,8 +15,9 @@ has a row only from 20 prior sessions on (its 20-session volume), as the Oms's R
 THE BOOK: GF-45's (gapfader_sizing_model.py) with the volume swapped: open ≥ $1 · no early close · gap ≤ −4 % and the
 noisy auction gap ≤ −4 % · rvol60 < 0.02 · not NYSE-listed · dv60_med ≥ $500k. The census pool's pre-filter is on the
 NEW rvol (premarket to 09:30 / vol60_med < 0.05; rvol60 to the cutoff can only be smaller). The trades already in
-GF-45's book keep their exact auction-price noise (seed 20261020, drawn in GF-45's row order); a trade new to this book
-draws its own from a seed of its (ticker, date), so it does not move when the book does. Their tape (the target's
+GF-45's book keep their exact auction-price noise (seed 20261020, drawn in GF-45's row order; since 2026-11-01 read from
+the frozen table auction_noise_gf45.parquet, gapfader_freeze_noise.py, so a rebuilt census no longer shifts the draw); a
+trade new to this book draws its own from a seed of its (ticker, date), so it does not move when the book does. Their tape (the target's
 trade-through, the 10:00 vwap) is GF-45's cache plus an EXTENSION (data/equity/gapfader/sizing_tape_cut_ext.parquet),
 the same query, topped up with whatever rows the book needs and it lacks.
 THE MODELS (GF-45's machinery: logit p, log W, log L by IRLS, terms standardised on the fit set, winsorised 1/99 %):
@@ -46,13 +47,10 @@ L = pd.read_parquet("data/equity/gapfader/listing_2026-10-17.parquet")
 P = P.merge(L, on="ticker", how="left"); P = P[P.primary_exchange != "XNYS"].copy()
 V = pd.read_parquet("data/equity/gapfader/sizing_tape_cut.parquet")
 
-# ---------------------------------------------------------------- GF-45's noise, for the rows of its book (verbatim order)
-G = P[(P.dv20_prior >= 1e6) & (P.rvol_pm < 0.05)].merge(V, on=["ticker", "date"], how="inner")
-G = G[G.x_36000.notna()]
-rng = np.random.default_rng(20261020)
-eG = np.exp(rng.normal(np.log(0.001), np.log(6.5) / 1.2816, len(G))) * rng.choice([-1, 1], len(G))
-NOISE = dict(zip(zip(G.ticker, G.date), eG))
-log(f"pool {len(P):,}; GF-45's pre-gate rows {len(G):,}")
+# ---------------------------------------------------------------- GF-45's noise, for the rows of its book (frozen, by key)
+G = pd.read_parquet("data/equity/gapfader/auction_noise_gf45.parquet")
+NOISE = dict(zip(zip(G.ticker, G.date), G.e))
+log(f"pool {len(P):,}; GF-45's frozen noise rows {len(G):,}")
 
 # ---------------------------------------------------------------- the medians (inside the episode)
 con = duckdb.connect()

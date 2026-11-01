@@ -2186,8 +2186,14 @@ ticker-days 2020-01 … 2026-06 (the one trade, AOS 2020-07-30, unchanged).
 their auction noise SEQUENTIALLY in the pool's order (seed 20261020), so the 137 fewer gap rows of the rebuilt census
 (the daily data revised since 10-21) shifted every later draw across the `gap_est ≤ −4 %` gate. The rebuilt book's
 stats are the same in substance (consistency_v2.md: days / weeks / months profitable 72 / 82 / 89 % vs 72 / 81 / 89 %,
-PF 1.71 both, +137 % vs +138 %). A per-row seed (as the newer rows already use) would make rebuilds stable.
-The previous outputs: data/equity/gapfader/pre_holder_20261031/.
+PF 1.71 both, +137 % vs +138 %). The previous outputs: data/equity/gapfader/pre_holder_20261031/.
+
+**FIXED 2026-11-01 (user): the noise is frozen by key.** `gapfader_freeze_noise.py` replays GF-45's sequential draw once on
+the census production was fitted on (`pre_holder_20261031/census.parquet`) and writes `auction_noise_gf45.parquet`
+(90,088 (ticker, date) rows; checked against the noise recovered from that census's book: 35,220 rows, max |Δe| 4e-16).
+`model_v2.py` reads it; rows outside it keep their own (ticker, date) seed. The rebuild on today's census is now the
+pre-holder book minus the 3 ex-dividend rows — 38,052 trades, r1 identical (vs 1,707 out / 1,753 in reshuffled); at 8k
+13,995 trades, days / weeks / months 72 / 81 / 89 %, PF 1.71, +138 % (`consistency_v2.md`).
 
 **The −50 % guard** (the Oms's GapVerdict.SplitSuspect): GF-54's book at 8k has 9 trades below a −50 % gap, together
 −$42 (such real gaps average −6.0 % a trade); refusing them is free, and it stops a vendor split dated D that the tape
