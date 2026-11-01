@@ -1,9 +1,12 @@
-# FuturesMr — futures mean reversion results
+# PitFader — futures mean reversion results
 
-The engine: `TradingEdge.FuturesMr` (F#). The report: `scripts/futures/mr_report.py`. The bars: `data/futures/intraday_1s_ticks`
+PitFader (user 2026-11-01; called FuturesMr until it was named, PIT-1 / PIT-2 were FM-1 / FM-2): stock-style intraday
+mean reversion on every futures root, the Fader family's futures member.
+
+The engine: `TradingEdge.PitFader` (F#). The report: `scripts/futures/pitfader_report.py`. The bars: `data/futures/intraday_1s_ticks`
 (rebuilt 2026-11-01 with the causal off-book list, 574 fills).
 
-## FM-1 — the bare-bones baseline (user 2026-11-01)
+## PIT-1 — the bare-bones baseline (user 2026-11-01)
 
 "Buy at 20m low, sell at 5m high and vice versa for shorts." FlushFader's channel rules on the BAR CLOCK (user: "We'll
 stick to bar clock features for now"): long when the 1s vwap is strictly under the min of the prior 1,200 present bars
@@ -17,8 +20,8 @@ the 1,199 before it, and the 15:00 cutoff is inclusive (the first version waited
 PFs to two decimals).
 
 ```
-  cd research && dotnet run --project TradingEdge.FuturesMr -c Release -- --max-concurrent 1 > logs/futures_mr_mc1.log 2>&1; echo exit $?
-  cd research && python -u scripts/futures/mr_report.py --trips data/futures/mr/trips_mc1 > data/futures/mr/mr_basic_mc1.md
+  cd research && dotnet run --project TradingEdge.PitFader -c Release -- --max-concurrent 1 > logs/pitfader_mc1.log 2>&1; echo exit $?
+  cd research && python -u scripts/futures/pitfader_report.py --trips data/futures/pitfader/trips_mc1 > data/futures/pitfader/report_mc1.md
 ```
 
 **Verdict: a real but THIN reversion — PF ~1.05 gross, below 1 after one tick of cost.** 292,905 trips, 2015-01..2026-08.
@@ -33,19 +36,19 @@ PFs to two decimals).
 ⇒ The bare system is the "PF ~1" case: it has to be filtered (the FlushFader / SpikeFader features, the volume
 deltas — volatility first, as on stocks) or executed as a maker, not as a taker.
 
-## FM-2 — the same system as the mc = 0 SAMPLER (user 2026-11-01)
+## PIT-2 — the same system as the mc = 0 SAMPLER (user 2026-11-01)
 
 "Let's use mc = 0 for the research runs because they give us more data samples. We'll be able to better observe the
 effects of filters on them." Every bar that makes a new 1,200-bar extreme is another trip (averaging down); every open
 trip of the side exits at the first exit signal at or after its fill bar (shared exits, FlushFader's sampler).
-`--max-concurrent 0` is now the engine's default; `--max-concurrent 1` is the FM-1 book. Each trip records
+`--max-concurrent 0` is now the engine's default; `--max-concurrent 1` is the PIT-1 book. Each trip records
 `open_at_sig` (the trips of the side already open at its signal: the averaging-down depth).
-**Controls:** the rewritten engine at mc = 1 == the FM-1 engine (trip for trip, checked on the first version's 292,804); a GREEDY REPLAY of the mc = 0
+**Controls:** the rewritten engine at mc = 1 == the PIT-1 engine (trip for trip, checked on the first version's 292,804); a GREEDY REPLAY of the mc = 0
 trips by signal time (take a trip when its signal is at or after the last taken exit) == the mc = 1 book, trip for trip.
 
 ```
-  cd research && dotnet run --project TradingEdge.FuturesMr -c Release -- --max-concurrent 0 > logs/futures_mr_mc0.log 2>&1; echo exit $?
-  cd research && python -u scripts/futures/mr_report.py --trips data/futures/mr/trips_mc0 > data/futures/mr/mr_basic_mc0.md
+  cd research && dotnet run --project TradingEdge.PitFader -c Release -- --max-concurrent 0 > logs/pitfader_mc0.log 2>&1; echo exit $?
+  cd research && python -u scripts/futures/pitfader_report.py --trips data/futures/pitfader/trips_mc0 > data/futures/pitfader/report_mc0.md
 ```
 
 **5,746,017 trips (20× the book). Pooled gross PF 1.11 short / 1.14 long, about 0.96–0.99 after 1 tick.**
@@ -56,7 +59,7 @@ extremes, not at the first one. ⚠ The deep trips are CORRELATED — one long f
 the same bar — so the sampler's PF weights each flush by its length; the episode-level count comes with the features
 (the leg counters). Deep runs are presumably the volatile tape, which is the next feature to test.
 
-### FM-2 tables (mc = 0)
+### PIT-2 tables (mc = 0)
 
 #### 2. side
 
@@ -173,7 +176,7 @@ the same bar — so the sampler's PF weights each flush by its length; the episo
 | ZS | 1.41 (15,663) | 1.07 (46,322) | 1.08 (42,949) | 1.09 (30,693) | 0.99 (34,871) | · |
 | ZT | 2.72 (243) | 1.56 (1,924) | 1.15 (2,668) | 0.89 (2,577) | 0.92 (3,418) | 1.33 (2,415) |
 
-### FM-1 tables (mc = 1)
+### PIT-1 tables (mc = 1)
 
 #### 1. Per root
 
