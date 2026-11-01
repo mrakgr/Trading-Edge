@@ -213,7 +213,8 @@ def pass2(a):
     t0 = time.time()
     part = f'{a.stage_dir}/by_date'
     shutil.rmtree(part, ignore_errors=True)
-    con = connect(a.workers * a.threads, '10GB', f'{a.stage_dir}/duckdb_tmp_p2')
+    # 4 GB, spilling to the temp dir: at 10 GB pass 2 peaked at 13.3 GB RSS and, with the editor open, crashed it (2026-11-01)
+    con = connect(a.workers * a.threads, '4GB', f'{a.stage_dir}/duckdb_tmp_p2')
     con.execute(f"""
         copy (select * from read_parquet('{a.contracts_dir}/*/*.parquet'))
         to '{part}' (format parquet, partition_by (date), compression zstd)""")

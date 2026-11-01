@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- PitFader: 1-SECOND-bar intraday MEAN REVERSION on every futures root (user 2026-11-01). The baseline: buy the
+       new 20m low, sell the new 5m high, and the mirror for shorts (FlushFader's channel rules, on wall-clock windows),
+       one trip at a time per root and side, the front contract = the previous session's volume leader. The FlushFader
+       research features and the volume-delta features are to be added here. Bars: data/futures/intraday_1s_ticks. -->
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Features.fs" />
+    <Compile Include="Leg.fs" />
+    <Compile Include="Engine.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../TradingEdge.RollingMa/TradingEdge.RollingMa.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+    <PackageReference Include="Nito.Collections.Deque" Version="1.2.1" />
+  </ItemGroup>
+
+</Project>
