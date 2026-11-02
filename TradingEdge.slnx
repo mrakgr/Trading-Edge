@@ -28,4 +28,5 @@
   <Project Path="TradingEdge.LowFader/TradingEdge.LowFader.fsproj" />
   <Project Path="TradingEdge.LongHiker/TradingEdge.LongHiker.fsproj" />
   <Project Path="TradingEdge.PitFader/TradingEdge.PitFader.fsproj" />
+  <Project Path="TradingEdge.Breakout/TradingEdge.Breakout.fsproj" />
 </Solution>
