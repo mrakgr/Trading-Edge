@@ -7,13 +7,13 @@
 >
 > 1. **`day_close >= $1`** — day D's OWN **adjusted** close: unknowable intraday, and
 >    future-split-dependent (penny names admitted *because of a later reverse split*;
->    days that crashed through $1 excluded *because of D's own outcome*).
+>    days that crashed through \$1 excluded *because of D's own outcome*).
 > 2. **`nbars > 21` warmup** — counted the episode's FUTURE days: membership conditioned
 >    on how long the ticker would survive.
 >
-> Measured teeth (on FlushFader's blotter): sub-$1 entries admitted via the "day closed
-> back above $1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
-> inflates exactly the sub-$1/sub-$2 corners; short books are biased conservative but the
+> Measured teeth (on FlushFader's blotter): sub-\$1 entries admitted via the "day closed
+> back above \$1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
+> inflates exactly the sub-\$1/sub-\$2 corners; short books are biased conservative but the
 > universe shape is still contaminated. **Do not quote low-price slices from this
 > document.** Details: `docs/flushfader_results.md` §S39d. The clean replacement table is
 > `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup, 2020+).
@@ -36,7 +36,7 @@ buy-weakness DNA that works everywhere else in this program (LowFlyer, DipRider)
 | trend test | `bsl > bsh` on the entry channel: bars-since-LOW-breach > bars-since-HIGH-breach — the channel's last event was a breakout, not a breakdown. `bsl = -1` (never broken down) with `bsh >= 0` also qualifies. |
 | pullback level | `lo·(1−α) + hi·α` of the **strictly-prior** N-bar vwap channel; α = `--entry-alpha`, default 0.5 (the midpoint). |
 | trigger | **edge, not state**: the signal is the bar whose vwap first crosses BELOW the level ("the pullback touches the limit"). Residence in the zone does not re-signal; the state must exit and re-enter. |
-| floors | unchanged from V1: dv60 ≥ $100k, tc60 ≥ 60, vol_20m floor 7bp (ceiling OFF for breadth in prototyping), entry window 09:45–13:30. |
+| floors | unchanged from V1: dv60 ≥ \$100k, tc60 ≥ 60, vol_20m floor 7bp (ceiling OFF for breadth in prototyping), entry window 09:45–13:30. |
 | fill | next present bar's vwap, as always. |
 
 **Stop/exit:** unchanged — vwap < prior exit-channel MIN ("the 1m channel lows as usual"), MOC.
@@ -48,7 +48,7 @@ signal — `pos_in_range = (signal_vwap − chan_lo)/(chan_hi − chan_lo)` in S
 pullbacks slice post-hoc; shallower need a rerun).
 
 **Prototyping protocol (user):** eff gate NOT baked in (it doesn't speed the backtest — the cost
-is bar-scanning, not trip-writing); prototype on **2026 data only**, ≥$2 universe
+is bar-scanning, not trip-writing); prototype on **2026 data only**, ≥\$2 universe
 (`--min-prev-close 2`), full-history runs only for survivors.
 
 Engine notes: bsh/bsl counters update BEFORE the entry check each bar, so a bar that itself
@@ -62,7 +62,7 @@ skipped no-tape days count as processed so the ETA is honest).
 
 ## P1 — the 1m-channel midpoint pullback: NO EDGE (2026-07-27)
 
-Run: `surgev2_26_pb_a50` — 2026-01-02→07-17, ≥$2, dv_0945≥$10M, vol floor 7bp, ceiling OFF,
+Run: `surgev2_26_pb_a50` — 2026-01-02→07-17, ≥\$2, dv_0945≥\$10M, vol floor 7bp, ceiling OFF,
 eff not gated, α=0.5, channels e60/x60. **3,068,467 trips / 18,712 tkd / 11min. Raw attribution:
 PF 1.063, win 34.0%, +0.007%/trip — the same zero as unfiltered breakouts.**
 
@@ -295,7 +295,7 @@ magnitude amplifier fails the year audit:
 breadth-carried positive expectancy (PF ~1.10 every year, no lottery, no concentration) — and it
 is ~1.3bp/trip, several times below any cost floor. The magnitude levers (loud bands, deep dips,
 participation) are all 2026-regime. Where the magnitude is, the years aren't; where the years
-are, the magnitude isn't. The 1s-momentum drift disease on ≥$2 stocks applies to pullbacks as it
+are, the magnitude isn't. The 1s-momentum drift disease on ≥\$2 stocks applies to pullbacks as it
 did to breakouts.**
 
 ---
@@ -305,25 +305,25 @@ did to breakouts.**
 User: "This system is useless. Let's wrap up the momentum experiments here." Final requested
 numbers — the median trade of the confirmed cells at mc=0.
 
-**Sub-$1 V1 map (in-play banded universe, 2023→2026):**
+**Sub-\$1 V1 map (in-play banded universe, 2023→2026):**
 
-| cell | n | win% | PF | mean %/trip | median %/trip | p25/p75 | median $ @10k |
+| cell | n | win% | PF | mean %/trip | median %/trip | p25/p75 | median \$ @10k |
 |---|---|---|---|---|---|---|---|
-| A — sess-high ×30s × ignition | 1,660 | 58.1 | 3.064 | +0.463 | **+0.139** | −0.267/+0.992 | +$13.88 |
-| B — off-high ×1m × ignition × eff | 3,748 | 52.0 | 2.660 | +0.371 | **+0.033** | −0.322/+0.726 | +$3.26 |
+| A — sess-high ×30s × ignition | 1,660 | 58.1 | 3.064 | +0.463 | **+0.139** | −0.267/+0.992 | +\$13.88 |
+| B — off-high ×1m × ignition × eff | 3,748 | 52.0 | 2.660 | +0.371 | **+0.033** | −0.322/+0.726 | +\$3.26 |
 
-**⭐ The ≥$2 folded spec (user's requested subset — surge23_v2c, 2023→2026):**
+**⭐ The ≥\$2 folded spec (user's requested subset — surge23_v2c, 2023→2026):**
 
 | metric | value |
 |---|---|
 | n / win% / PF | 1,554 / 44.1% / 2.128 |
 | mean %/trip | +0.617 |
-| **median %/trip** | **−0.177 (−$17.69 @10k)** |
+| **median %/trip** | **−0.177 (−\$17.69 @10k)** |
 | p25 / p75 / p90 | −0.852 / +1.019 / +3.231 |
-| median stock price | $5.78 |
+| median stock price | \$5.78 |
 
-**The ≥$2 flagship's MEDIAN trade LOSES 18bp before any costs — the +0.62% mean lives entirely
-above p75. The sub-$1 cells' medians (+3 to +14bp) sit under their own 39-57bp cost floor. Every
+**The ≥\$2 flagship's MEDIAN trade LOSES 18bp before any costs — the +0.62% mean lives entirely
+above p75. The sub-\$1 cells' medians (+3 to +14bp) sit under their own 39-57bp cost floor. Every
 momentum edge this program found was tail-carried: the typical trade loses, the book is a
 tail-harvester. The 1s momentum program closes: V1 = priced out + sub-cost median; V2 breakouts =
 negative-median lottery; V2 pullbacks = stable but 1bp. THE MOMENTUM EXPERIMENTS END HERE — the

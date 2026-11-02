@@ -34,7 +34,7 @@ software places the short. Captured so it survives across sessions.
 ## 1. Architecture already implied (Massive = signals, broker = execution)
 
 The long-side live work (`docs/highflyer_v2_results.md` Run 29, `scripts/equity/live_scan.py`) already
-established: **Massive is a Polygon-shaped DATA vendor** ("Massive Advanced ~$199/mo real-time"), and the
+established: **Massive is a Polygon-shaped DATA vendor** ("Massive Advanced ~\$199/mo real-time"), and the
 broker does **execution only**. The short inherits this split. The user's "avoid data fees" goal maps to:
 *can each broker run execution-only on an external feed?* Answer below (§4) — **yes on API-native brokers.**
 
@@ -47,22 +47,22 @@ order entry (which is trivial everywhere). Ranked for that axis:
 
 | Broker | API | Programmatic **locate**? | Low-float borrow | Data model | Min / regs | Verdict |
 |---|---|---|---|---|---|---|
-| **TradeZero America** | Official **REST + WebSocket** (2026-05-22), **free** | **YES — first-class** (quote→accept→sell-back credit; `is-easy-to-borrow` precheck) | Strong self-serve (~14 sources); NOT deepest on hardest names | **Serves none** → BYO feed | ~$2.5k; FINRA/SIPC | **★ v0 pick** |
-| **CenterPoint** (Clear Street) | Clear Street REST (**ATLAS** locate platform) + DAS/FIX | ATLAS = REST+FIX locates (institutional stack); retail exposure = sales call | **Deepest** (~8,000 HTB, in-house desk) | DAS GUI needs a live feed | ~$30k; FINRA/SIPC | Best borrow, gated automation |
-| **Cobra** | DAS **CMD**/.NET/FIX | **YES via DAS CMD** (`SLPRICEINQUIRE`/`SLNEWORDER`) — practitioner-confirmed | Strong; **no overnight multiplier** (cost edge for multi-day) | DAS GUI needs a live feed | ~$27–30k; FINRA/SIPC (clears Wedbush) | Best *proven* specialist automation |
-| **Alpaca** | REST, free | **YES** — HTB locate API launched **2026-06-24** (round-lot, single-use) | **Unproven** on micro-caps | BYO feed OK | ~$2k; FINRA/SIPC | API-native, inventory untested |
-| **Guardian** (Velocity Clearing) | Velocity **VHub** FIX + stock-locate API (parent layer) | Advertised at parent; **retail access unconfirmed** | In-house desk; low-float depth not independently documented | GUI feed; BYO undocumented | ~$30k; FINRA/SIPC | ⚠ **$1M FINRA supervision fine 2025-09-30** |
-| **SpeedTrader** | DAS FIX/API; lists a "Short Locate API" | Claimed; **no public docs**; day-trade needs prior approval | Good (12 venues + own desk) | DAS GUI feed | ~$30k (PRO $10k); FINRA/SIPC | Works via DAS, thinner docs; 2024 FINRA fine |
-| **IBKR** | **TWS API** (best docs) + Web API | **NO locate API** (manual $20 pre-borrow; on-demand locates Portfolio-Margin-gated ≥$110k) | **Weakest** on day-one low-float runners | **Sanctioned execution-only, no data sub** | $0 open / $2k to short; FINRA/SIPC | Great API, **wrong borrow** |
+| **TradeZero America** | Official **REST + WebSocket** (2026-05-22), **free** | **YES — first-class** (quote→accept→sell-back credit; `is-easy-to-borrow` precheck) | Strong self-serve (~14 sources); NOT deepest on hardest names | **Serves none** → BYO feed | ~\$2.5k; FINRA/SIPC | **★ v0 pick** |
+| **CenterPoint** (Clear Street) | Clear Street REST (**ATLAS** locate platform) + DAS/FIX | ATLAS = REST+FIX locates (institutional stack); retail exposure = sales call | **Deepest** (~8,000 HTB, in-house desk) | DAS GUI needs a live feed | ~\$30k; FINRA/SIPC | Best borrow, gated automation |
+| **Cobra** | DAS **CMD**/.NET/FIX | **YES via DAS CMD** (`SLPRICEINQUIRE`/`SLNEWORDER`) — practitioner-confirmed | Strong; **no overnight multiplier** (cost edge for multi-day) | DAS GUI needs a live feed | ~\$27–30k; FINRA/SIPC (clears Wedbush) | Best *proven* specialist automation |
+| **Alpaca** | REST, free | **YES** — HTB locate API launched **2026-06-24** (round-lot, single-use) | **Unproven** on micro-caps | BYO feed OK | ~\$2k; FINRA/SIPC | API-native, inventory untested |
+| **Guardian** (Velocity Clearing) | Velocity **VHub** FIX + stock-locate API (parent layer) | Advertised at parent; **retail access unconfirmed** | In-house desk; low-float depth not independently documented | GUI feed; BYO undocumented | ~\$30k; FINRA/SIPC | ⚠ **\$1M FINRA supervision fine 2025-09-30** |
+| **SpeedTrader** | DAS FIX/API; lists a "Short Locate API" | Claimed; **no public docs**; day-trade needs prior approval | Good (12 venues + own desk) | DAS GUI feed | ~\$30k (PRO \$10k); FINRA/SIPC | Works via DAS, thinner docs; 2024 FINRA fine |
+| **IBKR** | **TWS API** (best docs) + Web API | **NO locate API** (manual \$20 pre-borrow; on-demand locates Portfolio-Margin-gated ≥\$110k) | **Weakest** on day-one low-float runners | **Sanctioned execution-only, no data sub** | \$0 open / \$2k to short; FINRA/SIPC | Great API, **wrong borrow** |
 | Tradier / Schwab / TradeStation / Webull / Lightspeed | Various REST/APIs | **No** usable HTB locate API (ETB-only, or manual GUI, or none) | Weak→none for low-float | mixed | — | Not viable for this book |
 
 **One-liners:**
 - **TradeZero** = least integration work, free, execution-only-with-your-own-data. Weakness: thinnest
-  inventory on the hardest sub-$5 names + recurring **premarket-outage** complaints (Trustpilot/TradingView)
+  inventory on the hardest sub-\$5 names + recurring **premarket-outage** complaints (Trustpilot/TradingView)
   — and premarket is exactly when a low-float momentum short fires. The Tim-Sykes TradeZero endorsement is
   **affiliate-tainted** (sykeszero.com funnel) — discount it.
 - **CenterPoint** = "best borrows, it isn't even close" (Grittani); in-house lending desk; **Clear Street
-  ATLAS** = the automated-locates REST/FIX platform. Downsides: ~3× overnight locate multiplier, $30k min.
+  ATLAS** = the automated-locates REST/FIX platform. Downsides: ~3× overnight locate multiplier, \$30k min.
 - **Cobra** = the community's proven headless-locate path (DAS CMD), cheaper, **no overnight multiplier**.
 - **IBKR** = excellent everything *except* the borrow; keep only for liquid/large-cap shorts, if at all.
 - **Consensus prescription among serious short-sellers: hold MORE THAN ONE locate account** — different
@@ -73,7 +73,7 @@ order entry (which is trivial everywhere). Ranked for that axis:
 ## 2b. Clear Street / CenterPoint deep-dive (they are ONE company)
 
 **Clear Street OWNS CenterPoint.** Clear Street is a cloud-native non-bank **prime broker + self-clearing
-broker-dealer** (FINRA CRD #288933, SIPC; founded 2018; ~$685M raised @ $2.1B val; **filed for a Nasdaq
+broker-dealer** (FINRA CRD #288933, SIPC; founded 2018; ~\$685M raised @ \$2.1B val; **filed for a Nasdaq
 IPO 2026-01-20, ticker "CSIG"**). It acquired CenterPoint (year disputed 2019–2021; SEC S-1 says 2019) and
 on **2024-10-10 rebranded it "Clear Street Active Trading."** CenterPoint brand still live as *"CenterPoint
 Securities, a Division of Clear Street LLC"* — a transitional dual-brand. **CenterPoint = customer-facing
@@ -143,7 +143,7 @@ assumptions get tested:
   Alpaca, IBKR-headless), NOT the DAS path.
 - **⚠ "Professional" data classification (a Massive-side cost, not a broker one):** consuming exchange data
   under a **trading entity** or **with outside capital / shared profits** flips you to Professional →
-  exchange fees jump ~**5–7×** (e.g. Nasdaq TotalView $60 → ~$400+/mo non-pro→pro). A single natural person
+  exchange fees jump ~**5–7×** (e.g. Nasdaq TotalView \$60 → ~\$400+/mo non-pro→pro). A single natural person
   trading own capital, not registered, stays Non-Professional **even running an algo** (the policy keys on
   the person/use, not on automation). Budget for pro if an entity is ever used.
 
@@ -157,10 +157,10 @@ elsewhere. (Archive it yourself for a borrow-fee time series.)
 
 ## 5. Regulatory / account facts (2026)
 
-- **PDT $25k rule ELIMINATED.** SEC approved FINRA Rule 4210 amendments **2026-04-14**; effective
-  **2026-06-04** (FINRA Notice 26-10). Removes the PDT designation + $25k minimum, replaced by a **real-time
+- **PDT \$25k rule ELIMINATED.** SEC approved FINRA Rule 4210 amendments **2026-04-14**; effective
+  **2026-06-04** (FINRA Notice 26-10). Removes the PDT designation + \$25k minimum, replaced by a **real-time
   risk-based Intraday Margin Deficit (IMD)** regime. **4+ IMD violations in 12 months → 90-day restriction**
-  (a real hazard for high-turnover algos). Floor is now the **$2,000 margin minimum** (Reg T). Phase-in to
+  (a real hazard for high-turnover algos). Floor is now the **\$2,000 margin minimum** (Reg T). Phase-in to
   ~Oct 2027 (not every broker flips day one; TradeZero America & IBKR did on 2026-06-04).
   **→ The whole offshore-PDT rationale is dead. Use US (SIPC) entities.**
 - **TradeZero America vs International (Bahamas):** America = US FINRA/SIPC (**use this**). International =

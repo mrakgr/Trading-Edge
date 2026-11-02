@@ -7,13 +7,13 @@
 >
 > 1. **`day_close >= $1`** — day D's OWN **adjusted** close: unknowable intraday, and
 >    future-split-dependent (penny names admitted *because of a later reverse split*;
->    days that crashed through $1 excluded *because of D's own outcome*).
+>    days that crashed through \$1 excluded *because of D's own outcome*).
 > 2. **`nbars > 21` warmup** — counted the episode's FUTURE days: membership conditioned
 >    on how long the ticker would survive.
 >
-> Measured teeth (on FlushFader's blotter): sub-$1 entries admitted via the "day closed
-> back above $1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
-> inflates exactly the sub-$1/sub-$2 corners; short books are biased conservative but the
+> Measured teeth (on FlushFader's blotter): sub-\$1 entries admitted via the "day closed
+> back above \$1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
+> inflates exactly the sub-\$1/sub-\$2 corners; short books are biased conservative but the
 > universe shape is still contaminated. **Do not quote low-price slices from this
 > document.** Details: `docs/flushfader_results.md` §S39d. The clean replacement table is
 > `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup, 2020+).
@@ -49,7 +49,7 @@ engine, test the three candidates on exactly that job.
 
 **Setup:** per (ticker, day, spot) — spots every minute 10:00→15:30 ET; trailing 20m in one-minute slots;
 target = std of the next ~10 one-minute-vwap log-returns. Guards: ≥16/20 trailing and ≥8/10 forward slots
-non-empty. Universe: same-day RTH dollar vol ≥ $50M (⚠ NON-TRADABLE same-day selection — fine for a
+non-empty. Universe: same-day RTH dollar vol ≥ \$50M (⚠ NON-TRADABLE same-day selection — fine for a
 measurement study, never for a backtest). 15 days, one per quarter 2023→2026.
 **n = 6,328,182 obs / 2,636 tickers / 4,965 cross-sectional spots.**
 
@@ -530,7 +530,7 @@ estimators.
 `volbake_f8_day.sql.tmpl` in the session scratchpad): 43 monthly days 2023-01 → 2026-07 (nearest trading
 day to the 15th — day picks differ slightly from F6's list), off=0 minute grid 10:00→15:30, same target
 (std of next ~10 one-minute-vwap log-returns), same guards (≥16/20 trailing, ≥8/10 forward 1m slots) plus
-≥10 slot returns in the trailing 20m, same-day $50M RTH dollar-vol universe, source =
+≥10 slot returns in the trailing 20m, same-day \$50M RTH dollar-vol universe, source =
 `data/intraday_1s_slim/`. **n = 18,078,233 obs / 43 days / 14,233 xsec spots.** Validation: the champion
 reproduces — **ew20 pooled 0.8717** here vs the published 0.8707 (different day picks account for it).
 
@@ -677,7 +677,7 @@ Artifacts: `f8b_train_agg.csv`, `f8b_train_dec.csv`, `f8b_score.sql` (session sc
 ## Finding 9 — first sampler breakdowns (60 trading days): EARLY-in-leg wins, loose channels beat tight, extreme-z is the only acceleration signal, gap-free tape INVERTS
 
 **Setup:** the first real SurgeRider run — 2026-04-22 → 2026-07-17 (60 trading days), 60-bar entry/exit
-channels, $10M dv_0945 floor, mc=0 sampler → **3,373,627 trips / 7,566 ticker-days / 289s** (the
+channels, \$10M dv_0945 floor, mc=0 sampler → **3,373,627 trips / 7,566 ticker-days / 289s** (the
 active/retired-split engine at 0.04 s/candidate). ⚠ ALL numbers are ATTRIBUTION (mc=0), costs NOT
 modeled (~0.01-0.03%/trip cells are BELOW round-trip costs; only cells ≥ ~0.1% clear them).
 `ret_f300`/`ret_f1200` = the exit-independent forward-mark returns (fwd vwap / entry − 1).
@@ -720,7 +720,7 @@ Monotone decay past idx ~5; the first ~5 trades of a leg are a broad plateau (PF
 | **true** | 709,638 | **−0.0067** | **−0.0195** | **0.919** |
 
 The "only trade gap-free tape" hypothesis fails at first pass — gap60=0 selects the mega-liquid names
-(the 34%-of-entries-at-≥$100M band) whose 1s momentum apparently mean-reverts. ⚠ It is a LIQUIDITY
+(the 34%-of-entries-at-≥\$100M band) whose 1s momentum apparently mean-reverts. ⚠ It is a LIQUIDITY
 PROXY here, not a tape-quality signal; needs conditioning on dv band before any conclusion.
 
 **D. Channel tightening (free from the breach counters — the 60→1200 "sweep" in one run):**
@@ -960,7 +960,7 @@ tape (size). → **k=5 and k=10 z's added to the engine** (z_vol_5/10, z_tc_5/10
 | 1500-4k | 55,834 | +0.016 | 1.082 | | | | | |
 | ≥4k | 11,714 | +0.035 | 1.181 | | | | | |
 
-**There is no "dead stock" floor to find above the existing gates** (tc≥60 + $100k/min + the vol band
+**There is no "dead stock" floor to find above the existing gates** (tc≥60 + \$100k/min + the vol band
 already cut the corpses): PF DECLINES monotonically with activity, and in-play the tc<300 cell is the
 best cell in the study (+0.385%, PF 2.33). Fewer prints = fewer participants = less efficient pricing =
 momentum persists. Mirrors MaxRiderV1's quiet-VOLUME stop-substitute — the same "quiet tape carries the
@@ -1225,7 +1225,7 @@ busy side's 1.02 — quiet-tape momentum persists.)
 
 **⚠ THE PF-14 CELL'S ANATOMY (checked before believing, per the protocol):** 139 trips = **7 symbols /
 18 ticker-days**; top ticker-day (SRXH 2026-06-16: 27 trips at +13.3% avg) ≈ 77% of the P&L, top 3
-ticker-days = **88.7%**. Median entry $9.58 / dv_0945 $43M — mechanically real, NOT penny junk, but
+ticker-days = **88.7%**. Median entry \$9.58 / dv_0945 \$43M — mechanically real, NOT penny junk, but
 this is one runaway runner pseudo-replicated at mc=0 (the DonchianScalp lesson: one day ≈ the whole
 P&L → regime artifact until proven otherwise).
 
@@ -1565,10 +1565,10 @@ whole F9-F22 discovery window). All mc=0, no costs.
 
 | yr | n | win% | ret% | PF | net | tkdays |
 |---|---|---|---|---|---|---|
-| 2023 | 128,598 | 44.2 | +0.121 | 1.481 | $1.56M | 1,625 |
-| 2024 | 64,531 | 47.2 | +0.245 | 1.902 | $1.58M | 1,162 |
-| 2025 | 52,249 | 45.0 | +0.227 | 1.729 | $1.18M | 909 |
-| 2026 | 17,506 | 41.3 | +0.175 | 1.550 | $0.31M | 265 |
+| 2023 | 128,598 | 44.2 | +0.121 | 1.481 | \$1.56M | 1,625 |
+| 2024 | 64,531 | 47.2 | +0.245 | 1.902 | \$1.58M | 1,162 |
+| 2025 | 52,249 | 45.0 | +0.227 | 1.729 | \$1.18M | 909 |
+| 2026 | 17,506 | 41.3 | +0.175 | 1.550 | \$0.31M | 265 |
 
 **⭐ The three-tier map, OOS vs the discovery window — ORDERING CONFIRMED, levels compressed ~½:**
 
@@ -1662,7 +1662,7 @@ natural next question; needs daily context joined in, future work.)
 
 Artifacts: same confirmation parquets; `breakout_ladder.sql`, `ladder_checks.sql` (scratchpad).
 
-## Finding 25 — the 52-WEEK-high context (multi-timeframe alignment test): the classic story INVERTS — the edge lives in WRECKAGE (<25% of the prior 52w high ≈ sub-$2 names); blue-sky alignment is the WORST host
+## Finding 25 — the 52-WEEK-high context (multi-timeframe alignment test): the classic story INVERTS — the edge lives in WRECKAGE (<25% of the prior 52w high ≈ sub-\$2 names); blue-sky alignment is the WORST host
 
 **Question (user, via Lance Breitstein's multi-timeframe-alignment principle):** is a session-high
 breakout better when it aligns with the daily timeframe — near/above the 52-week high? Feature
@@ -1692,9 +1692,9 @@ high, and that's where ALL the edge is. Blue-sky names (≥1.0: PF 0.839, n=772)
 
 **Price confound (⚠ raw price = entry_px/adj_ratio — the ADJUSTED px overstates traded price for
 later reverse-splitters):** depth and cheapness are nearly the SAME coordinate — the two deep buckets
-are ~95% sub-$2 names (PF 2.64-2.66 there); within depth ≥0.25 no price band works (0.61-1.49); the
+are ~95% sub-\$2 names (PF 2.64-2.66 there); within depth ≥0.25 no price band works (0.61-1.49); the
 off-diagonal cells are dust (≤18 tkdays). With these n's the two descriptions are inseparable:
-**"<25% of prior 52w high" ≈ "sub-$2 catastrophically beaten-down name having a ≥10× volume day."**
+**"<25% of prior 52w high" ≈ "sub-\$2 catastrophically beaten-down name having a ≥10× volume day."**
 
 **Readings:**
 1. **Multi-timeframe alignment does NOT transfer to this system.** The 1s in-play momentum edge is
@@ -1704,7 +1704,7 @@ off-diagonal cells are dust (≤18 tkdays). With these n's the two descriptions 
    10-60% gainers fade); this says it at the yearly scale.
 2. The daily-timeframe momentum books (Qullamaggie-style new-high continuation) and this system want
    OPPOSITE universes — more evidence SurgeRider is an isolated alpha source, not a proxy.
-3. **The cost model is now THE question**: sub-$2 names mean the minimum tick and effective spread
+3. **The cost model is now THE question**: sub-\$2 names mean the minimum tick and effective spread
    are large relative to +0.3-0.5%/trip. Nothing here is believed until spreads are modeled.
 4. Blue-sky in-play names aren't just "no edge" — sess-high 0.75-0.84 hints the FADE side works
    there (PlungeRider material, with F16's ≥40bp blowoff note).
@@ -1977,24 +1977,24 @@ tkd; reversal flavor ≈ 2.5-2.6 / 558 tkd.** Artifact: `cellb_sign.sql`.
 
 ## Finding 29 — ⭐ mc=1 CONFIRMS (2026-07-25): cells compress only 0-12% under sequential execution
 
-Engine `--max-concurrent 1` (banded in-play e60/x30): **broad book PF 1.669 / n=45,483 / +$587k
+Engine `--max-concurrent 1` (banded in-play e60/x30): **broad book PF 1.669 / n=45,483 / +\$587k
 @10k** (vs 1.713 attribution). Cell-level mc=1 (greedy non-overlap over recorded trip times): Cell A
 composite 2.707 (n=1,526), **A+ ×ignition 3.065 (n=897, 57.7% win)**, Cell B 2.750 (n=2,671). The
 pyramided duplicates weren't carrying the attribution — the first signal of each episode holds the
 full edge. Short-side mirror + the combined four-cell book: `docs/plungerider_results.md` S7.
 Remaining gate: the COST MODEL.
 
-## Finding 30 — SurgeRider V2 (≥$2 universe, rvol gate off, 2026-07-26): the V1 stack does NOT transfer — ONE hot-band survivor at ~2/3 of its short twin's strength
+## Finding 30 — SurgeRider V2 (≥\$2 universe, rvol gate off, 2026-07-26): the V1 stack does NOT transfer — ONE hot-band survivor at ~2/3 of its short twin's strength
 
-**Setup:** the V2 pivot (sub-$1 priced out on every EU-accessible broker — `plungerider_results.md`
+**Setup:** the V2 pivot (sub-\$1 priced out on every EU-accessible broker — `plungerider_results.md`
 S8-S8c): `--min-prev-close 2` (new engine flag: prior close in day-D raw scale, knowable before the
 open), rvol gate OFF, no band, e60/x60, 2023→2026. **97,642 tkd → 39,139,588 trips, raw PF 1.074**
 (38.9% win). Run: `surge23_v2_e60_x60_noband` (~10GB). Full verdict + short side:
 `plungerider_results.md` S9/S9b.
 
-**Every V1 structure fails on ≥$2 stocks (long side):**
+**Every V1 structure fails on ≥\$2 stocks (long side):**
 
-| structure | V1 (sub-$1 wreckage, in-play) | V2 long (≥$2, all rvol) |
+| structure | V1 (sub-\$1 wreckage, in-play) | V2 long (≥\$2, all rvol) |
 |---|---|---|
 | vol band | [7,40)bp load-bearing | FLAT: 1.09 / 1.09 / 1.12 / 1.05 / 0.95 across 2bp→80bp+ |
 | rvol in-play | THE precondition | INVERTS: rvol≥10 = **0.923**; rvol<1 = 1.105 |
@@ -2005,36 +2005,36 @@ open), rvol gate OFF, no band, e60/x60, 2023→2026. **97,642 tkd → 39,139,588
 
 | band × eff | n | win% | ret% | PF | tkd | med px |
 |---|---|---|---|---|---|---|
-| 40-80bp × NULL | 16,517 | 41.0 | +0.078 | 1.220 | 5,925 | $14.31 |
-| 40-80bp × hi | 3,467 | 41.8 | +0.138 | 1.340 | 1,396 | $6.85 |
-| 80-160bp × NULL | 6,532 | 39.9 | +0.128 | 1.166 | 1,993 | $3.84 |
-| **80-160bp × hi** | 1,076 | 43.4 | **+0.357** | **1.482** | 431 | $3.75 |
-| ≥160bp × NULL | 1,199 | 38.3 | +0.199 | 1.135 | 398 | $3.44 |
-| ≥160bp × hi | 181 | 47.5 | +1.177 | 1.881 ⚠ | 59 | $2.24 |
+| 40-80bp × NULL | 16,517 | 41.0 | +0.078 | 1.220 | 5,925 | \$14.31 |
+| 40-80bp × hi | 3,467 | 41.8 | +0.138 | 1.340 | 1,396 | \$6.85 |
+| 80-160bp × NULL | 6,532 | 39.9 | +0.128 | 1.166 | 1,993 | \$3.84 |
+| **80-160bp × hi** | 1,076 | 43.4 | **+0.357** | **1.482** | 431 | \$3.75 |
+| ≥160bp × NULL | 1,199 | 38.3 | +0.199 | 1.135 | 398 | \$3.44 |
+| ≥160bp × hi | 181 | 47.5 | +1.177 | 1.881 ⚠ | 59 | \$2.24 |
 
-Monotone in the band (the user's high-vol principle), median price sliding toward the $2 boundary.
+Monotone in the band (the user's high-vol principle), median price sliding toward the \$2 boundary.
 vs the SHORT twin (S9b): every rung ~2/3 strength (80-160×hi: 1.482/+0.357 vs 1.674/+0.541), and
 the early-session NULL variant is weak long (1.14-1.22) where it is real short (1.37-1.38).
 **Reading: on real stocks in violent tapes, downside continuation (stop cascades/liquidation) beats
 upside continuation (breakouts hit profit-taking) — the MaxRiderV1 asymmetry at 1s scale. The V2
-hierarchy REVERSES V1: short = flagship, long = optional second leg** (net after ~25bp RT at $3.75:
+hierarchy REVERSES V1: short = flagship, long = optional second leg** (net after ~25bp RT at \$3.75:
 only ~+0.1%/trip). ⚠ Both sides' ≥160bp rungs are audit-first (59-62 tkd). ⚠ The family inherited
 V1's knobs — untuned on its own universe.
 
-### F30b — the fresh-eye tc exploration (user, 2026-07-26): every tc axis tops out at 1.2-1.5 on ≥$2 longs; the PF-2 bar is NOT met
+### F30b — the fresh-eye tc exploration (user, 2026-07-26): every tc axis tops out at 1.2-1.5 on ≥\$2 longs; the PF-2 bar is NOT met
 
 Population: V2 long, vol≥7bp floor + eff-hi (user spec), then the hot band. Findings, compact:
 1. **Broad (≥7bp, eff-hi): everything flat** — 1m-tc interior 1.19-1.20 at +0.03%/trip (med px
-   $31-37 = big-cap noise); concentration (bar_tc/tc_60) flat 1.13-1.16 then DECAYS ≥25%; the
+   \$31-37 = big-cap noise); concentration (bar_tc/tc_60) flat 1.13-1.16 then DECAYS ≥25%; the
    ≥50%-of-minute condition = 1.058.
 2. **Hot band (≥40bp, eff-hi) restores structure**: 1m-tc peaks at [120,300) prints (1.356/+0.188,
-   n=26,851, $5.62) and decays monotonically busier (≥1200 = 0.879 NEGATIVE — quiet-count leg
+   n=26,851, \$5.62) and decays monotonically busier (≥1200 = 0.879 NEGATIVE — quiet-count leg
    confirmed on this universe); concentration humps at 10-25% of the minute (1.252/+0.164);
    **the remembered loud-20m-high-breakout pattern INVERTS: breach_1200=0 = 0.850/−0.137 vs
-   off-high 1.259/+0.159** — on ≥$2 hot tape the fresh 20m high is the blowoff to fade (the short's
+   off-high 1.259/+0.159** — on ≥\$2 hot tape the fresh 20m high is the blowoff to fade (the short's
    food, not the long's).
 3. **The stack** (hot × eff-hi × tc[120,300) × not-20m-high × conc 5-25%): **1.453 / +0.237% /
-   n=3,459 / 1,619 tkd @ $5.30**; by year 1.26/1.81/1.26/1.68 — positive every year, wobbly.
+   n=3,459 / 1,619 tkd @ \$5.30**; by year 1.26/1.81/1.26/1.68 — positive every year, wobbly.
 4. **Aux profit-takes (the F16 hope)**: PT@2m-high lifts PF 1.45→1.61 and win 43→63% but CUTS ret
    +0.237→+0.121 — fails the ~25bp cost line; hold-to-trail stays the only cost-positive exit.
 5. **Signal-second multiple of the 1m average rate**: W-shaped, max 1.22 (quiet-second 1.219 /
@@ -2043,11 +2043,11 @@ Population: V2 long, vol≥7bp floor + eff-hi (user spec), then the hot band. Fi
 **Verdict: the long V2 evidence is complete across vol bands, rvol, tc levels, concentration,
 rate-multiples, ignition, eff, session tiers, 20m-high context, and exit counterfactuals — the
 ceiling is PF ~1.45-1.48 broad (+0.24-0.36%/trip) with thin 1.9 corners. The user's PF-2 bar is
-NOT met on ≥$2 longs.** Untried: the x30 exit sweep (~100min run; V1 razor moved longs +0.06-0.15
+NOT met on ≥\$2 longs.** Untried: the x30 exit sweep (~100min run; V1 razor moved longs +0.06-0.15
 only — unlikely to bridge 1.45→2). Per the user's criterion: pivot to longer-term mean reversion,
 with the V2 SHORT hot-band family (S9b) and the V1 drawer as the standing 1s assets.
 
-### F30c — fast-vs-slow rates + the 20m-z ladders (user, continued): MONOTONE INVERSION — on ≥$2 hot tape, the crowd is the TOP; the "quiet breakout" is the best long state (still ≤1.29)
+### F30c — fast-vs-slow rates + the 20m-z ladders (user, continued): MONOTONE INVERSION — on ≥\$2 hot tape, the crowd is the TOP; the "quiet breakout" is the best long state (still ≤1.29)
 
 Hot × eff-hi population. The 10-15s-vs-1m rate ratios are U-shaped (calm-second 1.24-1.29 best,
 1-2× trough 0.94-1.0). **The vs-20m comparisons (= the z features by construction) are perfectly
@@ -2067,7 +2067,7 @@ arriving; on real stocks the burst = the crowd = the top.** Best long state = th
 not-20m-high = **1.287 / +0.166 / n=82,190 / 5,863 tkd** (yrs 1.12/1.49/1.11/1.44); +tc[120,300)
 adds nothing. Long ceiling unchanged ~1.29-1.45.
 
-**⭐ The program-level takeaway: z_vol_10≥3 on hot ≥$2 tape = −0.77%/trip for longs — the most
+**⭐ The program-level takeaway: z_vol_10≥3 on hot ≥\$2 tape = −0.77%/trip for longs — the most
 negative broad cell in the program. F16 + S4 + the 20m-high inversion + this ladder all point at
 ONE unbuilt vehicle: the TOP-FADE SHORT (enter into the exhaustion burst at the high, not on the
 breakdown after it). If the 1s work continues, that engine variant is the highest-expected-value
@@ -2075,7 +2075,7 @@ build; the breakdown-riding engines structurally cannot reach these cells.
 
 ### F30d — the top-fade raw material MEASURED (forward marks) + eff_10m on the stack
 
-Forward vwap marks after the burst (hot ≥40bp, ≥$2 longs; entry-fill basis, model-free):
+Forward vwap marks after the burst (hot ≥40bp, ≥\$2 longs; entry-fill basis, model-free):
 
 | burst cell | n | fwd 1m | fwd 5m | fwd 20m mean | fwd 20m MEDIAN | tkd |
 |---|---|---|---|---|---|---|
@@ -2095,7 +2095,7 @@ eff_10m on the quiet-breakout stack (the F27b move): best cell e10-hi × 20m-up 
 n=2,889 — the usual ~+0.2 refinement; the long ceiling stays ≤1.5. The PF-2 long bar remains unmet.
 
 Philosophical note (user): across the whole program, FADING dominates FOLLOWING in every universe
-except sub-$1 wreckage — the one regime where the crowd is the fuel. The retail curriculum (SMB,
+except sub-\$1 wreckage — the one regime where the crowd is the fuel. The retail curriculum (SMB,
 Lance et al.) teaches the exception as the rule.
 
 ### F30e — winners vs losers: the ACTIVITY-SLOPE study (user) — slow burn good, flare-up bad; all the EV is in the first ~60s
@@ -2215,7 +2215,7 @@ the session anchor stands in; sinking them = 2-line engine add + ~100min regen i
 ⚠ context-dependence: INSIDE the (unstable) 5m rung the calm preference inverts — fresh structural
 breaks want participation; extended levels punish it. No unconditional feature, ever.
 
-## Finding 31 — ⭐ v2b (20bp floor + the absolute feature block): SIZE-WITHOUT-CROWD — the first year-stable, audit-clean, cost-viable long cell on ≥$2 stocks
+## Finding 31 — ⭐ v2b (20bp floor + the absolute feature block): SIZE-WITHOUT-CROWD — the first year-stable, audit-clean, cost-viable long cell on ≥\$2 stocks
 
 **Run:** `surge23_v2b_e60_x60_f20bp` — V2 universe + `--min-vol-20m 0.002` (cuts 39.1M→9.24M trips,
 76%; 37 min), new features: `vol_1200`/`tc_1200` (raw 20m sums), `vol_60_prev`/`tc_60_prev`
@@ -2238,13 +2238,13 @@ Monotone down; the ≥4× tc cell (−1.1%/trip) is another heavyweight fade cel
 
 | yr | n | ret% | PF | tkd | med px |
 |---|---|---|---|---|---|
-| 2023 | 575 | +0.276 | 1.646 | 218 | $7.77 |
-| 2024 | 801 | +0.433 | 1.995 | 275 | $8.55 |
-| 2025 | 1,984 | +0.175 | 1.473 | 591 | $9.55 |
-| 2026 | 1,054 | +0.300 | 2.162 | 317 | $13.22 |
+| 2023 | 575 | +0.276 | 1.646 | 218 | \$7.77 |
+| 2024 | 801 | +0.433 | 1.995 | 275 | \$8.55 |
+| 2025 | 1,984 | +0.175 | 1.473 | 591 | \$9.55 |
+| 2026 | 1,054 | +0.300 | 2.162 | 317 | \$13.22 |
 
 **Positive EVERY year, no decay, top-3 = 14.4% / 734 symbols — the best audit profile of any V2
-long cell; $8-13 median price clears the ~10-15bp cost line with margin.** Reading: prints at less
+long cell; \$8-13 median price clears the ~10-15bp cost line with margin.** Reading: prints at less
 than HALF the 20m rate while volume holds normal = few-but-LARGE prints = accumulation without the
 crowd — the exact inverse of the toxic swarm (F30e: prints-up-size-flat). The participation/size
 framework CLOSES: size-without-crowd = buy; crowd-without-size = run.
@@ -2269,7 +2269,7 @@ Without eff-hi the cell is DEAD — all F31 value is the eff-hi minority. The co
 good years ANTI-CORRELATE (2023/2024 mirror images) — **the parent cell's stability
 (1.65/2.00/1.47/2.16) is flavor diversification, not either flavor alone. No year-stable sub-cell
 clears 2; the honest tradable object stays the combined eff-hi cell at blended 1.73.** Confirmed
-(user): tc-ignition is flat-to-adverse on ≥$2 — the cell is itself an ANTI-ignition state.
+(user): tc-ignition is flat-to-adverse on ≥\$2 — the cell is itself an ANTI-ignition state.
 
 ### F31c — the ignition print ON TOP of the cell (user hypothesis): it COMPOSES — monotone in bar_tc, the [10,40) band is year-clean and anti-correlated with the eff-up flavor
 
@@ -2279,14 +2279,14 @@ clears 2; the honest tradable object stays the combined eff-hi cell at blended 1
 | **10-40 (ignition)** | 1,191 | 43.1 | +0.295 | **1.803** | 658 | 1.73 / **1.39** / 1.78 / 2.44 ✓ |
 | ≥40 (climax) | 419 | 40.1 | +0.719 | 2.359 ⚠ | 276 | 1.23 / **6.34** / 1.21 / 1.26, top-3 48.4% — 2024 artifact |
 
-Broadly adverse on ≥$2 (F30), the ignition print turns POSITIVE inside the quiet-minute cell — the
+Broadly adverse on ≥\$2 (F30), the ignition print turns POSITIVE inside the quiet-minute cell — the
 conditioning law once more: quiet minute + normal size + live trend + a hard signal second = the V1
 coiled ignition isolated from the swarm regime. The [10,40) band's WORST year is 2024 —
 anti-correlated with the eff-up flavor's 2024 spike: more diversification inside the family.
 **Family state: base cell 1.73 blended; + ignition 1.80 blended (+0.295%/trip), year floor 1.39.
 Untried: exit tuning, mc=1.**
 
-**The RELATIVE recast (user: bar_tc vs the 20m per-bar average, since ≥$2 stocks print faster):**
+**The RELATIVE recast (user: bar_tc vs the 20m per-bar average, since ≥\$2 stocks print faster):**
 interior peak at 1-2× (2.121 / +0.447 / n=610 / 442 tkd; med bar_tc 22 ≈ the absolute band's twin)
 — but year-audit says 1.24 / **4.50** / 1.54 / 1.75, top-3 36.2% — 2024-flattered. **The absolute
 [10,40) band keeps the better year floor (1.39, no 2024 dependence); both stable versions land in
@@ -2373,7 +2373,7 @@ vol≥40bp × tight coil (<0.5) × chg_1d wings (<−5% | >15%):**
 | 2025 | 690 | 43.0 | +0.361 | 1.644 | 184 |
 | 2026 | 294 | 53.4 | +0.762 | 2.904 | 89 |
 
-Top-3 = 22.1% / 372 symbols. ~1.7 trips/day, $8-14 stocks, ~10-15bp RT costs vs +0.62%/trip.
+Top-3 = 22.1% / 372 symbols. ~1.7 trips/day, \$8-14 stocks, ~10-15bp RT costs vs +0.62%/trip.
 VWAP breakdown inside adds nothing safely actionable (bulk <−2% at 1.905; middle cells n≤43).
 ⏭ mc=1, the entry-redesign fork, and the engine-add batch (vwap_1200 20m rolling VWAP +
 chan_1200_high level).
@@ -2385,8 +2385,8 @@ BUT **2023 collapses 1.99→1.01**. Diagnosis: 2023 is top-heavy (top-3 tkd = 74
 2023-12-21 = +135% over 9 trips) and the edge lives in signal CLUSTERS where the LATER breaks are
 the real moves: single-signal days PF 0.365; multi-day first trips 1.425; **multi-day later trips
 2.672**. The first break of the coil is the probe that fails; sequential execution takes exactly it
-and sits through the good ones. **Capacity note: median signal-bar $10.4k (2-10× the sub-$1 book);
-$2-5k clips defensible on $8-14 names + the TradeZero free ≥$1 limit lane.**
+and sits through the good ones. **Capacity note: median signal-bar \$10.4k (2-10× the sub-\$1 book);
+\$2-5k clips defensible on \$8-14 names + the TradeZero free ≥\$1 limit lane.**
 
 **THE FIX — the SECOND-CHANCE rule (the 2026-07-06 Ross Cameron re-break note, quantified): skip
 each ticker-day's FIRST signal, greedy from the second:**
@@ -2468,7 +2468,7 @@ Question (user): does |eff_20m| above the 0.40 gate give further improvement? Su
 
 **Band ladder within the FULL folded spec (n=1,554):**
 
-| \|eff_20m\| band | n | win% | PF | avg %/trip | net $ |
+| \|eff_20m\| band | n | win% | PF | avg %/trip | net \$ |
 |---|---|---|---|---|---|
 | [0.40,0.50) | 1,198 | 42.2 | **2.224** | +0.701 | 83,970 |
 | [0.50,0.60) | 300 | 48.7 | 1.672 | +0.302 | 9,056 |
@@ -2498,7 +2498,7 @@ standing audits:
 |---|---|
 | by-year PF | 2.82 / **4.52** / 1.84 / **6.62** — 2024-heavy + 2026-flare |
 | top-3 tkd share | **41% of gross** (145 tkd) |
-| single best tkd | BTCT 2024-11-12 = $14,980 ≈ 30% of the half-band's net |
+| single best tkd | BTCT 2024-11-12 = \$14,980 ≈ 30% of the half-band's net |
 
 An interior half-band peaking while BOTH neighbors ([0.40,0.45) = steady 2.24/1.63/1.66/1.30 and
 ≥0.50 = 0.74 in 2023) are worse is the signature of noise, and the concentration audit confirms

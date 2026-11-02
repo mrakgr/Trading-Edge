@@ -549,8 +549,8 @@ open and 2,000/3,600s into the close has **decayed**, while 300/900 → 1,200/3,
 | lever | PF | mean% | **worst%** |
 |---|---:|---:|---:|
 | ⭐ RANDOM same-n | 1.321 | +1.56 | −58 |
-| **$ `dv_over_open30`** | **2.194** | +3.63 | −90 |
-| $ `dv_over_rest` | 2.174 | +2.70 | −90 |
+| **\$ `dv_over_open30`** | **2.194** | +3.63 | −90 |
+| \$ `dv_over_rest` | 2.174 | +2.70 | −90 |
 | `tc_rate` | 2.125 | +2.60 | −90 |
 | BAR `bar_over_open30` | 1.844 | **+3.97** | −90 |
 | BAR `bar_over_open5` | 1.754 | +3.31 | **−55** |
@@ -743,10 +743,10 @@ liquidity measure was run at matched selectivity inside the same cell, against t
 | filter (half the cell) | n | PF | pctile | worst% | win% |
 |---|---:|---:|---:|---:|---:|
 | **`volat_open60` ≤ median** | 185 | **4.875** | **100.0** | −24 | 74 |
-| `dv_lh` ≥ median (last-hour $) | 185 | 2.671 | 85.4 | −35 | 63 |
+| `dv_lh` ≥ median (last-hour \$) | 185 | 2.671 | 85.4 | −35 | 63 |
 | `close_d` ≥ median (price) | 185 | 2.665 | 83.9 | −35 | 65 |
 | `nbDay` ≥ median (day bar count) | 185 | 2.203 | 39.6 | −55 | 53 |
-| `dv_rest` ≥ median (day $) | 185 | 1.855 | 8.0 | −55 | 54 |
+| `dv_rest` ≥ median (day \$) | 185 | 1.855 | 8.0 | −55 | 54 |
 
 **No liquidity measure clears the null.** And low volatility still nearly doubles PF
 *inside* each liquidity-high half — where a proxy would have nothing left to add:
@@ -1724,16 +1724,16 @@ re-running the baseline.**
 See `data/intraday_1s_slim/PRECISION.txt` and the matching note at the end of
 `flushfader_results.md`.
 
-## §S49 (2026-09-08) — the $1 floor question + the registry
+## §S49 (2026-09-08) — the \$1 floor question + the registry
 
 `scripts/equity/snoozer_production_books.py` reproduces §4 exactly (A++ 476 @ 3.452, A+ 211 @ 4.152; exact quantiles
 inten q50 0.498393, pers q50 0.652937 / q75 0.925649 — the rounded 0.50/0.65/0.93 give 480/208). Registry entry:
-`docs/production_specs.md` §3. **$1 floor on p1559** (the 15:59 decision price, RAW): A++ 453 @ 3.044 (+2.85%),
-A+ 195 @ 3.426 (+6.96%) — the 39 sub-$1 trades read PF 33.8 / +18.6%/trade, i.e. the floor COSTS on this side
-(vs FlushFader/SpikeFader where it is free). Broker reality: no rebates and 30 bp take fees under $1 (Lightspeed),
-no free limits under $1 (TradeZero) — trivial against +18.6%, but 39 trades in 10 years is an anecdote and sub-$1
+`docs/production_specs.md` §3. **\$1 floor on p1559** (the 15:59 decision price, RAW): A++ 453 @ 3.044 (+2.85%),
+A+ 195 @ 3.426 (+6.96%) — the 39 sub-\$1 trades read PF 33.8 / +18.6%/trade, i.e. the floor COSTS on this side
+(vs FlushFader/SpikeFader where it is free). Broker reality: no rebates and 30 bp take fees under \$1 (Lightspeed),
+no free limits under \$1 (TradeZero) — trivial against +18.6%, but 39 trades in 10 years is an anecdote and sub-\$1
 overnight holds carry halt/delisting/reverse-split risk the sample cannot show. User ruling pending. Volume at
-$10k/position: 7.6 trades/mo, ~27k shares/mo (both legs).
+\$10k/position: 7.6 trades/mo, ~27k shares/mo (both legs).
 
 ## §S50 — LongSnoozer IN THE LIVE SCANNER (2026-09-10): re-baselined at 15:59, gap ceiling, ported and sealed
 
@@ -1746,7 +1746,7 @@ hour, `gaps = 3540 − traded seconds in (15:00, 15:59] ≤ 3,450` (≥ 90 trade
 `p1559` was hours old, 3,599 of 3,600 seconds absent) closed with a rule that removes NOTHING from any reference cell (max
 gaps in the books: A++ 3,091 · A+ 2,709 · S 3,314 · B 3,396; the user chose the count ceiling over a recency floor because the
 gap count is already the book's feature). NYSE early-close days are EXCLUDED from the reference (the caches' "last hour" is
-after-hours tape there; 9,759 ticker-days; the calendar-aware Scanner never sees those bars). No price floor (both $1 rulings
+after-hours tape there; 9,759 ticker-days; the calendar-aware Scanner never sees those bars). No price floor (both \$1 rulings
 still pending; a config knob).
 
 **The re-baseline** (ratified thresholds I/B/BB kept as literals; ms corpus 2016-08-08..2026-09-03, 1,449,973 ticker-days):
@@ -1828,8 +1828,8 @@ Reading:
 - ⚠ **Adverse selection on the shorts:** the ones we miss are the best (missed PF 5.04 at 16:00, 7.99 at 16:10) — a
   short limit sells only if the price comes UP to us, and the trades that never come back fall straight away. The
   long misses are average (2.74 / 3.51). Not fixable by waiting longer; a marketable short entry would be.
-- ⚠ **Capacity is thin after hours:** among the trades that fill only after 16:00, the lit $ strictly better than the
-  limit is p25 8k / p50 63k (long) and **p25 1k / p50 16k (short)**. At 10k equity (a position of $750–3,000) this
+- ⚠ **Capacity is thin after hours:** among the trades that fill only after 16:00, the lit \$ strictly better than the
+  limit is p25 8k / p50 63k (long) and **p25 1k / p50 16k (short)**. At 10k equity (a position of \$750–3,000) this
   is fine; at 30k+ the short after-hours fills are partial.
 - Prerequisites for the Oms: an order that rests after 16:00 needs Lightspeed EXTENDED-HOURS orders (Connect's
   OrderSingle has no session field — asked Rob 2026-10-11), and paper's after-16:00 behaviour is unknown (the
@@ -1854,7 +1854,7 @@ Cumulative fills (trade-through model) and the captured weighted return vs today
 - Long: flat after ~16:30 (+16–17 %), and the late fills get WORSE (their mean +3.97 % → +3.07 % by 20:00) —
   after-hours news (earnings at 16:0x) picks a resting buy off.
 - Short: keeps adding slowly to +35 % by 20:00 (late fills mean +3.9 %, win 70 %), but on very thin tape: the trades
-  first filled after 16:10 saw lit $ through the limit over 16:00–20:00 of p25 3.9k / p50 36k (short), 10k / 115k (long),
+  first filled after 16:10 saw lit \$ through the limit over 16:00–20:00 of p25 3.9k / p50 36k (short), 10k / 115k (long),
   vs 15k / 87k and 65k / 494k for those filled 16:00–16:10. The trade-through model is most optimistic exactly there
   (one odd lot through the price is not our size).
 

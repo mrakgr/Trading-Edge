@@ -9,7 +9,7 @@ pop. Production core **quiet-vol × ADX≥40 × not-session-high = PF 2.599**, a
 2.208), tail-safe (p1 −4.12), ~11k trips/yr. 🛑 Its universe (`diprider_v6_candidate` =
 `mr_candidate` copy) carries the S39d lookaheads — **every number is INVALID pending a clean
 rerun. The 1s port on `mr_candidate_1s_v2` IS that rerun.** Entry was close ≥ prior 20m max of 1m
-closes; exit 7m-low cover or MOC; $10k/trip; dv_0945 ≥ $3M; ATR floor 0.004.
+closes; exit 7m-low cover or MOC; \$10k/trip; dv_0945 ≥ \$3M; ATR floor 0.004.
 
 ## ⭐⭐ The fork decision: start from the LongHiker v7 engine, not from MaxRiderV1
 

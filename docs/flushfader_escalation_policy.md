@@ -114,7 +114,7 @@ No fills log ⇒ condition 4.5 is unmeasurable ⇒ no escalation, ever. This log
 also the input for §6.
 
 **Participation guard:** per-trade notional ≤ 1% of the trailing 20m dollar volume
-(universe floor is dv ≥ $2M ⇒ ≥ $20k headroom per trade). If BASE growth pushes
+(universe floor is dv ≥ \$2M ⇒ ≥ \$20k headroom per trade). If BASE growth pushes
 typical trades past this cap, the cap wins — the account has outgrown the D tier's
 liquidity, revisit universe or accept sublinear sizing.
 

@@ -7,13 +7,13 @@
 >
 > 1. **`day_close >= $1`** — day D's OWN **adjusted** close: unknowable intraday, and
 >    future-split-dependent (penny names admitted *because of a later reverse split*;
->    days that crashed through $1 excluded *because of D's own outcome*).
+>    days that crashed through \$1 excluded *because of D's own outcome*).
 > 2. **`nbars > 21` warmup** — counted the episode's FUTURE days: membership conditioned
 >    on how long the ticker would survive.
 >
-> Measured teeth (on FlushFader's blotter): sub-$1 entries admitted via the "day closed
-> back above $1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
-> inflates exactly the sub-$1/sub-$2 corners; short books are biased conservative but the
+> Measured teeth (on FlushFader's blotter): sub-\$1 entries admitted via the "day closed
+> back above \$1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
+> inflates exactly the sub-\$1/sub-\$2 corners; short books are biased conservative but the
 > universe shape is still contaminated. **Do not quote low-price slices from this
 > document.** Details: `docs/flushfader_results.md` §S39d. The clean replacement table is
 > `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup, 2020+).
@@ -29,7 +29,7 @@ A direction-flipped mirror of DipRiderV6, forked 2026-07-17.
 **MaxRider** (short). **Read `docs/diprider_v6_results.md` first**; this document only records where the short
 side DIFFERS from the long.
 
-**Standing conventions:** SHORT only. **2020-01-01 → 2026-06-30.** Raw MOC PF. $10k notional/trip.
+**Standing conventions:** SHORT only. **2020-01-01 → 2026-06-30.** Raw MOC PF. \$10k notional/trip.
 `dv_0945 >= $3M`, ATR floor 0.004 (uncapped ceiling), 20m-high entry → **7m-low cover** (F5; the long side uses 5m).
 
 ---
@@ -46,7 +46,7 @@ side DIFFERS from the long.
 **⚠ WHY THE SHORT SIDE IS NOT A FREE MIRROR** — the engine banner says *MEASUREMENT ONLY* for these reasons,
 none of which is modelled:
 - **Borrow / locate.** The thin, high-ATR names where V6 found its best cells (F14: the PF 3.291 cell is
-  $1.13 stocks; F17: the 0.06–0.08 ATR tail) are exactly the **hardest to borrow** and most likely on the
+  \$1.13 stocks; F17: the 0.06–0.08 ATR tail) are exactly the **hardest to borrow** and most likely on the
   hard-to-borrow list at punitive rates.
 - **Unbounded tail.** A long is bounded at −100%; **a short is not.** V6 ran with NO STOP because its p01 of
   −17.8% was survivable. An unstopped short into a squeeze is not. A real short book **needs a stop** the
@@ -65,7 +65,7 @@ none of which is modelled:
 has `exit > entry` — **0 violations** on both. Counters mirror cleanly: 0 negatives, 0 invariant violations
 (`bars ≥ highs` always), max highs-into-leg 52.
 
-**SHORT vs LONG, per year (both 20m→5m, dv ≥ $3M, ATR band):**
+**SHORT vs LONG, per year (both 20m→5m, dv ≥ \$3M, ATR band):**
 
 | yr | short n | **SHORT PF** | SHORT avg% | **LONG PF** | LONG avg% |
 |---|---|---|---|---|---|
@@ -97,7 +97,7 @@ hedge each other. What the short side delivers is the user's stated goal — **M
 **User:** *"Do 5m exits improve upon the 20m exits similarly for how they do on the long side?"*
 
 **Yes — same shape, smaller magnitude.** Cover-window sweep, identical entries (2,400,953 trips every row,
-dv ≥ $3M, ATR band):
+dv ≥ \$3M, ATR band):
 
 | cover = prior N-min MIN of closes | win% | avg %/tr | **PF** | med hold |
 |---|---|---|---|---|
@@ -143,7 +143,7 @@ for a stop.
 
 ## Finding 3 — ATR mirrors the long side in the mid-band, but the TAIL INVERTS: high-ATR shorts want the SLOW cover
 
-**ATR × cover window (dv ≥ $3M, tail uncapped):**
+**ATR × cover window (dv ≥ \$3M, tail uncapped):**
 
 | ATR | **PF 5m** | PF 20m | avg% 5m | win% 5m | n |
 |---|---|---|---|---|---|
@@ -171,7 +171,7 @@ for a stop.
 ## Finding 4 — the z-score mirrors V6, with a SHORT-SPECIFIC twist: the best fade is a pop that FAILS below VWAP
 
 For a SHORT the pop is ABOVE VWAP, so POSITIVE z is the "deeply extended" tail (the mirror of the long's
-negative z). z × cover (dv ≥ $3M, ATR band):
+negative z). z × cover (dv ≥ \$3M, ATR band):
 
 | z | **PF 5m** | PF 20m | avg% 5m | n |
 |---|---|---|---|---|
@@ -255,7 +255,7 @@ Added two session-cumulative `CumStdMa` accumulators (mirroring `dist_vwap_z`): 
 heavy-tailed, so the linear z is outlier-dominated by construction. Both recorded so the transform is
 **validated, not assumed.**
 
-**LOG-space vol z (dv ≥ $3M, ATR band, 7m cover):**
+**LOG-space vol z (dv ≥ \$3M, ATR band, 7m cover):**
 
 | vol_z_log | n | win% | avg %/tr | **PF** |
 |---|---|---|---|---|
@@ -321,7 +321,7 @@ distance from VWAP in log space as well for both systems."*
 Added `dist_vwap_z_log` = session-cumulative z of `log(close/vwap)` (the true log analogue — symmetric,
 where the raw ratio `close/vwap−1` is not) to BOTH engines. **Result: it makes no measurable difference.**
 
-**SHORT (dv ≥ $3M, ATR band, 7m):**
+**SHORT (dv ≥ \$3M, ATR band, 7m):**
 
 | VWAP z bucket | **linear PF** | **log PF** | Δ |
 |---|---|---|---|
@@ -371,7 +371,7 @@ VWAP distance, ATR%).*
 **Prediction (WRONG):** the mirror said the best short would be a name moderately UP, fading a failed bounce.
 **The data says the best short is a name moderately DOWN**, same as the long book's best dip-buy.
 
-**chg_1d (dv ≥ $3M, ATR band, 7m cover):**
+**chg_1d (dv ≥ \$3M, ATR band, 7m cover):**
 
 | chg_1d | n | % | win% | avg% | **PF** |
 |---|---|---|---|---|---|
@@ -443,7 +443,7 @@ Added three recorded features (running `RunMaxMa`, strictly-prior — no lookahe
 (is this 20m-high entry ALSO a session close-high?), `is_new_sess_vol_high` (did this bar make a new session
 1m-volume high?), `prev_sess_vol_high` (the session vol-high AS OF THE PRIOR BAR — the user's feature).
 
-**Frequencies (dv ≥ $3M, ATR band):** 29.7% of short entries are session highs; only **1.4%** are new
+**Frequencies (dv ≥ \$3M, ATR band):** 29.7% of short entries are session highs; only **1.4%** are new
 session-VOLUME highs (a rare condition); 1.1% are both.
 
 ### Both ideas make the short WORSE — and in the SAME direction
@@ -725,7 +725,7 @@ round trip it is still positive — small, but a REAL edge, and the FIRST tradab
 in this codebase. The trigger: **a bar spiking volume ≥1.5σ (log) to a new SESSION-VOLUME high while price
 is STILL BELOW the session high — buy it, exit at the 1m low.** Anticipation, not confirmation (F12).
 
-**⭐ And this is STILL on the MR universe** (dv ≥ $3M, moderate ATR — selected to FADE). The earlier "wrong
+**⭐ And this is STILL on the MR universe** (dv ≥ \$3M, moderate ATR — selected to FADE). The earlier "wrong
 universe, below costs" claim was an artifact of the contamination. The edge ALREADY clears costs here; F17's
 high-ATR tail (where breakouts run 5–15%, not 0.1%) should AMPLIFY it. ⏭ A dedicated momentum fork is now
 justified, not just a pointer: pre-breakout-vol-surge trigger + 1m fail-fast exit, tested first on this
@@ -792,18 +792,18 @@ Directionally right — avg% DOES scale with ATR — but the sample runs out bef
 
 | ATR | n | long PF | **long avg%** | med px |
 |---|---|---|---|---|
-| 0.004–0.009 | 5,107 | 1.237 | 0.067 | $30 |
-| **0.009–0.02** | 1,507 | 1.431 | **0.252** | $34 |
-| 0.02–0.035 | 280 | 1.087 | 0.104 | $32 |
-| **0.035–0.05** | **49** | 1.960 | **⭐ 1.335** | $22 |
-| 0.05–0.08 | **37** | **0.451** | −1.549 | $22 |
+| 0.004–0.009 | 5,107 | 1.237 | 0.067 | \$30 |
+| **0.009–0.02** | 1,507 | 1.431 | **0.252** | \$34 |
+| 0.02–0.035 | 280 | 1.087 | 0.104 | \$32 |
+| **0.035–0.05** | **49** | 1.960 | **⭐ 1.335** | \$22 |
+| 0.05–0.08 | **37** | **0.451** | −1.549 | \$22 |
 | ≥ 0.08 | **1** | — | — | — |
 
 **The `0.035–0.05` cell IS a tradable magnitude (+1.335%/tr, PF 1.96) — 10× the baseline, exactly as
 predicted.** BUT it is **49 trips** (~7/yr), and the very next band INVERTS to a loser (0.05–0.08: PF 0.451,
 −1.55%/tr, 37 trips). Above ATR 0.035 the cell EVAPORATES.
 
-**⭐ It is NOT a liquidity constraint.** Dropping the dv floor $3M → $500k adds ZERO trips in every high-ATR
+**⭐ It is NOT a liquidity constraint.** Dropping the dv floor \$3M → \$500k adds ZERO trips in every high-ATR
 band (49→49, 37→37). The cell is empty regardless of liquidity.
 
 **⭐⭐ It is the ENTRY RULE.** MaxRider fires on a **new 20m high**. A high-ATR name moving violently makes
@@ -828,7 +828,7 @@ signal (F12/F13), its price/strength shape (F14), and its ATR ceiling under a 20
 
 ## Finding 16 — ADX: same as the long side — higher is BETTER (the MR "loves chop" thesis is false), independent of ATR
 
-`adx_14` breakdown, SHORT (7m cover, dv ≥ $3M, ATR band):
+`adx_14` breakdown, SHORT (7m cover, dv ≥ \$3M, ATR band):
 
 | ADX | n | win% | avg% | **PF** |
 |---|---|---|---|---|
@@ -1008,7 +1008,7 @@ the up-leg's prior structure. Report the PF sacrifice honestly.
 ## ⭐⭐ Finding 23 (2026-08-27) — F22 REPLICATED, and the SESSION RATE RATIO strictly dominates the log-z
 
 **Context**: rerun on the rebuilt (still S39d-contaminated — replication first, cleanup later per
-user) candidate table, engine defaults (7m cover, $3M dv floor, log-ATR gate), 1,812,959 trips.
+user) candidate table, engine defaults (7m cover, \$3M dv floor, log-ATR gate), 1,812,959 trips.
 
 **F22 replication**: gentle pop bands match the 2026-07 doc to ~0.1% (n and PF); the star cell —
 pops > +2% × quiet (vol_z_log < −0.5) — reads **8,147 @ PF 3.621, p1 −11.24** vs the documented
@@ -1069,9 +1069,9 @@ columns — `adj_ratio := 1.0` (engine runs in day-D RAW scale; the retirement s
 `prev_adj_close := close_m1`, `day_close := close_d`, `close_fwd_* := close_p* + div_p*`,
 `day_open := open_0930_tape`, `vol_0945 := vol_0945_tape`, `dv_0945 := dv_0945_tape`,
 `nbar_0945 := 15` (flat; brv_15m becomes the rr_15m definition). **Three lookaheads die at
-once**: the S39d membership pair (adjusted $1 floor + episode warmup) AND the $3M
+once**: the S39d membership pair (adjusted \$1 floor + episode warmup) AND the \$3M
 liquidity floor's adj_ratio-contaminated dollars. Run: same F22/F23 config (7m cover,
-$3M tape-dollar floor, 2020-01..2026-06), `DR5_CANDIDATE_TABLE` override,
+\$3M tape-dollar floor, 2020-01..2026-06), `DR5_CANDIDATE_TABLE` override,
 `data/maxrider_v1_clean.csv` + log.
 
 **Universe: 328,258 → 1,053,194 ticker-days (3.2×). Baseline mc=0 PF 1.434 → 1.251.**
@@ -1102,10 +1102,10 @@ F22 star cell (pops>2% × z-quiet): **1.976 [3.621]**.
 
 ### The smoking gun + the composition check
 
-The dirty quiet band held 5,631 trips; the clean one holds 1,124 (805 at entry ≥ $1 raw) —
+The dirty quiet band held 5,631 trips; the clean one holds 1,124 (805 at entry ≥ \$1 raw) —
 **the S39d selection was flooding precisely the quiet band with artifact names** (thin,
 split-prone, warmup-surviving). Price slices show composition explains little of the PF
-drop: rr<0.2 at entry ≥ $1 → 3.163, ≥ $2 → 2.991, sub-$1 → 2.179. The honest deep-quiet
+drop: rr<0.2 at entry ≥ \$1 → 3.163, ≥ \$2 → 2.991, sub-\$1 → 2.179. The honest deep-quiet
 number is **~2.8-3.2, not 5.9** — still monotone, still 7/7 years ≥ 2.0, still the best
 cell in the system, but HALF the dirty magnitude.
 
@@ -1115,7 +1115,7 @@ table permanent in trading.db). All pre-F24 tables quote contaminated numbers.
 SAME order as the 1s fader's quiet cells (2.5-2.9) — the two systems agree once measured
 on honest universes.
 
-### F24b — the contamination mechanism, verified per-trip (user challenge: "the $1 floor should hurt a short system")
+### F24b — the contamination mechanism, verified per-trip (user challenge: "the \$1 floor should hurt a short system")
 
 Both runs used the identical range (2020-01-01..2026-06-30 in both log headers) — no date
 mismatch. The mechanism is admission-side, and the dirty CSV's own `adj_ratio` column
@@ -1133,10 +1133,10 @@ proves it. Dirty corpus, pops > +2%, by rr band:
    reproduces the CLEAN ladder (2.82 / ~2.1 / 1.95 / 1.34) almost exactly. The
    contamination attribution is confirmed trip-level, not inferred.
 2. **Why a PRICE FLOOR helped a SHORT book** (the user's point cuts the other way only
-   on the exclusion side): among raw sub-$1 names, "ADJUSTED close ≥ $1" admits
+   on the exclusion side): among raw sub-\$1 names, "ADJUSTED close ≥ \$1" admits
    precisely those with large future adj_ratio = future reverse-splitters = names in
    TERMINAL DECLINE. Exclusion hurts shorts; this admission RULE is a future-decliner
-   selector — a gift to shorts. And leg (a), the $3M floor on adj-multiplied dollars,
+   selector — a gift to shorts. And leg (a), the \$3M floor on adj-multiplied dollars,
    let those genuinely illiquid names pass liquidity: ~70% of ALL dirty pop trips were
    adj-affected, concentrated to 93% in the quiet band (illiquid ⇒ quiet).
 3. The two legs compound: fake-liquidity admission puts the walking dead INTO the book;
@@ -1152,7 +1152,7 @@ warmup → causal ROW_NUMBER > 21, **dv_0945 = Σ(close·volume) over 09:30-09:4
 raw dollars, per user; avgprice_0945 was confirmed RAW in the builder, so the old
 ×adj_ratio multiplied honest dollars by the future-split factor). All price context raw,
 adj_ratio := 1.
-406,147 rows / 262,627 clear the honest $3M floor — vs 328,258 clearing the INFLATED
+406,147 rows / 262,627 clear the honest \$3M floor — vs 328,258 clearing the INFLATED
 floor (the S35 "20% inflated in", reproduced). Run: 1,223,608 trips, baseline PF 1.281.
 
 **The three-way F23 ladder (pops > +2%):**
@@ -1167,7 +1167,7 @@ floor (the S35 "20% inflated in", reproduced). Run: 1,223,608 trips, baseline PF
 | ≥ 0.7 | 1.522 | 1.344 | 1.330 |
 | baseline | 1.434 | 1.251 | 1.281 |
 
-Star cells (raw-1m): z-quiet → 2.046 [tape 1.976, dirty 3.621]; rr<0.2 ∧ entry ≥ $1 →
+Star cells (raw-1m): z-quiet → 2.046 [tape 1.976, dirty 3.621]; rr<0.2 ∧ entry ≥ \$1 →
 2.797 [tape 3.163]. Deep-quiet years all ≥ 2.0, 7/7.
 
 **Verdict: two INDEPENDENT clean universes (1s tape-native and 1m-agg raw, different

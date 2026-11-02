@@ -8,7 +8,7 @@
 > so the conclusions here stand, but exact figures are ns-era. See the banner at
 > the top of `flushfader_results.md`.
 
-Prepared 2026-08-14. **$100,000 account. Commission assumed $0.0015/share.**
+Prepared 2026-08-14. **\$100,000 account. Commission assumed \$0.0015/share.**
 Figures are backtested over 2020-01 → 2026-07 (7 years) and expressed as monthly
 averages.
 
@@ -21,11 +21,11 @@ A small number of positions (well under 1%) do not reach their exit target durin
 session and are closed market-on-open the next morning. No leverage is held overnight.
 
 **One trade = 2 executions** (one to open, one to close), same share count each way.
-Average order is roughly **3,200–4,200 shares / $10,900–14,300 notional**.
+Average order is roughly **3,200–4,200 shares / \$10,900–14,300 notional**.
 
-⭐ **The median entry price is about $4.** These are low-priced, liquid, actively
+⭐ **The median entry price is about \$4.** These are low-priced, liquid, actively
 traded names, so per-share pricing is relatively expensive against notional: at
-$0.0015/share a round trip costs **~0.074% of position value**. That makes the
+\$0.0015/share a round trip costs **~0.074% of position value**. That makes the
 routing and rebate treatment (below) materially important to us.
 
 ## The four segments
@@ -59,12 +59,12 @@ run the full set rather than A++ alone.
 
 ## Order flow by segment, each traded on its own
 
-| segment | trades/month | avg shares/order | avg $/order | **shares/month** | **commission/year** |
+| segment | trades/month | avg shares/order | avg \$/order | **shares/month** | **commission/year** |
 |---|---:|---:|---:|---:|---:|
-| A++ | 15.8 | 4,190 | $14,331 | 132,190 | $2,379 |
-| A+ | 8.5 | 3,918 | $11,472 | 66,881 | $1,204 |
-| B++ | 15.8 | 3,246 | $10,929 | 102,550 | $1,846 |
-| B+ | 31.4 | 3,665 | $12,020 | 230,028 | $4,141 |
+| A++ | 15.8 | 4,190 | \$14,331 | 132,190 | \$2,379 |
+| A+ | 8.5 | 3,918 | \$11,472 | 66,881 | \$1,204 |
+| B++ | 15.8 | 3,246 | \$10,929 | 102,550 | \$1,846 |
+| B+ | 31.4 | 3,665 | \$12,020 | 230,028 | \$4,141 |
 
 ## If segments are combined
 
@@ -74,13 +74,13 @@ stock and day.
 
 | book | trades/month | **shares/month** | **commission/year** |
 |---|---:|---:|---:|
-| A++ only (today) | 15.8 | 132,190 | $2,379 |
-| A++ and A+ | 22.8 | 187,912 | $3,382 |
-| A++ and B++ | 29.1 | 216,961 | $3,905 |
-| **all four** | **62.5** | **464,120** | **$8,354** |
+| A++ only (today) | 15.8 | 132,190 | \$2,379 |
+| A++ and A+ | 22.8 | 187,912 | \$3,382 |
+| A++ and B++ | 29.1 | 216,961 | \$3,905 |
+| **all four** | **62.5** | **464,120** | **\$8,354** |
 
 The intended direction is to widen toward the full set, which puts monthly share
-volume near **half a million shares** on a $100k account.
+volume near **half a million shares** on a \$100k account.
 
 Position size is larger on A++ (our highest-conviction tier) and flat across the
 other three, which is why A++ routes more shares per trade than its trade count
@@ -90,7 +90,7 @@ alone would suggest.
 
 1. **ECN / routing economics.** Both legs rest passively, so the strategy should
    predominantly be **adding liquidity**. We would like to understand the rebate
-   pass-through and how add vs remove is billed, since at $0.0015/share that leg could
+   pass-through and how add vs remove is billed, since at \$0.0015/share that leg could
    plausibly be larger than the commission itself.
 2. **Platform fee waiver.** We understand the monthly platform fee is waived somewhere
    in the 200,000–300,000 shares/month range depending on platform. The combined book

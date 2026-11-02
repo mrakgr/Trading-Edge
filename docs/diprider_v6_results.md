@@ -7,13 +7,13 @@
 >
 > 1. **`day_close >= $1`** — day D's OWN **adjusted** close: unknowable intraday, and
 >    future-split-dependent (penny names admitted *because of a later reverse split*;
->    days that crashed through $1 excluded *because of D's own outcome*).
+>    days that crashed through \$1 excluded *because of D's own outcome*).
 > 2. **`nbars > 21` warmup** — counted the episode's FUTURE days: membership conditioned
 >    on how long the ticker would survive.
 >
-> Measured teeth (on FlushFader's blotter): sub-$1 entries admitted via the "day closed
-> back above $1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
-> inflates exactly the sub-$1/sub-$2 corners; short books are biased conservative but the
+> Measured teeth (on FlushFader's blotter): sub-\$1 entries admitted via the "day closed
+> back above \$1" door ran **PF 8.5 — pure outcome selection**. For LONG systems the bias
+> inflates exactly the sub-\$1/sub-\$2 corners; short books are biased conservative but the
 > universe shape is still contaminated. **Do not quote low-price slices from this
 > document.** Details: `docs/flushfader_results.md` §S39d. The clean replacement table is
 > `mr_candidate_1s` (1s-tape-native, no price floor, prior-only warmup, 2020+).
@@ -30,10 +30,10 @@ debloated to a bare MR core plus a post-hoc feature recorder, 2026-07-17.
 against a contaminated universe, and V5 F4 proved at least one V4 "dominant lever" **inverts** once the
 leak is removed.
 
-**Standing conventions:** LONG only. **2020-01-01 → 2026-06-30.** Raw MOC PF. $10k notional/trip.
+**Standing conventions:** LONG only. **2020-01-01 → 2026-06-30.** Raw MOC PF. \$10k notional/trip.
 
 > 🛑 **F5–F13 were run with the liquidity filter OFF (`--min-dv-0945 0`).** F14 shows that inflates PF —
-> the low-liquidity cells are **penny stocks** (median entry **$1.13** below $250k of morning volume) whose
+> the low-liquidity cells are **penny stocks** (median entry **\$1.13** below \$250k of morning volume) whose
 > spread would eat the whole edge. **The `dv_0945 >= $3M` floor is now the default.** Every F5–F13 number is
 > therefore **optimistic**; the ones re-checked under the floor (F8, F10, F13) **survive with a haircut** —
 > see F14. Treat any un-rechecked F5–F13 magnitude as provisional.
@@ -95,13 +95,13 @@ bias to suppress.**
 
 | lows into the leg | n | win% | avg %/tr | **PF** | net |
 |---|---|---|---|---|---|
-| **0 — the FIRST low** | 10,113 | 62.3 | 0.447 | **1.239** | +$451,714 |
-| 1 | 6,465 | 64.2 | 0.630 | 1.354 | +$407,415 |
-| 2 | 4,167 | 66.6 | 0.861 | 1.505 | +$358,906 |
-| 3–4 | 4,298 | 69.0 | 1.143 | 1.715 | +$491,444 |
-| **5–7** | **2,010** | **71.2** | **1.435** | **⭐ 1.872** | +$288,467 |
-| 8–12 | 524 | 71.4 | 0.738 | 1.311 | +$38,684 |
-| **13+** | 52 | 65.4 | **−3.121** | **0.513** | −$16,227 |
+| **0 — the FIRST low** | 10,113 | 62.3 | 0.447 | **1.239** | +\$451,714 |
+| 1 | 6,465 | 64.2 | 0.630 | 1.354 | +\$407,415 |
+| 2 | 4,167 | 66.6 | 0.861 | 1.505 | +\$358,906 |
+| 3–4 | 4,298 | 69.0 | 1.143 | 1.715 | +\$491,444 |
+| **5–7** | **2,010** | **71.2** | **1.435** | **⭐ 1.872** | +\$288,467 |
+| 8–12 | 524 | 71.4 | 0.738 | 1.311 | +\$38,684 |
+| **13+** | 52 | 65.4 | **−3.121** | **0.513** | −\$16,227 |
 
 **A HUMP, not a ramp** — monotone up to 5–7, then it rolls over and **dies** at 13+. (R8: sweep the whole
 range; three monotone points are not a gradient. The smoke test's 8+ collapse was real, not noise.)
@@ -128,7 +128,7 @@ down** — simply wait for the 5th low and take one position. That is the obviou
 | trips | 27,629 |
 | win rate | 65.3% |
 | avg %/trip | **+0.731%** |
-| net | +$2,020,404 |
+| net | +\$2,020,404 |
 | PF | **1.410** ⚠ attribution only (mc=0) |
 
 ---
@@ -172,14 +172,14 @@ book — no averaging down, bounded capital.
 
 | wait for the Kth low | n | win% | avg %/tr | **PF** | net |
 |---|---|---|---|---|---|
-| 0 (take the first dip) | 10,495 | 62.6 | 0.468 | 1.255 | $491,590 |
-| 1 | 6,722 | 64.4 | 0.646 | 1.371 | $433,913 |
-| 2 | 4,356 | 66.8 | 0.868 | 1.520 | $378,250 |
-| 3 | 2,793 | 69.1 | 1.112 | 1.719 | $310,622 |
-| 4 | 1,754 | 69.3 | 1.215 | 1.771 | $213,047 |
-| **5** | **1,068** | **70.5** | **1.479** | **⭐ 1.968** | $157,958 |
-| 6 | 666 | 71.0 | 1.380 | 1.875 | $91,895 |
-| 8 | 246 | 72.4 | 1.203 | 1.639 | $29,582 |
+| 0 (take the first dip) | 10,495 | 62.6 | 0.468 | 1.255 | \$491,590 |
+| 1 | 6,722 | 64.4 | 0.646 | 1.371 | \$433,913 |
+| 2 | 4,356 | 66.8 | 0.868 | 1.520 | \$378,250 |
+| 3 | 2,793 | 69.1 | 1.112 | 1.719 | \$310,622 |
+| 4 | 1,754 | 69.3 | 1.215 | 1.771 | \$213,047 |
+| **5** | **1,068** | **70.5** | **1.479** | **⭐ 1.968** | \$157,958 |
+| 6 | 666 | 71.0 | 1.380 | 1.875 | \$91,895 |
+| 8 | 246 | 72.4 | 1.203 | 1.639 | \$29,582 |
 
 **PF peaks at K=5 (1.968) — HIGHER than the sampler's 1.872 for the same cell**, because taking only the
 FIRST qualifying entry avoids the deeper, worse fills. The hump sits in the same place as F1's independent
@@ -241,12 +241,12 @@ higher-quality. **But the headline PF hides two problems:**
 
 | cell | n | /yr | win% | avg % | **PF** | net | **worst yr PF** |
 |---|---|---|---|---|---|---|---|
-| 20m-low K=0 | 10,495 | 1615 | 62.6 | 0.468 | 1.255 | $491,590 | 1.018 |
-| **20m-low K=3** | **2,793** | **430** | 69.1 | 1.112 | **1.719** | **$310,622** | **⭐ 1.296** |
-| 20m-low K=5 | 1,068 | 164 | 70.5 | 1.479 | **1.968** | $157,958 | 1.220 |
-| 60m-low K=0 | 977 | 150 | 70.6 | 0.953 | 1.526 | $93,086 | 1.029 |
-| 60m-low K=1 | 547 | 84 | 71.5 | 1.273 | 1.836 | $69,612 | **0.892** ❌ |
-| 60m-low K=3 | 203 | 31 | 69.5 | 1.468 | 2.021 | $29,794 | 1.027 |
+| 20m-low K=0 | 10,495 | 1615 | 62.6 | 0.468 | 1.255 | \$491,590 | 1.018 |
+| **20m-low K=3** | **2,793** | **430** | 69.1 | 1.112 | **1.719** | **\$310,622** | **⭐ 1.296** |
+| 20m-low K=5 | 1,068 | 164 | 70.5 | 1.479 | **1.968** | \$157,958 | 1.220 |
+| 60m-low K=0 | 977 | 150 | 70.6 | 0.953 | 1.526 | \$93,086 | 1.029 |
+| 60m-low K=1 | 547 | 84 | 71.5 | 1.273 | 1.836 | \$69,612 | **0.892** ❌ |
+| 60m-low K=3 | 203 | 31 | 69.5 | 1.468 | 2.021 | \$29,794 | 1.027 |
 
 1. **The 60m books are NOT all-weather.** 60m K=1 **LOSES money in 2021 (PF 0.892)**; 60m K=0 is 1.029 and
    K=3 is 1.027. Their higher PF is partly **regime concentration** — a smaller, sharper sample leaning
@@ -257,7 +257,7 @@ higher-quality. **But the headline PF hides two problems:**
 
 - **PF 1.719 / +1.11%/tr / 430 trips per year / worst year 1.296** — the **best worst-year in the table**.
   It never has a bad year.
-- It nets **2× K=5's dollars** ($311k vs $158k): above PF ~1.7, **capacity matters more than PF**.
+- It nets **2× K=5's dollars** (\$311k vs \$158k): above PF ~1.7, **capacity matters more than PF**.
 - At +1.11%/trade, costs (~0.1%) are **~9% of the edge** — comfortably cost-insensitive.
 
 **K=5 has the prettier PF; K=3 has the better business.** Optimising PF blind would have picked 60m K=3
@@ -720,26 +720,26 @@ never fill.
 
 | dv_0945 | n | % | win% | avg %/tr | **PF** | **median entry px** |
 |---|---|---|---|---|---|---|
-| **< $250k** | 6,569 | 0.2 | 75.2 | 0.823 | **3.291** | **$1.13** |
-| **$250k–1M** | 262,520 | 8.0 | 69.8 | 0.480 | **1.885** | **$1.50** |
-| $1M–3M | 449,778 | 13.7 | 67.0 | 0.358 | 1.537 | $2.98 |
-| **$3M–10M** | 678,094 | 20.6 | 66.8 | 0.320 | 1.470 | $8.58 |
-| $10M–30M | 632,386 | 19.2 | 66.7 | 0.310 | 1.464 | $19.44 |
-| ≥ $30M | 1,258,201 | 38.3 | 66.3 | 0.288 | 1.372 | $85.40 |
+| **< \$250k** | 6,569 | 0.2 | 75.2 | 0.823 | **3.291** | **\$1.13** |
+| **\$250k–1M** | 262,520 | 8.0 | 69.8 | 0.480 | **1.885** | **\$1.50** |
+| \$1M–3M | 449,778 | 13.7 | 67.0 | 0.358 | 1.537 | \$2.98 |
+| **\$3M–10M** | 678,094 | 20.6 | 66.8 | 0.320 | 1.470 | \$8.58 |
+| \$10M–30M | 632,386 | 19.2 | 66.7 | 0.310 | 1.464 | \$19.44 |
+| ≥ \$30M | 1,258,201 | 38.3 | 66.3 | 0.288 | 1.372 | \$85.40 |
 
 **⭐ PF rises MONOTONICALLY as liquidity FALLS — and the median entry price gives it away.** The PF 3.291
-cell is **$1.13 stocks**; the 1.885 cell is **$1.50 stocks**. Sub-$2 penny names with a quarter-million
+cell is **\$1.13 stocks**; the 1.885 cell is **\$1.50 stocks**. Sub-\$2 penny names with a quarter-million
 dollars of morning volume: **the spread alone eats the entire edge**, before any market impact. The
-sub-$3M bands were 21.9% of the book and were inflating every prior finding.
+sub-\$3M bands were 21.9% of the book and were inflating every prior finding.
 
-**`dv_0945 >= $3M` is now the DEFAULT** (user). It is conservative — even $3M leaves a **$8.58** median
+**`dv_0945 >= $3M` is now the DEFAULT** (user). It is conservative — even \$3M leaves a **\$8.58** median
 entry. Above the floor the liquidity effect is mild (1.470 → 1.464 → 1.372), so the findings survive.
 
 ### The re-checks — everything important SURVIVES, with a haircut
 
 **F8 (ATR), now `dv >= $3M`:**
 
-| log-ATR20 | n | avg %/tr | PF (was) | **PF ($3M)** |
+| log-ATR20 | n | avg %/tr | PF (was) | **PF (\$3M)** |
 |---|---|---|---|---|
 | < 0.004 | 6,250,941 | 0.015 | 1.033 | **1.057** |
 | 0.004–0.009 | 1,970,980 | 0.216 | ~1.4 | **1.384** |
@@ -765,7 +765,7 @@ a real repricing, not a dip" reading holds on fillable names.
 
 **F13 (the up-day / z rescue), now `dv >= $3M`:**
 
-| chg_1d | z<−3 (was) | **z<−3 ($3M)** | base (z≥−1) | n |
+| chg_1d | z<−3 (was) | **z<−3 (\$3M)** | base (z≥−1) | n |
 |---|---|---|---|---|
 | < −10% | 1.873 | **1.779** | 1.104 | 10,296 |
 | −10..−2% (LowFlyer) | 2.388 | **2.321** | 1.677 | 15,431 |
@@ -863,7 +863,7 @@ capital). **Higher PF *and* faster recycling wins on profit AND consistency.** F
 (cost ÷ avg-return-per-trade) was the misleading step; the right denominator is **capital-time**, where 5m
 dominates too.
 
-### chg_1d × exit window (dv ≥ $3M, ATR band) — 5m wins in EVERY bucket
+### chg_1d × exit window (dv ≥ \$3M, ATR band) — 5m wins in EVERY bucket
 
 | chg_1d | **PF 5m** | PF 20m | PF lift | avg% 5m | avg% 20m | n |
 |---|---|---|---|---|---|---|
@@ -1141,9 +1141,9 @@ not** — the original "≥ 0%" row was **100% `bar_pct == 0` exactly** (338,423
 at an IDENTICAL close.
 
 **What they are (the user pushed until it was nailed down):** NOT halts (0-volume bars never enter the
-engine), NOT cheap stocks (0% sub-$1; the ties skew HIGHER-priced, p90 $977 vs $577). The tell is
+engine), NOT cheap stocks (0% sub-\$1; the ties skew HIGHER-priced, p90 \$977 vs \$577). The tell is
 **round-number clustering: whole-dollar closes are 4.09% of tie bars vs 1.99% of the rest; half-dollar 5.9%
-vs 2.97%.** These are **thin-tape bars on HIGH-priced names in a quiet minute** — a $300 stock trading a few
+vs 2.97%.** These are **thin-tape bars on HIGH-priced names in a quiet minute** — a \$300 stock trading a few
 hundred shares prints the identical close twice, pinned to a round number. 13% prevalence is real (round-
 number pinning is common), not garbage.
 

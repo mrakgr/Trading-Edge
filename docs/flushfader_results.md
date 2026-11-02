@@ -15,7 +15,7 @@ future), **MinFader / MaxFader** (hold-to-close, future).
 |---|---|
 | universe | `diprider_v6_candidate`, `dv_0945 >= $3M` (V6 F14's MANDATORY floor — below it the PF rise is a penny-stock artifact) |
 | entry | vwap prints **strictly under the prior 1200-bar (~20m) MIN** of vwaps (present-bar window, strictly-prior snapshot) |
-| entry gates | 60-bar dollar-volume ≥ $100k AND 60-bar trade count ≥ 60; window 10:00-13:30 ET (V6's research window; hard floor 09:45 = knowability) |
+| entry gates | 60-bar dollar-volume ≥ \$100k AND 60-bar trade count ≥ 60; window 10:00-13:30 ET (V6's research window; hard floor 09:45 = knowability) |
 | fill | NEXT present bar's vwap (both sides) |
 | exit | vwap **strictly over the prior 300-bar (~5m) MAX** (V6 F16's direction) — **else HOLD OVERNIGHT and exit market-on-open the next session** (⭐ S43bw, user 2026-08-14; was "else MOC at the last bar"). **NO STOP** (V6 F6: a stop is destructive here, PF 1.429→1.164) |
 | close | **16:00 ET, and 13:00 ET on NYSE early-close days** (⭐ S43bx, user 2026-08-14 — calendar-aware, mirroring the entry cutoff). The post-13:00 window on half-days is not a session: median **40 traded seconds of 10,800**, and a 5m high cannot form on **88%** of ticker-days. No post-market trading on any day. |
@@ -79,8 +79,8 @@ and (b) the tail — same as V6, now with 1s-native levers.
 ## D2 (2026-07-28) — the full 2020-2026 baseline: every V6 lever reproduces on 1s
 
 Full run `data/equity/flushfader/base20_e1200_x300/` (defaults: e=1200, x=300,
-dv_0945≥$3M, 10:00-13:30, mc=0): **328,258 tkd → 16,353,468 trips, 80 min, 3.5GB.
-Baseline PF 1.106 / win 62.5% / +$61.7M @10k** (⚠ ATTRIBUTION, costs unmodeled).
+dv_0945≥\$3M, 10:00-13:30, mc=0): **328,258 tkd → 16,353,468 trips, 80 min, 3.5GB.
+Baseline PF 1.106 / win 62.5% / +\$61.7M @10k** (⚠ ATTRIBUTION, costs unmodeled).
 Superb breadth: top-3 tkd = **0.3%** of gross.
 
 **Year audit (the broad sampler is regime-y — gates must fix this):**
@@ -96,27 +96,27 @@ Superb breadth: top-3 tkd = **0.3%** of gross.
 | 2026 | 1,828,852 | 62.0 | 1.029 | 0.010 | 0.127 |
 
 **Exit mix — the no-stop tail quantified:** target n=16.33M PF 1.118 med +0.132% med-hold
-404 bars; **moc n=21,157 PF 0.052 avg −2.98% (−$6.3M)** — 0.13% of trips eat 9% of gross.
+404 bars; **moc n=21,157 PF 0.052 avg −2.98% (−\$6.3M)** — 0.13% of trips eat 9% of gross.
 
 **The lever ladder (all monotone the V6 way, now 1s-native):**
 
 | lever | dead zone | best zone | shape |
 |---|---|---|---|
 | change from 20m low | [−0.1,0)% → 1.044 | [−5,−2)% → **1.427**, <−5% 1.386 | monotone deeper=better; NO tail inversion at this cut |
-| distance from 20m high | [0,−2)% → 0.94 | <−10% → **1.41-1.42** (+$43.7M combined) | monotone |
-| flush speed (1m move) | slower than −0.5% → ≤0.97 | <−2%/1m → **1.371** (+$50M, half the net) | monotone |
+| distance from 20m high | [0,−2)% → 0.94 | <−10% → **1.41-1.42** (+\$43.7M combined) | monotone |
+| flush speed (1m move) | slower than −0.5% → ≤0.97 | <−2%/1m → **1.371** (+\$50M, half the net) | monotone |
 | **volat_20m** | **<20bp → 0.95-0.99 (11.5M trips, 70%, net NEGATIVE)** | ≥80bp → **1.329**; [40,80) 1.243 | monotone UP — ⭐ user's prediction confirmed: low-volat days are safely skippable |
-| eff_20m | [−0.1,0.1) → 1.014 | **[−0.5,−0.3) → 1.199** (+$33.7M) | hump — moderate downtrend fades best (ADX-analog works) |
+| eff_20m | [−0.1,0.1) → 1.014 | **[−0.5,−0.3) → 1.199** (+\$33.7M) | hump — moderate downtrend fades best (ADX-analog works) |
 | lows into leg (K) | 0-2 → ~1.00 | **16-50 → 1.165**; >50 decays 1.084 | hump like V6 F3 |
 | chg_1d | **<−10% → 0.926** (V6's un-fadeable repricing) | ≥+30% → **1.463**; [10,30) 1.365; [−10,−5) 1.199 | V6's wings again |
-| **distance to target** (new) | **<2% → net NEGATIVE at every cut** (0.62-0.99) | **≥2% → 1.250, +$70.6M = >100% of net** | ⭐ THE new lever: only enter when the reversion prize is big |
-| price (raw) | ≥$20 → ~1.00-1.02 | **$1-2 → 1.473, $2-5 → 1.275** | V6's low-price edge, but $2-5 is BROKER-TRADABLE (med +0.47%/trip vs the sub-$1 cost wall) |
+| **distance to target** (new) | **<2% → net NEGATIVE at every cut** (0.62-0.99) | **≥2% → 1.250, +\$70.6M = >100% of net** | ⭐ THE new lever: only enter when the reversion prize is big |
+| price (raw) | ≥\$20 → ~1.00-1.02 | **\$1-2 → 1.473, \$2-5 → 1.275** | V6's low-price edge, but \$2-5 is BROKER-TRADABLE (med +0.47%/trip vs the sub-\$1 cost wall) |
 
-Cost-reality first look: the tradable $2-5 bucket runs mean +0.21% / **median +0.47%**
-(n=952k) — unlike the momentum program, the MEDIAN trade clears plausible $2-5 costs.
+Cost-reality first look: the tradable \$2-5 bucket runs mean +0.21% / **median +0.47%**
+(n=952k) — unlike the momentum program, the MEDIAN trade clears plausible \$2-5 costs.
 Median-trade discipline stays mandatory on every stacked cell.
 
-### D2 full lever tables (net = $ @10k/trip, mc=0 attribution)
+### D2 full lever tables (net = \$ @10k/trip, mc=0 attribution)
 
 **Change from 20m low** — `signal_vwap/chan_lo − 1`: how far the signal bar printed below
 the prior 20m min (the overshoot through the floor being broken):
@@ -266,12 +266,12 @@ almost no information; don't spend a gate on it.
 
 | px | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 608,169 | 61.5 | 1.106 | 0.123 | 0.465 | 7,452,061 |
-| $1-2 | 301,801 | 65.9 | 1.473 | 0.486 | 0.855 | 14,657,313 |
-| $2-5 | 952,021 | 63.9 | 1.275 | 0.209 | 0.472 | 19,852,988 |
-| $5-20 | 4,069,040 | 62.6 | 1.101 | 0.043 | 0.221 | 17,589,578 |
-| $20-100 | 6,629,760 | 62.2 | 1.005 | 0.001 | 0.119 | 933,706 |
-| ≥$100 | 3,792,677 | 62.7 | 1.019 | 0.003 | 0.084 | 1,239,160 |
+| <\$1 | 608,169 | 61.5 | 1.106 | 0.123 | 0.465 | 7,452,061 |
+| \$1-2 | 301,801 | 65.9 | 1.473 | 0.486 | 0.855 | 14,657,313 |
+| \$2-5 | 952,021 | 63.9 | 1.275 | 0.209 | 0.472 | 19,852,988 |
+| \$5-20 | 4,069,040 | 62.6 | 1.101 | 0.043 | 0.221 | 17,589,578 |
+| \$20-100 | 6,629,760 | 62.2 | 1.005 | 0.001 | 0.119 | 933,706 |
+| ≥\$100 | 3,792,677 | 62.7 | 1.019 | 0.003 | 0.084 | 1,239,160 |
 
 ⏭ Cell stacking under user direction (volat × distance × depth × price look natural),
 then mc=1 + K-gate reruns of chosen cells, year-audit + median at every step.
@@ -279,7 +279,7 @@ then mc=1 + K-gate reruns of chosen cells, year-audit + median at every step.
 ## S1 (2026-07-28) — the first stack: `volat_20m >= 40bp` (user's call)
 
 **n=1,664,174 (10.2% of the sampler) / win 64.8 / PF 1.281 / avg +0.334% / MEDIAN
-+0.96% / +$55.6M (90% of the baseline net on 10% of the trips).** Top-3 tkd = 0.5%.
++0.96% / +\$55.6M (90% of the baseline net on 10% of the trips).** Top-3 tkd = 0.5%.
 Positive EVERY year, though still regime-spread: **2020 1.780 / 2021 1.555 / 2022 1.047 /
 2023 1.150 / 2024 1.276 / 2025 1.116 / 2026 1.127**.
 
@@ -294,7 +294,7 @@ Positive EVERY year, though still regime-spread: **2020 1.780 / 2021 1.555 / 202
 | 2026 | 132,172 | 64.3 | 1.127 | 0.176 | 0.914 | 2,331,328 |
 
 Exit mix: target n=1,654,765 PF 1.309 med +0.972%; **moc n=9,409 PF 0.062 avg −4.45%
-(−$4.19M = 7% of gross)** — the no-stop tail is proportionally BIGGER inside the
+(−\$4.19M = 7% of gross)** — the no-stop tail is proportionally BIGGER inside the
 high-volat band; a tail treatment (or SpikeFader-style hedge) will matter for the book.
 
 **⭐ NEW under S1 — the volat CEILING appears** (fine bands inside ≥40bp):
@@ -382,12 +382,12 @@ dissolves into the volat floor; its sub-2% remnant is still negative (drop it or
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 356,723 | 63.3 | 1.173 | 0.269 | 1.073 | 9,594,613 |
-| $1-2 | 190,118 | 67.2 | 1.537 | 0.689 | 1.388 | 13,101,071 |
-| $2-5 | 414,968 | 65.5 | 1.374 | 0.422 | 1.046 | 17,500,484 |
-| $5-20 | 510,399 | 64.9 | 1.250 | 0.256 | 0.850 | 13,058,684 |
-| $20-100 | 178,975 | 63.9 | 1.125 | 0.123 | 0.711 | 2,208,084 |
-| ≥$100 | 12,991 | 61.1 | 1.121 | 0.108 | 0.549 | 140,286 |
+| <\$1 | 356,723 | 63.3 | 1.173 | 0.269 | 1.073 | 9,594,613 |
+| \$1-2 | 190,118 | 67.2 | 1.537 | 0.689 | 1.388 | 13,101,071 |
+| \$2-5 | 414,968 | 65.5 | 1.374 | 0.422 | 1.046 | 17,500,484 |
+| \$5-20 | 510,399 | 64.9 | 1.250 | 0.256 | 0.850 | 13,058,684 |
+| \$20-100 | 178,975 | 63.9 | 1.125 | 0.123 | 0.711 | 2,208,084 |
+| ≥\$100 | 12,991 | 61.1 | 1.121 | 0.108 | 0.549 | 140,286 |
 
 | VOLUME 1m/20m | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -418,7 +418,7 @@ unconditionally). Natural S2 candidates: volat ceiling 200bp, leg depth ≤−6%
 ## S2 (2026-07-28) — stack 2: `volat_20m >= 40bp AND flush speed < −2%` (user's call)
 
 **n=860,778 (5.3% of the sampler) / win 65.7 / PF 1.379 / avg +0.548% / MEDIAN +1.332% /
-+$47.2M.** Top-3 tkd = 0.8%.
++\$47.2M.** Top-3 tkd = 0.8%.
 
 | yr | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -432,7 +432,7 @@ unconditionally). Natural S2 candidates: volat ceiling 200bp, leg depth ≤−6%
 
 2022 stays the weak year (1.030) — every stack so far amplifies the good years more than
 it fixes 2022. Exit mix: target 854,600 @ 1.412 med +1.353%; moc 6,178 @ 0.082 avg
-−4.55% (−$2.8M = 5.6% of gross).
+−4.55% (−\$2.8M = 5.6% of gross).
 
 | speed (fine, within <−2%) | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -499,12 +499,12 @@ repricing" boundary sits deeper on 1s than V6's 1m −15%, but it exists.
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 231,494 | 64.6 | 1.285 | 0.489 | 1.449 | 11,321,648 |
-| $1-2 | 130,584 | 67.8 | **1.615** | 0.872 | 1.648 | 11,386,517 |
-| $2-5 | 225,498 | 65.7 | 1.450 | 0.600 | 1.307 | 13,531,698 |
-| $5-20 | 209,632 | 65.9 | 1.341 | 0.444 | 1.177 | 9,308,966 |
-| $20-100 | 59,166 | 65.2 | 1.182 | 0.253 | 1.089 | 1,499,731 |
-| ≥$100 | 4,404 | 61.0 | 1.205 | 0.246 | 0.735 | 108,278 |
+| <\$1 | 231,494 | 64.6 | 1.285 | 0.489 | 1.449 | 11,321,648 |
+| \$1-2 | 130,584 | 67.8 | **1.615** | 0.872 | 1.648 | 11,386,517 |
+| \$2-5 | 225,498 | 65.7 | 1.450 | 0.600 | 1.307 | 13,531,698 |
+| \$5-20 | 209,632 | 65.9 | 1.341 | 0.444 | 1.177 | 9,308,966 |
+| \$20-100 | 59,166 | 65.2 | 1.182 | 0.253 | 1.089 | 1,499,731 |
+| ≥\$100 | 4,404 | 61.0 | 1.205 | 0.246 | 0.735 | 108,278 |
 
 | VOLUME 1m/20m | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -536,7 +536,7 @@ quiet-tc wing 1.60). chg_1d <−10% recovers to 1.077 inside S2 but is still the
 ## S3 (2026-07-28) — participation ceilings at entry + THE PRICE-ACCEPTANCE STOPS
 
 **S3 post-hoc spec = S2 + `vr_1m20m < 8` + `tcr_1m20m < 8` at the signal: n=860,182 /
-win 65.7 / PF 1.381 / avg +0.550% / median +1.332% / +$47.3M.** The ceiling removed just
+win 65.7 / PF 1.381 / avg +0.550% / median +1.332% / +\$47.3M.** The ceiling removed just
 596 trips at PF 0.736 / −1.89%/trip — a free cleanup. Year audit unchanged (2020 2.083 …
 2022 1.030 … 2026 1.157).
 
@@ -563,7 +563,7 @@ only the rerun answers it.
 
 ## S4 (2026-07-28) — stack 4: + `lows_since_first_low ∈ [16,50]` + the K×eff verdict
 
-**n=319,306 / win 67.4 / PF 1.599 / avg +0.746% / MEDIAN +1.437% / +$23.8M.** Top-3 tkd
+**n=319,306 / win 67.4 / PF 1.599 / avg +0.746% / MEDIAN +1.437% / +\$23.8M.** Top-3 tkd
 = 0.5%. **⭐ 2022 finally lifts: every year ≥ 1.227.**
 
 | yr | n | win | pf | avg% | med% | net |
@@ -651,12 +651,12 @@ even chaos-volat fadeable. The ceiling may be conditional, not absolute.)
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 85,798 | 66.3 | 1.606 | 0.834 | 1.572 | 7,159,546 |
-| $1-2 | 50,807 | 69.6 | 1.795 | 1.005 | 1.772 | 5,107,968 |
-| $2-5 | 85,388 | 67.7 | 1.685 | 0.782 | 1.408 | 6,673,945 |
-| $5-20 | 75,920 | 67.4 | 1.470 | 0.562 | 1.266 | 4,267,389 |
-| $20-100 | 19,896 | 65.5 | 1.230 | 0.294 | 1.083 | 584,682 |
-| ≥$100 | 1,497 | 64.9 | 1.119 | 0.146 | 0.918 | 21,833 |
+| <\$1 | 85,798 | 66.3 | 1.606 | 0.834 | 1.572 | 7,159,546 |
+| \$1-2 | 50,807 | 69.6 | 1.795 | 1.005 | 1.772 | 5,107,968 |
+| \$2-5 | 85,388 | 67.7 | 1.685 | 0.782 | 1.408 | 6,673,945 |
+| \$5-20 | 75,920 | 67.4 | 1.470 | 0.562 | 1.266 | 4,267,389 |
+| \$20-100 | 19,896 | 65.5 | 1.230 | 0.294 | 1.083 | 584,682 |
+| ≥\$100 | 1,497 | 64.9 | 1.119 | 0.146 | 0.918 | 21,833 |
 
 | VOLUME 1m/20m | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -674,7 +674,7 @@ even chaos-volat fadeable. The ceiling may be conditional, not absolute.)
 | [2,4)× | 56,645 | 66.2 | 1.552 | 0.696 | 1.302 | 3,940,072 |
 | [4,8)× | 3,026 | 65.2 | 1.754 | 1.324 | 1.630 | 400,675 |
 
-Exit mix: target 317,343 @ 1.640 med +1.453%; moc 1,963 @ 0.066 avg −5.02% (−$985k =
+Exit mix: target 317,343 @ 1.640 med +1.453%; moc 1,963 @ 0.066 avg −5.02% (−\$985k =
 3.8% of gross — the acceptance stops target exactly these).
 
 **S4 reading:** the K band is the 2022 FIX (1.030 → 1.227) — leg maturity is the
@@ -685,7 +685,7 @@ eff [−0.5,−0.3) 1.808 > dist [−25,−15) 1.878 > speed [−5,−3) 1.680 >
 ## S5 (2026-07-28) — stack 5: + `eff_20m ∈ [−0.5,−0.3)`
 
 **Spec: volat≥40bp × speed<−2% × vr<8 × tcr<8 × K∈[16,50] × eff∈[−0.5,−0.3).
-n=121,493 / win 69.6 / PF 1.808 / avg +0.953% / MEDIAN +1.63% / +$11.6M.**
+n=121,493 / win 69.6 / PF 1.808 / avg +0.953% / MEDIAN +1.63% / +\$11.6M.**
 Breadth: 75 trips/day (mc=0 — same-leg adds included), 2,786 symbols, 1,619 days,
 top-3 tkd 0.5%. **Worst year 1.363.**
 
@@ -699,7 +699,7 @@ top-3 tkd 0.5%. **Worst year 1.363.**
 | 2025 | 23,835 | 67.7 | 1.570 | 0.776 | 1.572 | 1,848,445 |
 | 2026 | 9,163 | 66.9 | 1.365 | 0.625 | 1.607 | 572,271 |
 
-Exit mix: target 120,929 @ 1.846 med +1.645%; moc 564 @ 0.069 avg −5.01% (−$283k =
+Exit mix: target 120,929 @ 1.846 med +1.645%; moc 564 @ 0.069 avg −5.01% (−\$283k =
 2.3% of gross — each stack shrinks the tail's weight).
 
 | K fine [16,50] | n | win | pf | avg% | med% | net |
@@ -749,12 +749,12 @@ Exit mix: target 120,929 @ 1.846 med +1.645%; moc 564 @ 0.069 avg −5.01% (−$
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 31,732 | 69.1 | 1.867 | 1.104 | 1.788 | 3,503,359 |
-| $1-2 | 21,234 | 72.1 | **2.157** | 1.276 | 1.937 | 2,710,003 |
-| $2-5 | 33,537 | 69.9 | 1.952 | 0.992 | 1.567 | 3,326,144 |
-| $5-20 | 27,400 | 68.4 | 1.484 | 0.620 | 1.447 | 1,698,195 |
-| $20-100 | 7,127 | 66.8 | 1.337 | 0.426 | 1.239 | 303,564 |
-| ≥$100 | 463 | 77.1 | 2.008 | 0.882 | 1.465 | 40,826 |
+| <\$1 | 31,732 | 69.1 | 1.867 | 1.104 | 1.788 | 3,503,359 |
+| \$1-2 | 21,234 | 72.1 | **2.157** | 1.276 | 1.937 | 2,710,003 |
+| \$2-5 | 33,537 | 69.9 | 1.952 | 0.992 | 1.567 | 3,326,144 |
+| \$5-20 | 27,400 | 68.4 | 1.484 | 0.620 | 1.447 | 1,698,195 |
+| \$20-100 | 7,127 | 66.8 | 1.337 | 0.426 | 1.239 | 303,564 |
+| ≥\$100 | 463 | 77.1 | 2.008 | 0.882 | 1.465 | 40,826 |
 
 Participation inside S5: FLAT (vol 1.65-1.91, tc 1.50-1.95 across all bands) — fully
 consumed by the upstream gates.
@@ -762,13 +762,13 @@ consumed by the upstream gates.
 **S5 reading:** the eff band buys +0.21 PF and +0.19% median across the board without
 damaging any year (2022 1.227 → 1.363). Remaining gradients: K's own interior favors
 26-50 (1.9) over 16-25 (1.6); dist [−25,−15) at 2.025 and speed [−5,−3) at 1.933 are
-still live; the price sweet spot $1-5 persists (2.16/1.95) with $5-20 fading to 1.48.
+still live; the price sweet spot \$1-5 persists (2.16/1.95) with \$5-20 fading to 1.48.
 The cell is BROAD (2,786 syms / 75 trips/day) and unconcentrated (0.5%) — no lottery.
 
 ## S6 (2026-07-28) — stack 6: + `dist from 20m high < −10%`
 
 **Spec: volat≥40bp × speed<−2% × vr<8 × tcr<8 × K∈[16,50] × eff∈[−0.5,−0.3) ×
-dist<−10%. n=91,440 / win 70.6 / PF 1.886 / avg +1.127% / MEDIAN +1.94% / +$10.3M.**
+dist<−10%. n=91,440 / win 70.6 / PF 1.886 / avg +1.127% / MEDIAN +1.94% / +\$10.3M.**
 Breadth: 57 trips/day, 2,352 syms, 1,602 days, top-3 tkd 0.6%. Worst year 1.419.
 
 | yr | n | win | pf | avg% | med% | net |
@@ -823,12 +823,12 @@ Breadth: 57 trips/day, 2,352 syms, 1,602 days, top-3 tkd 0.6%. Worst year 1.419.
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$1 | 26,194 | 69.9 | 1.939 | 1.251 | 2.043 | 3,275,778 |
-| $1-2 | 16,895 | 72.3 | **2.186** | 1.413 | 2.222 | 2,387,578 |
-| $2-5 | 25,677 | 70.9 | 2.037 | 1.146 | 1.826 | 2,942,359 |
-| $5-20 | 18,486 | 69.6 | 1.514 | 0.753 | 1.785 | 1,392,331 |
-| $20-100 | 3,941 | 69.4 | 1.479 | 0.692 | 1.724 | 272,788 |
-| ≥$100 | 247 | 84.2 | 2.641 | 1.544 | 2.345 | 38,125 |
+| <\$1 | 26,194 | 69.9 | 1.939 | 1.251 | 2.043 | 3,275,778 |
+| \$1-2 | 16,895 | 72.3 | **2.186** | 1.413 | 2.222 | 2,387,578 |
+| \$2-5 | 25,677 | 70.9 | 2.037 | 1.146 | 1.826 | 2,942,359 |
+| \$5-20 | 18,486 | 69.6 | 1.514 | 0.753 | 1.785 | 1,392,331 |
+| \$20-100 | 3,941 | 69.4 | 1.479 | 0.692 | 1.724 | 272,788 |
+| ≥\$100 | 247 | 84.2 | 2.641 | 1.544 | 2.345 | 38,125 |
 
 | change from 20m low | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -837,20 +837,20 @@ Breadth: 57 trips/day, 2,352 syms, 1,602 days, top-3 tkd 0.6%. Worst year 1.419.
 | [−1,−0.5)% | 12,241 | 70.5 | 1.902 | 1.261 | 2.128 | 1,543,679 |
 | <−1% | 5,259 | 71.3 | 2.098 | 1.767 | 2.619 | 929,510 |
 
-Exit mix: target 90,976 @ 1.929 med +1.956%; moc 464 @ 0.075 avg −5.40% (−$250k = 2.3%
+Exit mix: target 90,976 @ 1.929 med +1.956%; moc 464 @ 0.075 avg −5.40% (−\$250k = 2.3%
 of gross).
 
 **S6 reading:** the dist floor buys +0.08 PF and +0.31% median. The deep tail's
 un-fadeable boundary refines inward to **<−35%** (0.922, n=889 — small but the only
 negative bucket left in ANY table). K interior still favors 26-50; speed still peaks
-[−5,−3); the price ridge $1-5 persists. The stack is running out of levers with big
-spreads — remaining candidates are trims (<−35% dist cut, 16-25 K trim, $5+ price
+[−5,−3); the price ridge \$1-5 persists. The stack is running out of levers with big
+spreads — remaining candidates are trims (<−35% dist cut, 16-25 K trim, \$5+ price
 question) rather than new axes. ⏭ Validation next: mc=1 + K-gate + acceptance-stop
 rerun of this cell; distinct-leg count vs adds; cost model.
 
 ## S7 (2026-07-28) — stack 7: dist band [−35%, −10%) — ⭐ THE SAMPLER SPEC
 
-**n=90,551 / win 70.6 / PF 1.924 / avg +1.142% / MEDIAN +1.935% / +$10.3M.** Breadth
+**n=90,551 / win 70.6 / PF 1.924 / avg +1.142% / MEDIAN +1.935% / +\$10.3M.** Breadth
 56.5 trips/day, 2,349 syms, top-3 tkd 0.6%. Removing the 889-trip <−35% tail cleaned
 the whole grid: **every bucket of every lever table is now ≥ 1.41.**
 
@@ -868,63 +868,63 @@ the whole grid: **every bucket of every lever table is now ≥ 1.41.**
 and speed <−10% 1.673 → **2.103** — the earlier "ceilings" were <−35% disasters wearing
 volat/speed clothing. Post-trim, MORE extreme = MORE edge on every axis (K 36-50 2.069,
 speed <−10% 2.10, volat ≥200 2.10) with no inversion anywhere in range. Exit mix:
-target 90,099 @ 1.970 med +1.952%; moc 452 @ 0.056 (−$253k = 2.3% of gross).
+target 90,099 @ 1.970 med +1.952%; moc 452 @ 0.056 (−\$253k = 2.3% of gross).
 
 ### S7c (2026-07-28) — the commission test: 1¢/share round trip (½¢ per side)
 
-Fee as % of a $10k clip = `0.01 / raw_price` (−2% at $0.50, −1% at $1, −5bp at $20).
-TradeZero context: free non-marketable limits only ≥$1, so this flat-1¢ model is a
-STRESS test for the ≥$1 book and roughly the floor for sub-$1.
+Fee as % of a \$10k clip = `0.01 / raw_price` (−2% at \$0.50, −1% at \$1, −5bp at \$20).
+TradeZero context: free non-marketable limits only ≥\$1, so this flat-1¢ model is a
+STRESS test for the ≥\$1 book and roughly the floor for sub-\$1.
 
-| px | n | avg gross% | avg net% | med gross% | med net% | win net | pf net | $ net |
+| px | n | avg gross% | avg net% | med gross% | med net% | win net | pf net | \$ net |
 |---|---|---|---|---|---|---|---|---|
-| <$0.5 | 15,636 | 1.340 | **−6.544** | 2.127 | −3.230 | 24.9 | 0.086 | −10,232,610 |
-| $0.5-1 | 10,250 | 1.193 | **−0.218** | 1.920 | 0.527 | 55.4 | 0.881 | −223,426 |
-| $1-2 | 16,722 | 1.415 | 0.712 | 2.217 | 1.516 | 67.0 | 1.518 | 1,191,322 |
-| $2-5 | 25,437 | 1.122 | 0.787 | 1.809 | 1.464 | 67.7 | 1.659 | 2,002,110 |
-| $5-20 | 18,332 | 0.817 | 0.695 | 1.794 | 1.663 | 68.9 | 1.486 | 1,273,717 |
-| $20-100 | 3,927 | 0.684 | 0.650 | 1.723 | 1.689 | 68.9 | 1.445 | 255,244 |
-| ≥$100 | 247 | 1.544 | 1.536 | 2.345 | 2.337 | 84.2 | 2.632 | 37,950 |
+| <\$0.5 | 15,636 | 1.340 | **−6.544** | 2.127 | −3.230 | 24.9 | 0.086 | −10,232,610 |
+| \$0.5-1 | 10,250 | 1.193 | **−0.218** | 1.920 | 0.527 | 55.4 | 0.881 | −223,426 |
+| \$1-2 | 16,722 | 1.415 | 0.712 | 2.217 | 1.516 | 67.0 | 1.518 | 1,191,322 |
+| \$2-5 | 25,437 | 1.122 | 0.787 | 1.809 | 1.464 | 67.7 | 1.659 | 2,002,110 |
+| \$5-20 | 18,332 | 0.817 | 0.695 | 1.794 | 1.663 | 68.9 | 1.486 | 1,273,717 |
+| \$20-100 | 3,927 | 0.684 | 0.650 | 1.723 | 1.689 | 68.9 | 1.445 | 255,244 |
+| ≥\$100 | 247 | 1.544 | 1.536 | 2.345 | 2.337 | 84.2 | 2.632 | 37,950 |
 
-**⭐ VERDICT: sub-$1 is DEAD at any per-share commission** (<$0.50 = −6.5%/trip net,
-the fee is 2-4× the edge; $0.5-1 marginally negative). **The ≥$1 book survives the
+**⭐ VERDICT: sub-\$1 is DEAD at any per-share commission** (<\$0.50 = −6.5%/trip net,
+the fee is 2-4× the edge; \$0.5-1 marginally negative). **The ≥\$1 book survives the
 stress test whole: n=64,665 / win 68.0 / PF 1.557 / avg +0.736% / median +1.555% /
-+$4.76M net of fees.** Net-of-fee year audit (≥$1): 2020 2.666 / 2021 2.228 / **2022
++\$4.76M net of fees.** Net-of-fee year audit (≥\$1): 2020 2.666 / 2021 2.228 / **2022
 1.061 / 2023 1.105** / 2024 1.525 / 2025 1.316 / 2026 1.302 — the thin years get THIN
 (1.06-1.11) but stay positive; medians stay +1.2-1.9% every year. ⚠ Slippage/spread
 still unmodeled — fills are next-bar vwap; the limit-order question is production work.
 
 ### S7d (2026-07-28) — the TIERED commission test: 0.2¢/side (IBKR tiered >300k sh/mo) = 0.4¢/share RT
 
-| px | n | avg gross% | avg net% | med net% | win net | pf net | $ net |
+| px | n | avg gross% | avg net% | med net% | win net | pf net | \$ net |
 |---|---|---|---|---|---|---|---|
-| <$0.25 | 8,215 | 1.155 | **−3.827** | −1.902 | 33.0 | 0.177 | −3,144,250 |
-| $0.25-0.5 | 7,421 | 1.545 | 0.415 | 1.171 | 62.4 | 1.265 | 308,176 |
-| $0.5-1 | 10,250 | 1.193 | **0.628** | 1.344 | 64.1 | **1.421** | 644,154 |
-| $1-2 | 16,722 | 1.415 | 1.134 | 1.932 | 70.7 | 1.911 | 1,896,674 |
-| $2-5 | 25,437 | 1.122 | 0.988 | 1.676 | 69.8 | 1.874 | 2,514,005 |
-| $5-20 | 18,332 | 0.817 | 0.768 | 1.741 | 69.4 | 1.545 | 1,408,101 |
-| $20-100 | 3,927 | 0.684 | 0.670 | 1.706 | 69.2 | 1.461 | 263,156 |
-| ≥$100 | 247 | 1.544 | 1.541 | 2.342 | 84.2 | 2.637 | 38,055 |
+| <\$0.25 | 8,215 | 1.155 | **−3.827** | −1.902 | 33.0 | 0.177 | −3,144,250 |
+| \$0.25-0.5 | 7,421 | 1.545 | 0.415 | 1.171 | 62.4 | 1.265 | 308,176 |
+| \$0.5-1 | 10,250 | 1.193 | **0.628** | 1.344 | 64.1 | **1.421** | 644,154 |
+| \$1-2 | 16,722 | 1.415 | 1.134 | 1.932 | 70.7 | 1.911 | 1,896,674 |
+| \$2-5 | 25,437 | 1.122 | 0.988 | 1.676 | 69.8 | 1.874 | 2,514,005 |
+| \$5-20 | 18,332 | 0.817 | 0.768 | 1.741 | 69.4 | 1.545 | 1,408,101 |
+| \$20-100 | 3,927 | 0.684 | 0.670 | 1.706 | 69.2 | 1.461 | 263,156 |
+| ≥\$100 | 247 | 1.544 | 1.541 | 2.342 | 84.2 | 2.637 | 38,055 |
 
-Floor sweep (net PF / $): ≥$0.25 → 1.653/$7.07M · ≥$0.5 → 1.700/$6.76M · **≥$1 →
-1.752/$6.12M** · ≥$2 → 1.698/$4.22M. Net-of-fee year audit (≥$0.5): 2020 2.978 / 2021
+Floor sweep (net PF / \$): ≥\$0.25 → 1.653/\$7.07M · ≥\$0.5 → 1.700/\$6.76M · **≥\$1 →
+1.752/\$6.12M** · ≥\$2 → 1.698/\$4.22M. Net-of-fee year audit (≥\$0.5): 2020 2.978 / 2021
 2.407 / **2022 1.170 / 2023 1.202** / 2024 1.723 / 2025 1.440 / 2026 1.459.
 
-**Reading:** tiered pricing revives the $0.5-1 band (0.88 → 1.42, +0.63%/trip net) and
-even $0.25-0.5 goes positive-thin (1.265); only <$0.25 stays structurally dead (fee
-1.6-4%+ RT). The volume tier is self-fulfilling: the ≥$0.5 book at $10k/trip trades
+**Reading:** tiered pricing revives the \$0.5-1 band (0.88 → 1.42, +0.63%/trip net) and
+even \$0.25-0.5 goes positive-thin (1.265); only <\$0.25 stays structurally dead (fee
+1.6-4%+ RT). The volume tier is self-fulfilling: the ≥\$0.5 book at \$10k/trip trades
 **median 9.4M shares/month at mc=0** (p90 14.5M) — even a 5-10% mc=1 book clears 300k
 easily. ⚠ Commission-only model: IBKR tiered adds exchange/clearing/regulatory
 pass-throughs (remove-liquidity fees can exceed the commission on thin names; passive
-adds earn rebates) and sub-$1 names may price under the %-of-value cap — the exact
-all-in sub-$1 schedule needs a direct check (S8b flagged IBKR %-caps before). Practical
-floor at tiered: **$0.50 (PF 1.700) or $1 (PF 1.752)**, decided by the all-in check.
+adds earn rebates) and sub-\$1 names may price under the %-of-value cap — the exact
+all-in sub-\$1 schedule needs a direct check (S8b flagged IBKR %-caps before). Practical
+floor at tiered: **\$0.50 (PF 1.700) or \$1 (PF 1.752)**, decided by the all-in check.
 
 ## S8 (2026-07-28) — probe: K floor raised to 26 → [26,50]
 
-**n=65,082 / win 71.3 / PF 2.051 / avg +1.243% / MEDIAN +1.974% / +$8.09M.** Breadth
-41.5 trips/day, 2,198 syms, top-3 tkd 0.7%. Net-of-fee (≥$1, n=46,294): marketable
+**n=65,082 / win 71.3 / PF 2.051 / avg +1.243% / MEDIAN +1.974% / +\$8.09M.** Breadth
+41.5 trips/day, 2,198 syms, top-3 tkd 0.7%. Net-of-fee (≥\$1, n=46,294): marketable
 bound **1.669**, tiered mix **1.875**.
 
 | yr | n | win | pf | avg% | med% | net |
@@ -982,12 +982,12 @@ bound **1.669**, tiered mix **1.875**.
 
 | price | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
-| <$0.5 | 11,356 | 71.2 | 2.148 | 1.414 | 2.127 | 1,605,498 |
-| $0.5-1 | 7,432 | 69.8 | 2.073 | 1.314 | 1.975 | 976,542 |
-| $1-2 | 11,607 | 72.6 | **2.332** | 1.522 | 2.274 | 1,766,944 |
-| $2-5 | 18,062 | 71.9 | 2.206 | 1.241 | 1.863 | 2,241,617 |
-| $5-20 | 13,477 | 70.5 | 1.708 | 0.930 | 1.862 | 1,253,848 |
-| ≥$20 | 3,148 | 69.9 | 1.573 | 0.784 | 1.764 | 246,742 |
+| <\$0.5 | 11,356 | 71.2 | 2.148 | 1.414 | 2.127 | 1,605,498 |
+| \$0.5-1 | 7,432 | 69.8 | 2.073 | 1.314 | 1.975 | 976,542 |
+| \$1-2 | 11,607 | 72.6 | **2.332** | 1.522 | 2.274 | 1,766,944 |
+| \$2-5 | 18,062 | 71.9 | 2.206 | 1.241 | 1.863 | 2,241,617 |
+| \$5-20 | 13,477 | 70.5 | 1.708 | 0.930 | 1.862 | 1,253,848 |
+| ≥\$20 | 3,148 | 69.9 | 1.573 | 0.784 | 1.764 | 246,742 |
 
 | chg_1d | n | win | pf | avg% | med% | net |
 |---|---|---|---|---|---|---|
@@ -1014,10 +1014,10 @@ bound **1.669**, tiered mix **1.875**.
 | [2,4)× | 9,487 | 70.2 | 2.123 | 1.405 | 1.970 | 1,332,780 |
 | [4,8)× | 655 | 69.3 | 2.166 | 2.049 | 2.700 | 134,239 |
 
-Exit mix: target 64,814 @ 2.092 med +1.989%; moc 268 @ 0.074 avg −5.40% (−$145k =
+Exit mix: target 64,814 @ 2.092 med +1.989%; moc 268 @ 0.074 avg −5.40% (−\$145k =
 1.7% of gross — down from 9% at S1).
 
-**S8 trade-off vs S7:** +0.13 PF / +0.10% avg for −28% n and −$2.2M net — and **2022 is
+**S8 trade-off vs S7:** +0.13 PF / +0.10% avg for −28% n and −\$2.2M net — and **2022 is
 the one year that WEAKENS (1.410 → 1.361)**: the toughest year's edge partly lives in
 the K 16-25 band the raise discards. Interior now flat (31-50 ≈ 2.0-2.17, 26-30 at
 1.90). Judgment: the raise is defensible but not free — it trades breadth and 2022
@@ -1054,15 +1054,15 @@ The would-be-removed ≥8× population = **62 trips** (win 48.4, median −4.2%,
 coin-toss). **The early-stack toxicity of loud/fast lows was a YOUNG-LEG phenomenon**
 — by the 26th low of an established leg, another loud flush is exhaustion, not
 information. Ceilings are provably vestigial → DROPPED. Stops: with the never-revert
-tail at 268 trips / 0.4% / −$145k vs +$8.2M target profit, the acceptance stops have
+tail at 268 trips / 0.4% / −\$145k vs +\$8.2M target profit, the acceptance stops have
 almost nothing to save in this cell → **rerun runs stops OFF** (machinery stays in the
 engine; a stops-on comparison is one flag-flip away if the mc=1 book shows tail pain).
 
 **⭐ THE FROZEN SAMPLER SPEC (5 conditions + price floor):**
 `volat_20m >= 0.0040 AND speed_1m < -0.02 AND lows_since_first_low IN [26,50] AND
-eff_20m IN [-0.5,-0.3) AND dist_20m_high IN (-0.35,-0.10]` + **raw price ≥ $1**.
+eff_20m IN [-0.5,-0.3) AND dist_20m_high IN (-0.35,-0.10]` + **raw price ≥ \$1**.
 
-**n=65,144 / win 71.3 / PF 2.051 / avg +1.246% / MEDIAN +1.973% / +$8.11M** (gross,
+**n=65,144 / win 71.3 / PF 2.051 / avg +1.246% / MEDIAN +1.973% / +\$8.11M** (gross,
 all prices; 41.5 trips/day, 2,198 syms, top-3 tkd 0.7%).
 
 | yr | n | win | pf | avg% | med% | net |
@@ -1075,14 +1075,14 @@ all prices; 41.5 trips/day, 2,198 syms, top-3 tkd 0.7%).
 | 2025 | 13,203 | 69.0 | 1.725 | 0.994 | 1.824 | 1,312,563 |
 | 2026 | 5,080 | 69.1 | 1.621 | 1.031 | 2.108 | 523,967 |
 
-**The ≥$1 production book, net of fees (n=46,311):**
+**The ≥\$1 production book, net of fees (n=46,311):**
 
-| schedule | avg net% | med net% | pf net | $ net |
+| schedule | avg net% | med net% | pf net | \$ net |
 |---|---|---|---|---|
 | 1.0¢/sh RT (marketable bound) | 0.852 | 1.610 | 1.674 | 3,947,996 |
 | 0.4¢/sh RT (tiered mix) | 1.059 | 1.812 | **1.881** | 4,902,996 |
 
-≥$1 year audit at the tiered mix: 2020 3.360 / 2021 2.765 / **2022 1.201 / 2023 1.324**
+≥\$1 year audit at the tiered mix: 2020 3.360 / 2021 2.765 / **2022 1.201 / 2023 1.324**
 / 2024 1.763 / 2025 1.627 / 2026 1.502 — positive every year net of fees; the passive
 (limit-lane) bound sits near the gross numbers.
 
@@ -1096,9 +1096,9 @@ the SHORTER horizon should show exhaustion relative to the longer (the K×eff gr
 again). User: floor `|eff_10m| >= 0.15` (cuts the flat middle, n −3,499).
 
 **SPEC v1.1: volat≥40bp × speed<−2% × K∈[26,50] × eff_20m∈[−0.5,−0.3) × |eff_10m|≥0.15
-× dist∈(−35,−10] + ≥$1. n=61,645 / win 71.6 / PF 2.088 / avg +1.281% / MEDIAN +2.01% /
-+$7.90M gross.** Years: 2020 4.036 / 2021 2.859 / 2022 1.368 / 2023 1.729 / 2024 2.185
-/ 2025 1.748 / 2026 1.641. **≥$1 book (n=43,894) net: PF 1.707 @1¢ marketable / 1.916
+× dist∈(−35,−10] + ≥\$1. n=61,645 / win 71.6 / PF 2.088 / avg +1.281% / MEDIAN +2.01% /
++\$7.90M gross.** Years: 2020 4.036 / 2021 2.859 / 2022 1.368 / 2023 1.729 / 2024 2.185
+/ 2025 1.748 / 2026 1.641. **≥\$1 book (n=43,894) net: PF 1.707 @1¢ marketable / 1.916
 @0.4¢ tiered, med net +1.64/+1.84%.**
 
 ## S11 (2026-07-28) — session lows vs higher-low legs (user's closing question)
@@ -1180,7 +1180,7 @@ was load-bearing (sub-0.004 dead-below-costs) — most of the 328k tkds are dead
 ## S13 — the exit-window sweep off the aux-high marks (2026-07-29)
 
 The whole point of keeping the aux marks: test alternative exits in SQL without a
-re-run. All tables on **SPEC v1.1 + raw ≥$1 (n=43,894)**. First, validation: the
+re-run. All tables on **SPEC v1.1 + raw ≥\$1 (n=43,894)**. First, validation: the
 `aux_hi_300` counterfactual reproduces the live engine to the third decimal (PF 2.068
 vs 2.065, identical win/avg/median) — mark machinery confirmed end-to-end.
 
@@ -1214,7 +1214,7 @@ worse than 5m at every stat.)
 
 ## S14 — rng_300/rng_20m (front-loadedness) + distance-from-5m-high (2026-07-29)
 
-Same book (SPEC v1.1 + ≥$1). `rng_300/rng_20m` = share of the 20m log-range printed in
+Same book (SPEC v1.1 + ≥\$1). `rng_300/rng_20m` = share of the 20m log-range printed in
 the last 5m (median 0.46 on the book — these flushes are front-loaded by construction).
 
 | rng_300/rng_20m | n | win | PF | avg % | med % |
@@ -1256,7 +1256,7 @@ optional polish, not urgent; noted for the spec-freeze discussion.
 
 ## S15 — spec trips per ticker-day + the mc=1 preview (2026-07-29)
 
-SPEC v1.1 + ≥$1 (43,894 trips) collapses to **5,560 ticker-days** out of the sampler's
+SPEC v1.1 + ≥\$1 (43,894 trips) collapses to **5,560 ticker-days** out of the sampler's
 263,805 (2.1%). Per-tkd signal counts: **597 tkds (10.7%) have exactly ONE spec trip**;
 1,973 have 2–5; 2,666 have 6–20; 324 have >20 (max 66); median 6, mean 7.9. The
 multiplicity is mc=0 same-flush adds — the K∈[26,50] band alone admits up to 25
@@ -1380,7 +1380,7 @@ AND (vol_10/10.0)/(vol_60/60.0) >= 0.75      -- v1.2: last-10s volume-rate floor
 -- production: + entry_px/adj_ratio >= 1
 ```
 
-| book (≥$1) | n | win | PF | avg % | med % |
+| book (≥\$1) | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
 | SPEC v1.1 | 43,894 | 71.9 | 2.065 | 1.23 | 1.97 |
 | **SPEC v1.2** | 37,322 | 72.4 | **2.153** | **1.29** | **2.02** |
@@ -1419,11 +1419,11 @@ Two convention decisions (both deliberate):
 - **Cold `eff_20m` PASSES the band** (user) — a warm-channel flush whose 40-slot eff
   isn't yet computable is still a valid signal; 190 such trips exist on the restricted
   universe (gappy tapes). Cold `eff_10m`/volat/speed still FAIL their gates.
-- **The ≥$1 cut stays POST-HOC on raw entry price** (user): `--min-prev-close`
+- **The ≥\$1 cut stays POST-HOC on raw entry price** (user): `--min-prev-close`
   default stays 0. A prev-close gate was tried first (knowable pre-open, 5,560 →
   5,230 tkds) and REJECTED — this book buys flushes, so a name falling DOWN through
-  $1 intraday would be dropped by prev-close exactly when it signals; conversely a
-  sub-$1 name popping over $1 would be missed. Filter trips by `entry_px/adj_ratio
+  \$1 intraday would be dropped by prev-close exactly when it signals; conversely a
+  sub-\$1 name popping over \$1 would be missed. Filter trips by `entry_px/adj_ratio
   >= 1` in SQL instead (the S7c fee wall is an execution constraint, not a signal
   one).
 
@@ -1431,7 +1431,7 @@ Two convention decisions (both deliberate):
 variant): engine = 35,014 trips / PF 2.074 / win 72.0 / avg +1.22 / med +1.95;
 NULL-aware post-hoc SQL on `spec_tkds_nostops` under identical conventions =
 **35,014 / 2.074 / 72.0 / +1.22 / +1.95 — zero set difference on (symbol, date,
-signal_sec)**. The gate stack is proven; the $1 convention is orthogonal to it.
+signal_sec)**. The gate stack is proven; the \$1 convention is orthogonal to it.
 
 ⚠ Post-hoc gotcha for the record: the appender writes cold features as **NULL, not
 NaN** — `isnan(eff_20m)` misses them; use `eff_20m IS NULL OR ...`. (DuckDB NaN
@@ -1439,7 +1439,7 @@ comparisons are total-order — `NaN >= x` is TRUE — so NaN-lenient clauses si
 flip meaning; NULL semantics are the safe ones.)
 
 **The final `v12_reversals/` book (record-first, all 5,560 tkds): 37,778 trips / PF
-2.155 / win 72.4** — sub-$1 entries recorded, cut post-hoc. This is the production
+2.155 / win 72.4** — sub-\$1 entries recorded, cut post-hoc. This is the production
 reversal book the continuation trades hang off (S20 filters parents to
 `entry_px/adj_ratio >= 1` in the join).
 
@@ -1458,7 +1458,7 @@ P&L). 113,216 cont rows ≈ 3/parent (118 never fired).
 target-exited parents, cont-300's entry ≡ the parent's exit fill (same event, same
 bar, same px to 1e-12). The 5m-high continuation IS "flip instead of exit".
 
-**The 9-cell grid** (≥$1 parent book; ret vs each stop, MOC included):
+**The 9-cell grid** (≥\$1 parent book; ret vs each stop, MOC included):
 
 | enter on | stop | n | win | PF | avg % | med % | med hold | moc% |
 |---|---|---|---|---|---|---|---|---|
@@ -1496,7 +1496,7 @@ User idea: reversal entry, but once the first {1m,2m,5m} high prints, switch to 
 {1m,2m,5m} trailing stop. Composable exactly from the two parquets: ret =
 `coalesce(cont_W.stop_M_px, parent.exit_px) / parent.entry_px − 1` (a parent with no
 W-high break necessarily exited MOC — a 5m-high break implies a 1m-high break).
-≥$1 book, n = 37,512 each:
+≥\$1 book, n = 37,512 each:
 
 | arm at | 1m trail | 2m trail | 5m trail |
 |---|---|---|---|
@@ -1521,7 +1521,7 @@ User question: is it better to enter on the flush (the reversal) or on the 1m/2m
 break (the right side), both exiting at the SAME 5m-high target? Composable exactly:
 the first 5m break after a 1m/2m-break entry IS the parent's exit event (a 5m breach
 implies a 1m breach, so the 1m break can never come later), so composed ret =
-`parent.exit_px / cont_W.entry_px − 1`, MOC fallback inherited. ≥$1 book, identical
+`parent.exit_px / cont_W.entry_px − 1`, MOC fallback inherited. ≥\$1 book, identical
 subsets:
 
 | strategy | n | win | PF | avg % | med % | med hold |
@@ -1556,7 +1556,7 @@ time) exposed it; fixed by reusing the original object; final run verified
 bit-identical on the book. House rule reinforced: **an off-pattern cell in a sweep
 is a bug until proven a finding.**
 
-Sweep (≥$1 book, n=37,512; MA ≈ VWMA at every window — table shows MA):
+Sweep (≥\$1 book, n=37,512; MA ≈ VWMA at every window — table shows MA):
 
 | exit | win | PF | avg % | med % | med hold | ≥15:50 |
 |---|---|---|---|---|---|---|
@@ -1617,7 +1617,7 @@ near price converts the win-rate into a coin flip before slower exits can act
 
 **The 2.5-PF campaign opens.** User candidate: v1.2 + ANY of {vol 1m/20m ≥4,
 speed <−10%, chg-from-20m-low <−1%, eff_20m <−0.45, volat ≥200bp}.
-≥$1 v1.2 book (37,512 @ 2.137):
+≥\$1 v1.2 book (37,512 @ 2.137):
 
 | cut | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
@@ -1637,23 +1637,23 @@ keeping 2022 positive. **Verdict (user): not worth it.**
 |---|---|---|
 | S9-era eff [−0.5,−0.45) cell | 10,133 | 2.453 |
 | + \|eff_10m\| ≥ 0.15 | 9,892 | 2.481 |
-| + ≥$1 | 7,025 | 2.317 |
+| + ≥\$1 | 7,025 | 2.317 |
 | + vol10 gate (v1.2 form) | 5,810 | 2.325 |
 
-**The $1 floor deflated the cell** (the eff10 floor actually helped it): 2,867 of its
-trips were sub-$1 — where the extra PF lived — and sub-$1 is fee-dead (S7c). The
+**The \$1 floor deflated the cell** (the eff10 floor actually helped it): 2,867 of its
+trips were sub-\$1 — where the extra PF lived — and sub-\$1 is fee-dead (S7c). The
 ~2.5 version was never tradable; its tradable form runs 2.32-2.33.
 
 ⚠ **METHOD RULE (new):** the restricted `flushfader_spec_v11_tkds` universe contains
-only tkds with ≥1 v1.1+$1 trip → post-hoc there is EXACT only for TIGHTENINGS of
-v1.1+$1; any RELAXATION (drop a floor, widen a band, sub-$1) silently undercounts
+only tkds with ≥1 v1.1+\$1 trip → post-hoc there is EXACT only for TIGHTENINGS of
+v1.1+\$1; any RELAXATION (drop a floor, widen a band, sub-\$1) silently undercounts
 (the S9 cell read 7,246 vs the true 10,133 — 28% missing). Relaxations run against
 `base20_e1200_x300/` (⚠ no vol_5/10, tc_5/10 columns there) or need a full-universe
 engine rerun.
 
 ## S26 — the full lever battery on SPEC v1.2 (2026-07-29)
 
-All breakdowns on the engine-gated v1.2 ≥$1 book (n=37,512 / PF 2.137 / win 72.3 /
+All breakdowns on the engine-gated v1.2 ≥\$1 book (n=37,512 / PF 2.137 / win 72.3 /
 avg +1.28 / med +2.01).
 
 **01 volat_20m (bp):**
@@ -1768,7 +1768,7 @@ avg +1.28 / med +2.01).
 | [1.5,2) | 7,941 | 73.2 | 2.291 | 1.40 | 2.13 |
 | ≥2 | 13,229 | 71.2 | 2.070 | 1.20 | 1.95 |
 
-**12 raw price ($)** — clean monotone DOWN in price:
+**12 raw price (\$)** — clean monotone DOWN in price:
 
 | bucket | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
@@ -1875,35 +1875,35 @@ v1.1 grammar already flagged e20 < −0.5 as the zone where deep e10 inverts.)
 ## S28 — price × dollar volume: price is NOT a liquidity proxy (2026-07-29)
 
 User question: is the S26 raw-price monotone (cheap = better) just DipRiderV6's
-illiquidity lever in disguise? Grid on the v1.2 ≥$1 book (PF per cell):
+illiquidity lever in disguise? Grid on the v1.2 ≥\$1 book (PF per cell):
 
-| dv_0945 \ price | $1-2 | $2-5 | $5-10 | ≥$10 |
+| dv_0945 \ price | \$1-2 | \$2-5 | \$5-10 | ≥\$10 |
 |---|---|---|---|---|
-| $3-10M | 2.65 | 2.00 | 1.78 | 1.49 |
-| $10-30M | 2.78 | 2.51 | 2.27 | 1.76 |
-| $30-100M | 1.79 | 1.80 | 1.64 | 1.74 |
-| ≥$100M | **2.96** | 2.53 | 2.36 | 1.45 |
+| \$3-10M | 2.65 | 2.00 | 1.78 | 1.49 |
+| \$10-30M | 2.78 | 2.51 | 2.27 | 1.76 |
+| \$30-100M | 1.79 | 1.80 | 1.64 | 1.74 |
+| ≥\$100M | **2.96** | 2.53 | 2.36 | 1.45 |
 
-Row marginals (n / PF / avg / med / med px): 3-10M 7,296/2.018/1.16/1.83/$3.68 ·
-10-30M 7,514/2.329/1.34/1.95/$3.58 · 30-100M 7,795/1.753/0.99/1.89/$3.81 ·
-≥100M 14,907/2.352/1.47/2.18/$3.07.
+Row marginals (n / PF / avg / med / med px): 3-10M 7,296/2.018/1.16/1.83/\$3.68 ·
+10-30M 7,514/2.329/1.34/1.95/\$3.58 · 30-100M 7,795/1.753/0.99/1.89/\$3.81 ·
+≥100M 14,907/2.352/1.47/2.18/\$3.07.
 
 **Verdicts:** (a) the price gradient SURVIVES within every dv row (monotone in 3 of
-4, steepest in the most liquid) — price is its own lever (structural: a $1.50 name's
+4, steepest in the most liquid) — price is its own lever (structural: a \$1.50 name's
 flush→5m-high cycle is a bigger % move; tick-size friction favors the fader);
 (b) **V6's illiquidity lever does NOT reproduce — inverted here**: dv has no clean
 gradient controlling for price and dv≥100M is the BEST row. v1.2 already forces an
 in-play tape, so "illiquid" barely exists on this book; within in-play, headline
-names revert best. (c) Bonus cell: **dv≥100M × $1-2 = 2.96 on 4,079 trips** (sub-$2
-name printing $100M+ by 09:45 = maximal in-play) — dsv-cell-class strength at 2× the
-size. (d) Oddity: the $30-100M row is uniformly weak (~1.75) at every price — no
+names revert best. (c) Bonus cell: **dv≥100M × \$1-2 = 2.96 on 4,079 trips** (sub-\$2
+name printing \$100M+ by 09:45 = maximal in-play) — dsv-cell-class strength at 2× the
+size. (d) Oddity: the \$30-100M row is uniformly weak (~1.75) at every price — no
 mechanism story; watch-item, not signal.
 
 ## S29 — cell year audits PASS + the 20m dollar-flow lever + a mixed-scale engine wart (2026-07-29)
 
 **Year audits — both pending cells HOLD (positive every year):**
 
-| yr | dv0945≥100M × $1-2 (n/PF) | chg_3d [−10,0) (n/PF) |
+| yr | dv0945≥100M × \$1-2 (n/PF) | chg_3d [−10,0) (n/PF) |
 |---|---|---|
 | 2020 | 699 / 5.21 | 233 / 4.56 |
 | 2021 | 565 / 6.80 | 550 / 7.54 |
@@ -1914,13 +1914,13 @@ mechanism story; watch-item, not signal.
 | 2026 | 177 / 3.30 | 118 / 2.47 |
 
 Both beat the book in every year incl. 2022 (1.56/1.55 vs book 1.30). The A+ roster:
-dist-sess-vwap ≥−3 (3.41) · dv0945≥100M×sub-$2 (2.96, n 4,079) · chg_3d[−10,0) (3.04).
+dist-sess-vwap ≥−3 (3.41) · dv0945≥100M×sub-\$2 (2.96, n 4,079) · chg_3d[−10,0) (3.04).
 
 **⚠ MIXED-SCALE DISCOVERY:** the emitter adjusts PRICE (`vwap × adj_ratio`) but
 leaves VOLUME raw → every vwap·volume product (`dvSum60`/DvFloor gate,
 `dollar_vol_60` column) is adj_ratio × real dollars. vwap_60/vwap_1200/VWMA are
 UNAFFECTED (ratio cancels), volume RATIOS unaffected. Exposure: **808 trips (2.15%
-of the book) passed the $100k/60s floor only via inflation** (median-scale reverse-
+of the book) passed the \$100k/60s floor only via inflation** (median-scale reverse-
 split names get a floor relaxed by their ratio — and adj_ratio embeds FUTURE splits,
 so gate strength is subtly future-dependent: the 2026-07-16 bug class in miniature).
 ⏭ FIX CANDIDATE (user decision, spec-affecting): emitter divides volume by
@@ -1929,29 +1929,29 @@ columns move to today's-share units. Post-hoc honest dollars meanwhile:
 `dollar_vol_60/adj_ratio`, `(entry_px/adj_ratio)*vol_N`.
 
 **The 20m dollar-flow grid** (honest: `(entry_px/adj_ratio)·vol_1200`; book median
-$8.7M/20m). PF by row × price:
+\$8.7M/20m). PF by row × price:
 
-| dv-20m \ price | $1-2 | $2-5 | $5-10 | ≥$10 | row n / PF |
+| dv-20m \ price | \$1-2 | \$2-5 | \$5-10 | ≥\$10 | row n / PF |
 |---|---|---|---|---|---|
-| <$3M | 3.08 | 2.28 | 1.02 | (16) | 4,108 / 2.644 |
+| <\$3M | 3.08 | 2.28 | 1.02 | (16) | 4,108 / 2.644 |
 | [3,10M) | 1.96 | 1.92 | 1.64 | 1.73 | 16,684 / **1.866** |
 | [10,30M) | **5.44** | 2.44 | 1.79 | 1.25 | 10,918 / 2.038 |
 | [30,100M) | **6.74** | 3.01 | 3.64 | 1.75 | 4,638 / 2.628 |
-| ≥$100M | (17) | 40.9 | 8.69 | 3.04 | 1,164 / **5.459** |
+| ≥\$100M | (17) | 40.9 | 8.69 | 3.04 | 1,164 / **5.459** |
 
 **The signal-time dollar FLOW is a far bigger lever than morning liquidity:**
 U-shaped rows (quiet <3M = 2.64; the mid bulk [3,10M) = 1.87 weakest; then
-monotone UP to ≥100M/20m = 5.46 — $5M+/minute through a 20m-low flush = mass
+monotone UP to ≥100M/20m = 5.46 — \$5M+/minute through a 20m-low flush = mass
 capitulation, the S12 deep+loud story in dollars). The price gradient still holds
-within rows (steepest where flow is big: sub-$2 × [10,30M) = 5.44 on n 1,553;
+within rows (steepest where flow is big: sub-\$2 × [10,30M) = 5.44 on n 1,553;
 × [30,100M) = 6.74 on 341). ⏭ candidates: year-audit the flow rows; consider a
 dv20-based size/selection overlay; decide the volume-adjustment engine fix.
 
 **S29b — THE FIX (engine v7, 2026-07-29):** the emitter now divides volume by the
 same adj_ratio it multiplies price by (`volume = raw / r`) — price and shares share
 one scale, every vwap·volume product is honest dollars. Verified on the rerun:
-**zero trips below the honest $100k floor** (min dollar_vol_60 = $100,051). Book
-impact: ≥$1 book 37,512 → **36,717** (−795, the inflated-floor class), PF 2.137 →
+**zero trips below the honest \$100k floor** (min dollar_vol_60 = \$100,051). Book
+impact: ≥\$1 book 37,512 → **36,717** (−795, the inflated-floor class), PF 2.137 →
 **2.141**, win/avg/median unchanged, year profile unchanged (2022 1.29, 2023 1.47,
 all positive). The contamination class is gone; the edge didn't move — the 808
 trips were floor-noise, not signal. All dollar-denominated post-hoc work
@@ -1963,10 +1963,10 @@ engine-v7 parquets; `bar_vol`/`vol_*` columns are now in today's-share units
 
 Join: trips → `ticker_cik` → ASOF latest `dei:EntityPublicFloat` (dollars, as-filed)
 with `known_date <= trade_date` (no lookahead; value up to ~1y stale). Coverage:
-67.6% of the ≥$1 v7 book (11,914 trips uncovered — delisted/foreign/non-XBRL; that
+67.6% of the ≥\$1 v7 book (11,914 trips uncovered — delisted/foreign/non-XBRL; that
 slice runs 1.82).
 
-| float (as-filed $) | n | win | PF | avg % | med % |
+| float (as-filed \$) | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
 | <25M | 12,215 | 73.8 | 2.460 | 1.53 | 2.26 |
 | [25,75M) | 5,135 | 72.8 | 2.032 | 1.16 | 2.03 |
@@ -1976,17 +1976,17 @@ slice runs 1.82).
 | no data | 11,914 | 71.6 | 1.818 | 1.09 | 1.99 |
 
 Float × price grid (PF): within fl<75M the price gradient SURVIVES monotone
-(3.26 / 2.27 / 1.93 / 1.78 for $1-2/$2-5/$5-10/≥$10); within 75-300M it survives
+(3.26 / 2.27 / 1.93 / 1.78 for \$1-2/\$2-5/\$5-10/≥\$10); within 75-300M it survives
 flatter (2.60/2.29/2.04/2.06); within ≥300M it INVERTS into the "fallen giant" hump
-($2-5 = 4.19, $5-10 = 3.52).
+(\$2-5 = 4.19, \$5-10 = 3.52).
 
 **Year audits kill the big-float glamour:** ≥1B = half-2020 (672/1,366 trips @ 8.66;
-2026 = 1.15 on 40); fallen-giants ($2-10 × ≥300M) = 7.29 in 2020, fading to 1.92 /
+2026 = 1.15 on 40); fallen-giants (\$2-10 × ≥300M) = 7.29 in 2020, fading to 1.92 /
 0.39 in 2025/26. Real-company flushes are a CRASH-REGIME phenomenon — real but not
 a durable overlay.
 
 **Verdicts:** (a) **price is its own lever** — survives controlling for float, as it
-did for dollar volume (S28); (b) nano-float <$25M = a third of the covered book at
+did for dollar volume (S28); (b) nano-float <\$25M = a third of the covered book at
 2.46, the V6/LowFlyer small-float story alive but mild inside v1.2; (c) the 300M-1B
 mid-cap band (1.81) + the no-data slice (1.82) are the weak zones; (d) big-float
 strength = 2020-carried, ignore. No spec change.
@@ -2005,7 +2005,7 @@ The old tkd list selected days that ALSO had mature mid-day signals — a
 systematically better morning population. The restricted table biases any
 out-of-scope slice, not merely shrinks it.
 
-Honest window breakdown (≥$1):
+Honest window breakdown (≥\$1):
 
 | window | n | win | PF | avg % | med % | moc% |
 |---|---|---|---|---|---|---|
@@ -2017,13 +2017,13 @@ Honest window breakdown (≥$1):
 The morning slice ≈ book-level (keep), 13:30-15:00 mildly dilutive (keep for
 breadth), **15:00+ = the weak tail** (no room to revert; 21.6% forced MOC).
 
-**The v1.3 candidate — window 09:45-15:00 + price < $10:**
+**The v1.3 candidate — window 09:45-15:00 + price < \$10:**
 
 | variant | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
 | full window, no ceiling | 53,348 | 71.3 | 1.937 | 1.15 | 1.96 |
 | + entries end 15:00 | 47,804 | 71.9 | 2.044 | 1.22 | 2.00 |
-| **+ price < $10** | **39,541** | 72.2 | **2.135** | 1.29 | 2.03 |
+| **+ price < \$10** | **39,541** | 72.2 | **2.135** | 1.29 | 2.03 |
 
 Year audit of the candidate: 3.93 / 2.93 / **1.47** / **1.64** / 2.04 / 1.84 / 1.67
 — positive every year, and the thin years IMPROVE on the old narrow-window book
@@ -2046,8 +2046,8 @@ the v1.3 entry ceiling.**
 **Mechanics (unchanged since D1):** ENTRY = bar vwap STRICTLY below the prior
 1200-present-bar (~20m) MIN, fill next present bar's vwap, sampler mc=0. EXIT =
 vwap STRICTLY above the prior 300-bar (~5m) MAX, fill next bar; else MOC 16:00.
-**NO stop of any kind** (S16/S24). Universe: dv_0945 ≥ $3M. Liquidity floors at
-signal: ≥$100k and ≥60 trades in the trailing 60 present bars (honest dollars, v7).
+**NO stop of any kind** (S16/S24). Universe: dv_0945 ≥ \$3M. Liquidity floors at
+signal: ≥\$100k and ≥60 trades in the trailing 60 present bars (honest dollars, v7).
 
 **The signal stack (all at signal time, engine-gated):**
 
@@ -2061,23 +2061,23 @@ signal: ≥$100k and ≥60 trades in the trailing 60 present bars (honest dollar
 | 6 | dist from 20m high (vwap/chan_hi − 1) | ∈ (−35%, −10%] | deep into the leg, inside the fadeable zone |
 | 7 | (vol_10/10)/(vol_60/60) | ≥ 0.75 | last-10s tape ≥75% of the minute's pace (S17/S18) |
 | 8 | entry window | **09:45 – 15:00** | S31/S31b/S31c: 15:00+ = quality and completion-room degrade together |
-| 9 | raw price | **< $10** | S26/S28/S30/S31: price is its own lever; ≥$10 loses 2022-23 |
+| 9 | raw price | **< \$10** | S26/S28/S30/S31: price is its own lever; ≥\$10 loses 2022-23 |
 
-**Post-hoc (not a gate):** raw entry price ≥ $1 (the S7c fee wall; kept post-hoc so
-names crossing $1 intraday stay recorded).
+**Post-hoc (not a gate):** raw entry price ≥ \$1 (the S7c fee wall; kept post-hoc so
+names crossing \$1 intraday stay recorded).
 
 **The book:** n = 39,541 / PF 2.135 / win 72.2 / avg +1.29% / med +2.03%; positive
 all 7 years, worst 2022 = 1.47. **UPDATE (S35c, engine v8):** #8 (09:45-15:00) now
 BAKED; the universe floor is now `dv_0945_tape ≥ $3M` (1s-bar-native honest dollars
-— the candidate dv_0945 gate is DEPRECATED, S35 scale bug); #9 (<$10) remains
-post-hoc alongside the ≥$1 cut. Honest-floor book ≈ 33,780 @ ~2.17 (S35b);
+— the candidate dv_0945 gate is DEPRECATED, S35 scale bug); #9 (<\$10) remains
+post-hoc alongside the ≥\$1 cut. Honest-floor book ≈ 33,780 @ ~2.17 (S35b);
 definitive `v13_reference/` run supersedes prior parquets.
 
 **Validated A+ overlays (sizing, NOT gates):** dist-sess-vwap ≥ −3% (PF 3.41, 6/7
-yrs beat book) · dv_0945 ≥ $100M × sub-$2 (2.96, every yr) · chg_3d ∈ [−10, 0)
-(3.04, every yr) · 20m dollar-flow extremes (U-shape; ≥$100M/20m = 5.46).
+yrs beat book) · dv_0945 ≥ \$100M × sub-\$2 (2.96, every yr) · chg_3d ∈ [−10, 0)
+(3.04, every yr) · 20m dollar-flow extremes (U-shape; ≥\$100M/20m = 5.46).
 
-**S31c — the cliff search (30-min slots, <$10 book):** 13:00→15:50 = 1.895 / 1.860 /
+**S31c — the cliff search (30-min slots, <\$10 book):** 13:00→15:50 = 1.895 / 1.860 /
 1.588 / 1.795 / 1.553 / 1.393; moc% 0.7 → 31.3. No cliff — a gentle sag with a
 noise wobble (14:00-14:30 dips, 14:30-15:00 RECOVERS to 1.80 / med +2.17). The only
 joint quality+completion break is 15:00 (PF < 1.56 for good, moc 6.6 → 12.4 → 31.3).
@@ -2115,17 +2115,17 @@ wing (≥250×) runs below book (2026 = 0.75, 2022 = 1.33 at the edges).
 
 **⭐ rvol < 1× year audit: 5.94 / 4.66 / 2.63 / 2.77 / 2.23 / 2.50 / 1.55 — beats
 the book ALL 7 years, hardest in the grind years (2022 2.63 vs 1.47; 2023 2.77 vs
-1.64).** With dv_0945 ≥ $3M still required, rvol<1 = a NORMALLY-LIQUID name having a
+1.64).** With dv_0945 ≥ \$3M still required, rvol<1 = a NORMALLY-LIQUID name having a
 quiet-for-itself morning that then flushes — no overnight story, no positioned
 crowd. The purest "fresh local dislocation in an unbroken name" cell; family:
 dist-sess-vwap ≥−3%, chg_3d [−10,0). ⏭ family-overlap study (are the three one
 cell?); ⏭ user idea: drop dv_0945 floor / raise the signal-time liquidity floor —
 would WIDEN exactly this best slice (quiet-morning names currently excluded by the
-$3M floor).
+\$3M floor).
 
-## S33 — the dv_0945 floor is LOAD-BEARING: the sub-$3M complement study (2026-07-29)
+## S33 — the dv_0945 floor is LOAD-BEARING: the sub-\$3M complement study (2026-07-29)
 
-Method: the ≥$3M side already exists (`v12_full_universe`) — only the complement
+Method: the ≥\$3M side already exists (`v12_full_universe`) — only the complement
 needed a run (`flushfader_sub3m_tkds`, 64,557 tkds, 5 min → `v13_sub3m_complement`,
 8,062 trips). Merged = clean union (disjoint universes). All numbers on the v1.3 cut.
 
@@ -2139,24 +2139,24 @@ New-slice year audit: 1.52 / 3.03 / **1.03** / 1.72 / 2.03 / 1.45 / 2.41 — 202
 breakeven. Dilutive everywhere it matters.
 
 **Two falsifications, both instructive:**
-1. **rvol<1 does NOT extend to illiquid names** — sub-$3M × rvol<1: 2022 0.86, 2020
+1. **rvol<1 does NOT extend to illiquid names** — sub-\$3M × rvol<1: 2022 0.86, 2020
    1.16, 2025 1.25. The S32 A+ cell is "LIQUID name having a quiet morning", not
    "low rvol" per se. Quiet morning + small ADV = just a thin name.
-2. **The dv_20m replacement INVERTS on the new slice**: within sub-$3M-morning
+2. **The dv_20m replacement INVERTS on the new slice**: within sub-\$3M-morning
    names, big signal-time flow is the WORST cell (≥10M/20m = 1.314) and modest flow
    the best ([1,3M) = 2.285) — the exact opposite of the old book (≥10M = 2.633).
    The dollar-flow lever's sign is CONDITIONAL on baseline liquidity: on liquid
    names big flow = capitulation (fade it); on illiquid names big flow = the whole
    day IS the event (pump-collapse), still falling.
 
-**Verdict: dv_0945 ≥ $3M stays.** It is not merely a liquidity filter — it
+**Verdict: dv_0945 ≥ \$3M stays.** It is not merely a liquidity filter — it
 certifies a real two-sided market existed BEFORE the flush, which is what makes
 both the flow lever and the quiet-open lever mean what they mean. A signal-time
 floor cannot replace it because the floor's meaning flips with the baseline.
 (The one salvageable sliver — new × [1,3M)/20m = 2.29 on 2,151 trips — is not worth
 restructuring the universe for.) Total experiment cost: 5 min of compute.
 
-**S33b — dv_20m WITHIN the sub-$3M-morning slice (fine buckets):**
+**S33b — dv_20m WITHIN the sub-\$3M-morning slice (fine buckets):**
 
 | dv_20m | n | win | PF | avg % | med % |
 |---|---|---|---|---|---|
@@ -2170,7 +2170,7 @@ restructuring the universe for.) Total experiment cost: 5 min of compute.
 | ≥20M | 197 | 61.9 | **0.918** | −0.15 | 1.27 |
 
 MONOTONE INVERTED vs the established book: on quiet-morning names, less signal-time
-flow = better; ≥$20M/20m goes NEGATIVE (pure pump-collapse). Boundary ≈ $3M/20m.
+flow = better; ≥\$20M/20m goes NEGATIVE (pure pump-collapse). Boundary ≈ \$3M/20m.
 [1,3M) year audit: 1.64/8.67/1.66/1.83/2.56/2.08/3.82 — positive all 7 (2022 1.66 >
 main book 1.47). **Principle refined: fadeable flow must be PROPORTIONATE to the
 name's baseline.** Candidate satellite extension: `(dv_0945 ≥ 3M) OR (dv_0945 < 3M
@@ -2219,11 +2219,11 @@ ratio doesn't fully replace the grid (the corners are sharper 2-D) but it's the
 best single-number summary. ⏭ overlay/sizing candidate alongside the A+ roster; the
 [1,3M)-flush satellite (S33b) is the fr∈[0.3,1] band restricted to quiet mornings.
 
-**S34b — stacking fr < 3 on v1.3: NO-OP, skipped.** On the ≥$3M-morning book only
+**S34b — stacking fr < 3 on v1.3: NO-OP, skipped.** On the ≥\$3M-morning book only
 614 trips (1.6%) have fr ≥ 3 and they aggregate to PF 2.30 (yearly wild: 45.4 in
 2020 on 84, 0.22 in 2022 on 57 — noise scale). Book 2.135 → 2.132, win/avg/med
 unchanged; 2022 1.47 → 1.53 but 2020 loses its mini-jackpot. **The dv_0945 floor
-already does the fr filter's job** (the toxic fr≥3 mass was the sub-$3M slice S33
+already does the fr filter's job** (the toxic fr≥3 mass was the sub-\$3M slice S33
 excluded) — near-redundant conditions, confirming the floor-certifies-baseline
 story. NOT added to v1.3; becomes MANDATORY iff the S33b quiet-morning satellite
 universe is ever adopted.
@@ -2238,7 +2238,7 @@ v8: `dv_0945_tape` = Σ vwap·volume strictly before 09:45, honest dollars, reco
 — real dollars × adj_ratio.** Verified: `dv_0945_tape × adj_ratio / dv_0945` median
 1.023, log-corr 0.9999 (the 2% = mean-1m-close vs true vwap). Same mixed-scale sin
 as S29, at the UNIVERSE level, present in the ENTIRE DipRiderV6 lineage: a name that
-later 1:25-reverse-split entered the $3M floor at $120k real morning dollars.
+later 1:25-reverse-split entered the \$3M floor at \$120k real morning dollars.
 
 **Universe impact:** 328,258 → honest 261,888 tkds (−20%); 68,883 inflated IN,
 only 2,513 unfairly excluded (forward splits rare here).
@@ -2284,7 +2284,7 @@ measure (dv_0945/adj_ratio):
 | **TOTAL** | 1,324 / 3.74 | 2,828 / 4.68 | **2,352 / 4.37** | 1,396 / 4.56 |
 
 **Both robust** — cell 1 positive all 7 (floor 1.94; 2020 = a 29× jackpot); cell 2's
-one losing year (2023 = 0.50) is largely FAKE-$100M mornings (reverse-split-inflated
+one losing year (2023 = 0.50) is largely FAKE-\$100M mornings (reverse-split-inflated
 rows) — the honest axis repairs it to 1.55 with all other years 3.7-11.5. ⭐ The S35
 bug was polluting even the headline-liquidity cells; the honest universe fixes cells
 it never even targeted. Heavy-morning × torrent joins the A+ overlay roster
@@ -2311,7 +2311,7 @@ v1.3 book:
 | rest | < −3% | 34,064 | 71.5 | 1.980 | 1.17 | 1.97 |
 | rest | ≥ −3% | 1,729 | 75.0 | 2.510 | 1.52 | 2.12 |
 
-**MULTIPLICATIVE, near-disjoint (17% overlap): headline name + $30M torrent + still
+**MULTIPLICATIVE, near-disjoint (17% overlap): headline name + \$30M torrent + still
 AT session vwap = the most violent local capitulation inside the most intact day.**
 Year audit: 7.75 / 3.75 / 3.57 / 28.96 / 70.8 / 8.83 / ∞(42-0) — positive ALL 7;
 **the dsv condition RESCUES the corner's 2023** (bear-market torrents that kept
@@ -2325,11 +2325,11 @@ Playbook entry: the size-up pyramid is now dsv-prime alone (2.51) → torrent co
 the system's most liquid fills by construction).
 
 **S35d — v13_reference VERIFIED (the definitive honest-universe book):** 392,815
-candidates streamed, 59 min, 50,910 trips. v1.3 cut (≥$1, <$10): **33,954 / PF 2.152
+candidates streamed, 59 min, 50,910 trips. v1.3 cut (≥\$1, <\$10): **33,954 / PF 2.152
 / win 72.4 / avg +1.28 / med +2.00**. Reconciliation vs the S35b assembly: assembly
 fully contained (0 assembly-only), +174 reference-only trips (0.5% — the S25
 tkd-list relaxation bias, now closed). Tape floor exact: min dv_0945_tape =
-$3,000,074. New workhorse: **`flushfader_v13_tkds`** (from the reference run's trip
+\$3,000,074. New workhorse: **`flushfader_v13_tkds`** (from the reference run's trip
 tkds) — all prior tkd tables (spec_v11, v12_fullwin, sub3m, fwdsplit) are STALE/
 scaffolding. All post-hoc now runs off `v13_reference/` (127 cols incl.
 dv_0945_tape).
@@ -2380,8 +2380,8 @@ greedy at fixed mc. 2022-2023 remain the soft years in every column.
 
 ### S38b — mc=1 on THE A++ STACK: save the bullet for the 4th flush (2026-07-30)
 
-On v13_reference the stack (≥$30M tape morning × ≥$30M/20m flush × dsv ≥ −3%,
-$1≤px<$10) = **662 trips / 91 tkds / PF 9.125 / win 82.8** (S37's 643 was the
+On v13_reference the stack (≥\$30M tape morning × ≥\$30M/20m flush × dsv ≥ −3%,
+\$1≤px<\$10) = **662 trips / 91 tkds / PF 9.125 / win 82.8** (S37's 643 was the
 pre-reference assembly).
 
 **Naive mc=1 greedy** (take the first arrival, re-enter after exit): 102 trips
@@ -2614,7 +2614,7 @@ universe for any future K experiment.
 
 ### S38g — combining lows_20m × lows_5m (2026-07-30)
 
-2D grid on `v13_koff` ($1≤px<$10): the K20 [26,50] row dominates EVERY lows_300
+2D grid on `v13_koff` (\$1≤px<\$10): the K20 [26,50] row dominates EVERY lows_300
 column (2.1-2.2 vs 1.0-1.8 in all other rows) — the 20m clock's primacy is 2D.
 Inside the spec row lows_300 is mildly monotone: 0-5 = 1.706 / 6-15 = 2.105 /
 16-25 = 2.111 / 26+ = 2.219 (the S38f stacking wash).
@@ -2687,7 +2687,7 @@ the recorded column exactly. Restricted rerun (pure tightening ⇒ `flushfader_
 v13_tkds` exact) → **`data/equity/flushfader/v14_reference/`** = THE working
 parquet (47,909 raw trips; ⭐ ZERO-DIFF parity vs the SQL cut on v13_legs).
 
-| book (≥$1, <$10) | n | PF | win% | med% |
+| book (≥\$1, <\$10) | n | PF | win% | med% |
 |---|---|---|---|---|
 | v1.3 | 33,954 | 2.152 | 72.4 | +2.00 |
 | **v1.4** | **31,834** | **2.184** | **72.7** | **+2.04** |
@@ -2832,7 +2832,7 @@ chanRng max1200 min1200` — NaN/zero-range denominators FAIL, matching SQL
 `--max-rng-front`. Restricted rerun → **`v15_reference/` = THE working parquet**
 (45,730 raw; ⭐ ZERO-DIFF parity vs the SQL cut on v14_reference).
 
-| book (≥$1, <$10) | n | PF | win% | med% |
+| book (≥\$1, <\$10) | n | PF | win% | med% |
 |---|---|---|---|---|
 | v1.4 | 31,834 | 2.184 | 72.7 | +2.04 |
 | **v1.5** | **30,513** | **2.191** | **72.9** | **+2.03** |
@@ -2903,7 +2903,7 @@ parity vs `eff_20m IS NOT NULL` on v15).
 
 | | n | PF | win% | med% |
 |---|---|---|---|---|
-| book (≥$1,<$10) | 30,042 | **2.199** | 73.0 | +2.04 |
+| book (≥\$1,<\$10) | 30,042 | **2.199** | 73.0 | +2.04 |
 | A++ cell | 596 | 16.548 | 87.1 | +3.13 |
 | mc=1 book | 4,062 | 2.104 | 72.0 | +1.84 |
 
@@ -2921,13 +2921,13 @@ load-bearing.
 
 *Universe funnel:* `mr_candidate` preconditions (CS/ADRC; 09:30-09:45 median
 1m-bar volume ≥ 10k with ≥10 of 15 bars present) → engine streams the tkd's 1s
-slim bars → **`dv_0945_tape` ≥ $3M** (Σ vwap·volume over own 1s bars strictly
+slim bars → **`dv_0945_tape` ≥ \$3M** (Σ vwap·volume over own 1s bars strictly
 before 09:45 — the honest, 1s-native morning-dollars floor, S35).
 
 *Mechanics:* ENTRY = vwap strictly < prior 1200-bar MIN (needs 1,200 present
 bars ⇒ earliest signal ~09:50), fill NEXT bar vwap; EXIT = vwap strictly >
 prior 300-bar MAX, else MOC; NO stops; entry window 09:45-15:00 ET; per-bar
-floors dv_60 ≥ $100k AND tc_60 ≥ 60 at the signal.
+floors dv_60 ≥ \$100k AND tc_60 ≥ 60 at the signal.
 
 *SPEC gates (all at the signal bar):*
 1. `volat_20m` ≥ 40 bp/30s (slot-EmaHl vol floor)
@@ -2940,7 +2940,7 @@ floors dv_60 ≥ $100k AND tc_60 ≥ 60 at the signal.
 8. `lows_since_first_low_300` ≥ 6 (v1.4 — kills the fast-chase re-entry)
 9. `rng_300/rng_20m` < 0.8 (v1.5 — no pure cliffs)
 
-*Post-hoc:* $1 ≤ entry_px/adj_ratio < $10 (raw-price band; ceiling not baked).
+*Post-hoc:* \$1 ≤ entry_px/adj_ratio < \$10 (raw-price band; ceiling not baked).
 
 ## S38o — A+ family overlap + priority-mc=1 (2026-07-30, autonomous while user away)
 
@@ -2988,29 +2988,29 @@ medians) — maybe trade counts; find a use for the gap counters. Groundwork lai
 **1. What the funnel's 1m/daily dependencies actually are.** The ONLY 1m-bar
 condition that GATES today is precondition (A): median 09:30-09:45 1m-bar
 volume ≥ 10k AND ≥10/15 bars present. Everything else gating is already
-1s-native (`dv_0945_tape` ≥ $3M) or daily-corpus (CS/ADRC, D-1 adj_close ≥ $1,
+1s-native (`dv_0945_tape` ≥ \$3M) or daily-corpus (CS/ADRC, D-1 adj_close ≥ \$1,
 episode warm >21d, adj_ratio/prev_adj_close/close_3d). `rvol_0945_honest` +
 forward closes are record-only (research), not live-needed. Daily-corpus fields
 are live-trivial (any EOD feed); (A) is the one production-parity risk.
 
 **2. The (A) blind spot, quantified (2025 sample, minute_aggs, CS/ADRC):**
-246,239 tkds had ≥$3M morning dollars; **146,845 (60%) FAIL (A)** — the
+246,239 tkds had ≥\$3M morning dollars; **146,845 (60%) FAIL (A)** — the
 share-count median is structurally a tax on EXPENSIVE names. But split by
-price: blind spot = 146,415 at ≥$10 vs **430 sub-$10 (2.1% of the 20,165
-sub-$10 dollar-qualified)**. For THE SYSTEM (the $1-$10 band) (A) is nearly
+price: blind spot = 146,415 at ≥\$10 vs **430 sub-\$10 (2.1% of the 20,165
+sub-\$10 dollar-qualified)**. For THE SYSTEM (the \$1-\$10 band) (A) is nearly
 harmless — and the 430 it drops are the thinnest of the band (median bar-vol
 7,937 = just under the line; median morning trade count 1,147 vs passers'
 3,538; 113/430 fail on bar presence).
 
 **3. The 1s-native replacement proposal (next session's experiment):** rebuild
 `mr_candidate` with (A) replaced by a DIRECT dollar prefilter (Σ vol·close ≥
-~$2M in SQL, deliberately below the engine's exact $3M tape gate) + optionally
+~\$2M in SQL, deliberately below the engine's exact \$3M tape gate) + optionally
 a trade-count floor (`tc_0945_tape` = Σ trade_count pre-09:45 — subsumes
 bar-presence: user's "replace medians with trade counts"). Sweep the tc floor
 post-hoc off recorded cum_tc/tc features. Gap counters (`gap_60/30/15`,
 recorded) = the live per-signal tape-thinness analog of bar-presence — candidate
 use: record-first study vs the 430-type marginal tapes. Universe growth is
-bounded: sub-$10 adds ~430 tkds/yr; the $10+ flood only matters if the price
+bounded: sub-\$10 adds ~430 tkds/yr; the \$10+ flood only matters if the price
 ceiling is ever lifted.
 
 ## S38q — OLS r + slope features (10m/20m), the beach idea (2026-07-30, last run of the day)
@@ -3025,7 +3025,7 @@ negative at signals (every signal IS a 20m low), medians −0.88/−0.84. ⭐ Lo
 correlation with eff (r20↔eff20 = 0.24 band-attenuated, r10↔eff10 = 0.56) —
 genuinely new information.
 
-**Book breakdowns ($1-$10):**
+**Book breakdowns (\$1-\$10):**
 
 | ols_r_20m | n | PF | win% | med% | | ols_r_10m | n | PF | win% | med% |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -3109,8 +3109,8 @@ anti-cliff gate: rngfront < 0.8 (current) vs slope_20m < −X vs their union.
 is replaced by two floors computed on OUR 1s bars (the feed the live scanner
 will actually build):
 
-- **`dv_0945_tape ≥ $2M`** — Σ vwap·volume 09:30-09:45, raw dollars ($1M of
-  headroom under the spec's $3M engine gate);
+- **`dv_0945_tape ≥ $2M`** — Σ vwap·volume 09:30-09:45, raw dollars (\$1M of
+  headroom under the spec's \$3M engine gate);
 - **`n_eff_shannon ≥ 25`** — exp(Shannon H) of the window's 1s volume
   distribution = the effective number of equally-weighted seconds carrying the
   volume, in [1, 900]. Replaces "median + bar count" with one principled
@@ -3120,14 +3120,14 @@ will actually build):
   rolling use; the SQL build uses the same monoid identity
   `H = ln Σv − (Σ v·ln v)/Σv`, no window functions.)
 
-(B) — CS/ADRC × adj_close ≥ $1 × episode warmup — is unchanged. The old
-table's `rvol_0945 ≥ 0.1` prune is DROPPED (the $2M absolute floor subsumes
+(B) — CS/ADRC × adj_close ≥ \$1 × episode warmup — is unchanged. The old
+table's `rvol_0945 ≥ 0.1` prune is DROPPED (the \$2M absolute floor subsumes
 it; rvol stays recorded). New table = **`mr_candidate_1s`** (2020+, the 1s
 corpus span) in trading.db — now the ENGINE DEFAULT (`300dba9`);
 `FF_CANDIDATE_TABLE` stays as the research override (old universe, restricted
 tkd tables). Build: `scripts/equity/build_mr_candidate_1s.fsx`. Layering:
-table prefilter dv >= $2M x neff >= 25, engine spec gate dv_0945_tape >= $3M
-on top — the $1M margin is post-hoc relaxation room.
+table prefilter dv >= \$2M x neff >= 25, engine spec gate dv_0945_tape >= \$3M
+on top — the \$1M margin is post-hoc relaxation room.
 
 **Sanity:** the scan's dv matches the engine's in-stream `dv_0945_tape` on all
 6,091 v1.6 tkds — 0 mismatches ≥ 0.1%. Same definition, two implementations.
@@ -3139,16 +3139,16 @@ n_eff_shannon quantiles:
 | slice | q01 | q05 | q10 | q25 | med | q75 |
 |---|---|---|---|---|---|---|
 | old-pass tkds | 6.6 | 18.1 | 25.4 | 42.4 | 72.7 | 125.9 |
-| old-FAIL, dv ≥ $1M (blind-spot zone) | 1.4 | 3.3 | 5.3 | 10.5 | 21.2 | 41.5 |
+| old-FAIL, dv ≥ \$1M (blind-spot zone) | 1.4 | 3.3 | 5.3 | 10.5 | 21.2 | 41.5 |
 | v1.6 book tkds | 41.3 | 86.2 | 122.1 | 207.9 | 338.6 | — |
 
 So **25 ≈ the old gate's own q10** — on the distribution axis the new floor is
 as strict as the old gate's tail; the opening is on the DOLLAR axis (thin-bar
 tapes with real money). By dv band, median n_eff rises 15 → 24 → 41 → 87
-($1-3M → $3-10M → $10-30M → $30M+): the two floors are correlated but far from
+(\$1-3M → \$3-10M → \$10-30M → \$30M+): the two floors are correlated but far from
 redundant.
 
-**Blind-spot recovery (old-FAIL × dv ≥ $3M × avg px < $10, n = 66,510):**
+**Blind-spot recovery (old-FAIL × dv ≥ \$3M × avg px < \$10, n = 66,510):**
 neff ≥ 10 keeps 96%, **≥ 25 keeps 89%**, ≥ 50 keeps 65%, ≥ 100 keeps 26%.
 
 **Book cost:** neff < 25 touches **14 of 4,138 book tkds** (70 trips, +30.6
@@ -3160,7 +3160,7 @@ shape the metric exists to flag.
 
 **Metric validation anecdote:** the highest-dv LOW-neff days corpus-wide are
 megacap quad-witching Fridays — AAPL/MSFT/NVDA on 2023-06-16, 2023-12-15,
-2024-06-21, 2025-12-19, 2026-06-18 with $6-8B windows at neff 2-9: one
+2024-06-21, 2025-12-19, 2026-06-18 with \$6-8B windows at neff 2-9: one
 expiration print owns the window. The alarm rings where it should.
 
 **Universe size (A' × B), ticker-days/yr (old ≈ 49-74k):**
@@ -3175,11 +3175,11 @@ expiration print owns the window. The alarm rings where it should.
 | 2025 | 62,896 | 324,430 | 281,643 | **181,658** | 89,577 |
 | 2026 | 32,557 | 202,323 | 177,163 | **114,755** | 57,214 |
 
-Chosen: **dv ≥ $2M × neff ≥ 25** ≈ 2.5-3× the old streaming load. Both floors
+Chosen: **dv ≥ \$2M × neff ≥ 25** ≈ 2.5-3× the old streaming load. Both floors
 are recorded columns — tightenable post-hoc, and the rebuild is cheap (~2 min
 scan) if the 10-25 band ever looks interesting. ⚠ The old-vs-new universes
 ROTATE, they don't nest: 70.2% of old-pass tkds survive the new gate (the 30%
-casualty is almost all the DV axis — 102k fail $2M vs only 15k failing neff),
+casualty is almost all the DV axis — 102k fail \$2M vs only 15k failing neff),
 while **75.4% of the new universe is newly admitted** — the honest comparison
 of anything downstream is a fresh full run, not a diff.
 
@@ -3189,13 +3189,13 @@ python calibration scan EXACTLY (two independent implementations of the
 entropy — window-share form vs monoid-identity form — same answer, free
 cross-check). The one corpus day with NO candidates: **2020-03-16**, the
 COVID limit-down Monday — the circuit breaker consumed the 09:30-09:45 window
-(day's max-dv tape: $867M at n_eff 2.8 = one halted-auction print). The old
+(day's max-dv tape: \$867M at n_eff 2.8 = one halted-auction print). The old
 gate also produced zero candidates that day; both agree the window was
 untradable.
 
 ## S39b — OLS overlay YEAR AUDITS on the v1.6 book (queued item 3; run while the reference run streams)
 
-Book = v16_ols, $1 ≤ raw < $10. Four overlay candidates from the S38q grammar,
+Book = v16_ols, \$1 ≤ raw < \$10. Four overlay candidates from the S38q grammar,
 now with the year columns that decide their fate (PF | excluded-slice PF):
 
 **A: lin-20m `ols_r_1200 < −0.95`** (S38q headline 2.93):
@@ -3269,12 +3269,12 @@ were copied into the first `mr_candidate_1s` build:
 
 1. **`day_close >= $1`** — D's OWN close (knowable only at 16:00, gate applies
    at 09:45), and it is the ADJUSTED close, i.e. future-split-dependent — the
-   S35 disease in a second home: a $0.30 raw penny name with a future 1:10
+   S35 disease in a second home: a \$0.30 raw penny name with a future 1:10
    reverse split has adj_close ×10 → ADMITTED because of a corporate action
-   that hasn't happened yet, while a name that crashes through $1 and closes
+   that hasn't happened yet, while a name that crashes through \$1 and closes
    below is EXCLUDED because of D's own outcome — survivorship in exactly the
    direction that flatters a long-MR book. **REMOVED — no price floor in the
-   candidate table at all.** The $1 cut stays where it always belonged:
+   candidate table at all.** The \$1 cut stays where it always belonged:
    POST-HOC on raw `entry_px` (S7c fee wall), knowable at the fill.
 2. **`nbars > 21` warmup** — `COUNT(*) OVER (PARTITION BY ticker, episode)` =
    the episode's TOTAL length INCLUDING FUTURE DAYS: bar #5 of an
@@ -3290,29 +3290,29 @@ survival. Flagged here for the record; those books need a control rerun
 before their numbers are quoted again.
 
 **Rebuild:** 1,119,121 → **1,114,792 rows (−0.4% net)** — dropping the price
-floor ADDS sub-$1 tkds, the honest warmup REMOVES early-episode days, and
+floor ADDS sub-\$1 tkds, the honest warmup REMOVES early-episode days, and
 they nearly cancel. A lookahead removal that moves the universe 0.4% is the
 disproportion test passing: this is what real plumbing looks like. Reference
 run relaunched on the clean table (banner now echoes the candidate table).
 
-**S39d addendum — the sub-$1 anatomy (user: "how did we have $0-1 trades at
-all if the table had a $1 floor?"):** the floor was on D's ADJUSTED CLOSE,
+**S39d addendum — the sub-\$1 anatomy (user: "how did we have \$0-1 trades at
+all if the table had a \$1 floor?"):** the floor was on D's ADJUSTED CLOSE,
 never on the entry price — the engine records every trip on an admitted day.
-Decomposing the v16_ols raw trips' sub-$1-raw slice (7,710 trips / 879 tkds):
+Decomposing the v16_ols raw trips' sub-\$1-raw slice (7,710 trips / 879 tkds):
 
 | admission door | tkds | PF |
 |---|---|---|
-| future reverse split (raw close < $1; in only because adj_ratio ≫ 1) | 787 | 2.164 |
-| **bounce (raw close back ≥ $1 — day in because the flush RECOVERED)** | 92 | **8.546** |
+| future reverse split (raw close < \$1; in only because adj_ratio ≫ 1) | 787 | 2.164 |
+| **bounce (raw close back ≥ \$1 — day in because the flush RECOVERED)** | 92 | **8.546** |
 
 The bounce door's 8.5 = pure outcome selection ("buy the flush, given the
-day closed back above $1"), and the split door's 2.16 rides on
-survived-to-reverse-split names. The $1-$10 BOOK was insulated (post-hoc raw
-entry_px cut), but the "sub-$1 = fee-dead" verdict was measured on this
+day closed back above \$1"), and the split door's 2.16 rides on
+survived-to-reverse-split names. The \$1-\$10 BOOK was insulated (post-hoc raw
+entry_px cut), but the "sub-\$1 = fee-dead" verdict was measured on this
 flattered sample — it is even deader than stated. ⚠ **The momentum engines
 (SurgeRider/V2, DipRiderV6, PlungeRider, MaxRiderV1) read
 `diprider_v6_candidate` = a copy of `mr_candidate` — same two lookaheads.**
-Their sub-$1/sub-$2 slices (incl. the 52w-inversion "sub-$2 wreckage best"
+Their sub-\$1/sub-\$2 slices (incl. the 52w-inversion "sub-\$2 wreckage best"
 corner) were sampled with the bounce door open — inflated exactly where those
 systems looked best. Program already closed (2026-07-27), but do NOT quote
 its low-price numbers. PlungeRider's shorts are the one place the bias runs
@@ -3321,7 +3321,7 @@ conservative.
 ## S39e — THE CONTROL RUN: v1.6 on the clean universe (2026-07-31)
 
 Full v1.6 spec × `mr_candidate_1s` (the candidate-swap control, rule 5 of the
-lookahead protocol). 51,675 raw trips (~3h). $1-$10 book by year (old = v16_ols):
+lookahead protocol). 51,675 raw trips (~3h). \$1-\$10 book by year (old = v16_ols):
 
 | year | n old | PF old | n new | PF new |
 |---|---|---|---|---|
@@ -3344,10 +3344,10 @@ indifferent to the plumbing swap = the plumbing is real this time.
 coincidence: 590 shared + 6 added − 6 lost). The swap's anatomy in miniature:
 - **LOST: KIDZ 2025-05-02** — six losing trips (−1.4…−2.4%). The tkd had
   **19 prior bars** (admitted by the OLD warmup via its episode's FUTURE
-  length) and old-table day_close **$3,590** on a ~$2 raw name (future
+  length) and old-table day_close **\$3,590** on a ~\$2 raw name (future
   reverse splits, S35 disease). Both lookaheads on one specimen, holding
   losers.
-- **ADDED: EXPR 2021-01-27** (meme-squeeze peak, $101M morning, neff 90.6) —
+- **ADDED: EXPR 2021-01-27** (meme-squeeze peak, \$101M morning, neff 90.6) —
   the OLD gate rejected it with **8/15 one-minute bars present**: volatility
   HALTS gutted the window and the bar-COUNT requirement read halts as
   illiquidity. The old gate wasn't just blind to thin tapes — it excluded the
@@ -3356,7 +3356,7 @@ coincidence: 590 shared + 6 added − 6 lost). The swap's anatomy in miniature:
 
 ## S39f — rolling N_eff BREAKDOWN (user request): a new year-robust axis (2026-07-31)
 
-Book = v16_1s_reference $1-$10 (31,474 trips; zero null n_eff — warm
+Book = v16_1s_reference \$1-\$10 (31,474 trips; zero null n_eff — warm
 everywhere the channels are). `n_eff_shannon_1200` buckets:
 
 | bucket | n | PF | win% | avg | med |
@@ -3502,7 +3502,7 @@ table) is THE restricted streaming table — future engine changes rerun in
 
 ## S39l — HEAD-TO-HEAD 1: the eff ratios vs their challengers (2026-07-31)
 
-Universe = base + all v1.6 gates EXCEPT the eff pair, $1-$10 book: 57,788
+Universe = base + all v1.6 gates EXCEPT the eff pair, \$1-\$10 book: 57,788
 trips @ 1.956. Variants (V1 = current spec):
 
 | year | V0 eff-off | V1 eff pair | V2 band only | V3 ols_r [-.95,-.85) | V4 neffret≥28 | V5 V1+neffret≥28 |
@@ -3580,7 +3580,7 @@ special-casing; needs the mc=1 replay + A++-interaction pass before adoption.
 
 ## S39o — slope ACCELERATION (user: slope_10m − slope_20m) breakdown (2026-07-31)
 
-Universe = v1.6 minus rngfront, $1-$10 book (32,938). `accel` = (ols_slope_600
+Universe = v1.6 minus rngfront, \$1-\$10 book (32,938). `accel` = (ols_slope_600
 − ols_slope_1200) × 6e5 bp/min: negative = the decline STEEPENS into the
 signal, positive = decelerating. Quantiles: q05 −95.5 / med −15.3 / q95 +47.5.
 corr(accel, rngfront) = −0.477 (rngfront's OLS cousin), corr(accel, slope20)
@@ -3618,7 +3618,7 @@ message; −80 variant pending user cutoff choice).
 **User:** rngfront is volatility-invariant, the OLS slopes aren't (S39o figures
 = bp/min, ols_slope × 6e5) — can we normalize by volat? Yes: `nslope = slope ×
 30 / volat_20m` (trend-per-slot in units of typical slot movement,
-dimensionless). Universe = v1.6 minus rngfront, $1-$10 book.
+dimensionless). Universe = v1.6 minus rngfront, \$1-\$10 book.
 
 nslope q05/med/q95 = −0.52/−0.32/−0.15; naccel = −0.51/−0.09/+0.26.
 
@@ -3665,7 +3665,7 @@ the raw axes disappoint. **Verdict: keep slope/accel raw (bp/min).**
 (single-reader engine, 14.7 min, TRIP-SET PARITY vs base_v1 exact — the
 restricted-table workflow proven end to end). accel5 = (ols_slope_300 −
 ols_slope_600)×6e5 bp/min; q05/med/q95 = −153.7/−27.5/+79.6 (~2× wider than
-the 10m−20m axis). Universe = v1.6 minus rngfront, $1-$10 book.
+the 10m−20m axis). Universe = v1.6 minus rngfront, \$1-\$10 book.
 
 | accel5 bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -3736,7 +3736,7 @@ hostile, record-only.
 
 ## S39t — n_eff_ret tables on the v1.7 book + the slope5 cut's marginal anatomy (2026-07-31)
 
-Universe = the full v1.7 gate stack (pre-slope5), $1-$10 book, 29,258 trips.
+Universe = the full v1.7 gate stack (pre-slope5), \$1-\$10 book, 29,258 trips.
 
 **`n_eff_ret_20m` (40 slot-returns; high = smooth):**
 
@@ -3904,7 +3904,7 @@ occurs live, not a gate.
 
 **v1.7 REFERENCE RUN (full clean universe, engine defaults): 47,847 raw trips
 @ 2.314/72.8% — GRAND PARITY ✓ (engine ≡ SQL-on-base_v2, 47,847 = 47,847,
-zero diff).** `v17_reference/` = THE reference parquet. Book ($1-$10): 29,258
+zero diff).** `v17_reference/` = THE reference parquet. Book (\$1-\$10): 29,258
 @ 2.367 mc=0 / 4,056 @ 2.175 mc=1.
 
 **eff10 REVERSAL (user asked to remove; the residual universe says KEEP):**
@@ -4007,7 +4007,7 @@ Bookkeeping note: the v1.7 residual book on base_v3 = **29,192** trips; the
 Axes: `speed = 100*(signal_vwap/vwap_60_prev - 1)` (the gated flush-speed
 axis, spec < -2; vwap_60_prev = 60-bar rolling vwap lagged 1m) vs
 `d1m = 100*(signal_vwap/hi_60 - 1)` (depth below the 1m HIGH). Universe =
-v1.7 residual, $1-$10 book: 29,192 trips. speed q05/med/q95 =
+v1.7 residual, \$1-\$10 book: 29,192 trips. speed q05/med/q95 =
 -7.4/-3.33/-2.12; d1m = -7.23/-3.37/-1.84; **corr(speed, d1m) = 0.914** —
 same 1m-collapse information, max-anchored vs lagged-mean-anchored.
 
@@ -4062,7 +4062,7 @@ bake, per the slot-allocation discipline (S39u/v).
 
 ## S40b — eff_20m vs eff_rng_20m (range numerator): REPLACEMENT REJECTED, the SIGN is the information (2026-08-01)
 
-Universe = v1.7 minus the eff pair, $1-$10 book: 52,405 trips @ 2.046.
+Universe = v1.7 minus the eff pair, \$1-\$10 book: 52,405 trips @ 2.046.
 eff_rng_20m q05/med/q95 = 0.276/0.413/0.566; corr(eff_rng_20m, eff_20m) =
 -0.831 (= +0.831 vs |eff_20m| — on this universe eff is negative nearly
 everywhere, so eff_rng ≈ shifted |eff|); corr(eff_rng_10m, |eff_10m|) = 0.894.
@@ -4145,7 +4145,7 @@ universe base = `base_v3/` ∪ `base_early_v1/`** (disjoint, same schema — glo
 both). `flushfader_base_tkds` regenerated to the union: **59,294 tkds**
 (57,208 + 2,086; now carries `barnum`).
 
-The early slice under v1.7 ($1-$10 book):
+The early slice under v1.7 (\$1-\$10 book):
 
 | slice | trips | tkds | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -4177,7 +4177,7 @@ split warmed vs early until the user decides that slice). Parity + book +
 mc=1 to follow.
 
 **eff_rng_20m on the v1.8 residual universe, BOTH eff gates OFF** (user
-request; base_v3 = warmed universe, $1-$10 book): 52,676 trips @ 2.058.
+request; base_v3 = warmed universe, \$1-\$10 book): 52,676 trips @ 2.058.
 
 | eff_rng_20m bucket | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -4208,7 +4208,7 @@ so it CONTAINS the early slice — split below).
 | v1.8 book early only | 1,476 | 1.425 | 66.7 | +1.72 | 1.03 | 1.45 | 2.23 | 2.34 | 0.44 | 2.8 | 0.91 |
 | wall-restored slice (warmed, dist < -35) | 129 | 11.21 | 80.6 | +5.62 | 1.62 | - | - | - | 155.46 | 31.32 | - |
 
-mc=1 (greedy replay, $1-$10 book):
+mc=1 (greedy replay, \$1-\$10 book):
 - **warmed: 4,062 @ 2.184, ALL 7 YEARS POSITIVE** (2020 3.22 / 2021 2.74 /
   2022 1.80 / 2023 1.56 / 2024 2.22 / 2025 2.01 / 2026 1.88) — exactly the
   S39w projection. **The mc=1 ladder: 2.004 (v1.4) → 2.070 → 2.106 (v1.5) →
@@ -4246,7 +4246,7 @@ days 2-21 fade WORSE than seasoned tape — fresh listings don't mean-revert
 like the established book does. Noted as a candidate SHORT-side asymmetry.**
 
 **|eff_20m| reference table** (user request; v1.8-minus-eff universe = both
-eff gates off, warmed base_v3, $1-$10 book, 52,676 trips): the sign is a
+eff gates off, warmed base_v3, \$1-\$10 book, 52,676 trips): the sign is a
 NON-EVENT on this universe — **99.9% of trips have eff_20m < 0** (30 trips
 positive), so signed ≈ −|eff| and the signed convention stays (the band
 [-0.5,-0.3) ≡ |eff| ∈ [0.3,0.5) here). Same hump-and-toxic-tail grammar as
@@ -4277,7 +4277,7 @@ toxic tail, mirroring eff_rng's [0.65,0.8).)
 The S40a speed table stopped at −2% because the residual universe still
 carried the spec's own `speed < -2%` gate (d1m is ungated, so its table ran
 to 0). Apples-to-apples redo: **both axes on the v1.8-MINUS-speed universe**
-(all other gates on, warmed base_v3, $1-$10 book): 40,926 trips @ 2.252.
+(all other gates on, warmed base_v3, \$1-\$10 book): 40,926 trips @ 2.252.
 
 | speed bucket (%) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -4326,12 +4326,12 @@ directions.** Book 29,321 @ 2.392 mc=0 / 4,062 @ 2.184 mc=1 (identical trip
 set to the S40d warmed split — the gate exactly reproduces the post-hoc
 cut). **`v18_reference/` = THE reference parquet; the v1.8 production stack
 is: `mr_candidate_1s` (warmup-free, barnum recorded) → engine `MinBarnum=22`
-+ SPEC v1.8 gates → post-hoc $1-$10.**
++ SPEC v1.8 gates → post-hoc \$1-\$10.**
 
 ## S40f — experiment: eff_rng_20m band [0.35,0.6) x abs(eff_20m) breakdown → eff_rng DROPPED (user, 2026-08-01)
 
 Universe = v1.8-minus-eff × `eff_rng_20m ∈ [0.35,0.6)` (warmed base_v3,
-$1-$10 book): 39,144 trips @ 2.230.
+\$1-\$10 book): 39,144 trips @ 2.230.
 
 The [0.6,0.75) and [0.75,1.01) buckets are **empty BY CONSTRUCTION**:
 eff_rng >= |eff| on every row, so the eff_rng < 0.6 cap deletes the |eff|
@@ -4373,7 +4373,7 @@ trips; the spec keeps the existing signed-band implementation.)
 **User insight:** the S40a-addendum tables showed the speed gate cutting off
 d1m's weak shallow end as pure benefit → don't choose between the 1m axes,
 COMBINE them. Universe = v1.8-minus-speed, eff pair ON (warmed base_v3,
-$1-$10 book): 40,926 trips @ 2.252.
+\$1-\$10 book): 40,926 trips @ 2.252.
 
 2D (n / PF) — the DIAGONAL carries the book; both-deep is where the edge
 lives, and each axis's shallow slice is weak REGARDLESS of the other:
@@ -4433,7 +4433,7 @@ S40g projections. **The mc=1 ladder: 2.004 (v1.4) → 2.070 → 2.106 (v1.5) →
 2.104 (v1.6) → 2.175 (v1.7) → 2.184 (v1.8) → 2.211 (v1.9).**
 
 **dist-20m-VWAP breakdown** (user request; d20m-high held at the spec's
-< −10%; v1.9 residual universe, warmed base_v3, $1-$10 book: 27,060 @
+< −10%; v1.9 residual universe, warmed base_v3, \$1-\$10 book: 27,060 @
 2.453). dvw = signal_vwap/vwap_1200 − 1; q05/med/q95 = −15.22/−8.12/−5.41;
 corr(dvw, d20m-high) = 0.932. Buckets above −3% are structurally empty (the
 d20m gate forces the VWAP distance deep); [−4,−3) = 14 trips, all winners.
@@ -4487,7 +4487,7 @@ the book: 26,541 @ 2.465 EXACTLY matches the signed-band cut — the slope
 gates already exclude every positive-eff trip on this universe.
 
 **ols_r breakdowns** (user request — never shown yesterday; v2.0 residual
-universe, warmed base_v3, $1-$10 book, 26,541 @ 2.465). r = sign(slope) ×
+universe, warmed base_v3, \$1-\$10 book, 26,541 @ 2.465). r = sign(slope) ×
 sqrt(R²) of the OLS on ln(vwap); r20 q05/med/q95 = −0.953/−0.885/−0.676;
 r10 = −0.947/−0.828/−0.371; **corr(r10, r20) = 0.146** — the slope/accel
 gates have DECORRELATED the two scales.
@@ -4537,7 +4537,7 @@ caveat); NOT gates.**
 
 Can d20 < −10% or dvw < −5% be relaxed to admit trips without hurting PF?
 Universe = v2.0 minus the gate under study (other held), warmed base_v3,
-$1-$10 book.
+\$1-\$10 book.
 
 d20 relaxation region (dvw < −5 held):
 
@@ -4569,7 +4569,7 @@ dvw tightenings removed slot thieves; their reverse admits slot beggars.)
 ## S40k — the volume-shape / day-structure sweep: THREE new overlays, one new A+ stack (2026-08-01)
 
 Six features derivable from RECORDED columns (no engine change), all on the
-v2.0 residual universe (26,541 @ 2.465, warmed base_v3, $1-$10 book). The
+v2.0 residual universe (26,541 @ 2.465, warmed base_v3, \$1-\$10 book). The
 spec to date is almost entirely PRICE-shape; this is the volume/structure
 side. Quantiles: cresc q05/med/q95 = 0.64/0.97/1.32; psize 0.76/1.02/1.39;
 lowdens 0.015/0.040/0.113; rs60 0.12/0.23/0.42; pco −32.7/−8.8/+45.4.
@@ -4910,13 +4910,13 @@ the dv-vs-N_eff torrent disentangling.
 
 ## S40o — ⭐⭐ THE TORRENT IS N_eff IN DISGUISE — and the N_eff form FIXES the bear years (2026-08-01)
 
-User hypothesis: dv >= $30M/20m might be n_eff_shannon_1200 in disguise
+User hypothesis: dv >= \$30M/20m might be n_eff_shannon_1200 in disguise
 (liquid = distributed volume; illiquid = sparse spiky volume). Universe =
 v2.0 residual on base_v4 (26,541). corr(ln dv12, ns12) = 0.795 — tightly
-coupled, as predicted. dv12 q05/med/q95 = $2.9M/$9.1M/$69M; ns12 =
+coupled, as predicted. dv12 q05/med/q95 = \$2.9M/\$9.1M/\$69M; ns12 =
 232/406/701.
 
-| dollar_vol_1200 ($M) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
+| dollar_vol_1200 (\$M) | n | PF | win% | med | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | [1,2) | 307 | 1.773 | 71.3 | +2.98 | 8.84 | - | inf | 0.46 | 15.9 | 0.98 | 1.86 |
 | [2,4) | 3,503 | 2.178 | 70.5 | +2.11 | 3.99 | 4.35 | 2.93 | 1.27 | 2.77 | 1.7 | 1.53 |
@@ -4940,7 +4940,7 @@ coupled, as predicted. dv12 q05/med/q95 = $2.9M/$9.1M/$69M; ns12 =
 
 2D (n / PF):
 
-| dv12 $M \ ns12 | [0,250) | [250,450) | [450,650) | [650,850) | [850,1201) |
+| dv12 \$M \ ns12 | [0,250) | [250,450) | [450,650) | [650,850) | [850,1201) |
 |---|---|---|---|---|---|
 | [1,4) | 805 / 3.65 | 2,926 / 1.83 | 79 / 5.33 | 0 | 0 |
 | [4,15) | 1,172 / 2.05 | 10,004 / 2.24 | 2,904 / 2.6 | 20 / 2.63 | 0 |
@@ -4966,7 +4966,7 @@ WITHOUT the dollars (ns>=650 × dv<30M = 5.17 on 267). (c) **The new form
 of the corner: `n_eff_shannon_1200 >= 650` ≈ 2,247 trips @ ~5.1 — beats
 the dv-defined torrent (3.92) AND repairs its 2022-23 inversion.** A 20m
 window where 650+ of 1,200 seconds carry effective volume = a genuinely
-continuous institutional-grade panic — the thing the $30M floor was
+continuous institutional-grade panic — the thing the \$30M floor was
 groping for. Overlay roster: the torrent tier is now **ns12 >= 650 (the
 DISTRIBUTED torrent)**; dv12 stays recorded. Footnote: the OPPOSITE
 extreme (ns12 < 150 / the 44-trip 29.08 cell) is a concentrated-burst
@@ -5192,19 +5192,19 @@ liquidity concern):**
 
 | quantile | band [360,700) | band [700,1200) | BOOK reference |
 |---|---|---|---|
-| dv_20m med (q05-q95) | $5.4M ($2.1-11.7M) | $4.5M ($1.6-14.0M) | $5.3M ($2.0-18.6M) |
-| dv_5m med | $1.70M | $1.30M | $1.62M |
-| dv_1m med (q05) | $443k ($139k) | $365k ($138k) | $451k ($141k) |
-| dv_0945 med | $6.3M | $5.3M | $6.8M |
-| entry px med | $2.6 | $3.0 | $2.8 |
+| dv_20m med (q05-q95) | \$5.4M (\$2.1-11.7M) | \$4.5M (\$1.6-14.0M) | \$5.3M (\$2.0-18.6M) |
+| dv_5m med | \$1.70M | \$1.30M | \$1.62M |
+| dv_1m med (q05) | \$443k (\$139k) | \$365k (\$138k) | \$451k (\$141k) |
+| dv_0945 med | \$6.3M | \$5.3M | \$6.8M |
+| entry px med | \$2.6 | \$3.0 | \$2.8 |
 | tc_60 med | 495 | 418 | 508 |
 
 **The 11.9 corner is NOT the illiquid tail** — its dollar distributions sit
 at ~80-85% of the book's medians and are IDENTICAL at q05 (the engine's own
-floors — DvFloor60 $100k, TcFloor60 60, dv_0945 >= $3M, dvw — already force
-real liquidity). These names did $3-14M in the 20m window; the gaps come
+floors — DvFloor60 \$100k, TcFloor60 60, dv_0945 >= \$3M, dvw — already force
+real liquidity). These names did \$3-14M in the 20m window; the gaps come
 from the tape STOPPING BETWEEN BURSTS, not from the name being untradable.
-A $10k clip ≈ 3% of the median signal-minute flow. **The real practical
+A \$10k clip ≈ 3% of the median signal-minute flow. **The real practical
 caveat is INTERMITTENCY, not depth**: with 700+ dead seconds, the
 next-present-bar fill assumption papers over wait-time and spread between
 bursts — exactly what the queued TradeZero-fills/slippage work must stress,
@@ -5215,16 +5215,16 @@ magnitude MORE liquid than the book:**
 
 | quantile | gap < 5 lens | BOOK | ratio |
 |---|---|---|---|
-| dv_20m med (q05) | $55.6M ($19.2M) | $5.3M ($2.0M) | ~10× |
-| dv_5m med | $11.3M | $1.6M | ~7× |
-| dv_1m med (q05) | $3.0M ($747k) | $451k ($141k) | ~6.6× |
-| dv_0945 med | $69.1M | $6.8M | ~10× |
+| dv_20m med (q05) | \$55.6M (\$19.2M) | \$5.3M (\$2.0M) | ~10× |
+| dv_5m med | \$11.3M | \$1.6M | ~7× |
+| dv_1m med (q05) | \$3.0M (\$747k) | \$451k (\$141k) | ~6.6× |
+| dv_0945 med | \$69.1M | \$6.8M | ~10× |
 | tc_60 med | 2,816 (~47/sec) | 508 | ~5.5× |
 
 The continuous corner IS the honest-torrent population rediscovered from
-the microstructure side (median morning dv $69M >> the old $30M threshold).
+the microstructure side (median morning dv \$69M >> the old \$30M threshold).
 The bimodal pair is now fully characterized: **gap < 5 = the SIZE side**
-(5.63 PF, worst-year 3.90, $3M/minute tape where six-figure clips are ~3%
+(5.63 PF, worst-year 3.90, \$3M/minute tape where six-figure clips are ~3%
 of flow, maximal fill realism) **vs the burst corner = the EDGE side**
 (11.9 PF on book-typical depth but intermittent tape, slippage-audit
 required). Liquidity scaling WITH edge on the continuous side — the S38
@@ -5637,7 +5637,7 @@ pyramid re-cut).
 obsolete? Recall: rngfront was mc=0-weak and earned its seat at mc=1.
 
 **Method:** residual universe = v2.1 with BOTH gates off, SQL over base_v8
-+ $1-$10 book cut = **27,377 trips** (v2.1 anchor reproduced exactly:
++ \$1-\$10 book cut = **27,377 trips** (v2.1 anchor reproduced exactly:
 26,135 @ 2.501). Fine breakdowns of each axis on the residual universe,
 overlap cross-table, then mc=1 greedy replay of all four on/off combos.
 
@@ -5699,7 +5699,7 @@ overlap cross-table, then mc=1 greedy replay of all four on/off combos.
 | front-pass × rsf-cut (only rsf removes) | 406 | 1.221 | 69.5 | +2.01 |
 | front-pass × rsf-pass (the v2.1 book) | 26,135 | 2.501 | 74.1 | +2.15 |
 
-**The four combos, mc=0 and mc=1 (greedy replay on the $1-$10 book):**
+**The four combos, mc=0 and mc=1 (greedy replay on the \$1-\$10 book):**
 
 | config | mc=0 n | mc=0 PF | mc=1 n | mc=1 PF |
 |---|---|---|---|---|
@@ -6780,61 +6780,61 @@ off; the canonical base CLI gains `--max-z-20m 0`. NO new record cols —
 exactly as forecast from base_v14 (23,424 @ 2.588 / 3,548 @ 2.287 both
 matched pre-computation EXACTLY).
 
-## S41t — the price axis on v2.3: the $10 ceiling is NOT earning (2026-08-02)
+## S41t — the price axis on v2.3: the \$10 ceiling is NOT earning (2026-08-02)
 
 **User: price breakdown on full + g60 raw v2.3, decide whether to bake
-< $10.** (Full band tables above in the run; canonical rows:)
+< \$10.** (Full band tables above in the run; canonical rows:)
 
 | band (FULL raw) | n | PF | 2022 | 2023 | 2025 | 2026 |
 |---|---|---|---|---|---|---|
-| < $0.50 | 3,840 | 2.114 | 2.08 | 2.49 | 1.79 | 2.02 |
-| [$0.50,1) | 3,872 | 2.442 | 1.58 | 3.15 | 2.69 | 2.17 |
-| [$1,2) | 6,545 | 3.094 | 3.27 | 1.85 | 2.21 | 4.21 |
-| [$2,10) | 16,879 | ~2.4 | 0.39-2.47 | 1.07-3.1 | 1.46-2.52 | 1.35-6.06 |
-| [$10,15) | 2,438 | 2.509 | 2.11 | 2.75 | 3.52 | 0.91 |
-| [$15,25) | 2,202 | 2.37 | 1.77 | 0.86 | 2.43 | 2.07 |
-| >= $25 | 2,293 | 2.151 | 3.45 | 14.11 | 2.2 | 3.81 |
+| < \$0.50 | 3,840 | 2.114 | 2.08 | 2.49 | 1.79 | 2.02 |
+| [\$0.50,1) | 3,872 | 2.442 | 1.58 | 3.15 | 2.69 | 2.17 |
+| [\$1,2) | 6,545 | 3.094 | 3.27 | 1.85 | 2.21 | 4.21 |
+| [\$2,10) | 16,879 | ~2.4 | 0.39-2.47 | 1.07-3.1 | 1.46-2.52 | 1.35-6.06 |
+| [\$10,15) | 2,438 | 2.509 | 2.11 | 2.75 | 3.52 | 0.91 |
+| [\$15,25) | 2,202 | 2.37 | 1.77 | 0.86 | 2.43 | 2.07 |
+| >= \$25 | 2,293 | 2.151 | 3.45 | 14.11 | 2.2 | 3.81 |
 
 | band (g60 raw) | n | PF | 2022 | 2023 | 2025 | 2026 |
 |---|---|---|---|---|---|---|
-| [$7,10) | 1,156 | 5.226 | 6.69 | 3.72 | 3.61 | 17.35 |
-| [$10,15) | 937 | 3.624 | 2.53 | 2.04 | 3.1 | — |
-| [$15,25) | 700 | 4.071 | 13.76 | 4.34 | 3.84 | 3.1 |
-| >= $25 | 833 | 4.848 | — | 8.81 | 3.32 | 2.76 |
+| [\$7,10) | 1,156 | 5.226 | 6.69 | 3.72 | 3.61 | 17.35 |
+| [\$10,15) | 937 | 3.624 | 2.53 | 2.04 | 3.1 | — |
+| [\$15,25) | 700 | 4.071 | 13.76 | 4.34 | 3.84 | 3.1 |
+| >= \$25 | 833 | 4.848 | — | 8.81 | 3.32 | 2.76 |
 
 **The decision cells:**
 
 | config | mc=0 | mc=1 | mc=1 slot-points |
 |---|---|---|---|
-| FULL $1-10 (current) | 23,424 @ 2.588 | 3,548 @ 2.287 | 4,329 |
-| FULL $1+ | 30,357 @ 2.528 | 4,285 @ 2.109 | 4,756 |
-| FULL $10+ slice | 6,933 @ 2.333 (2022 2.39, 2023 2.09, 2025 2.59) | — | — |
-| g60 $1-10 | 9,107 @ 3.685 | 1,545 @ 2.924 | 2,395 |
-| g60 $1+ | 11,577 @ 3.778 | 1,889 @ 2.771 | 2,871 |
-| g60 $10+ slice | 2,470 @ 4.139 (2022 8.87) | — | — |
+| FULL \$1-10 (current) | 23,424 @ 2.588 | 3,548 @ 2.287 | 4,329 |
+| FULL \$1+ | 30,357 @ 2.528 | 4,285 @ 2.109 | 4,756 |
+| FULL \$10+ slice | 6,933 @ 2.333 (2022 2.39, 2023 2.09, 2025 2.59) | — | — |
+| g60 \$1-10 | 9,107 @ 3.685 | 1,545 @ 2.924 | 2,395 |
+| g60 \$1+ | 11,577 @ 3.778 | 1,889 @ 2.771 | 2,871 |
+| g60 \$10+ slice | 2,470 @ 4.139 (2022 8.87) | — | — |
 
-**READING:** the < $10 rule dates to v1.3; under v2.3 it is NOT earning.
-The $10+ slice is book-class on the full universe (2.333, with the WEAK
-years 2022/23/25 all BETTER than the sub-$10 book's) and STRONG on clean
+**READING:** the < \$10 rule dates to v1.3; under v2.3 it is NOT earning.
+The \$10+ slice is book-class on the full universe (2.333, with the WEAK
+years 2022/23/25 all BETTER than the sub-\$10 book's) and STRONG on clean
 tape (4.139, 2022 = 8.87) — and these are the most liquid, best-fill
 names. mc=0: ceiling-off improves g60 (+0.093), ~flat full (−0.06). mc=1:
 ceiling-off trades −0.15 PF for +20-22% trips → +10-20% total slot-
 points. The ceiling is a slot-concentration device, not an edge
-statement. Sub-$1 stays post-hoc-excluded on FEES (EU routes, v1.1),
-with sub-$0.50 also the weakest band everywhere. **Decision = user's:
+statement. Sub-\$1 stays post-hoc-excluded on FEES (EU routes, v1.1),
+with sub-\$0.50 also the weakest band everywhere. **Decision = user's:
 retire the ceiling (recommended — PF-per-slot gives way to points and
-fills) or keep $1-10 as the concentrated book.**
+fills) or keep \$1-10 as the concentrated book.**
 
-**S41t VERDICT (user): the $10 CEILING IS RETIRED — THE BOOK = $1+.**
+**S41t VERDICT (user): the \$10 CEILING IS RETIRED — THE BOOK = \$1+.**
 Rationale (user): the price bands OVERLAP each other in what they capture
-— but the $10+ trades are completely NON-OVERLAPPING with the sub-$10
+— but the \$10+ trades are completely NON-OVERLAPPING with the sub-\$10
 book, so they are a PURE increase to net (and the best-fill names).
-**New canonical book (v2.3, $1+): 30,357 @ 2.528 / mc=1 4,285 @ 2.109 /
+**New canonical book (v2.3, \$1+): 30,357 @ 2.528 / mc=1 4,285 @ 2.109 /
 4,756 slot-points; g60: 11,577 @ 3.778 / mc=1 1,889 @ 2.771 / 2,871
-slot-points.** (The mc=1 PF ladder was denominated on the $1-10 cut
+slot-points.** (The mc=1 PF ladder was denominated on the \$1-10 cut
 through 2.287; the book redefinition resets the denominator — 2.109 on
-$1+ is the new baseline, not a regression.) `flushfader_mc.fsx` default
-cut updated to `>= 1`. ⏭ FUTURE (user): sub-$1 may become tradable via
+\$1+ is the new baseline, not a regression.) `flushfader_mc.fsx` default
+cut updated to `>= 1`. ⏭ FUTURE (user): sub-\$1 may become tradable via
 a REBATE tier — enough limit-order traffic at a commission tier where
 rebates pay the per-share fees; revisit with the slippage/production
 work.
@@ -6881,7 +6881,7 @@ AVOID the accelerating mid-shallow corner.**
 **User (+ the sizing pivot): 2D lever grids are census-starved — sizing
 will take the MAX PF over individual lever features, not conjunction
 cells. Price-based features paused. Study: rp_vol [0.8,1.0) stacked with
-gap_60 / gap_1200 / n_eff_hhi.** On the v2.3 $1+ book the steady-tape
+gap_60 / gap_1200 / n_eff_hhi.** On the v2.3 \$1+ book the steady-tape
 band = **3,314 @ 4.633 / 78.7**.
 
 | rp × gap_60 | n | PF | win% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
@@ -7002,7 +7002,7 @@ the 20m slope family (they'd only decouple via leg age, and d20 ↔ age =
 vs its own window's slopes it's a near-duplicate — supporting the ONE-
 family design.
 
-Decile tables (equal-n ≈ 3,036/bucket, v2.3 $1+ book 30,357 @ 2.53;
+Decile tables (equal-n ≈ 3,036/bucket, v2.3 \$1+ book 30,357 @ 2.53;
 dec 1 = most extreme). ⚠ dslo's deciles 1-5 are the 45% mass at exactly
 0 (ntile splits ties arbitrarily — year cells there are meaningless);
 dslo's lever form stays the S41p band table.
@@ -7236,7 +7236,7 @@ but weak alone.
 | complement | 16,169 | 3,051 | 2.08 | 72.0 | 2.95 | 2.78 | 1.74 | 1.41 | 1.98 | 1.85 | 1.63 |
 
 **mc=1 on the disjunction book: 2,489 @ 2.481 (all years >= 1.92; 2022
-= 2.72)** vs the full $1+ book's 2.109 — as a one-slot priority filter
+= 2.72)** vs the full \$1+ book's 2.109 — as a one-slot priority filter
 it adds +0.37 PF at 58% of slot-trips (3,808 slot-points vs 4,756).
 Note the 2022 flip: mc=0 1.42 (the violence dilution) but mc=1 2.72 —
 the slot naturally takes the better trips.
@@ -7495,7 +7495,7 @@ g60 universe purifies the votes.
 
 Question (user): does tightening `vol10rate` (10s/1m, spec floor 0.75)
 warrant a 6th voice? Same for the 1m/20m volume rate. Universe = the
-g60 book ($1+, gap_60 < 4) on `v23_fast`.
+g60 book (\$1+, gap_60 < 4) on `v23_fast`.
 
 **vol10rate = (vol_10/10)/(vol_60/60) — fine bands:**
 
@@ -7701,7 +7701,7 @@ state): lifts at every 5-vote level (0: 4.82 / 1: 5.10 / 2: 9.20 /
 4: 19.17 / 5: 19.59), Jaccard <= 17 vs every sitting voice, robust
 every year (p22 3.23 in its band).
 
-**The concurrency ladder on the 6-voice >= 2 book (g60, $1+):**
+**The concurrency ladder on the 6-voice >= 2 book (g60, \$1+):**
 
 | mc | n | PF | win% | avg% | slot pts | 2022 |
 |---:|--:|---:|-----:|-----:|---------:|-----:|
@@ -7743,7 +7743,7 @@ band, >=0.8 = the virgin-efficiency star. **User: "What if we made it
 0.5?" — 0.5 DOMINATES 0.4**: the [0.4,0.5) diluter drops out, the trap
 band is too thin (377 book-wide) to dent the >= 2 arithmetic.
 
-**The ladder (g60, >= 2 votes, $1+):**
+**The ladder (g60, >= 2 votes, \$1+):**
 
 | construction | mc=1 | mc=2 | mc=3 |
 |---|---|---|---|
@@ -7839,7 +7839,7 @@ here was WRONG as stated — see S42p §5 for the correction and the real
 (and better) result: the emptiness is ht=1-CONDITIONAL and structural.**
 The golden window is empirically **[5,20m): 47 @ 59.0 then 177 @ 201.3**.
 
-**New canonical books ($1+):** full = 29,814 @ 2.542 (was 2.528);
+**New canonical books (\$1+):** full = 29,814 @ 2.542 (was 2.528);
 g60 = 11,111 @ 3.977 / p22 3.98 (was 3.778).
 
 **The 7-voice vote ladder, v2.3 → v2.4:**
@@ -7993,7 +7993,7 @@ We'll have to implement it into the engine. Before that I want to see
 the profit factors." **The tables say don't build it** — the engine
 change would destroy the A++ cell. No bake needed.
 
-### The grid: PF by halt-recency x halt-count (g60, $1+)
+### The grid: PF by halt-recency x halt-count (g60, \$1+)
 
 | zone | n ht=1 | PF ht=1 | n ht=2 | PF ht=2 | n ht>=3 | PF ht>=3 | n all | PF all |
 |------|-------:|--------:|-------:|--------:|--------:|---------:|------:|-------:|
@@ -8236,7 +8236,7 @@ neutralised by `--base-run`.
 the next LULD trigger decides itself, and for ht=1 that state is
 structurally EMPTY (a first-halt name still printing new lows there
 RE-HALTS). A sub-2m entry is therefore taken BLIND to a cascade test
-the tape is about to run. Cost is trivial (20 trips at $1+, 3
+the tape is about to run. Cost is trivial (20 trips at \$1+, 3
 ticker-days in 7 years — S42p §1) and the user's reasoning is a
 risk-shape argument, not a PF argument.
 
@@ -8270,7 +8270,7 @@ User: "could the outperformance of the [20,80m) band be explained by
 volatility, or would it be worth adding ht > 0 && ssh in [20, 80m) as
 a voice filter?" **Answer: partly confounded, but the edge SURVIVES
 normalisation, and it is COMPLEMENTARY to v20 rather than redundant.**
-Population = the v2.5 spec, g60, $1+.
+Population = the v2.5 spec, g60, \$1+.
 
 **A. The confound is real** — the band IS a high-vol population:
 
@@ -8341,7 +8341,7 @@ Marginal set at mc=3 = **151 trips / 65 tkds / PF 6.19 / p22 57.4 /
 +356 pts** — better than the book it joins and spread over 65
 ticker-days, not concentrated.
 
-**⭐⭐ THE VOTE = EIGHT VOICES** (g60, $1+, nfire >= 2):
+**⭐⭐ THE VOTE = EIGHT VOICES** (g60, \$1+, nfire >= 2):
 
     {v20 >= 140bp, d20a < -28%, speed < -6%, dslo >= +16%, pah >= +28%,
      ramp (vs20-vs10)*2e4 < -12, |esf| >= 0.5,
@@ -8354,10 +8354,10 @@ ticker-days, not concentrated.
 `v25_reference/` = **THE reference**. (Every number in S42u above was
 measured on the SQL emulation and is therefore confirmed by this.)
 
-**Canonical books ($1+):** full = 29,794 @ 2.542 / p22 1.59 (4,697
+**Canonical books (\$1+):** full = 29,794 @ 2.542 / p22 1.59 (4,697
 tkds); **g60 = 11,103 @ 3.980 / p22 4.04** (1,724 tkds).
 
-**THE CANONICAL LADDER — SPEC v2.5, 8-voice vote, g60, $1+, nfire>=2:**
+**THE CANONICAL LADDER — SPEC v2.5, 8-voice vote, g60, \$1+, nfire>=2:**
 
 | mc | n | PF | win% | avg% | med% | 2022 | slot pts |
 |---:|--:|---:|-----:|-----:|-----:|-----:|---------:|
@@ -8414,7 +8414,7 @@ rewrite by parity, not by re-reading the boolean.
 
 ## S42v — WHERE WE STAND: the SPEC v2.5 matrix (universe x vote x concurrency) (2026-08-03)
 
-All on `v25_reference`, $1+. Vote = the 8 voices, nfire >= 2.
+All on `v25_reference`, \$1+. Vote = the 8 voices, nfire >= 2.
 
 | book | mc=0 (attribution) | mc=1 | mc=2 | mc=3 |
 |------|--------------------|------|------|------|
@@ -8468,7 +8468,7 @@ mc=3 1.17 / 2.00 / 1.65 / **2.30**. Win% at mc=3: 72.2 / 77.4 / 76.6 / **80.4**.
 > from 7,789 and does not reproduce the recorded mc=3 numbers).
 
 > ⚠ **UPDATED 2026-08-04.** The universe gate is now a GAP COUNT, not
-> `n_eff_shannon` (S43u): `mr_candidate_1s` = `dv_0945_tape >= $2M AND
+> `n_eff_shannon` (S43u): `mr_candidate_1s` = `dv_0945_tape >= \$2M AND
 > n_bars_1s >= 200` (gaps <= 700 of 900). THE base = **`base_v16`**
 > (2,184,698); THE reference = **`v27_reference`** (37,214), grand parity
 > exact. **THE BOOK = `g60 AND vote >= 1`** — the `chg_1d` gate is DROPPED
@@ -8555,7 +8555,7 @@ must print `cascade off`.
 > replaced by `bars_since_first_low <= 390`** (S43an — esf was leg age in
 > disguise). Applied POST-HOC in the mc replay's `--where`; no engine gate.
 
-### 5. The books (v25_reference, $1+)
+### 5. The books (v25_reference, \$1+)
 
 **TRADED = g60 (gap_60 < 4) + vote >= 2.** Per-year ladder:
 
@@ -8724,7 +8724,7 @@ asymmetric rows, zero diff on ret_exit AND on halts_today itself.
 the moment the cascade gate consumed it (v2.4), so it belongs where
 gates get verified — the S42t lesson.
 
-**v2.6 books ($1+):** full 29,764 @ 2.544 · g60 11,083 @ **4.003** ·
+**v2.6 books (\$1+):** full 29,764 @ 2.544 · g60 11,083 @ **4.003** ·
 S-tier cell **229 @ 144.38** (35 tkds, was 224 / 34).
 
 **The canonical ladder, v2.5 -> v2.6** (g60, 8-voice >= 2):
@@ -8780,7 +8780,7 @@ Two decisions from the user first: **the vote bar drops to >= 1** (2 and
 features get **separate treatment — NOT voices**, because they are
 volume/liquidity facts, not extremity facts.
 
-**THE NEW DEFAULT BOOK (v2.6, g60, votes >= 1, $1+):** mc=0 7,655 @
+**THE NEW DEFAULT BOOK (v2.6, g60, votes >= 1, \$1+):** mc=0 7,655 @
 4.923 · **mc=1 1,294 @ 3.434 · mc=2 2,371 @ 3.527 · mc=3 3,261 @ 3.613**
 (avg% +1.81/+1.87/+1.92, worst year 2025 @ 2.53-2.63).
 
@@ -8956,7 +8956,7 @@ feature doing the work.
 ## S43c — ⭐⭐ the ROSTER at a >=1 BAR: the vote became a UNION, and most voices stopped paying (2026-08-03)
 
 This began as "does lowdens belong in the vote?" and ended somewhere
-else entirely. Book throughout = v2.6, g60, $1+, mc=3 unless noted.
+else entirely. Book throughout = v2.6, g60, \$1+, mc=3 unless noted.
 **Baseline: all 8 voices, votes >= 1 = 3,261 trips @ 3.613.**
 
 ### 1. lowdens is NOT a voice — at any threshold, in any form
@@ -9075,7 +9075,7 @@ the other features", (2) "Pah is a deletion? Shouldn't it give a
 benefit at >= 28%?" **Both challenges land. S43c's verdicts survive but
 its REASONING was wrong — neither feature is bad; both are redundant.**
 
-### speed IN TANDEM (g60, $1+, NO vote pre-filter)
+### speed IN TANDEM (g60, \$1+, NO vote pre-filter)
 
 | other voices | speed ON n / PF / avg% | speed OFF n / PF / avg% |
 |-------------:|------------------------|-------------------------|
@@ -9801,7 +9801,7 @@ additive. Union = **160 ticker-days = 22.9 per year.**
 ### ⚠ What these numbers do NOT yet include
 
 1. **COSTS ARE NOT MODELLED.** The engine banner says so on every run.
-   At +4.08%/trip a 0.5-1.0% round trip on sub-$10 microcaps takes
+   At +4.08%/trip a 0.5-1.0% round trip on sub-\$10 microcaps takes
    12-25% of the edge. It does not kill it — but PF 11.7 is a
    pre-cost number and will not survive intact.
 2. **FILLS are assumed.** Entry = next present bar's vwap, exit =
@@ -10080,8 +10080,8 @@ days**: TOP 2023-05-05 (3 trips, 3 losers, -7.5 pts) and SOUN
 
 | band | n | med chg_1d | med chg_3d | n with chg_3d>0 | med px |
 |------|--:|-----------:|-----------:|----------------:|-------:|
-| >=300% | 592 | **+2,978%** | +3,796% | **592 / 592** | $4.00 |
-| <0 | 88 | **-12%** | +22% | 50 / 88 | $5.95 |
+| >=300% | 592 | **+2,978%** | +3,796% | **592 / 592** | \$4.00 |
+| <0 | 88 | **-12%** | +22% | 50 / 88 | \$5.95 |
 
 The `>=300` tail is the parabolic runner mid-flight. The `<0` tail is a
 **higher-priced, calmer name that is RED on the session** — 57% of them
@@ -10116,7 +10116,7 @@ Union with S-TIER A: **464 @ 12.47 / +4.13%/trip / 26.1 tkds per year.**
 ⚠ Costs still unmodelled — see S43l §"What these numbers do NOT include".
 The slippage study remains the gating item, and it now has to cover a
 second, structurally different population: the `<0` band is a higher-
-priced ($5.95 median vs $4.00) and less frenzied tape than the
+priced (\$5.95 median vs \$4.00) and less frenzied tape than the
 parabolic runners, so its fills may well be BETTER, but that is a guess
 until measured.
 
@@ -10153,7 +10153,7 @@ from -2 to -5** (7.5-15.3) — the bear-year knife only appears at -8
 also removes the -6 dip (7.53) that S43o inherited: -4 and -5 both
 read better in 2022 than -6 does.
 
-### The tradeable ladder (mc replay, g60 $1+)
+### The tradeable ladder (mc replay, g60 \$1+)
 
 | construction | mc=1 | mc=3 | tkds/yr | net pts @ mc=3 |
 |--------------|------|------|--------:|---------------:|
@@ -10215,7 +10215,7 @@ quartiles for these trades... fill simulations are overkill. At 2.8%
 average gain I am not that concerned about trading fees anymore."
 
 **Agreed on fees. But the binding cost at these prices is the TICK, not
-the fee** — a $0.01 spread on a $1.50 stock is 0.67% one way. So the study
+the fee** — a \$0.01 spread on a \$1.50 stock is 0.67% one way. So the study
 is: capacity (the user's ask) + the spread actually paid.
 
 Method note for the spread estimator: `docs/rolls_estimator.md`.
@@ -10224,33 +10224,33 @@ Method note for the spread estimator: `docs/rolls_estimator.md`.
 
 | | min | p10 | Q1 | **median** | Q3 | p90 | max |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| $/min | $135k | $575k | $850k | **$1.49M** | $2.97M | $6.16M | $134M |
+| \$/min | \$135k | \$575k | \$850k | **\$1.49M** | \$2.97M | \$6.16M | \$134M |
 
 Median **1,394 trades** in the entry minute; median hold 335s (5.6m). The
-$135k floor is the entry gate's own `dv60 >= $100k`. Position size at a
+\$135k floor is the entry gate's own `dv60 >= $100k`. Position size at a
 given participation rate:
 
 | participation | p10 | Q1 | median | Q3 |
 |---|---:|---:|---:|---:|
-| 1% | $5.8k | $8.5k | $14.9k | $29.7k |
-| 2% | $11.5k | $17.0k | $29.7k | $59.3k |
-| 5% | $28.8k | $42.5k | $74.3k | $148k |
-| 10% | $57.5k | $85k | $148k | $297k |
+| 1% | \$5.8k | \$8.5k | \$14.9k | \$29.7k |
+| 2% | \$11.5k | \$17.0k | \$29.7k | \$59.3k |
+| 5% | \$28.8k | \$42.5k | \$74.3k | \$148k |
+| 10% | \$57.5k | \$85k | \$148k | \$297k |
 
 ### 2. ⭐ THE EDGE DOES NOT LIVE IN THE ILLIQUID TRADES
 
 | dv60 quintile | range | med px | losers | PF | avg% | net pts |
 |---|---|---:|---:|---:|---:|---:|
-| 1 | $135-744k | $1.98 | 76 | 6.69 | +2.53 | 909 |
-| 2 | $745k-1.2M | $2.95 | 67 | 6.32 | +2.43 | 870 |
-| 3 | $1.2-1.8M | $4.09 | 67 | 5.45 | +2.19 | 783 |
-| 4 | $1.8-3.8M | $5.54 | 75 | 5.46 | +2.35 | 840 |
-| 5 | $3.8M+ | $8.68 | 65 | **7.38** | +2.78 | 994 |
+| 1 | \$135-744k | \$1.98 | 76 | 6.69 | +2.53 | 909 |
+| 2 | \$745k-1.2M | \$2.95 | 67 | 6.32 | +2.43 | 870 |
+| 3 | \$1.2-1.8M | \$4.09 | 67 | 5.45 | +2.19 | 783 |
+| 4 | \$1.8-3.8M | \$5.54 | 75 | 5.46 | +2.35 | 840 |
+| 5 | \$3.8M+ | \$8.68 | 65 | **7.38** | +2.78 | 994 |
 
 **Flat, and the MOST liquid quintile is the best.** Net points are nearly
 even across all five (909/870/783/840/994). This is the opposite of the
 usual microcap failure mode and it means **a liquidity floor is close to
-free**: `dv60 >= $2M` leaves 1,621 trips @ PF 10.56 at a $6.64 median price.
+free**: `dv60 >= $2M` leaves 1,621 trips @ PF 10.56 at a \$6.64 median price.
 
 ### 3. THE SPREAD — measured on 506 days of raw prints
 
@@ -10259,22 +10259,22 @@ the spread is inferred from trade prices. Roll's estimator + the observed
 price grid, lit prints only, entry/exit +/- 30s, 3,582 windows. ⚠ Parity:
 1s vwaps reconstructed from trades match `intraday_1s_slim` to 4 decimals.
 
-| bucket | n | med px | `step` $ | `roll` $ | step % | roll % | **assumed %** | roll in ticks | `p_rev` |
+| bucket | n | med px | `step` \$ | `roll` \$ | step % | roll % | **assumed %** | roll in ticks | `p_rev` |
 |---|--:|---:|---:|---:|---:|---:|---:|---:|---:|
-| $1.00-1.50 | 226 | 1.24 | 0.005 | 0.0019 | 0.482 | 0.153 | 0.809 | 0.19 | 0.875 |
-| $1.50-2 | 195 | 1.72 | 0.010 | 0.0021 | 0.504 | 0.120 | 0.581 | 0.21 | 0.857 |
-| $2-3 | 284 | 2.45 | 0.010 | 0.0026 | 0.372 | 0.115 | 0.408 | 0.26 | 0.841 |
-| $3-5 | 349 | 3.82 | 0.010 | 0.0037 | 0.247 | 0.096 | 0.262 | 0.37 | 0.788 |
-| $5-10 | 371 | 6.74 | 0.010 | 0.0062 | 0.153 | 0.089 | 0.148 | 0.62 | 0.724 |
-| $10+ | 366 | 17.32 | 0.020 | 0.0222 | 0.090 | 0.118 | 0.058 | 2.22 | 0.606 |
+| \$1.00-1.50 | 226 | 1.24 | 0.005 | 0.0019 | 0.482 | 0.153 | 0.809 | 0.19 | 0.875 |
+| \$1.50-2 | 195 | 1.72 | 0.010 | 0.0021 | 0.504 | 0.120 | 0.581 | 0.21 | 0.857 |
+| \$2-3 | 284 | 2.45 | 0.010 | 0.0026 | 0.372 | 0.115 | 0.408 | 0.26 | 0.841 |
+| \$3-5 | 349 | 3.82 | 0.010 | 0.0037 | 0.247 | 0.096 | 0.262 | 0.37 | 0.788 |
+| \$5-10 | 371 | 6.74 | 0.010 | 0.0062 | 0.153 | 0.089 | 0.148 | 0.62 | 0.724 |
+| \$10+ | 366 | 17.32 | 0.020 | 0.0222 | 0.090 | 0.118 | 0.058 | 2.22 | 0.606 |
 
 **Findings:**
 
-1. **`step` = exactly 1 tick ($0.01) across $1.50-$10**, 2 ticks at $10+,
-   and **half a tick ($0.005) at $1.00-1.50** — sub-penny prints, i.e.
+1. **`step` = exactly 1 tick (\$0.01) across \$1.50-\$10**, 2 ticks at \$10+,
+   and **half a tick (\$0.005) at \$1.00-1.50** — sub-penny prints, i.e.
    retail price improvement. The 1-cent assumption was the right order of
    magnitude and slightly CONSERVATIVE at the cheap end.
-2. **Roll is biased LOW here, as predicted** — 0.19-0.62 ticks on sub-$10
+2. **Roll is biased LOW here, as predicted** — 0.19-0.62 ticks on sub-\$10
    names is implausible. `p_flat` gives the mechanism: **83% of consecutive
    trades print at the same price** = the serial correlation in trade
    direction that breaks Roll's coin-flip assumption.
@@ -10339,14 +10339,14 @@ we pay the tape's VWAP. **For a system that BUYS a collapse this is adverse
 by construction — the price is running away from us, and that move is the
 very thing we are buying.** Measured from raw prints over 506 days:
 
-| work window | med $vol in window | size @ 10% | **entry cost** | **exit cost** | net delay |
+| work window | med \$vol in window | size @ 10% | **entry cost** | **exit cost** | net delay |
 |---|---:|---:|---:|---:|---:|
-| T =   5s | $68k | $6.8k | -0.017 | -0.002 | **-0.019** |
-| T =  15s | $189k | $18.9k | +0.026 | -0.024 | **+0.002** |
-| T =  30s | $352k | $35.2k | +0.061 | -0.042 | +0.019 |
-| T =  60s | $588k | $58.8k | +0.129 | -0.090 | +0.039 |
-| T = 120s | $1.02M | $102k | +0.305 | -0.127 | +0.177 |
-| T = 300s | $2.02M | $202k | +0.589 | -0.140 | +0.449 |
+| T =   5s | \$68k | \$6.8k | -0.017 | -0.002 | **-0.019** |
+| T =  15s | \$189k | \$18.9k | +0.026 | -0.024 | **+0.002** |
+| T =  30s | \$352k | \$35.2k | +0.061 | -0.042 | +0.019 |
+| T =  60s | \$588k | \$58.8k | +0.129 | -0.090 | +0.039 |
+| T = 120s | \$1.02M | \$102k | +0.305 | -0.127 | +0.177 |
+| T = 300s | \$2.02M | \$202k | +0.589 | -0.140 | +0.449 |
 
 ⭐⭐ **THE EXIT RUNS THE OPPOSITE WAY AND PARTLY PAYS FOR THE ENTRY.** Entry
 cost grows monotonically with T (0.026 -> 0.589) exactly as expected. But
@@ -10359,27 +10359,27 @@ sell. The system is long a collapse (delay hurts) and short a continuation
 (delay helps). The offset is real and it is worth ~25-30% of the entry cost
 at every horizon.
 
-⇒ **Net delay is essentially FREE below ~$35k and still only 0.04% at
-$59k.** It only bites past ~$100k.
+⇒ **Net delay is essentially FREE below ~\$35k and still only 0.04% at
+\$59k.** It only bites past ~\$100k.
 
 ### Component 2 — OWN PRICE PRESSURE (square-root law)
 
 `dP/P = Y * sigma_day * sqrt(Q/V)`; method note in `docs/rolls_estimator.md`
 § companion. Inputs measured per ticker-day from 1s bars: **median
 sigma_day = 29.0%** (1m returns x sqrt(390)) and **median day dollar volume
-= $330.6M**. These are enormous-volume names, so participation is trivial:
+= \$330.6M**. These are enormous-volume names, so participation is trivial:
 
 | position | % of DAY's volume | Y=0.25 | **Y=0.50** | Y=1.00 |
 |---|---:|---:|---:|---:|
-| $10k | 0.003% | 0.043 | **0.085** | 0.171 |
-| $25k | 0.008% | 0.068 | **0.135** | 0.270 |
-| $50k | 0.015% | 0.096 | **0.191** | 0.382 |
-| $100k | 0.030% | 0.135 | **0.270** | 0.540 |
-| $250k | 0.076% | 0.214 | **0.427** | 0.855 |
+| \$10k | 0.003% | 0.043 | **0.085** | 0.171 |
+| \$25k | 0.008% | 0.068 | **0.135** | 0.270 |
+| \$50k | 0.015% | 0.096 | **0.191** | 0.382 |
+| \$100k | 0.030% | 0.135 | **0.270** | 0.540 |
+| \$250k | 0.076% | 0.214 | **0.427** | 0.855 |
 
 ⚠ The numbers are driven by **sigma, not by size** — impact is linear in
 sigma and these names run 29% daily vol. At 0.03% of the day's volume a
-$100k order is a rounding error in participation terms.
+\$100k order is a rounding error in participation terms.
 
 ### ⭐⭐ THE FULL COST LADDER (mc=3, 1,791 trips, Y=0.5, 10% participation)
 
@@ -10389,11 +10389,11 @@ smallest window that supports the size + square-root impact.
 | position | spread | delay | impact | **total** | % oversize | **PF net** | **avg% net** | edge lost |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | gross | — | — | — | — | — | 6.21 | +2.45 | — |
-| **$10k** | 0.276 | **-0.038** | 0.093 | **0.331** | 0.2% | **5.03** | **+2.12** | **13%** |
-| **$25k** | 0.276 | -0.008 | 0.147 | 0.415 | 2.1% | 4.72 | +2.04 | **17%** |
-| **$50k** | 0.276 | 0.147 | 0.208 | 0.631 | 5.7% | 4.23 | +1.82 | **26%** |
-| $100k | 0.276 | 0.291 | 0.295 | 0.862 | 25.1% | 3.64 | +1.59 | 35% |
-| $250k | 0.276 | 0.467 | 0.466 | 1.209 | 59.1% | 2.83 | +1.25 | 49% |
+| **\$10k** | 0.276 | **-0.038** | 0.093 | **0.331** | 0.2% | **5.03** | **+2.12** | **13%** |
+| **\$25k** | 0.276 | -0.008 | 0.147 | 0.415 | 2.1% | 4.72 | +2.04 | **17%** |
+| **\$50k** | 0.276 | 0.147 | 0.208 | 0.631 | 5.7% | 4.23 | +1.82 | **26%** |
+| \$100k | 0.276 | 0.291 | 0.295 | 0.862 | 25.1% | 3.64 | +1.59 | 35% |
+| \$250k | 0.276 | 0.467 | 0.466 | 1.209 | 59.1% | 2.83 | +1.25 | 49% |
 
 ("% oversize" = trips where even a 300s window at 10% participation cannot
 absorb the size — there the cost is understated, so the big rows are
@@ -10402,13 +10402,13 @@ optimistic.)
 ### ⭐ VERDICT
 
 1. **The spread is the FIXED cost and it dominates at small size** (0.276%
-   of a 0.331% total at $10k). Delay and impact are the size-dependent
+   of a 0.331% total at \$10k). Delay and impact are the size-dependent
    parts.
-2. **$25k-$50k is the sweet spot** — 17-26% of the edge, PF still 4.2-4.7,
-   +1.8-2.0% per trip. At mc=3 that is ~256 trades/year on ~$150k of
+2. **\$25k-\$50k is the sweet spot** — 17-26% of the edge, PF still 4.2-4.7,
+   +1.8-2.0% per trip. At mc=3 that is ~256 trades/year on ~\$150k of
    deployed capital (3 concurrent slots).
-3. **$100k+ degrades fast** and a quarter of trips can no longer be filled
-   at 10% participation in 5 minutes. **$250k is where half the edge is
+3. **\$100k+ degrades fast** and a quarter of trips can no longer be filled
+   at 10% participation in 5 minutes. **\$250k is where half the edge is
    gone** and 59% of trips are oversize — that is the practical ceiling of
    this book as constructed.
 4. ⚠ **The square-root term is the weakest link.** It is calibrated on
@@ -10429,7 +10429,7 @@ adding it as a voice when it is < -2.5?"
 
 **Reconstruction (exact):** z is not a recorded column but its inputs are —
 `z20 = (ln(signal_vwap) - dlv_1200/vol_1200) / sqrt(dlv2_1200/vol_1200 -
-(dlv_1200/vol_1200)^2)`. Parity: over 29,764 $1+ trips, **max z = -1.5000,
+(dlv_1200/vol_1200)^2)`. Parity: over 29,764 \$1+ trips, **max z = -1.5000,
 0 violations, 0 nulls** — it is the engine's gate to the digit.
 
 ### 1. The fine table (g60, year columns, per house rule)
@@ -10644,7 +10644,7 @@ results." **Both halves of that were right, and the fix is now baked.**
 ### 1. ⭐ THE OPENING-PRINT SKEW — confirmed, and large
 
 `n_eff_shannon` = exp(Shannon H) over per-second volume SHARES in
-[09:30, 09:45). Measured over 91,524 ticker-days (2024 Q1, dv >= $2M):
+[09:30, 09:45). Measured over 91,524 ticker-days (2024 Q1, dv >= \$2M):
 
 | measure | value |
 |---|---:|
@@ -10661,7 +10661,7 @@ was*, not how continuously the name traded.
 
 | family | measures | fails because |
 |---|---|---|
-| MAGNITUDE | volume, dollar volume, trade count | one monster print buys $11M of dv and says nothing about 10:23 |
+| MAGNITUDE | volume, dollar volume, trade count | one monster print buys \$11M of dv and says nothing about 10:23 |
 | SHAPE (Renyi 1,2) | shannon, hhi | still functions of the volume distribution -> hostage to the same print |
 | **OCCUPANCY (Renyi 0)** | **gap count** | **binary per second — invariant to HOW MUCH** |
 
@@ -10694,8 +10694,8 @@ not alike:
 
 | group | med dv | med traded secs | med n_eff | med trades |
 |---|---:|---:|---:|---:|
-| DROPPED | $3.75M | 161 | 33.2 | 696 |
-| **ADDED** | **$11.43M** | **262** | 17.6 | **1,076** |
+| DROPPED | \$3.75M | 161 | 33.2 | 696 |
+| **ADDED** | **\$11.43M** | **262** | 17.6 | **1,076** |
 
 **The days n_eff REJECTED have 3x the dollar volume, 1.6x the traded
 seconds and 1.5x the prints of the days it KEPT** — because the richest
@@ -10723,7 +10723,7 @@ admitted. Both runs went over the full 1,137,765 ticker-days (96 min and
 
 | book | v27 (new) n / PF | v26 (old) n / PF |
 |---|---|---|
-| whole book $1+ | 29,574 / 2.56 | 29,463 / 2.55 |
+| whole book \$1+ | 29,574 / 2.56 | 29,463 / 2.55 |
 | g60 | 10,990 / 3.99 | 10,983 / 3.99 |
 | g60 + vote>=1 | 7,703 / 5.19 | 7,698 / 5.19 |
 | **BOOK** | **3,811 / 7.91** | 3,806 / 7.89 |
@@ -10758,8 +10758,8 @@ Attribution of the difference:
 base run means the ENGINE's gate is off — it does NOT mean the universe is
 unfiltered. The `$2M` floor and the gap gate were already applied when
 `mr_candidate_1s` was built. The base is therefore: **20m low x volat >=
-40bp x dv60>=$100k x tc60>=60 x barnum>=22, over a table that is already
-dv>=$2M x gaps<=700.**
+40bp x dv60>=\$100k x tc60>=60 x barnum>=22, over a table that is already
+dv>=\$2M x gaps<=700.**
 
 
 ## S43v — 🛑⭐⭐ THE chg_1d LOOKAHEAD: the bug, the corrected tables, the new book (2026-08-04)
@@ -10825,7 +10825,7 @@ Decomposing the old S-tier B book (g60, vote>=1, wrong cut, 3,811 trips):
 
 `chg_1d` bands, PF by universe (n / tkds / PF):
 
-| band | full book $1+ | g60 | g60 + vote>=1 |
+| band | full book \$1+ | g60 | g60 + vote>=1 |
 |---|---|---|---|
 | **<0** | 8,182 / 1,568 / **2.05** | 1,276 / 250 / **5.00** | 669 / 132 / **10.16** |
 | [0,20) | 7,341 / 1,463 / 2.60 | 1,637 / 311 / 3.18 | 765 / 168 / 7.51 |
@@ -11093,38 +11093,38 @@ measurements always stood). Re-measured from raw prints over **807 dates**
 
 ⚠ **MY PREDICTION WAS WRONG.** I expected costs to worsen ~25% because the
 edge fell from +2.45% to +1.97%/trip. **Total cost FELL** (0.472% vs
-0.631% at $50k) — the corrected book has a stronger exit credit and a
+0.631% at \$50k) — the corrected book has a stronger exit credit and a
 marginally tighter spread — so the two effects largely cancel.
 
 ### 1. Spread — unchanged (it is a property of the tape)
 
-| bucket | n | med px | `step` $ | `roll` $ | step % | `p_rev` | `p_flat` |
+| bucket | n | med px | `step` \$ | `roll` \$ | step % | `p_rev` | `p_flat` |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| $1.00-1.50 | 346 | 1.23 | 0.005 | 0.0019 | 0.482 | 0.875 | 0.927 |
-| $1.50-2 | 327 | 1.73 | 0.009 | 0.0021 | 0.487 | 0.848 | 0.911 |
-| $2-3 | 523 | 2.46 | 0.010 | 0.0026 | 0.368 | 0.844 | 0.889 |
-| $3-5 | 705 | 3.91 | 0.010 | 0.0036 | 0.247 | 0.800 | 0.842 |
-| $5-10 | 776 | 6.65 | 0.010 | 0.0061 | 0.153 | 0.727 | 0.764 |
-| $10+ | 653 | 18.60 | 0.020 | 0.0210 | 0.087 | 0.610 | 0.583 |
+| \$1.00-1.50 | 346 | 1.23 | 0.005 | 0.0019 | 0.482 | 0.875 | 0.927 |
+| \$1.50-2 | 327 | 1.73 | 0.009 | 0.0021 | 0.487 | 0.848 | 0.911 |
+| \$2-3 | 523 | 2.46 | 0.010 | 0.0026 | 0.368 | 0.844 | 0.889 |
+| \$3-5 | 705 | 3.91 | 0.010 | 0.0036 | 0.247 | 0.800 | 0.842 |
+| \$5-10 | 776 | 6.65 | 0.010 | 0.0061 | 0.153 | 0.727 | 0.764 |
+| \$10+ | 653 | 18.60 | 0.020 | 0.0210 | 0.087 | 0.610 | 0.583 |
 
-Same as S43q: 1 tick across $1.50-$10, HALF a tick at $1.00-1.50 (retail
-price improvement), 2 ticks at $10+. `p_flat` 0.58-0.93 ⇒ Roll still
+Same as S43q: 1 tick across \$1.50-\$10, HALF a tick at \$1.00-1.50 (retail
+price improvement), 2 ticks at \$10+. `p_flat` 0.58-0.93 ⇒ Roll still
 biased low. Read `roll <= true <= step`.
 
 ### 2. ⭐ Delay — the exit credit got STRONGER
 
-| work window | med $vol | size @10% | entry cost | **exit cost** | **net delay** |
+| work window | med \$vol | size @10% | entry cost | **exit cost** | **net delay** |
 |---|--:|--:|--:|--:|--:|
-| T = 5s | $75k | $7.5k | -0.016 | -0.001 | **-0.018** |
-| T = 15s | $200k | $20.0k | +0.013 | -0.018 | **-0.006** |
-| T = 30s | $367k | $36.7k | +0.031 | -0.042 | **-0.012** |
-| T = 60s | $637k | $63.7k | +0.093 | **-0.102** | **-0.009** |
-| T = 120s | $1.06M | $106k | +0.232 | -0.110 | +0.122 |
-| T = 300s | $2.05M | $205k | +0.450 | -0.055 | +0.395 |
+| T = 5s | \$75k | \$7.5k | -0.016 | -0.001 | **-0.018** |
+| T = 15s | \$200k | \$20.0k | +0.013 | -0.018 | **-0.006** |
+| T = 30s | \$367k | \$36.7k | +0.031 | -0.042 | **-0.012** |
+| T = 60s | \$637k | \$63.7k | +0.093 | **-0.102** | **-0.009** |
+| T = 120s | \$1.06M | \$106k | +0.232 | -0.110 | +0.122 |
+| T = 300s | \$2.05M | \$205k | +0.450 | -0.055 | +0.395 |
 
 ⭐⭐ **Net delay is NEGATIVE — a CREDIT — all the way out to a 60-second
 work window** (was +0.039 there). The exit pays -0.102 while the entry
-costs +0.093. Execution delay is FREE up to roughly **$64k**. The S43r
+costs +0.093. Execution delay is FREE up to roughly **\$64k**. The S43r
 mechanism is confirmed and strengthened: long a collapse (delay hurts),
 short a continuation past the 5m-high cross (delay pays).
 
@@ -11133,43 +11133,43 @@ short a continuation past the 5m-high cross (delay pays).
 | position | spread | delay | impact | **total** | % oversize | **PF net** | **avg% net** | **edge lost** |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|
 | gross | — | — | — | — | — | **3.90** | **+1.97** | — |
-| **$10k** | 0.260 | **-0.059** | 0.091 | **0.292** | 0.2% | **3.29** | **+1.68** | **15%** |
-| **$25k** | 0.260 | **-0.074** | 0.144 | 0.330 | 2.2% | **3.23** | **+1.64** | **17%** |
-| **$50k** | 0.260 | 0.008 | 0.204 | 0.472 | 6.5% | **3.03** | **+1.50** | **24%** |
-| $100k | 0.260 | 0.134 | 0.288 | 0.682 | 23.4% | 2.65 | +1.29 | 35% |
-| $250k | 0.260 | 0.334 | 0.455 | 1.050 | 58.8% | 2.08 | +0.92 | 53% |
+| **\$10k** | 0.260 | **-0.059** | 0.091 | **0.292** | 0.2% | **3.29** | **+1.68** | **15%** |
+| **\$25k** | 0.260 | **-0.074** | 0.144 | 0.330 | 2.2% | **3.23** | **+1.64** | **17%** |
+| **\$50k** | 0.260 | 0.008 | 0.204 | 0.472 | 6.5% | **3.03** | **+1.50** | **24%** |
+| \$100k | 0.260 | 0.134 | 0.288 | 0.682 | 23.4% | 2.65 | +1.29 | 35% |
+| \$250k | 0.260 | 0.334 | 0.455 | 1.050 | 58.8% | 2.08 | +0.92 | 53% |
 
-(Old contaminated-book ladder for reference: $50k = 0.631 total / PF 4.23
-/ +1.82% / 26%.) **Sweet spot remains $25-50k. $250k is still the
+(Old contaminated-book ladder for reference: \$50k = 0.631 total / PF 4.23
+/ +1.82% / 26%.) **Sweet spot remains \$25-50k. \$250k is still the
 practical ceiling** (59% of trips oversize).
 
 ### 4. Liquidity check — still passes, less emphatically
 
 | dv60 quintile | n | range | med px | losers | PF | avg% | net pts |
 |---|--:|---|--:|--:|--:|--:|--:|
-| 1 | 666 | $135-750k | $1.98 | 146 | 4.62 | +2.09 | 1,393 |
-| 2 | 666 | $750k-1.26M | $3.26 | 146 | 4.03 | +2.03 | 1,354 |
-| 3 | 666 | $1.26-1.92M | $4.24 | 160 | 3.23 | +1.65 | 1,099 |
-| 4 | 666 | $1.92-3.55M | $5.79 | 136 | 3.57 | +1.83 | 1,219 |
-| 5 | 666 | $3.57M+ | $8.30 | 134 | 4.24 | +2.23 | 1,486 |
+| 1 | 666 | \$135-750k | \$1.98 | 146 | 4.62 | +2.09 | 1,393 |
+| 2 | 666 | \$750k-1.26M | \$3.26 | 146 | 4.03 | +2.03 | 1,354 |
+| 3 | 666 | \$1.26-1.92M | \$4.24 | 160 | 3.23 | +1.65 | 1,099 |
+| 4 | 666 | \$1.92-3.55M | \$5.79 | 136 | 3.57 | +1.83 | 1,219 |
+| 5 | 666 | \$3.57M+ | \$8.30 | 134 | 4.24 | +2.23 | 1,486 |
 
 Flat-ish and mildly U-shaped (4.62 / 4.03 / 3.23 / 3.57 / 4.24) rather
 than the contaminated book's clean "most liquid is best". Net points are
 still even across all five. **A liquidity floor remains close to free.**
 
-Capacity census: median entry-minute $vol **$1.55M** on **1,435 trades**
-(min $135k = the `dv60 >= $100k` gate; Q1 $866k, Q3 $2.98M).
+Capacity census: median entry-minute \$vol **\$1.55M** on **1,435 trades**
+(min \$135k = the `dv60 >= $100k` gate; Q1 \$866k, Q3 \$2.98M).
 
 ### VERDICT
 
-**The system survives costs.** At the $25-50k sweet spot it nets **PF
+**The system survives costs.** At the \$25-50k sweet spot it nets **PF
 3.0-3.2 and +1.5-1.6% per trip** after measured spread, delay and modelled
 impact, on ~476 trades/year at mc=3. ⚠ Still not covered: the next-bar-vwap
 FILL is assumed attainable, and the sqrt impact term remains the weakest
 link (daily-V denominator vs seconds-long execution). ⏭ The passive-fill
 study — whether resting bids are adversely selected — is the last open
 cost question, and the biggest lever: earning the 0.26% spread rather than
-paying it would roughly HALVE the $50k cost.
+paying it would roughly HALVE the \$50k cost.
 
 
 ## S43y — ⭐⭐ THE PASSIVE-FILL STUDY: cross the ENTRY, rest the EXIT (2026-08-04)
@@ -11249,7 +11249,7 @@ two ways.
 1. ❌ **The "limit orders everywhere, capture the spread + rebates" plan
    does NOT survive.** On the entry it is net-NEGATIVE.
 2. ✅ **Cross the entry, rest the exit = +7% net** on top of the S43x
-   ladder — at the $50k tier roughly +1.50% -> +1.60% per trip.
+   ladder — at the \$50k tier roughly +1.50% -> +1.60% per trip.
 3. ⭐ Rebates are a bonus not modelled here: strategy C pays a taker fee
    on entry and earns a MAKER rebate on the exit fill.
 4. ⚠ Not modelled: the exit fallback assumes we cross at the measured 60s
@@ -11257,28 +11257,28 @@ two ways.
    off-grid limit makes `at`/`through` identical, which flatters slightly).
 
 
-## S43z — SUB-$1: the filters break below $0.50, and the REBATE THESIS FAILS (2026-08-04)
+## S43z — SUB-\$1: the filters break below \$0.50, and the REBATE THESIS FAILS (2026-08-04)
 
-User: "test the 3 books on < $1 stocks... those are where earning maker
+User: "test the 3 books on < \$1 stocks... those are where earning maker
 rebates makes the most difference." **Both halves tested. The cost half is
 confirmed; the thesis still fails, for a structural reason.**
 
-### 1. ⭐ THE FILTER STACK BREAKS AT $0.50 (user asked: does g60 add
-nothing on ALL sub-$1 buckets? NO — there is a clean break)
+### 1. ⭐ THE FILTER STACK BREAKS AT \$0.50 (user asked: does g60 add
+nothing on ALL sub-\$1 buckets? NO — there is a clean break)
 
 | price tier | full PF | g60 PF | **g60 lift** | vote PF | **total lift** |
 |---|--:|--:|--:|--:|--:|
-| <$0.10 | 3.25 | 3.13 | **0.96** | 2.61 | **0.80** |
-| $0.10-0.25 | 2.31 | 2.41 | 1.04 | 2.24 | **0.97** |
-| $0.25-0.50 | 1.85 | 1.60 | **0.86** | 1.75 | **0.95** |
-| **$0.50-1.00** | 2.38 | 3.03 | **1.27** | **3.33** | **1.40** |
-| $1-2 | 3.03 | 4.92 | 1.62 | 6.30 | 2.08 |
-| $2-5 | 2.54 | 3.27 | 1.29 | 5.22 | 2.06 |
-| $5+ | 2.36 | 4.30 | 1.82 | 4.77 | 2.02 |
+| <\$0.10 | 3.25 | 3.13 | **0.96** | 2.61 | **0.80** |
+| \$0.10-0.25 | 2.31 | 2.41 | 1.04 | 2.24 | **0.97** |
+| \$0.25-0.50 | 1.85 | 1.60 | **0.86** | 1.75 | **0.95** |
+| **\$0.50-1.00** | 2.38 | 3.03 | **1.27** | **3.33** | **1.40** |
+| \$1-2 | 3.03 | 4.92 | 1.62 | 6.30 | 2.08 |
+| \$2-5 | 2.54 | 3.27 | 1.29 | 5.22 | 2.06 |
+| \$5+ | 2.36 | 4.30 | 1.82 | 4.77 | 2.02 |
 
-**Below $0.50 the stack is INERT or HARMFUL** (total lift 0.80 / 0.97 /
-0.95; g60 REDUCES PF in $0.25-0.50). **$0.50-1.00 works but at 1.40x vs the
-~2.05x it delivers everywhere above $1.** The aggregate "sub-$1 filters
+**Below \$0.50 the stack is INERT or HARMFUL** (total lift 0.80 / 0.97 /
+0.95; g60 REDUCES PF in \$0.25-0.50). **\$0.50-1.00 works but at 1.40x vs the
+~2.05x it delivers everywhere above \$1.** The aggregate "sub-\$1 filters
 don't work" was masking two different populations.
 
 ### 2. But even the working tier has a NEGATIVE year
@@ -11291,32 +11291,32 @@ don't work" was masking two different populations.
 | avg% | +0.69 | **-0.92** | +2.46 | +3.02 | +2.11 | +2.39 | +0.78 |
 
 2021 is outright negative; 2020 and 2026 are 1.36 / 1.54 on 77 and 90
-trips (NOT thin). 2022's 23.67 is 24 trips = meaningless. Whole sub-$1
+trips (NOT thin). 2022's 23.67 is 24 trips = meaningless. Whole sub-\$1
 book at mc=3: **1,160 @ 2.212 / +1.51%**, worst year 1.296. Compare the
-$1+ book: 3.901, every year >= 2.78.
+\$1+ book: 3.901, every year >= 2.78.
 
 ### 3. ⭐ THE COST HALF OF THE THESIS IS CONFIRMED
 
-Sub-penny quoting is real below $1 (~32% of non-zero price changes are
-sub-penny). Measured `step` on the sub-$1 book:
+Sub-penny quoting is real below \$1 (~32% of non-zero price changes are
+sub-penny). Measured `step` on the sub-\$1 book:
 
-| tier | med px | step $ | **step %** | roll % | p_flat | p_rev |
+| tier | med px | step \$ | **step %** | roll % | p_flat | p_rev |
 |---|--:|--:|--:|--:|--:|--:|
-| <$0.25 | 0.167 | 0.0001 | **0.110** | 0.111 | 0.774 | 0.620 |
-| $0.25-0.50 | 0.381 | 0.0003 | **0.078** | 0.115 | 0.671 | 0.563 |
-| $0.50-1.00 | 0.729 | 0.0005 | **0.065** | 0.102 | 0.632 | 0.532 |
-| *($1+ book)* | *3.91* | *0.010* | ***0.260*** | — | — | — |
+| <\$0.25 | 0.167 | 0.0001 | **0.110** | 0.111 | 0.774 | 0.620 |
+| \$0.25-0.50 | 0.381 | 0.0003 | **0.078** | 0.115 | 0.671 | 0.563 |
+| \$0.50-1.00 | 0.729 | 0.0005 | **0.065** | 0.102 | 0.632 | 0.532 |
+| *(\$1+ book)* | *3.91* | *0.010* | ***0.260*** | — | — | — |
 
-⭐ **Sub-$1 spread is ~4x CHEAPER in percentage terms than the $1+ book**,
-and the $1-2 tier is the market's worst (0.352%) because a penny tick on a
-$1.40 stock is huge. ⭐ Note `roll` and `step` now AGREE (0.102 vs 0.065)
-where they diverged badly above $1 — the finer grid means less bid-ask
+⭐ **Sub-\$1 spread is ~4x CHEAPER in percentage terms than the \$1+ book**,
+and the \$1-2 tier is the market's worst (0.352%) because a penny tick on a
+\$1.40 stock is huge. ⭐ Note `roll` and `step` now AGREE (0.102 vs 0.065)
+where they diverged badly above \$1 — the finer grid means less bid-ask
 bounce (`p_rev` 0.53 vs 0.88), so Roll's assumptions fit worse but `step`
 shrinks to meet it.
 
 ### 4. ⭐⭐ AND YET THE REBATE THESIS FAILS
 
-| | sub-$1 | $1+ |
+| | sub-\$1 | \$1+ |
 |---|--:|--:|
 | bid fill @60s | 91.0% | 87.4% |
 | offer fill @60s | 93.5% | 88.8% |
@@ -11324,33 +11324,33 @@ shrinks to meet it.
 | FILLED trips avg% | **+1.30** | +1.83 |
 | **selection penalty** | **2.8x** | 1.6x |
 
-| strategy | sub-$1 net | vs cross | ($1+) |
+| strategy | sub-\$1 net | vs cross | (\$1+) |
 |---|--:|--:|--:|
 | A: cross + cross | 1,621 | 100% | 100% |
 | B: **REST bid** + cross exit | 1,376 | **85%** | 94% |
 | **C: cross entry + REST offer** | 1,742 | **108%** | 107% |
 | D: REST both | 1,483 | **92%** | 100% |
 
-⭐⭐ **THE SAME ASYMMETRY HOLDS, AND ADVERSE SELECTION IS WORSE ON SUB-$1**
+⭐⭐ **THE SAME ASYMMETRY HOLDS, AND ADVERSE SELECTION IS WORSE ON SUB-\$1**
 (passive entry costs **15%** vs 6%; missed trades run **2.8x** the filled
 ones). **This is what kills the rebate thesis**: earning maker rebates on
 BOTH legs requires resting the ENTRY, and resting the entry is precisely
 what this system cannot afford. The only winning strategy (C) is a TAKER on
-entry — so it earns a rebate on one leg only, exactly as at $1+.
+entry — so it earns a rebate on one leg only, exactly as at \$1+.
 
-⚠ **The fee side is also why sub-$1 was excluded originally** (SPEC v1.1:
-"sub-$1 FEE-DEAD every EU route"): sub-$1 is typically billed as a
+⚠ **The fee side is also why sub-\$1 was excluded originally** (SPEC v1.1:
+"sub-\$1 FEE-DEAD every EU route"): sub-\$1 is typically billed as a
 PERCENTAGE OF PRINCIPAL rather than per share. No schedule is assumed here
 — but at a taker fee anywhere near 0.3% of principal the entry leg alone
 eats >20% of a +1.40% gross edge, dwarfing the 0.065-0.11% spread saving.
 
-### 5. gap_1200 on sub-$1 (user: "maybe that one will do better?") — NO
+### 5. gap_1200 on sub-\$1 (user: "maybe that one will do better?") — NO
 
-⚠ Counter to expectation, **sub-$1 tape is DENSER, not sparser**: median
-`gap_1200` = 111-157 vs 281-313 above $1, and 49-60% pass g60 vs 36-37%.
-The sub-$1 names that clear the universe gate are heavily-traded pennies.
+⚠ Counter to expectation, **sub-\$1 tape is DENSER, not sparser**: median
+`gap_1200` = 111-157 vs 281-313 above \$1, and 49-60% pass g60 vs 36-37%.
+The sub-\$1 names that clear the universe gate are heavily-traded pennies.
 
-| gap_1200 | <$0.25 | $0.25-0.50 | $0.50-1.00 | $1+ |
+| gap_1200 | <\$0.25 | \$0.25-0.50 | \$0.50-1.00 | \$1+ |
 |---|--:|--:|--:|--:|
 | <5 | 1.67 | 3.15 | **5.85** | **5.64** |
 | [5,15) | 2.87 | 0.83 | 1.25 | 4.88 |
@@ -11359,9 +11359,9 @@ The sub-$1 names that clear the universe gate are heavily-traded pennies.
 | [200,600) | 3.98 | 2.91 | 2.16 | 2.20 |
 | >=600 | 2.16 | 2.67 | 2.32 | 2.06 |
 
-**On $1+ it is a clean monotone ladder (5.64 -> 2.06). Below $0.50 it is
+**On \$1+ it is a clean monotone ladder (5.64 -> 2.06). Below \$0.50 it is
 pure noise** (3.15 / 0.83 / 3.91 / 0.79 — alternating, no structure). In
-$0.50-1.00 only the extreme `<5` corner fires (5.85 on 434 trips), with
+\$0.50-1.00 only the extreme `<5` corner fires (5.85 on 434 trips), with
 everything else flat at 2.1-2.6 — **a corner, not a gradient.**
 
 That corner clears the null decisively (PF 5.85 vs null95(PF) [1.87, 3.13];
@@ -11376,15 +11376,15 @@ avg 3.08% vs null95(avg) [1.08, 1.81]; both 100th pctile) but is
 **2023 has ZERO trips**, 2021 is breakeven, 2022 is 7 trips, and the money
 is entirely 2024-2026. 58 tkds over 7 years = ~8/yr, recency-concentrated.
 
-⭐ **THE DECIDER: the same cell exists at $1+ SEVEN TIMES LARGER and
-equally good** — `gap_1200 < 5` is 3,106 trips @ 5.64 above $1 vs 434 @
-5.85 here. There is no reason to reach into sub-$1 for a corner already
+⭐ **THE DECIDER: the same cell exists at \$1+ SEVEN TIMES LARGER and
+equally good** — `gap_1200 < 5` is 3,106 trips @ 5.64 above \$1 vs 434 @
+5.85 here. There is no reason to reach into sub-\$1 for a corner already
 held with far better year coverage.
 
-### 6. Are the $0.50-1.00 names FALLEN $1+ STOCKS? NO — and the fallen ones are DEAD
+### 6. Are the \$0.50-1.00 names FALLEN \$1+ STOCKS? NO — and the fallen ones are DEAD
 
-User hypothesis: "maybe $0.50-1.00 is strong because these were formerly
->$1 stocks which dipped below $1 during the day."
+User hypothesis: "maybe \$0.50-1.00 is strong because these were formerly
+>\$1 stocks which dipped below \$1 during the day."
 
 ⭐ **THE ADJUSTMENT DIRECTION (user asked: multiply or divide?)** —
 `adj_ratio = adj_close / raw_close`, so **raw = adjusted / adj_ratio**:
@@ -11394,29 +11394,29 @@ prior close in day-D raw scale = **`prev_adj_close / adj_ratio`
 documented as *"PRIOR day's close in day-D raw (post-split) scale"*.
 ⚠ MULTIPLYING is what produced the S43v lookahead.
 
-**Only 3.6% of $0.50-1.00 trips closed >= $1 the prior day** (median prior
-close **$0.53** vs median entry **$0.752**). These are NOT fallen $1+
-names — they are genuine sub-$1 stocks **up ~42% on the day**.
+**Only 3.6% of \$0.50-1.00 trips closed >= \$1 the prior day** (median prior
+close **\$0.53** vs median entry **\$0.752**). These are NOT fallen \$1+
+names — they are genuine sub-\$1 stocks **up ~42% on the day**.
 
-| $0.50-1.00 split | n | tkds | PF | avg% | med prev | med today | med day chg |
+| \$0.50-1.00 split | n | tkds | PF | avg% | med prev | med today | med day chg |
 |---|--:|--:|--:|--:|--:|--:|--:|
-| **was >= $1 yesterday** | 136 | 31 | **1.03** | **+0.07** | $1.16 | $0.931 | **-19%** |
-| was sub-$1 yesterday | 3,670 | 505 | **2.49** | **+1.50** | $0.52 | $0.746 | **+39%** |
+| **was >= \$1 yesterday** | 136 | 31 | **1.03** | **+0.07** | \$1.16 | \$0.931 | **-19%** |
+| was sub-\$1 yesterday | 3,670 | 505 | **2.49** | **+1.50** | \$0.52 | \$0.746 | **+39%** |
 
-⭐⭐ **THE HYPOTHESIS INVERTS: the fallen-from-$1 names are the DEAD
+⭐⭐ **THE HYPOTHESIS INVERTS: the fallen-from-\$1 names are the DEAD
 subgroup — PF 1.03, +0.07%/trip, NO edge.** All of the bucket's strength
 comes from pennies RUNNING (+39% on the day). Including the fallen names
 would add the one dead population, not rescue anything.
 
 Coherent with S43v: on the FULL book corrected `chg_1d` is monotone
 INCREASING (2.05 -> 8.71), so a name down 19% on the day sits in the worst
-part of that curve. Other tiers are too small to read (22 trips <$0.25, 13
-in $0.25-0.50).
+part of that curve. Other tiers are too small to read (22 trips <\$0.25, 13
+in \$0.25-0.50).
 
 ### VERDICT
 
-**Sub-$1 does not earn a place.** (-1) the $0.50-1.00 strength is NOT fallen $1+ names and the fallen ones are dead (§6); (0) `gap_1200` does not rescue it either (§5); (a) the filter stack breaks below $0.50
-and is only 1.40x effective in $0.50-1.00 vs ~2.05x above $1; (b) even that
+**Sub-\$1 does not earn a place.** (-1) the \$0.50-1.00 strength is NOT fallen \$1+ names and the fallen ones are dead (§6); (0) `gap_1200` does not rescue it either (§5); (a) the filter stack breaks below \$0.50
+and is only 1.40x effective in \$0.50-1.00 vs ~2.05x above \$1; (b) even that
 tier has a NEGATIVE 2021 and two more years at ~1.4-1.5; (c) the cheap
 spread is real but small in absolute terms next to percentage-of-principal
 fees; (d) **the rebate case specifically requires the one thing this system
@@ -11429,7 +11429,7 @@ S43y is CONFIRMED on an independent population, and more strongly.
 User: "you've shown that stocks that pass g60 and have a sparse g1200 have
 good expectancy. Let's study the robustness of it." **It does not survive.**
 
-### 1. Fine bands in the high-gap region (g60 book, $1+, v27)
+### 1. Fine bands in the high-gap region (g60 book, \$1+, v27)
 
 | gap_1200 | n | tkds | losers | PF | avg% | med hr ET | med v20 |
 |---|--:|--:|--:|--:|--:|--:|--:|
@@ -11649,7 +11649,7 @@ wake-up cell (1.66 -> 0.79) and better even than `rp_vol` (2.19 -> 2.10).
 User: "these 4 states in the book are what is going to determine sizing.
 The only thing I'd like to throw in is deep flush (speed < -6%)."
 
-Three binary dimensions on the g60 universe ($1+, v27):
+Three binary dimensions on the g60 universe (\$1+, v27):
 `inbook` = `votes>=1 OR S-tier A` · `lowgap` = `gap_adj_1200 < 15` ·
 `deep` = `signal_vwap/vwap_60_prev - 1 < -6%`.
 
@@ -11722,7 +11722,7 @@ should be dropped — evidence below.**
 
 ### THE TABLE — gross and COST-ADJUSTED (S43x ladder)
 
-| tier | state | n | tkds | PF gross | avg gross | PF @$25k | avg @$25k | PF @$50k | avg @$50k |
+| tier | state | n | tkds | PF gross | avg gross | PF @\$25k | avg @\$25k | PF @\$50k | avg @\$50k |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
 | **A** | BOOK · gap<15 · DEEP | 567 | 125 | **8.64** | +4.25 | 7.25 | +3.92 | 6.73 | +3.78 |
 | **B** | BOOK · gap<15 · shal | 2,879 | 476 | **6.67** | +2.68 | 5.45 | +2.35 | 4.99 | +2.21 |
@@ -11733,7 +11733,7 @@ should be dropped — evidence below.**
 | ❌ G | out · gap>=15 · DEEP | 160 | 55 | 1.63 | +1.34 | 1.45 | +1.01 | 1.38 | +0.87 |
 | ❌ H | out · gap<15 · DEEP | 54 | 15 | 1.75 | +0.90 | 1.44 | +0.57 | 1.32 | +0.43 |
 
-**All 8 survive costs on a pooled basis even at $50k** — but pooling is
+**All 8 survive costs on a pooled basis even at \$50k** — but pooling is
 exactly what S43aa warned about. The per-year table decides.
 
 ### ⚠ PER-YEAR ON THE OUT-STATES (gross avg% per trip)
@@ -11756,7 +11756,7 @@ dropping them costs almost nothing.
 
 ⚠ **E and F are genuinely marginal, not free money.** F runs +0.11% gross
 in 2023 — **negative after any cost** — and +0.67-0.95% in four other
-years, leaving +0.34-0.62% net at $25k. E has a negative 2024. They are
+years, leaving +0.34-0.62% net at \$25k. E has a negative 2024. They are
 tradeable at SMALL size; they are not a second book.
 
 ### ⭐ PORTFOLIO EFFECT — trading the 6 viable states (mc=3)
@@ -11776,7 +11776,7 @@ to **2.03 (2023)**. That is the trade: more slots, thinner average.
 Size ∝ PF is the user's rule; note **expectancy, not PF, is what
 compounds** — the two disagree at C vs D (PF 4.26/4.15 nearly equal, avg
 +2.82/+1.86 far apart) and at F vs G. Suggested relative units using the
-$25k cost-adjusted expectancy:
+\$25k cost-adjusted expectancy:
 
 | tier | state | rel. size | rationale |
 |---|---|--:|---|
@@ -11819,7 +11819,7 @@ deep   = signal_vwap/vwap_60_prev - 1 < -6%
 | **F** | out · gap>=15 · shal | 1,961 | 418 | 1.50 | **+0.57** | 4.04 | **0.140** | **-38.8** | -6.40 | **0.37** |
 | ❌ | out · DEEP (either gap) | 214 | 70 | — | — | — | — | — | — | **0** |
 
-`exp net` = per-trip return after the S43x $25k cost of 0.33%. SIZE =
+`exp net` = per-trip return after the S43x \$25k cost of 0.33%. SIZE =
 expectancy relative to tier D. mc=3 portfolio over the 6 traded tiers:
 **4,550 trips @ PF 3.15 / +1.65%, every year positive, worst 2.03.**
 
@@ -11982,9 +11982,9 @@ of entries being same-name adds (S43af), raising mc mostly buys DEPTH in
 one name, not more names. mc=8 can mean 8 positions in a single microcap.
 **What governs how far up this ladder you can go is the aggregate
 per-NAME exposure limit, not the slot count** — and the S43x cost ladder
-applies to the AGGREGATE name position, so a 3-deep $50k-per-entry stack
-is a $150k position facing the $100k-$250k cost tier (35-53% of edge), not
-the $50k tier (24%).
+applies to the AGGREGATE name position, so a 3-deep \$50k-per-entry stack
+is a \$150k position facing the \$100k-\$250k cost tier (35-53% of edge), not
+the \$50k tier (24%).
 
 ### ⭐ FINAL BOOK
 
@@ -12009,23 +12009,23 @@ silent proxy for float."
 Data: `data/equity/float/float.db`, concept `dei:EntityPublicFloat`
 (public float in DOLLARS), ASOF-joined on `known_date <= trade_date` (the
 filing date = no lookahead). Coverage **72.5%** of the g60 book, median
-float **$22.5M**, median staleness **176 days**.
+float **\$22.5M**, median staleness **176 days**.
 
 ### 1. adj_ratio vs float — the direction is backwards
 
 | adj_ratio | n | % | med float | med px | med dv60 |
 |---|--:|--:|--:|--:|--:|
-| **<1 (future FORWARD split)** | 295 | 2.7 | **$244.4M** | $16.59 | $5.25M |
-| =1 (no future split) | 6,217 | 56.6 | $22.7M | $4.99 | $1.73M |
-| 1-10 (small reverse) | 1,175 | 10.7 | $24.1M | $3.37 | $1.68M |
-| 10-100 | 1,960 | 17.8 | $20.6M | $2.88 | $1.44M |
-| **>=100 (massive reverse)** | 1,343 | 12.2 | **$16.6M** | $2.90 | $1.38M |
+| **<1 (future FORWARD split)** | 295 | 2.7 | **\$244.4M** | \$16.59 | \$5.25M |
+| =1 (no future split) | 6,217 | 56.6 | \$22.7M | \$4.99 | \$1.73M |
+| 1-10 (small reverse) | 1,175 | 10.7 | \$24.1M | \$3.37 | \$1.68M |
+| 10-100 | 1,960 | 17.8 | \$20.6M | \$2.88 | \$1.44M |
+| **>=100 (massive reverse)** | 1,343 | 12.2 | **\$16.6M** | \$2.90 | \$1.38M |
 
-⭐ **Forward-split names ARE large caps** (float $244M vs the book's $22M)
+⭐ **Forward-split names ARE large caps** (float \$244M vs the book's \$22M)
 — the user's intuition is correct for `adj_ratio < 1`. **But they are only
 2.7% of the book, and the buggy formula MULTIPLIED by adj_ratio**, so
 `chg_1d >= 300` selected the HIGH end: reverse splitters (40.7% of the
-book) with LOWER float, falling monotonically $24.1M -> $20.6M -> $16.6M.
+book) with LOWER float, falling monotonically \$24.1M -> \$20.6M -> \$16.6M.
 
 `corr(ln adj_ratio, ln float) = -0.124` — real but weak.
 ⇒ **The lookahead was a "WILL REVERSE-SPLIT SOON" detector (distressed
@@ -12036,33 +12036,33 @@ manoeuvre of dying small caps; that is the population it silently picked.
 
 | float band | n | tkds | losers | PF | avg% | med px |
 |---|--:|--:|--:|--:|--:|--:|
-| **<$5M** | 1,348 | 172 | 233 | **6.67** | +2.84 | $3.75 |
-| $5-15M | 1,987 | 311 | 416 | 4.45 | +2.21 | $3.92 |
-| $15-40M | 1,670 | 267 | 396 | 3.30 | +1.77 | $3.75 |
-| $40-100M | 1,001 | 170 | 178 | 3.19 | +1.77 | $3.68 |
-| $100-300M | 1,130 | 167 | 230 | 3.78 | +1.89 | $5.73 |
-| **>=$300M** | 828 | 150 | 183 | **4.96** | +2.11 | $6.61 |
-| no filing | 3,026 | 465 | 661 | 3.51 | +1.93 | $4.03 |
+| **<\$5M** | 1,348 | 172 | 233 | **6.67** | +2.84 | \$3.75 |
+| \$5-15M | 1,987 | 311 | 416 | 4.45 | +2.21 | \$3.92 |
+| \$15-40M | 1,670 | 267 | 396 | 3.30 | +1.77 | \$3.75 |
+| \$40-100M | 1,001 | 170 | 178 | 3.19 | +1.77 | \$3.68 |
+| \$100-300M | 1,130 | 167 | 230 | 3.78 | +1.89 | \$5.73 |
+| **>=\$300M** | 828 | 150 | 183 | **4.96** | +2.11 | \$6.61 |
+| no filing | 3,026 | 465 | 661 | 3.51 | +1.93 | \$4.03 |
 
 **Per-year expectancy ratio vs the g60 baseline:**
 
 | cell | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | record |
 |---|--:|--:|--:|--:|--:|--:|--:|---|
-| float <$5M | **0.84** | 1.50 | **0.13** | **0.79** | 1.77 | 1.50 | 1.41 | ❌ 4/7 |
-| float >=$300M | 1.06 | 0.94 | 1.11 | **0.35** | **0.79** | 1.14 | **0.77** | ❌ 3/7 |
+| float <\$5M | **0.84** | 1.50 | **0.13** | **0.79** | 1.77 | 1.50 | 1.41 | ❌ 4/7 |
+| float >=\$300M | 1.06 | 0.94 | 1.11 | **0.35** | **0.79** | 1.14 | **0.77** | ❌ 3/7 |
 
 ⭐ **THE SMALL-FLOAT CELL IS A REGIME ARTIFACT.** The universe's float
 composition shifted hard:
 
-| yr | coverage | med float | **% under $5M** |
+| yr | coverage | med float | **% under \$5M** |
 |---|--:|--:|--:|
-| 2020 | 86% | $26.7M | 10.4 |
-| 2021 | 76% | $29.0M | 3.0 |
-| 2022 | 73% | $73.2M | 4.3 |
-| 2023 | 57% | $47.0M | 10.4 |
-| 2024 | 64% | $20.6M | 17.9 |
-| 2025 | 75% | $9.0M | **34.8** |
-| 2026 | 63% | $9.1M | 25.0 |
+| 2020 | 86% | \$26.7M | 10.4 |
+| 2021 | 76% | \$29.0M | 3.0 |
+| 2022 | 73% | \$73.2M | 4.3 |
+| 2023 | 57% | \$47.0M | 10.4 |
+| 2024 | 64% | \$20.6M | 17.9 |
+| 2025 | 75% | \$9.0M | **34.8** |
+| 2026 | 63% | \$9.1M | 25.0 |
 
 **79% of the `<$5M` cell's trips fall in 2024-2026**, exactly when such
 names became common — and it FAILS in the years when they were rare
@@ -12587,7 +12587,7 @@ DISJOINT from the `esf` voice (73 of 1,347 overlap = 5.4%); and per-year
 two killer years. ⚠ But an INTERIOR band with a hole beside it: [.10,.15)
 collapses to 2.96, below both neighbours.
 
-**THE ROSTER TEST KILLS IT** (mc=3, g60, $1+ raw, `v32`):
+**THE ROSTER TEST KILLS IT** (mc=3, g60, \$1+ raw, `v32`):
 
 | roster variant | n | PF | avg% | net pts | worst year |
 |---|---:|---:|---:|---:|---|
@@ -12968,7 +12968,7 @@ the per-year rows are NOT readable** (the demoted cell's 2022 = 9.06 and 2025 =
 1s vwap + volume, with the two ROLLING levels the engine uses: the prior 5m MAX
 (= the exit target) and the prior 20m MIN (= the entry trigger). ⭐ **The 5m max
 RATCHETS DOWN with a crash**, so on a sustained slide a `"target"` exit prints
-far below entry — ENSV exits at $4.612 against a $6.645 entry, reason `target`.
+far below entry — ENSV exits at \$4.612 against a \$6.645 entry, reason `target`.
 The system has no stop; it waits for a bounce scored against a collapsed
 reference. **That is an EXIT-design property, not a signal one.**
 
@@ -13166,7 +13166,7 @@ is post-hoc on that superset, so gate variants are compared on identical tape.
 
 ### THE GATES EARN THEIR PLACE, AND `d1m` IS NOT REDUNDANT
 
-mc=1, book = g60 + roster (leg-age) + $1 raw:
+mc=1, book = g60 + roster (leg-age) + \$1 raw:
 
 | gate | book | taken | PF | avg% | net |
 |---|---:|---:|---:|---:|---:|
@@ -13977,7 +13977,7 @@ are simulated fills at the NEXT bar's tape vwap. One position per ticker-day.
 | universe `mr_candidate_1s` (ticker-days, 2020-01 → 2026-07) | 1,145,891 |
 | raw signal trips, every spec gate off (`base_v16`) | 2,184,698 |
 | trips passing the SPEC (`v41_secs`, 1,643 days) | 35,782 |
-| trips passing the BOOK filter ($1+ raw × g60 × vote/S-tier) | 7,458 |
+| trips passing the BOOK filter (\$1+ raw × g60 × vote/S-tier) | 7,458 |
 | **one trade per ticker-day (mc=1 per tkd) — WHAT WE TRADE** | **1,312** |
 
 ⭐ Counts updated S43bg (2026-08-08): the leg-age voice is now seconds-based,
@@ -13992,9 +13992,9 @@ Build: `scripts/equity/build_mr_candidate_1s.fsx`.
 
 | filter | setting | meaning |
 |---|---|---|
-| `dv_0945_tape` | ≥ $2M | dollars traded 09:30–09:45 summed over OUR 1s bars (Σ vwap·volume, raw tape — never adjusted prices) |
+| `dv_0945_tape` | ≥ \$2M | dollars traded 09:30–09:45 summed over OUR 1s bars (Σ vwap·volume, raw tape — never adjusted prices) |
 | `n_bars_1s` | ≥ 200 | at least 200 of the 900 seconds printed a bar — the tape is OCCUPIED through time, not a handful of huge prints |
-| price floor | none | sub-$1 names admitted here; the $1 floor is applied at the book stage |
+| price floor | none | sub-\$1 names admitted here; the \$1 floor is applied at the book stage |
 | listing age | none | IPO day 1 admitted; `barnum` (episode age in days) is recorded for the engine |
 
 ### 2. The signal — what makes a trip
@@ -14007,7 +14007,7 @@ hour-before-close rule mirrored onto the 13:00 short close).
 |---|---|
 | engine floors | `dv_0945_tape ≥ $3M` AND `barnum ≥ 22` (the name has ≥ 22 days of tape history) |
 | ENTRY trigger | bar vwap < strict MIN of the prior 1200 bars — a fresh ~20-minute low |
-| entry liquidity | last-minute dollars ≥ $100k AND last-minute trade count ≥ 60 |
+| entry liquidity | last-minute dollars ≥ \$100k AND last-minute trade count ≥ 60 |
 | fill | NEXT bar's vwap (we cross) |
 | EXIT | bar vwap > strict MAX of the prior 300 bars — the first ~5-minute high (we rest); otherwise MOC |
 | leg state | a "leg" arms on the first new low and resets on a new 1200-bar high |
@@ -14048,7 +14048,7 @@ tables reproduces the recorded book at exactly 7,044 trips.
 
 | filter | setting | meaning |
 |---|---|---|
-| price floor | `entry_px/adj_ratio ≥ $1` | $1+ in RAW tape dollars (the adjusted price is future information — §S43v) |
+| price floor | `entry_px/adj_ratio ≥ $1` | \$1+ in RAW tape dollars (the adjusted price is future information — §S43v) |
 | g60 | `gap_60 < 4` | ≤ 3 empty seconds in the last minute — continuous price discovery |
 | vote | ≥ 1 of the 6 voices below | at least one aggravating quality is present |
 | S-tier A | `halts_today ≥ 1 AND secs_since_halt ∈ [120, 1200)` | OR-ed in past the vote: halted today, 2–20 min after resume — the best cell in the playbook. NB the ht≥1 is de facto **ht ∈ {1,2}**: the engine's cascade gate already rejects ht≥3 in this window. The §S42p causal lens is ht=1; the recorded book verifiably includes ht=2 (13 trips, whose cell independently reads PF 11.9) |
@@ -14061,7 +14061,7 @@ The **seven** voices (S43bp added `dsu`):
 | d20a | `(vwap/first_low_vwap)·(1+d_hi_flow) − 1 < −28%` | ≥ 28% below the leg's anchor — a deep cascade |
 | dslo | `vwap/sess_low − 1 ≥ +8%` | ≥ 8% above the session low — not sitting on the dead low |
 | ramp | `(volat_slope_20m − volat_slope_10m) × 2e4 < −12` | the 10m volatility slope exceeds the 20m — short-horizon volatility is EXPANDING rapidly |
-| legage | `secs_since_first_low ≤ 450` (7.5 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant. ⭐ S43bj: 516 → **450** — 516 was selectivity-matched on the FULL $1+ trip set, but the book only ever trades the g60 universe, where parity is ~406s |
+| legage | `secs_since_first_low ≤ 450` (7.5 min) | the leg is young, not a stale grind. ⭐ S43bg: was `bars_since_first_low ≤ 390`; the bar count is era-relative (it silently tightened 9.1 → 7.6 min from 2020 to 2026 as the tape densified), seconds are invariant. ⭐ S43bj: 516 → **450** — 516 was selectivity-matched on the FULL \$1+ trip set, but the book only ever trades the g60 universe, where parity is ~406s |
 | **dsu** | **`downticks_since_uptick ≥ 8`** | **⭐ S43bp: ≥ 8 consecutive down BARS with no uptick (ties do not reset). The tape has printed an uninterrupted down sequence. Uncorrelated with every other voice (\|ρ\| ≤ 0.19); the edge is the run's LENGTH — its magnitude carries nothing (S43bn §6)** |
 | haltband | `secs_since_halt ∈ [1200, 4800)` | 20–80 minutes after a halt resume |
 
@@ -14222,7 +14222,7 @@ The OOS run embodies the rule natively.
 since S40: `eff_rng_20m` = rng_slots_20m/Σ40|r| ∈ (0,1], and the literal
 bar-channel `rng_20m/(40·volat_20m)` (corr 0.573 on the book; corr with
 volat_20m −0.390 — partially inverse-vol). History: S40b tested eff_rng as an
-eff20-band REPLACEMENT on the broad $1–$10 universe and rejected it; the high
+eff20-band REPLACEMENT on the broad \$1–\$10 universe and rejected it; the high
 end there ([0.65,0.8)) was TOXIC (PF 0.49–0.75) via direction-blindness.
 
 **On the trading book (mc=0 7,021 / per-tkd mc=1 1,228, S43bc rule applied)
@@ -14409,7 +14409,7 @@ Every OOS year positive: 2016 1.32 (n=52) / 2017 2.02 / 2018 1.77 / 2019 1.92.
 ⇒ **the mean-reversion edge is REAL and REGIME-INDEPENDENT.** The user's prior
 ("the MR core is solid") is confirmed on data the system had never seen.
 
-**Trading book (the 6 voices + $1 + g60), per-tkd mc=1:**
+**Trading book (the 6 voices + \$1 + g60), per-tkd mc=1:**
 
 | window | n | PF | win% | avg% | worst% |
 |---|---:|---:|---:|---:|---:|
@@ -14428,7 +14428,7 @@ is a weak statement (P(PF>1) = 92%).
 Book trips/day: in-sample 4.27, OOS fwd 7.07, **OOS back 0.34** — a 12× drop.
 The cause is one term. Share of spec trips passing each book component:
 
-| window | $1+ | **g60 (gap_60<4)** | volat≥140 | halted |
+| window | \$1+ | **g60 (gap_60<4)** | volat≥140 | halted |
 |---|---:|---:|---:|---:|
 | OOS back 2016-19 | 90% | **11%** | 20% | 8% |
 | in-sample | 79% | **41%** | 11% | 21% |
@@ -14479,15 +14479,15 @@ base = all 797 spec trips @ +1.07%/trade, PF 1.843:
 | slice | n | PF | win% | avg% | lift vs base |
 |---|---:|---:|---:|---:|---:|
 | ALL spec trips | 797 | 1.843 | 70.6 | +1.07 | — |
-| $1+ only | 729 | 1.857 | 71.1 | +1.07 | +0.01 |
+| \$1+ only | 729 | 1.857 | 71.1 | +1.07 | +0.01 |
 | **g60 only** | 66 | 1.535 | 71.2 | **+0.75** | **−0.31** |
 | VOICE>=1 only | 354 | 1.836 | 71.8 | +1.22 | +0.16 |
 | VOICE=0 | 443 | 1.851 | 69.8 | +0.94 | −0.12 |
-| **$1+ AND VOICE>=1 (NO g60)** | **325** | **1.953** | **73.5** | **+1.33** | **+0.26** |
+| **\$1+ AND VOICE>=1 (NO g60)** | **325** | **1.953** | **73.5** | **+1.33** | **+0.26** |
 | FULL BOOK (with g60) | 40 | 1.143 | 67.5 | **+0.29** | −0.77 |
 
 **Answer: YES, the voice family still works pre-2020 — but at roughly half
-strength, and `gap_60` INVERTS.** voice>=1 vs voice=0 on the $1+ base is
+strength, and `gap_60` INVERTS.** voice>=1 vs voice=0 on the \$1+ base is
 +1.33% vs +0.87%, a **+0.46pp** spread, permutation p = 0.097 one-sided
 (in-sample the same split is +1.48% vs +0.82%). Vote-stacking is directionally
 intact but noisy: 0 votes +0.94% · 1 vote +1.25% · 2 votes +0.96% · **>=3 votes
@@ -15008,7 +15008,7 @@ also drops **CADL 2024-12-11** (`secs` 480), the −21.7% trade that was tier C'
 worst and the sole reason C's Kelly multiplier collapsed below D at S43bg.
 
 **⭐ The book is FLAT across the whole band** — this was never a high-stakes
-choice (per-ticker-day mc=1, g60, $1+ raw; equity sim at 1% D-base with the
+choice (per-ticker-day mc=1, g60, \$1+ raw; equity sim at 1% D-base with the
 S43bi multipliers):
 
 | secs ≤ | n | PF | win% | avg% | trimPF | per-year | maxDD | worst trade |
@@ -15372,7 +15372,7 @@ with it: −9.2/−12.4% in the low cells vs −30.6% in the middle.
 monotonically with the count even where PF does not. The tail buckets are
 smaller-loss trades, not bigger-win trades.
 
-### 4. ⭐⭐ THE $1 FLOOR IS DOING MORE WORK THAN ANY TICK GATE
+### 4. ⭐⭐ THE \$1 FLOOR IS DOING MORE WORK THAN ANY TICK GATE
 
 Same gates, four bases, mc=1 replayed inside each (n / PF):
 
@@ -15390,8 +15390,8 @@ Same gates, four bases, mc=1 replayed inside each (n / PF):
 Reading it as **ratio to base**: `dsu ≥ 10` is 1.68× on full, 2.49× at `$1+`,
 1.38× on g60, **2.73×** at g60∧`$1+`. Every tick gate roughly DOUBLES its lift
 once the `$1` floor is applied. ⇒ **the tick edge lives in the `$1+` names**;
-sub-$1 high-downtick trips are the bad slice. (Consistent with the standing
-sub-$1 finding — those names are fee-dead anyway.)
+sub-\$1 high-downtick trips are the bad slice. (Consistent with the standing
+sub-\$1 finding — those names are fee-dead anyway.)
 
 ⭐ **`ssu ≥ 9s` is the diagnostic case**: 2.099 on full (≈ base, no edge) but
 4.360 on g60 (1.63×) and 6.634 at g60∧`$1+` (2.16×). Conditioning on a
@@ -15871,12 +15871,12 @@ The ex-date close is **already ex-dividend**, so the denominator is too small by
 exactly the dividend. The correct denominator is the **cum-dividend close** (the
 last close *before* the ex-date).
 
-Bites hard whenever the dividend exceeds ~half the price: **VISN** paid a **$10.00
-special** on a stock that closed **$19.53** (ex 2026-04-28, opened $9.90).
+Bites hard whenever the dividend exceeds ~half the price: **VISN** paid a **\$10.00
+special** on a stock that closed **\$19.53** (ex 2026-04-28, opened \$9.90).
 `f = 1 − 10/9.90 = −0.0101` → hits the `GREATEST(…, 0.000001)` clamp → the whole
-pre-2026-04-28 history is multiplied by 1e-6 (`adj_close` = **$0.000020** against
-a raw $19.53). Correct: `f = 1 − 10/19.53 = 0.488`. Same for **LU** (2024-06-04,
-$2.37 on a $4.38 close). The clamp's comment calls `div ≥ price` "an economic
+pre-2026-04-28 history is multiplied by 1e-6 (`adj_close` = **\$0.000020** against
+a raw \$19.53). Correct: `f = 1 − 10/19.53 = 0.488`. Same for **LU** (2024-06-04,
+\$2.37 on a \$4.38 close). The clamp's comment calls `div ≥ price` "an economic
 absurdity / bad data" — it is neither; it is the *expected* output of the wrong
 denominator.
 
@@ -16094,8 +16094,8 @@ exiting sooner should help, was **wrong** — the bleed reverses overnight.
 
 | | n | med `gap_60` | med `gap_1200` | med `dv_0945` |
 |---|---:|---:|---:|---:|
-| resolved (`target`) | 35,844 | 6 | 256 | $14.46M |
-| **unresolved (`moc`)** | **181** | **48** | **1,067** | **$3.98M** |
+| resolved (`target`) | 35,844 | 6 | 256 | \$14.46M |
+| **unresolved (`moc`)** | **181** | **48** | **1,067** | **\$3.98M** |
 
 Only ~133 of the last 1,200 seconds trade at all. The instinct was right about the
 bucket — what does **not** follow is continued decline overnight.
@@ -16177,16 +16177,16 @@ not impaired there — it is undefined.
 
 ### ⚠ The dollar figure says the opposite of what it appears to
 
-W2 dollar volume is 24% of the morning's ($26.2M median), which does not sound empty.
+W2 dollar volume is 24% of the morning's (\$26.2M median), which does not sound empty.
 Decomposed (2024-11-29):
 
-| slice | bars | $ | % of W2 dollars |
+| slice | bars | \$ | % of W2 dollars |
 |---|---:|---:|---:|
-| exactly 13:00:00 — the closing auction | 10,666 | $49.3B | **32.3%** |
-| 13:00:01–13:01 | 9,465 | $45.4B | **29.7%** |
-| 13:01–13:10 | 38,009 | $2.3B | 1.5% |
-| 13:10–14:00 | 107,901 | $28.1B | 18.4% |
-| 14:00–16:00 | 174,542 | $27.6B | 18.1% |
+| exactly 13:00:00 — the closing auction | 10,666 | \$49.3B | **32.3%** |
+| 13:00:01–13:01 | 9,465 | \$45.4B | **29.7%** |
+| 13:01–13:10 | 38,009 | \$2.3B | 1.5% |
+| 13:10–14:00 | 107,901 | \$28.1B | 18.4% |
+| 14:00–16:00 | 174,542 | \$27.6B | 18.1% |
 
 **62% of the window's dollars land in its first 60 seconds** — the closing auction and
 its late-disseminating prints, which a continuous-tape rule cannot participate in.
@@ -16297,7 +16297,7 @@ base, still volatility-normalised.
 
 mc=1 applied ACROSS the combined book (one position per stock at a time), so this is
 what would actually be run — not the sum of the standalone segments. Net = after
-$0.0015/share commission, which is `2 x rate / entry_px` of notional per round trip:
+\$0.0015/share commission, which is `2 x rate / entry_px` of notional per round trip:
 
 | book | trades | PF | acct/yr gross | **acct/yr net** | maxDD | worst trade on acct | losing yrs |
 |---|---:|---:|---:|---:|---:|---:|---:|
@@ -16313,7 +16313,7 @@ trades must lower it, and is still correct while drawdown stays this small.
 
 ### Net of commission
 
-At $0.0015/share, median entry price **$4.06**, so a round trip costs **0.074% of
+At \$0.0015/share, median entry price **\$4.06**, so a round trip costs **0.074% of
 notional** — a function of SHARE PRICE, not account size:
 
 The decision survives the cost comfortably: **+172.0% vs +69.2% net**.
@@ -16358,7 +16358,7 @@ The GapCounter features (missing seconds in the trailing WALL-CLOCK window) meas
 exactly what this convention hides."* The gap counters are the deliberate exception —
 user challenged the reading and the code confirms it.
 
-So they cannot be divided into one "$/wall-second". Kept apart:
+So they cannot be divided into one "\$/wall-second". Kept apart:
 
     pers_N  = ((N − gap_N)/N)          / (n_bars_1s/900)      CONTINUITY vs the open
     inten_N = (dollar_vol_N/N)         / (dv_0945_tape/n_bars_1s)   DOLLARS PER
@@ -16549,7 +16549,7 @@ entries 09:45-16:00 + 13:00 early-close, ms-era, causal)**:
   comparable to the ns-era S42k tables' third decimal. ⚠ mr_candidate_1s_v2 lacks
   `max_slot_absr_bp`, so the S39j volat prepass silently skips (wall-clock only).
 
-**S42k REPLICATION (g60 book frame: + gap_60 < 4 ∧ entry_px ≥ $1 → 11,017 trips;
+**S42k REPLICATION (g60 book frame: + gap_60 < 4 ∧ entry_px ≥ \$1 → 11,017 trips;
 ns-era frame was 38,069 on the smaller v23 gate set)**:
 
 s20 = volat_slope_20m × 2e4 fine bands:
@@ -16662,7 +16662,7 @@ ed105 now the favorite on shape, warmth, and magnitude.
 ## ⭐⭐ S43ch (2026-08-30) — roster tests, the volat 2D grids, and the CREST voice
 
 **a. Production roster tests (voice exprs verbatim from flushfader_voice_test.py;
-frame entry_px ≥ $1 ∧ gap_60 < 4 ∧ volat ≥ 40bp ∧ signal ≤ 15:00 on v47; true mc=1)**:
+frame entry_px ≥ \$1 ∧ gap_60 < 4 ∧ volat ≥ 40bp ∧ signal ≤ 15:00 on v47; true mc=1)**:
 
 | book | n | pf | net | years |
 |---|---|---|---|---|
@@ -16686,7 +16686,7 @@ with the v20 voice: ramp 36.1% · edneg 39.7% · U2 39.2%; median volat 124-135b
 frame 93bp. Hot-SKEWED, not proxies (the S42k rejection hit the s20 EXPANSION tails).
 
 **c. The volat-EWMA 2D disagreement grids (user: "does the fast dominate?"; WIDE
-frame, volat ≥ 20bp, $1 ∧ g60 ∧ ≤15:00, mc=0 pf (n))**:
+frame, volat ≥ 20bp, \$1 ∧ g60 ∧ ≤15:00, mc=0 pf (n))**:
 
 | v20 \ v5 | [20,40) | [40,80) | [80,140) | ≥140 |
 |---|---|---|---|---|
@@ -16885,7 +16885,7 @@ crest tier work still queue for the sizing pass.
 ## S43cm (2026-08-30) — ❌ the be speed cells do NOT replace the pair (the S35f mirror FAILS long-side)
 
 Frame: `v48_nopair` (SPEC v3.0 minus the speed pair, in-engine; 66,938 trips — the
-pair cuts ~⅓ of the spec sampler) + g60/$1/40bp/≤15:00 + ROSTER v3.3, per-tkd mc=1.
+pair cuts ~⅓ of the spec sampler) + g60/\$1/40bp/≤15:00 + ROSTER v3.3, per-tkd mc=1.
 The incumbent restored post-hoc REPRODUCES the S43cl book exactly (1,369 @ 4.128).
 
 | gate | thr | n | pf | net | olap |
@@ -16910,7 +16910,7 @@ strongest form). Capacity option ledgered: be6030∧d1m @−2% = 1,454 @ 3.988, 
 ## S43cn (2026-08-30) — ❌ the 15:30 cutoff does NOT port: 15:00-15:30 is the long side's WORST bucket
 
 The S33 short-side finding INVERTS (the third side-asymmetry of the weekend: K
-ceiling, ac1 knife, now the clock). v47 frame (g60/$1/40bp/lows180 + ROSTER v3.3),
+ceiling, ac1 knife, now the clock). v47 frame (g60/\$1/40bp/lows180 + ROSTER v3.3),
 mc=1 inside each bucket:
 
 | bucket | mc0 n | mc0 pf | mc1 n | mc1 pf | avg% |
@@ -16963,7 +16963,7 @@ the clock there; re-derive long-side before adopting).
 
 **SPEC v3.0** (in-engine gates; ms-era causal corpus; every item re-adjudicated):
 signal = new 1200-bar LOW · exit = 300-bar HIGH else NEXT OPEN (calendar-aware) ·
-volat_20m ≥ 40bp · dv60 ≥ $100k ∧ tc60 ≥ 60 · dv_0945_tape ≥ $3M · barnum ≥ 22 ·
+volat_20m ≥ 40bp · dv60 ≥ \$100k ∧ tc60 ≥ 60 · dv_0945_tape ≥ \$3M · barnum ≥ 22 ·
 entries 09:45-15:00 (12:00 early-close). Gates: `speed < −2% ∧ d1m < −2%` (the pair —
 UNBEATEN, be6030 proven a complete subset) · ssf ∈ [−375,−25) bp/m · dlv < −3% ·
 rflow ≥ −0.95 · z20 < −1.5σ · cascade (ht≥3 → wait 20m; reopen block 2m) ·
@@ -16972,7 +16972,7 @@ K ∈ [26,50] (ceiling = absolute maturity, k20-ONLY) · |eff20| ∈ [0.30,0.50)
 lows300 ≥ 6 · **lows180 ≥ 3 (NEW — net-free)** · rngfront < 0.80 · accel1020 ≥ −80 ·
 slope20 < −10 · slope5 ≥ −400.
 
-**BOOK** = $1 raw ∧ gap_60 < 4 ∧ vote ≥ 1 of **ROSTER v3.3** {v20 ≥ 140bp ·
+**BOOK** = \$1 raw ∧ gap_60 < 4 ∧ vote ≥ 1 of **ROSTER v3.3** {v20 ≥ 140bp ·
 d20a < −28% · dslo ≥ +8% · **vexp = (s10−s20)×2e4 > 12** (ex-ramp, sign-flipped) ·
 **vcrush = s5×2e4 ≤ −24** (NEW — contraction phase, zero overlap w/ vexp) ·
 legage ≤ 450s · dsu ≥ 8 · haltband ssh ∈ [20,80m) · **acneg = ac1_ewma < −0.1**
@@ -17012,7 +17012,7 @@ its §S7 clock fix, 2026-08-27, predates the S20 rr work, so its `vol_60` numera
 was already the tradeable-time window; only the FLUSHFADER-side reconstruction
 needed this correction. An earlier draft of this paragraph claimed otherwise —
 user catch, amended 2026-08-30.)
-Frame = v47_spec20 + production guard (40bp ∧ ≤15:00 ∧ lows180 ≥ 3); book = $1 ∧ g60
+Frame = v47_spec20 + production guard (40bp ∧ ≤15:00 ∧ lows180 ≥ 3); book = \$1 ∧ g60
 ∧ ROSTER v3.3; per-tkd true mc=1. Scripts: scratch ff11_rr.py / ff11c_rrcal.py.
 
 ## A. mc=0 rr_tc bands × years (unconditioned spec frame)
@@ -17076,8 +17076,8 @@ ordered the full mirror + the production Scanner in the same pass.
 2. **Canonical vol/tc/dv columns = TimeSumMa** (vol/tc 5-1200, dv 60-1200); the old
    present-bar sums stay as `_bar` twins (substitution pair). `vol_60_prev`/`tc_60_prev`
    = t120 − t60.
-3. **The FLOORS flipped (SPEC v3.1)**: DvFloor60/TcFloor60 ($100k / 60, thresholds
-   unchanged) now read tDvSum60/tTcSum60 — $/trades over the last 60 TRADEABLE seconds.
+3. **The FLOORS flipped (SPEC v3.1)**: DvFloor60/TcFloor60 (\$100k / 60, thresholds
+   unchanged) now read tDvSum60/tTcSum60 — \$/trades over the last 60 TRADEABLE seconds.
 4. **vol10rate stays BAR-clock (user decision)** — `(vol_10_bar/10)/(vol_60_bar/60)`.
 5. **The speed denominator: implementation swap, bar space kept (user decision)** —
    `vwap_60_prev` = `(dv120−dv60)/(vol120−vol60)` window difference, replacing the
@@ -17104,7 +17104,7 @@ first pass silently lost five weeks; always pass it explicitly.
 - **Churn vs v47**: 43,028 → 39,769. Lost 3,259 (7.6%), **gained 0** (the window-diff
   speed swap produced zero admission churn). ALL BUT ONE lost trip has gap_60 ≥ 4 —
   the sparse fringe, evenly spread across years (648/448/408/440/503/492/320); the one
-  book-frame loss is a $118k-bar-dv name honestly under $100k/60-tradeable-secs.
+  book-frame loss is a \$118k-bar-dv name honestly under \$100k/60-tradeable-secs.
 - **⭐ THE BOOK IS BIT-IDENTICAL**: 1,369 @ 4.128 · win 78.2% · trimPF 9.860 · tiers
   A153/B411/C239/D566 · every year table row unchanged. The production frame
   (gap_60 < 4) bounds the floor delta to ≲5% and no book trip was near it.
@@ -17264,7 +17264,7 @@ Strict subset of base_v18: −0.02% inside gap_60 < 4 (249 trips), −22.0% at g
 ⚠ `v49_spec20` CANNOT be a control corpus — its whitelist is the set of tkds that already pass the full spec.
 
 **Tool = `scripts/equity/flushfader_gate_review.py`** (slice `data/flushfader_review_slice.parquet`, 11 s to build,
-10 s per gate). 33 named predicates: 6 frame (dv0945 ≥ $3M, volat ≥ 40bp, ≤ 15:00, gap_60 < 4, px ≥ $1,
+10 s per gate). 33 named predicates: 6 frame (dv0945 ≥ \$3M, volat ≥ 40bp, ≤ 15:00, gap_60 < 4, px ≥ \$1,
 lows180 ≥ 3), 17 engine gates, 10 roster voices. **VALIDATED: the predicate dictionary reproduces the engine's own
 v49 spec run EXACTLY (39,769 = 39,769, 0 either way) and the reference book 1,369 @ 4.128 / trimPF 9.860.**
 Two clock traps found on the way: on the S43cr engine `z_20m` and `vol10rate` must read the `_bar` twins
@@ -17276,28 +17276,28 @@ passed 13% of the engine's own trips. Every book number = construction 3 (mc=1 r
 (input × direction) rival thresholds on S∖G at the SAME trip count, replayed; (4) time control; (5) octile band
 table of G's input, one replay per band. Per OR-voice: drop-the-voice, the ADDED set, null from the unvoted pool.
 
-## S49a — gate 1: `dv_0945_tape ≥ $3M` (user: "relax to $2M, the candidate table's floor")
+## S49a — gate 1: `dv_0945_tape ≥ $3M` (user: "relax to \$2M, the candidate table's floor")
 
 | set | n | tkd | PF | trimPF−1 | win% | avg% | worst% | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | S (full spec) | 1,369 | 1,222 | 4.128 | 8.860 | 78.2 | 1.96 | −30.6 | 8.86 (218) | 3.56 (276) | 3.25 (77) | 3.31 (113) | 3.60 (220) | 3.56 (298) | 4.69 (167) |
-| S ∖ dv0945 (= $2M corpus floor) | 1,411 | 1,262 | 4.016 | 8.498 | 78.0 | 1.95 | −30.6 | 7.26 (223) | 3.55 (283) | 3.30 (78) | 2.94 (118) | 3.73 (227) | 3.51 (306) | 4.72 (176) |
-| CUT ($2M–3M names) | 42 | 40 | 2.187 | 3.726 | 71.4 | 1.49 | −10.9 | 0.50 (5) | 3.46 (7) | inf (1) | 0.72 (5) | inf (7) | 2.43 (8) | 5.59 (9) |
+| S ∖ dv0945 (= \$2M corpus floor) | 1,411 | 1,262 | 4.016 | 8.498 | 78.0 | 1.95 | −30.6 | 7.26 (223) | 3.55 (283) | 3.30 (78) | 2.94 (118) | 3.73 (227) | 3.51 (306) | 4.72 (176) |
+| CUT (\$2M–3M names) | 42 | 40 | 2.187 | 3.726 | 71.4 | 1.49 | −10.9 | 0.50 (5) | 3.46 (7) | inf (1) | 0.72 (5) | inf (7) | 2.43 (8) | 5.59 (9) |
 
 Null (2,000 tkd-resamples of S∖g at 1,222 tkd): PF median 4.007 [3.908, 4.166], **S = 94.2th pct**; trimPF−1
 8.506 [8.147, 8.951], S = 94.0th; avg% 79.5th. **Inside the band** — the floor's lift is what a random 40-tkd
 removal gives 6% of the time. Substitution: **20 of 126 rivals beat it at the same n** (sslu ≥ 2: 4.337 /
 9.862; k20 ≥ 27: 4.261 / 9.317). Time control clean (corr +0.07 / +0.10). Band table: NO gradient — octiles read
-4.03 / 5.78 / 3.30 / 4.72 / 2.55 / 2.83 / 8.37 / 4.23; the lowest octile [$2M, $8.4M) is an average band.
+4.03 / 5.78 / 3.30 / 4.72 / 2.55 / 2.83 / 8.37 / 4.23; the lowest octile [\$2M, \$8.4M) is an average band.
 
-**Reading:** the $3M floor is not a liquidity gradient (none exists across three decades of dv_0945) and its
+**Reading:** the \$3M floor is not a liquidity gradient (none exists across three decades of dv_0945) and its
 removal is indistinguishable from chance. The 42 trades it cuts are profitable (+1.49%/trade, 71% win, worst
-−10.9%) though thin per year. Recommendation: **retire the floor to the corpus's $2M** (+42 trades, PF 4.128 →
+−10.9%) though thin per year. Recommendation: **retire the floor to the corpus's \$2M** (+42 trades, PF 4.128 →
 4.016, trimPF−1 8.86 → 8.50 — the broadening the user asked for, at the cost of ~3% PF). Ruling: pending.
 
-**S49a RULING (user): the $3M floor is RETIRED — the universe floor is the candidate table's $2M.** Layer 1 otherwise
+**S49a RULING (user): the \$3M floor is RETIRED — the universe floor is the candidate table's \$2M.** Layer 1 otherwise
 CLOSED by the user: dv60/tc60 stay ("there for liquidity, not performance"), volat ≥ 40bp / ≤ 15:00 / gap_60 < 4 /
-px ≥ $1 stay. `lows180` is a spec gate and is reviewed with layer 2.
+px ≥ \$1 stay. `lows180` is a spec gate and is reviewed with layer 2.
 
 ## S49b — layer 2, BACKWARD ELIMINATION (one gate per step; the map is recomputed after every removal)
 
@@ -17384,7 +17384,7 @@ ssf + accel are supported by 2020–23 (not picked by the 2024+ fit); e9/rflow b
 
 | spec | gates | n | tkd | PF | trimPF−1 | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| H. SPEC v3.1 reference ($2M floor) | 18 | 1,411 | 1,262 | 4.016 | 8.50 | 1.95 | −30.6 | 7.26 | 3.55 | 3.30 | 2.94 | 3.73 | 3.51 | 4.72 |
+| H. SPEC v3.1 reference (\$2M floor) | 18 | 1,411 | 1,262 | 4.016 | 8.50 | 1.95 | −30.6 | 7.26 | 3.55 | 3.30 | 2.94 | 3.73 | 3.51 | 4.72 |
 | A. S49b survivors | 11 | 1,728 | 1,539 | 3.648 | 7.55 | 1.75 | −30.6 | 7.48 | 3.07 | 2.66 | 2.84 | 3.58 | 3.08 | 4.26 |
 | B. A + crf | 12 | 1,308 | 1,192 | 4.101 | 9.19 | 1.98 | −28.1 | 9.11 | 3.97 | 2.64 | 2.81 | 3.43 | 3.76 | 4.46 |
 | C. B + coil5lo | 13 | 1,058 | 979 | 4.556 | 11.06 | 2.08 | −28.1 | 17.86 | 4.70 | 2.25 | 2.67 | 2.89 | 4.24 | 6.24 |
@@ -17575,7 +17575,7 @@ further threshold inside it.
 2.13 · 150–300 1.94 · 300–500 1.93 · 500–800 1.53 · 800–1200 1.79 — flat. gap bands inside tc_60 ≥ 800 (busy
 tape): 0 → 3.83 · 1 → 3.11 · 2–3 → 3.86 · 4–5 → 3.40 · **6–7 → 1.06 (75 trades, +0.08%)** · 8–12 → 1.63. Inside
 the door tc_60 is a mild gradient (500–800: 4.19 · 800–1200: 3.65 · 1200–2000: 3.99 · 2000–3000: 4.17 · 3000+:
-5.62). dv_60 bands on the doorless book: < $200k 1.87 · 200–400k 2.45 · 400–800k 2.02 · 800k–1.6M 3.39 · 1.6–3.2M
+5.62). dv_60 bands on the doorless book: < \$200k 1.87 · 200–400k 2.45 · 400–800k 2.02 · 800k–1.6M 3.39 · 1.6–3.2M
 3.06 · 3.2–6.4M 4.07 · > 6.4M 4.65 — the same sparse-vs-dense split the gap count makes, not an independent floor.
 **Reading:** the gap count measures INTERMITTENCY (is the tape printing every second), which is what the 1s-bar
 signal needs; trade count and dollars measure size, which the floors already cover. gap_60 stays the door and the
@@ -17584,7 +17584,7 @@ tier axis; the floors stay floors.
 ## S49j — the gap door on the BROAD book (efficiency-curve step 7, no vote): gap < 4 → < 40 = +78% net gross, +63% at 10 bp
 
 Step 7 = frame + lows300 + eff10 + v10r + z20 + lows180 + crf + coil5lo (S49d), no vote. net = n × avg%;
-net@10bp subtracts 0.10%/trade (a generic round trip — optimistic for sparse sub-$5 tape, S41 Roll 7 bp + fees).
+net@10bp subtracts 0.10%/trade (a generic round trip — optimistic for sparse sub-\$5 tape, S41 Roll 7 bp + fees).
 
 | door | n | tkd | PF | trimPF−1 | avg% | win% | net% | net @10bp | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -17604,7 +17604,7 @@ Gap bins on the doorless step-7 book (replay inside each): 0 → 1.83 / +0.90% �
 10 bp the 30–39 band nets +0.18%/trade and 40–49 +0.12% — on the cost line for sparse names (2022–23 ≈ 1.0 there).
 **Reading:** on the broad book the door is a pure net-vs-quality dial with no cliff until ~40: < 40 gives +78% net
 gross (+63% at 10 bp) for 2.8× the trades (23/day) at PF 1.46 / +0.49%. The 20–39 bands (19,500 trades, +0.3%)
-are where the cost model decides; the S41 spread study (Roll 7 bp on $2–5, 2 bp above $20) says they are only
+are where the cost model decides; the S41 spread study (Roll 7 bp on \$2–5, 2 bp above \$20) says they are only
 tradeable passively. Worst trade −84.8% at every door ≥ 8 (an overnight hold in the sparse fringe).
 
 ## S49k — SIZING the broad book (user: 'use volat_20m and the coil to size'): volat and gap grade, the coil does not
@@ -17712,18 +17712,18 @@ gap: 0 1.50, 1-3 1.13, 4-7 0.99, 8-12 0.87, 13-19 1.00, 20-29 0.80, 30-39 0.77
 ## S49l — the broad book under REBATE economics (user: "we should be paid to provide liquidity"), + the 140 bp rule
 
 All S49k grids were NET OF 10 bp/trade. Re-run with the cost expressed PER SHARE (scales 1/price, as rebates do):
-`--credit` = net $ per share per SIDE (rebate − commission); trade cost = −2·credit/px. Median px on this book $5.65
-(gap 0: $6.54 · 4–12: $5.1–5.2 · 30–39: $8.65).
+`--credit` = net \$ per share per SIDE (rebate − commission); trade cost = −2·credit/px. Median px on this book \$5.65
+(gap 0: \$6.54 · 4–12: \$5.1–5.2 · 30–39: \$8.65).
 
 | scenario | cost/trade | n | PF | trimPF−1 | avg% | net% |
 |---|---|---|---|---|---|---|
 | A. 10 bp taker-ish (S49k) | +0.100% | 37,855 | 1.354 | 1.67 | +0.39 | 14,761 |
 | B. zero | 0 | 37,855 | 1.459 | 1.94 | +0.49 | 18,547 |
-| C. credit $0.0005/sh/side (rebate .002 − comm .0015) | −0.025% mean | 37,855 | 1.485 | 2.01 | +0.51 | 19,488 |
-| D. credit $0.001/sh/side (rebate .002 − comm .001) | −0.050% mean | 37,855 | 1.513 | 2.08 | +0.54 | 20,429 |
+| C. credit \$0.0005/sh/side (rebate .002 − comm .0015) | −0.025% mean | 37,855 | 1.485 | 2.01 | +0.51 | 19,488 |
+| D. credit \$0.001/sh/side (rebate .002 − comm .001) | −0.050% mean | 37,855 | 1.513 | 2.08 | +0.54 | 20,429 |
 | **E. D + RULE volat ≥ 140 only if gap < 4 (user)** | −0.049% | **37,348** | **1.533** | **2.10** | **+0.55** | **20,390** |
 
-gap × volat avg%/trade under D (credit $0.001/sh/side):
+gap × volat avg%/trade under D (credit \$0.001/sh/side):
 
 | gap \ volat | 40–60 | 60–90 | 90–140 | 140–250 |
 |---|---|---|---|---|
@@ -17743,21 +17743,21 @@ fills only when price trades through it (better price on the flushes that contin
 at once) — the fill model (S41: adverse selection conditional on fill) is the open question for this book, not
 the commission tier.
 
-## S49m — monthly share volume at $10k notional per position (user, end of day 2026-09-08)
+## S49m — monthly share volume at \$10k notional per position (user, end of day 2026-09-08)
 
-79.6 months, 2020-01-02..2026-08-21, both legs counted, shares = $10,000 / entry px:
+79.6 months, 2020-01-02..2026-08-21, both legs counted, shares = \$10,000 / entry px:
 
-| book | trades/mo | median px | shares/trade | executions/mo | **shares/mo** | 2× rebate @$0.002 | commission @$0.001/sh/side |
+| book | trades/mo | median px | shares/trade | executions/mo | **shares/mo** | 2× rebate @\$0.002 | commission @\$0.001/sh/side |
 |---|---|---|---|---|---|---|---|
-| tight (step 7, gap < 4) | 170 | $5.41 | 2,576 | 339 | **874k** | $1,747 | $874 |
-| broad gap < 13 | 260 | $5.15 | 2,645 | 521 | **1.38M** | $2,754 | $1,377 |
-| broad gap < 40 | 476 | $5.65 | 2,486 | 951 | **2.36M** | $4,730 | $2,365 |
-| **broad gap < 40 + rule140** | **469** | $5.69 | 2,472 | 938 | **2.32M** | $4,639 | $2,319 |
+| tight (step 7, gap < 4) | 170 | \$5.41 | 2,576 | 339 | **874k** | \$1,747 | \$874 |
+| broad gap < 13 | 260 | \$5.15 | 2,645 | 521 | **1.38M** | \$2,754 | \$1,377 |
+| broad gap < 40 | 476 | \$5.65 | 2,486 | 951 | **2.36M** | \$4,730 | \$2,365 |
+| **broad gap < 40 + rule140** | **469** | \$5.69 | 2,472 | 938 | **2.32M** | \$4,639 | \$2,319 |
 
 By year (broad + rule140): 2020 590 trades / 2.70M sh · 2021 724 / 2.85M · 2022 307 / 1.66M · 2023 241 / 1.45M ·
-2024 404 / 2.24M · 2025 542 / 2.94M · 2026 477 / 2.45M per month. Price mix: $1–2 = 13.7% of trades but 38% of
-shares; $2–5 = 32% / 42%; $5–10 = 23% / 13%; ≥ $10 = 32% of trades, 6.6% of shares. **80% of the share volume is
-in sub-$5 names** — the tier where the per-share rebate is 4–8 bp of notional and the S41 Roll spread 4–7 bp.
+2024 404 / 2.24M · 2025 542 / 2.94M · 2026 477 / 2.45M per month. Price mix: \$1–2 = 13.7% of trades but 38% of
+shares; \$2–5 = 32% / 42%; \$5–10 = 23% / 13%; ≥ \$10 = 32% of trades, 6.6% of shares. **80% of the share volume is
+in sub-\$5 names** — the tier where the per-share rebate is 4–8 bp of notional and the S41 Roll spread 4–7 bp.
 
 ## S49n — the LowFader leg-RATE family on the EFFICIENCY VARIANT (user, 2026-09-08 evening)
 
@@ -17866,7 +17866,7 @@ of gap × volat). Next: the tier's sizing multiplier and the combined sized book
 
 `flushfader_sizing_broad.py --credit 0.001 --rule140 --halts` → `data/flushfader_gate_review/sizing_broad_halts.md`.
 `--halts` = the S49p WAIT (ht ≥ 4 ∧ ssh < 300 excluded: 37,348 → **37,279** trades, PF 1.533 → 1.536 under the credit) +
-the S TIER flag (ht ≥ 1 ∧ ssh ∈ [300,2400)) as a multiplier axis. Returns net of the $0.001/sh/side credit.
+the S TIER flag (ht ≥ 1 ∧ ssh ∈ [300,2400)) as a multiplier axis. Returns net of the \$0.001/sh/side credit.
 
 | set (net of credit) | n | PF | trimPF−1 | avg% | worst | years < 1 |
 |---|---|---|---|---|---|---|
@@ -17920,7 +17920,7 @@ book's gap × volat × rate600 cells × 1.64**, clipped to [0.25, 4] like every 
 
 ## S49r — the tier's 2×2 and the STEEPNESS CONTROL: the S tier is NOT a sizing axis (2026-09-09) — SUPERSEDES the S49q ruling
 
-User: size the tier from its 2×2 (gap<4 / ≥4 × volat<90 / ≥90) instead of a product + cap. Net of the $0.001 credit:
+User: size the tier from its 2×2 (gap<4 / ≥4 × volat<90 / ≥90) instead of a product + cap. Net of the \$0.001 credit:
 
 | tier cell | n | PF | trimPF−1 | avg% | worst | mult (all / 20–23 / 24–26) | years < 1 |
 |---|---|---|---|---|---|---|---|
@@ -18219,7 +18219,7 @@ halves, no within-cell machinery. rate600 becomes 1.15 / 0.82.
 
 **FINAL PRODUCTION SIZING (supersedes S49k/n/q/r/s/u/v/w/y/z/aa on the form):** multiplier = gap ladder × volat ladder ×
 rate600 ladder × S-tier factor, clipped [0.25, 4], every ladder = band PF−1 / book PF−1 on the broad book net of the
-$0.001/sh/side credit, fitted on all years:
+\$0.001/sh/side credit, fitted on all years:
 - gap_60: 0 → 1.68 · 1–3 → 1.06 · 4–12 → 0.89 · 13–39 → 0.78
 - volat_20m (bp): 40–60 → 0.76 · 60–90 → 1.02 · 90–140 → 1.18 · 140–250 → 1.70 · ≥ 250 → 2.22 (≥ 140 only at gap < 4)
 - rate600: < .07 → 1.15 · ≥ .07 → 0.82
@@ -18358,7 +18358,7 @@ Same conclusion as C2–C5: beyond gap = 0 the loss ratio has one level; C stand
 
 Model A3 = three log-linear component models (logit p · log W · log L), each with an intercept + gap 1–3 + gap 4–39 +
 volat 60–90 / 90–140 / 140–250 / 250+ + rate600 fast (≥ .07) + S tier (ht ≥ 1 ∧ ssh ∈ [300,2400)) = 9 parameters; fitted by
-IRLS on the broad book net of the $0.001/sh/side credit, all years. **multiplier = fitted PF−1 / 0.519 (the book's mean
+IRLS on the broad book net of the \$0.001/sh/side credit, all years. **multiplier = fitted PF−1 / 0.519 (the book's mean
 fitted PF−1), power 1 (ruled), clip [0.25, 4] (never binds: range 0.52–3.12).** WAIT ht ≥ 4 ∧ ssh < 300 stays in the spec.
 `scripts/equity/flushfader_sizing_model.py --credit 0.001 --rule140` → `data/flushfader_gate_review/sizing_model.md`
 (PRODUCTION TABLE: p, W, L, λ, PF−1, multiplier and n for every populated cell). The finite grid (multiplier (n)):
@@ -18506,7 +18506,7 @@ allow 0.5–1.0. So f* = 0.30 is a tail number and the right one to use. At f (A
 (cross-fit sizes carry a −221-unit trade: worst trade −18% / −22% / −36% at f = 0.075 / 0.10 / 0.15.) The user's earlier
 "20% per PF−1 bet" is 2/3 Kelly here: DD 65%, a −65% day. Growth figures (f = 0.10: +1.46%/day ≈ 38×/yr) are the
 BACKTEST's arithmetic at 22 trades/day × +0.67% and will be bounded by fills and capacity long before Kelly binds
-(at $100k equity, f = 0.10 → $10k/unit → 2.3M sh/mo, S49m; at $1M → 23M sh/mo). **Recommendation: f = 0.10 per unit
+(at \$100k equity, f = 0.10 → \$10k/unit → 2.3M sh/mo, S49m; at \$1M → 23M sh/mo). **Recommendation: f = 0.10 per unit
 (1/3 Kelly; 31% of equity on the largest cell, gross ≤ 200%) as the ceiling; 0.075 (1/4 Kelly, 23% / 150%) to start.**
 
 ### S49ai addendum — EXACT Kelly, worst days removed (user: "exact or approximate?"). The script maximises mean log(1 + f·D_t)
@@ -18524,18 +18524,18 @@ a debloated fork of the research engine) gained the four features the broad book
 `counters600` (the 10m `NewLowCounters` rung, reset on a strictly-prior 600-bar-high breach — `sMax600`, the br300 idiom) —
 and the five broad-book gates as `IntradayConfig` knobs with off-sentinels: `MaxCrf −0.002`, `MaxCoil5mLag1m 0.22`,
 `MaxGap60 40` (RAW gap_60), `Rule140VolatBp 140 / Rule140MaxGap 4`, `HaltWaitCount 4 / HaltWaitSec 300`; `MinDv0945Tape`
-2e6 (the $3M rung was stale). `Engine/Sizing.fs` embeds the A3 raw β vectors (`data/flushfader_gate_review/a3_coefficients.json`,
+2e6 (the \$3M rung was stale). `Engine/Sizing.fs` embeds the A3 raw β vectors (`data/flushfader_gate_review/a3_coefficients.json`,
 written by `flushfader_sizing_model.py --dump-coefficients` and now COMMITTED — the only data file in the repo), the base
-0.5190225, clip [0.25, 4], numpy.digitize's half-open band edges, NaN rate600 → slow; `BookBroad.fs` = raw entry_px ≥ $1 +
+0.5190225, clip [0.25, 4], numpy.digitize's half-open band edges, NaN rate600 → slow; `BookBroad.fs` = raw entry_px ≥ \$1 +
 the per-ticker-day mc=1 greedy walk + the multiplier; `Live.fs`'s `LiveSignal` carries the multiplier, the four sizing
-features and the $1 test (the engine stays a sampler, `MaxConcurrent = 0`, so a rejected order never silences the next
+features and the \$1 test (the engine stays a sampler, `MaxConcurrent = 0`, so a rejected order never silences the next
 low); `Config.baseConfig` mirrors `flushfader_run_base_v19.sh` (`scan trips --base`). The 13 dropped gates and the ROSTER
 were then DELETED (Book.fs removed; `Intraday.fs` 1,471 → ~880 lines; `SignalSink` 52 → 31 audit columns), config-OFF
 first and code second, with a static dead-binding check on every group.
 
 **Reference artifacts (research).** `scripts/equity/flushfader_broad_reference.py` rebuilds the broad book from `base_v19`
 in FULL DOUBLE precision with the CALENDAR-AWARE entry cutoff (12:00 on NYSE half-days, which the engine enforces and the
-flat `signal_sec <= 54000` of the S49 scripts does not): engine-level trips **209,252 / 26,175 tkd** (no $1 floor, no
+flat `signal_sec <= 54000` of the S49 scripts does not): engine-level trips **209,252 / 26,175 tkd** (no \$1 floor, no
 replay), book **37,254 / 23,254 tkd @ 1.480 gross, A3-sized 1.576**, multiplier mean 0.9999, every trade on a table cell
 (max |mult − cell| = 0). vs the S49 scripts' 37,279: the slice-only class is **216 engine-level trips (25 book trades), ALL
 early-close 12:00–13:00 signals** (verified: 216 of 216); the FLOAT32 boundary hazard (consol / rate600 stored as FLOAT in
@@ -18577,45 +18577,45 @@ per unit — S49ag/S49ai) and the LowFader / SpikeFader / Snoozer ports (tomorro
 Live, the cap came off on 10-26 and the uncapped maker entry has CHASED bounces (−57 bp against the model on 33 legs,
 10-26…29). The question: where between no cap and the signal price should a maker buy's limit stop?
 `scripts/equity/flushfader_cap_sim.py` (→ `data/equity/flushfader_cap_sim/`): 500 random trips per year of
-`broad_reference_book` (2020-01 … 2026-08, seed 20261030), a $1,000 buy per trip that JOINS the NBBO bid and follows it
+`broad_reference_book` (2020-01 … 2026-08, seed 20261030), a \$1,000 buy per trip that JOINS the NBBO bid and follows it
 both ways (the Oms's MakeSpreadRth; the old price live 0.216 s after each re-pricing), never above a cap FIXED at the
 signal, from the end of the signal second to the trip's exit. Quotes: Massive REST per trip (463 s for 3,500). Prints: the
 bulk tape (lit = not FINRA TRF). Fill models lit / queue (the displayed bid ahead of us) / hidden (and the bid's size ahead
-of a price below the bid). Outcome at the book's exit_px; the model fills every trip at entry_px (+38.6 bp on $3.48M).
+of a price below the bid). Outcome at the book's exit_px; the model fills every trip at entry_px (+38.6 bp on \$3.48M).
 The book's prices are on the raw tape scale (12 of 12 exact); the MA caps' bars match the book's signal vwap to p99 14 bp.
 
-| cap (fixed at the signal) | lit Δ $ | queue Δ $ | hidden Δ $ | queue: unfilled (their model P&L) | queue: years Δ > 0 |
+| cap (fixed at the signal) | lit Δ \$ | queue Δ \$ | hidden Δ \$ | queue: unfilled (their model P&L) | queue: years Δ > 0 |
 |---|---|---|---|---|---|
 | none: entry vs the model −4.1 bp (lit) / −13.5 bp (queue) | 0 | 0 | 0 | 2 | — |
-| the signal price | +16 | **−957** | −1,080 | 298 (+$10,027) | 2 / 7 |
-| signal + 1 tick | +103 | +559 | +417 | 172 (+$5,993) | 5 / 7 |
-| **signal + 3 ticks** | **+586** | **+630** | **+646** | 88 (+$3,155) | **6 / 7** (lit 7 / 7) |
-| signal + 100 bp | +481 | +456 | +433 | 59 (+$2,685) | 6 / 7 |
-| ¼ of the way to ma30 | +584 | +100 | 0 | 176 (+$5,686) | 4 / 7 |
-| ½ of the way to ma30 | +467 | +161 | +174 | 107 (+$3,503) | 4 / 7 |
-| ma10 | +503 | +328 | +311 | 76 (+$2,505) | 4 / 7 |
-| ma15 | +346 | +352 | +311 | 61 (+$1,978) | 4 / 7 |
+| the signal price | +16 | **−957** | −1,080 | 298 (+\$10,027) | 2 / 7 |
+| signal + 1 tick | +103 | +559 | +417 | 172 (+\$5,993) | 5 / 7 |
+| **signal + 3 ticks** | **+586** | **+630** | **+646** | 88 (+\$3,155) | **6 / 7** (lit 7 / 7) |
+| signal + 100 bp | +481 | +456 | +433 | 59 (+\$2,685) | 6 / 7 |
+| ¼ of the way to ma30 | +584 | +100 | 0 | 176 (+\$5,686) | 4 / 7 |
+| ½ of the way to ma30 | +467 | +161 | +174 | 107 (+\$3,503) | 4 / 7 |
+| ma10 | +503 | +328 | +311 | 76 (+\$2,505) | 4 / 7 |
+| ma15 | +346 | +352 | +311 | 61 (+\$1,978) | 4 / 7 |
 
-Δ = P&L against no cap on the same 3,500 trips; +$630 = +1.8 bp of the notional, +7 % of the uncapped queue P&L
-(+$8,578). Queue, by year, signal + 3 ticks: +114 / +87 / +42 / −26 / +202 / +154 / +58 (2020…2026); + 100 bp:
+Δ = P&L against no cap on the same 3,500 trips; +\$630 = +1.8 bp of the notional, +7 % of the uncapped queue P&L
+(+\$8,578). Queue, by year, signal + 3 ticks: +114 / +87 / +42 / −26 / +202 / +154 / +58 (2020…2026); + 100 bp:
 +156 / +12 / +12 / −6 / +131 / +94 / +58.
 
-- **The signal cap loses behind a queue:** its 298 unfilled trips make +$10,027 in the model — the trips that run away
+- **The signal cap loses behind a queue:** its 298 unfilled trips make +\$10,027 in the model — the trips that run away
   from the bid are the winners (the 10-27 live study's finding, at scale). One tick of room halves the misses; three
   ticks leave 88.
 - **A few ticks of room beats a cap tied to the chart.** The MA caps win only without a queue; behind one they are
-  +$100…352 and positive in 4 of 7 years.
+  +\$100…352 and positive in 4 of 7 years.
 - **The sim understates the chase.** On the live sessions' tape (the private repo's sim7.py) the same rule pays
   −18 bp (mean) less than live did uncapped; live's uncapped entries cost −57 bp, the sim's −13.5. A cap saves at least
   this much live.
-- Ticks are relative: + 3 ticks is ~250 bp on a $1.20 name, 6 bp on a $50 one; + 100 bp is flat. They come out alike.
+- Ticks are relative: + 3 ticks is ~250 bp on a \$1.20 name, 6 bp on a \$50 one; + 100 bp is flat. They come out alike.
 
 ### S49ak-2 — more caps and their max() combinations, by share price (user, 2026-10-30)
 
 The user's guess: the tick rules carry the cheap names, the bp rules the expensive ones, so max(+k ticks, +x bp) should
-win. Same 3,500 trips (logs/flushfader_cap_sim2.log), queue fill model, Δ $ against no cap:
+win. Same 3,500 trips (logs/flushfader_cap_sim2.log), queue fill model, Δ \$ against no cap:
 
-| cap | all | years > 0 | < $2 (515) | $2–5 (1,143) | $5–10 (756) | $10–20 (545) | > $20 (541) |
+| cap | all | years > 0 | < \$2 (515) | \$2–5 (1,143) | \$5–10 (756) | \$10–20 (545) | > \$20 (541) |
 |---|---|---|---|---|---|---|---|
 | the signal price | −957 | 2 / 7 | −498 | −897 | +162 | −67 | **+343** |
 | signal + 1 tick | +559 | 5 / 7 | +94 | −47 | +195 | +13 | +304 |
@@ -18633,24 +18633,24 @@ win. Same 3,500 trips (logs/flushfader_cap_sim2.log), queue fill model, Δ $ aga
 | max(+3 ticks, +150 bp) | +477 | 6 / 7 | +98 | +210 | +34 | +33 | +104 |
 | max(+4 ticks, +150 bp) | +394 | 7 / 7 | +63 | +160 | +34 | +33 | +104 |
 
-(All 16 combinations and the hidden model are in the log; hidden ranks the same, + 3 ticks +$646.)
+(All 16 combinations and the hidden model are in the log; hidden ranks the same, + 3 ticks +\$646.)
 
 **The guess is the wrong way round:**
-- **Expensive names want a TIGHT cap.** Above $20 even the plain signal cap wins (+$343). A bp cap is loose there
-  (100 bp on a $50 name is 50 ticks) and gives the chase back: + 100 bp +$138, + 300 bp +$25.
-- **Cheap names need a few ticks of room, which a bp cap cannot give.** Under $2, 50 bp is less than one tick, so it
-  floors to the signal cap and misses the runners (−$428).
-- **So max(ticks, bp) is looser exactly where tight wins.** Above $20 its bp half takes over and gives back half of
-  the + 3 ticks gain; under $2 it equals the tick rule. No combination beats plain + 3 ticks overall.
+- **Expensive names want a TIGHT cap.** Above \$20 even the plain signal cap wins (+\$343). A bp cap is loose there
+  (100 bp on a \$50 name is 50 ticks) and gives the chase back: + 100 bp +\$138, + 300 bp +\$25.
+- **Cheap names need a few ticks of room, which a bp cap cannot give.** Under \$2, 50 bp is less than one tick, so it
+  floors to the signal cap and misses the runners (−\$428).
+- **So max(ticks, bp) is looser exactly where tight wins.** Above \$20 its bp half takes over and gives back half of
+  the + 3 ticks gain; under \$2 it equals the tick rule. No combination beats plain + 3 ticks overall.
 - **A few ticks is right at every price because the chase is measured in ticks:** the bid follows a bounce a tick at a
-  time. Three ticks is ~200 bp of room on a $1.50 name and 6 bp on a $50 one.
-- **+ 1 … 4 ticks is a plateau** (+$512 … +$630; 5–6 of 7 years): the result does not hang on the exact k. Per-bucket
-  winners differ by less than the year-to-year swing (± $100–200), so a price-dependent k would be fitting noise.
+  time. Three ticks is ~200 bp of room on a \$1.50 name and 6 bp on a \$50 one.
+- **+ 1 … 4 ticks is a plateau** (+\$512 … +\$630; 5–6 of 7 years): the result does not hang on the exact k. Per-bucket
+  winners differ by less than the year-to-year swing (± \$100–200), so a price-dependent k would be fitting noise.
 
 ### S49ak-3 — the MA caps, 2 … 15 bars, and the STABILITY of every cap (user, 2026-10-30)
 
 The user: MA caps would be more principled. Same 3,500 trips (logs/flushfader_cap_sim3.log); each MA is the mean of the
-last n present-second vwaps up to the signal, fixed at the signal, floored to the tick. Δ $ against no cap; t = the
+last n present-second vwaps up to the signal, fixed at the signal, floored to the tick. Δ \$ against no cap; t = the
 per-trip gain summed by day, mean / SE over days (queue model):
 
 | cap | lit Δ | queue Δ | hidden Δ | queue: years > 0 | queue: t | queue: worst year | queue: unfilled | median room above the signal |
@@ -18674,20 +18674,20 @@ per-trip gain summed by day, mean / SE over days (queue model):
 
 - **No MA beats the tick rules behind a queue**, and the MAs are the least stable caps tested: they LOSE in
   2022–2024 for nearly every n (ma7: −29 / −64 / −35) and win in 2020 / 2025 / 2026. Without a queue ma5 / ma7 match
-  + 3 ticks (+$635 / +641, 7 of 7 years) — the difference is the queue.
+  + 3 ticks (+\$635 / +641, 7 of 7 years) — the difference is the queue.
 - **Why:** an MA's room is the depth of the flush. ma5 and ma7 sit a median 3 ticks above the signal (+ 3 ticks' room),
   but a SHALLOW flush gives one tick (behind a queue, the runner is missed) and a DEEP flush many (the chase runs). A
   fixed room in ticks is the same every time. (Not the cause: an MA below the signal price — under 0.1 % of trips.)
 - **The stability ranking** (all 46 caps in the log): the loosest caps change the fewest trips and are the most reliable
   per trip — + 250 bp t 3.43 (52 trips), max(+4 ticks, +200 bp) 3.20 (72), max(+3 ticks, +150 bp) 2.70 (141, worst year
-  −$1), max(+4 ticks, +150 bp) 2.42 (129, the only cap positive in all 7 years, the years' SD $31). The biggest total,
-  + 3 ticks (+$630, t 2.01, 549 trips changed), swings more. With 46 caps tested, a t of 2–3.4 favours no single one.
+  −\$1), max(+4 ticks, +150 bp) 2.42 (129, the only cap positive in all 7 years, the years' SD \$31). The biggest total,
+  + 3 ticks (+\$630, t 2.01, 549 trips changed), swings more. With 46 caps tested, a t of 2–3.4 favours no single one.
 
 ### S49ak-4 — the 4× check: 2,000 trips per year, 14,000 (user, 2026-10-30)
 
 "If the tick rule ends up being competitive on 4x the data we'll adopt it next week." Same script, `--per-year 2000`
 (the 3,500 are a subset; logs/flushfader_cap_sim_2k.log, data/equity/flushfader_cap_sim_2k/). 13,999 simulated; the
-model +$66,796 on $13.9M (+48.0 bp); 56 min, 5.9 GB peak. Δ $ against no cap:
+model +\$66,796 on \$13.9M (+48.0 bp); 56 min, 5.9 GB peak. Δ \$ against no cap:
 
 | cap | lit | queue | hidden | queue: t (by day) | queue: worst year | queue: years' SD | queue: years > 0 | queue: unfilled |
 |---|---|---|---|---|---|---|---|---|
@@ -18708,17 +18708,17 @@ Queue, by year (2020 … 2026): + 1 tick +426 / +40 / +829 / +555 / +432 / +577 
 
 **What held and what changed at 4×:**
 - **Held: the tick rules win, at every k.** All of + 1 … 4 ticks are positive in every year under the queue model,
-  t 2.7–3.6. + 3 ticks has the smallest swing of any large gain (worst year +$204, the years' SD $83).
-- **Changed: + 1 tick moved to the top** of the totals (+$3,209 queue, +$2,452 hidden), from mid-table at 500 a year.
-  It also leaves the most trips unfilled of the tick rules (673 vs 373 at + 3 ticks, worth +$22.5k vs +$12.6k in the
+  t 2.7–3.6. + 3 ticks has the smallest swing of any large gain (worst year +\$204, the years' SD \$83).
+- **Changed: + 1 tick moved to the top** of the totals (+\$3,209 queue, +\$2,452 hidden), from mid-table at 500 a year.
+  It also leaves the most trips unfilled of the tick rules (673 vs 373 at + 3 ticks, worth +\$22.5k vs +\$12.6k in the
   model), so it leans hardest on the queue model being right — and on the live tape the sim's queue was optimistic for
   a large order behind a deep bid (FUFU 10-19).
-- **Changed: the MAs recover** (ma6 / ma7 ≈ +$2,000, t 3.6). The 2022–2024 losses at 500 a year were noise. They keep a
-  losing year (2021) and the largest swings (SD $244–282).
-- **Changed: max(+4 ticks, +150 bp) falls behind** (+$1,011), still positive in every year.
-- **Changed: the signal cap is ≈ 0** (−$11), not −$957. It still leaves the most trips unfilled (1,156).
+- **Changed: the MAs recover** (ma6 / ma7 ≈ +\$2,000, t 3.6). The 2022–2024 losses at 500 a year were noise. They keep a
+  losing year (2021) and the largest swings (SD \$244–282).
+- **Changed: max(+4 ticks, +150 bp) falls behind** (+\$1,011), still positive in every year.
+- **Changed: the signal cap is ≈ 0** (−\$11), not −\$957. It still leaves the most trips unfilled (1,156).
 - The user's per-price guess (ticks for the cheap names, bp for the expensive) does not hold at 4× either: the tick
-  rules are positive in every price bucket except $10–20, where every rule is near 0.
+  rules are positive in every price bucket except \$10–20, where every rule is near 0.
 
 **Verdict: the tick rule is competitive on 4× the data → adopt it (user: next week).** + 1 tick has the largest total
 but the most misses; + 2 / + 3 ticks give ~60 % of that with the steadiest years and half the misses.
@@ -18726,22 +18726,22 @@ but the most misses; + 2 / + 3 ticks give ~60 % of that with the steadiest years
 ### S49ak-5 — LowFader's entries: NO cap (user, 2026-10-30: "we might need a different rule for those")
 
 Every trip of `lowfader_reference_book` (221, 2020-01 … 2026-06; held to the close, a median 6.2 h; median signal price
-$24, p10 $5.5, p90 $96), the same script and caps (`--book …lowfader… --out data/equity/lowfader_cap_sim`,
-logs/lowfader_cap_sim.log; 3.8 min). The model: +$7,735 on $216k (**+357 bp a trade**, against FlushFader's +48).
+\$24, p10 \$5.5, p90 \$96), the same script and caps (`--book …lowfader… --out data/equity/lowfader_cap_sim`,
+logs/lowfader_cap_sim.log; 3.8 min). The model: +\$7,735 on \$216k (**+357 bp a trade**, against FlushFader's +48).
 
-| cap | lit Δ $ | queue Δ $ | hidden Δ $ | queue: unfilled (their model P&L) | queue: years > 0 |
+| cap | lit Δ \$ | queue Δ \$ | hidden Δ \$ | queue: unfilled (their model P&L) | queue: years > 0 |
 |---|---|---|---|---|---|
 | none: entry vs the model **+4.4 bp** (lit) / **−3.1 bp** (queue) | 0 | 0 | 0 | 0 | — |
-| the signal price | −215 | −317 | −312 | 13 (+$635) | 3 / 7 |
-| signal + 1 tick | −94 | −90 | −89 | 9 (+$348) | 4 / 7 |
-| signal + 3 ticks | −121 | −70 | −68 | 5 (+$250) | 4 / 7 |
-| signal + 50 bp | −22 | +33 | +34 | 2 (+$69) | 5 / 7 |
-| signal + 100 bp | −45 | −5 | −5 | 1 (+$58) | 3 / 7 |
+| the signal price | −215 | −317 | −312 | 13 (+\$635) | 3 / 7 |
+| signal + 1 tick | −94 | −90 | −89 | 9 (+\$348) | 4 / 7 |
+| signal + 3 ticks | −121 | −70 | −68 | 5 (+\$250) | 4 / 7 |
+| signal + 50 bp | −22 | +33 | +34 | 2 (+\$69) | 5 / 7 |
+| signal + 100 bp | −45 | −5 | −5 | 1 (+\$58) | 3 / 7 |
 | signal + 150 … 300 bp, max(…, + 150 bp) | | +25 … +35 | | 0 — 2 trips changed | 2 / 7 |
 | ma7 / ma10 / ma15 | −95 / | −57 / +30 / +18 | | 3 / 2 / 1 | |
 
 - **There is no chase to stop:** LowFader's names are liquid and higher-priced; uncapped fills at the model (−3 bp).
-  Every cap tight enough to bind misses a few trips, and at +357 bp a trade one miss (~$50) outweighs the bp it saves.
+  Every cap tight enough to bind misses a few trips, and at +357 bp a trade one miss (~\$50) outweighs the bp it saves.
   The loose caps (+ 150 bp and up) change 2 trips of 221: nothing.
 - **The rule of thumb behind both systems:** a cap pays when the chase it stops costs more than its misses —
   FlushFader chases −13.5 bp a trade (queue) for a +48 bp edge; LowFader −3 bp for +357 bp.
@@ -18752,10 +18752,10 @@ logs/lowfader_cap_sim.log; 3.8 min). The model: +$7,735 on $216k (**+357 bp a tr
 ### S49ak-6 — the bp caps' ROUNDING: floor vs nearest vs ceiling (user, 2026-10-30)
 
 Every cap above is floored to the tick (as the live entry cap: an off-grid cap replace-stormed on 09-30). Floored, a bp
-cap on a cheap name is 0 or 1 tick of room depending on where the signal vwap falls in its cent (+ 50 bp on $1.2030
-→ 1.20 = the signal cap; on $1.2070 → 1.21). Rerun on the same 14,000 trips with the bp part rounded to the nearest tick
+cap on a cheap name is 0 or 1 tick of room depending on where the signal vwap falls in its cent (+ 50 bp on \$1.2030
+→ 1.20 = the signal cap; on \$1.2070 → 1.21). Rerun on the same 14,000 trips with the bp part rounded to the nearest tick
 and up (`--only`, logs/flushfader_cap_sim_2k_round.log, 34 min). **Control: the 108 floored columns equal §S49ak-4's to
-the cent.** Queue model, Δ $ against no cap:
+the cent.** Queue model, Δ \$ against no cap:
 
 | cap | floor | nearest | ceiling | floor: t / worst yr | nearest: t / worst yr | ceiling: t / worst yr |
 |---|---|---|---|---|---|---|
@@ -18774,6 +18774,70 @@ the cent.** Queue model, Δ $ against no cap:
 - **Rounding UP never helps:** the ceiling is the worst of the three on 8 of the 9 rows. Nearest wins 5, floor 4, by
   amounts inside the noise. Rounding moves a bp cap by at most one tick, which on the cheap names makes it a tick rule
   with jitter — it does not turn the bp rules into winners.
-- Where nearest helps (under $2: + 50 bp +$614 vs +$161 floored) it loses in $2–5 (+$419 vs +$881).
+- Where nearest helps (under \$2: + 50 bp +\$614 vs +\$161 floored) it loses in \$2–5 (+\$419 vs +\$881).
 - **The tick-vs-bp comparison stands as floored**, which is also how the live cap must round. The shortlist is
-  unchanged: + 1 tick (+$3,209), max(+1 tick, + 50 bp) floored (+$2,511), + 3 ticks (+$1,899, the steadiest).
+  unchanged: + 1 tick (+\$3,209), max(+1 tick, + 50 bp) floored (+\$2,511), + 3 ticks (+\$1,899, the steadiest).
+
+### S49ak-7 — "+1 tick" was the signal ROUNDED UP; the whole book, 37,253 trips (user, 2026-11-02)
+
+The user's question: was + 1 tick the winner only because every cap here is FLOORED to the tick, so that relaxing it by a
+single tick is what really made the difference? Yes. The signal vwap sits on the grid on 0.7 % of trips. Floored, the
+"signal" cap is a mean **0.41 tick BELOW the price the system signalled at**. "+ 1 tick" is that price rounded UP on
+99.3 % of trips. The deployed "+ 3 ticks" is the ceiling + 2.
+
+Rerun on the WHOLE broad book: `--per-year 100000`, 37,253 of 37,254 trips simulated, the caps limited with `--only`
+(logs/flushfader_cap_sim_all.log, data/equity/flushfader_cap_sim_all/, 2 h 31 min, 6.8 GB peak; the 14,000 of §S49ak-4
+are a subset). The model: +\$184,372 on \$37.0M (+49.8 bp). The FRACTIONAL caps are exact from the integer ones
+(`scripts/equity/flushfader_cap_fractional.py`): a signal vwap of L + φ ticks with cap s + f ticks floors to
+L + floor(φ + f), which per trip is one of the simulated integer caps. +1 / +2 / +3 rebuilt this way equal the simulator's
+columns to the dollar. Δ \$ against no cap:
+
+| cap | lit | queue | hidden | queue: t (by day) | queue: years > 0 | queue: worst year | queue: unfilled | mean room above the signal vwap |
+|---|---|---|---|---|---|---|---|---|
+| the signal, floored | −2,038 | −3,021 | −4,904 | −1.54 | 3 / 7 | −1,651 | 3,134 | −0.41 tick |
+| signal + 0.25 tick | −929 | −2,810 | −4,465 | −1.48 | 2 / 7 | −1,696 | 2,914 | −0.21 |
+| signal + 0.5 tick (= nearest) | −865 | −1,606 | −3,209 | −0.90 | 3 / 7 | −1,329 | 2,688 | −0.03 |
+| signal + 0.75 tick | −185 | +588 | −741 | 0.35 | 5 / 7 | −751 | 2,404 | +0.19 |
+| **signal + 1 tick (≈ rounded UP)** | +1,498 | +4,588 | +3,028 | 3.12 | **7 / 7** | +226 | 1,869 | +0.59 |
+| signal + 1.25 tick | **+2,188** | **+5,019** | +3,879 | 3.59 | 7 / 7 | **+318** | 1,737 | +0.79 |
+| signal + 1.5 tick | +2,119 | +4,607 | +3,520 | 3.40 | 7 / 7 | +287 | 1,659 | +0.97 |
+| signal + 2 tick | +1,438 | +4,192 | +3,233 | 3.56 | 7 / 7 | +305 | 1,307 | +1.59 |
+| signal + 2.5 tick | +1,437 | +4,398 | +3,746 | 3.96 | 7 / 7 | +211 | 1,184 | +1.97 |
+| signal + 3 tick | +1,571 | +4,288 | **+3,970** | **4.33** | 7 / 7 | +235 | 990 | +2.59 |
+| signal + 4 tick | +1,382 | +3,142 | +2,806 | 3.54 | 7 / 7 | +67 | 795 | +3.59 |
+
+(Also simulated: max(+1 tick, +50 bp) +4,613, + 100 bp +3,249, ma7 +2,312, queue.)
+
+The marginal tick (`scripts/equity/flushfader_cap_marginal.py`), Δ \$ of each cap against the one before it
+(t by day, years > 0):
+
+| step | lit | queue | hidden |
+|---|---|---|---|
+| no cap → the signal, floored | −2,038 (t −1.23, 4/7) | −3,021 (t −1.54, 3/7) | −4,904 (t −2.45, 1/7) |
+| **floored → + 1 tick (rounded up)** | **+3,536 (t 3.41, 5/7)** | **+7,609 (t 5.84, 7/7)** | **+7,931 (t 6.07, 7/7)** |
+| + 1 → + 2 ticks | −60 (t −0.09) | −396 (t −0.48) | +205 (t 0.24) |
+| + 2 → + 3 ticks | +133 (t 0.27) | +96 (t 0.16) | +737 (t 1.13) |
+| + 3 → + 4 ticks | −189 (t −0.51) | −1,146 (t −2.66, 1/7) | −1,164 (t −2.78, 2/7) |
+| + 1 → + 3 ticks | +73 (t 0.09) | −300 (t −0.28) | +943 (t 0.85) |
+
+By price, queue, floored → + 1 tick: < \$2 +1,843 · \$2–5 +3,604 · \$5–10 +1,297 · \$10–20 +460 · > \$20 +404, positive in
+every bucket.
+
+- **The first tick is the whole effect, and it is the rounding.** Going from the floor to the ceiling is worth
+  +\$7.6–7.9k behind a queue (t ≈ 6, positive in all 7 years, in every price bucket). A floored cap at or below the
+  signal LOSES against no cap (−\$3.0k): behind a queue it misses the trips that bounce straight off the low, the
+  winners (its 3,134 unfilled trips make +\$100k in the model). Every cap that still floors some trips below the signal
+  (+ 0.25 … + 0.75) is worse than the full ceiling, in proportion to the trips it leaves below.
+- **Past the ceiling it is a plateau, not a slope.** At 14,000 trips the second tick looked like it gave back
+  −\$1,237 (t −2.6). On the whole book it is −\$396 (t −0.48), and + 1 … + 3 ticks are statistically the same:
+  + 1 → + 3 is −\$300 (queue) / +\$943 (hidden), both t < 1. The 14,000-trip ranking of + 1 over + 3 was noise. + 4 ticks
+  starts to give the chase back (−\$1.1k, t −2.7).
+- **Rounding to the NEAREST tick is not enough** (−\$1.6k): half the trips still floor below the signal.
+
+**Ruling (user, 2026-11-02, before this run): no tick offsets — the cap rounds the signal price UP for a buy, DOWN for a
+sell.** The whole book supports it: the ceiling captures the effect, and the extra ticks of the deployed + 3 bought
+nothing measurable (they do halve the misses, 1,869 → 990, which matters if the queue model is optimistic). Live code: the
+private repo's d2377d3 (`MakeSpreadRthCapped`). The live sessions' tape (the private repo's maker_sim/caps/sim7.json):
+the cap of 10-14…10-23 was the LATEST signal floored, tighter still (it stepped down with every new low). It missed
+9 of 74 entries; the rounded-up cap fills 4 of the 7 misses the control reproduces (+\$142 of their \$229 model P&L),
++ 3 ticks fills 6.

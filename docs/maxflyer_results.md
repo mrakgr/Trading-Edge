@@ -21,7 +21,7 @@ trip-chart visualizer is `scripts/visualization/maxflyer_charts.py`.
 A three-gate funnel, all knowable at/before the day-D open (zero lookahead):
 
 - **Gate 1 — daily quality** (`PassesDailyFilter`, measured on the day-D open):
-  price ≥ $1, avg-dollar-volume ≥ $100k, consolidation tightness < 4.5, daily
+  price ≥ \$1, avg-dollar-volume ≥ \$100k, consolidation tightness < 4.5, daily
   log-ATR% < 0.10, within 5% of the prior-252d high (`52w ≥ 0.95`), and a
   "past-runner" volatility-history floor (`MaxAtrLog ≥ 0.04`).
 - **Gate 2 — premarket**: day-D gap ∈ [10%, 200%]; premarket volume ≥ 20% of the
@@ -34,7 +34,7 @@ A three-gate funnel, all knowable at/before the day-D open (zero lookahead):
   Long-only; multiple concurrent breakouts allowed; hold to MOC (16:00), with an
   optional 2-bar-low protective stop.
 
-Window: 2021-06-17 → 2026-06-25. Notional $10k/trip. P&L is gross (no fees/slippage
+Window: 2021-06-17 → 2026-06-25. Notional \$10k/trip. P&L is gross (no fees/slippage
 — this is a *viability* test, not an execution model).
 
 ---
@@ -52,7 +52,7 @@ tightness < 4.5 + volume confirmation; no stop.
 | candidates (Gate 1 & 2 passed) | 897 |
 | trips | 50 |
 | win rate | **28.0%** (14 / 50) |
-| net P&L | **−$15,192** |
+| net P&L | **−\$15,192** |
 | **profit factor** | **0.587** |
 
 Unprofitable. 50 trips is a thin sample, so on its own this could be noise — hence
@@ -68,13 +68,13 @@ dotnet run --project TradingEdge.MaxFlyer -c Release -- --intraday-stop
 |---|---|---|
 | trips | 50 | 50 |
 | win rate | 28.0% | **18.0%** |
-| net P&L | −$15,192 | **−$6,862** |
+| net P&L | −\$15,192 | **−\$6,862** |
 | profit factor | 0.587 | **0.708** |
 
 The stop halves the loss and lifts PF (0.587 → 0.708) by capping the
 failed-breakout left tail: 39 of 50 trips stop out for small bounded losses
-(worst ~−$1.5k vs ~−$3.5k unstopped), while the 11 that survive a *tight* stop all
-the way to MOC are net **+$16k**. Win rate drops because the tight stop also shakes
+(worst ~−\$1.5k vs ~−\$3.5k unstopped), while the 11 that survive a *tight* stop all
+the way to MOC are net **+\$16k**. Win rate drops because the tight stop also shakes
 out trades that would have recovered. The stop is a clear EV improvement, but the
 setup is still a losing long.
 
@@ -99,7 +99,7 @@ dotnet run --project TradingEdge.MaxFlyer -c Release -- \
 | candidates | 897 | **15,624** (17×) |
 | trips | 50 | **2,191** (44×) |
 | win rate | 28.0% | **30.3%** (663 / 2,191) |
-| net P&L | −$15,192 | **−$782,641** |
+| net P&L | −\$15,192 | **−\$782,641** |
 | **profit factor** | **0.587** | **0.663** |
 
 **The negative edge holds on a 44× larger, far more representative sample.**
@@ -117,14 +117,14 @@ Bucketed by holding time (entry → 16:00):
 
 | held | trips | net P&L | avg/trip |
 |---|---|---|---|
-| < 1h | 34 | −$3,455 | −$102 |
-| 1–2h | 46 | −$7,453 | −$162 |
-| 2–3h | 56 | −$12,324 | −$220 |
-| **> 3h** | **2,055** | **−$759,410** | **−$370** |
+| < 1h | 34 | −\$3,455 | −\$102 |
+| 1–2h | 46 | −\$7,453 | −\$162 |
+| 2–3h | 56 | −\$12,324 | −\$220 |
+| **> 3h** | **2,055** | **−\$759,410** | **−\$370** |
 
 Entries concentrate in the first hour (1,265 at the 09:00 hour, 560 at 10:00), and
 those morning entries are held >3h to MOC — carrying essentially all of the loss
-(−$759k of −$782k), at −$370/trip. The longer a faded breakout long is held, the
+(−\$759k of −\$782k), at −\$370/trip. The longer a faded breakout long is held, the
 worse it gets.
 
 ---
@@ -161,10 +161,10 @@ dotnet run --project TradingEdge.MaxFlyer -c Release -- \
 
 | config | trips | win rate | net P&L | PF |
 |---|---|---|---|---|
-| **short, hold-to-MOC** | 2,191 | **69.0%** | **+$782,641** | **1.509** |
-| short, 60m time-stop | 2,191 | 64.8% | +$344,338 | 1.300 |
-| short, 120m time-stop | 2,191 | 69.0% | +$529,877 | 1.425 |
-| short, 180m time-stop | 2,191 | 67.7% | +$543,642 | 1.391 |
+| **short, hold-to-MOC** | 2,191 | **69.0%** | **+\$782,641** | **1.509** |
+| short, 60m time-stop | 2,191 | 64.8% | +\$344,338 | 1.300 |
+| short, 120m time-stop | 2,191 | 69.0% | +\$529,877 | 1.425 |
+| short, 180m time-stop | 2,191 | 67.7% | +\$543,642 | 1.391 |
 
 - **The short is the exact mirror of the long** (PF 1.509 ≈ 1/0.663; net is the precise
   negation; 69% win = 100% − 30% − ties). The negative long edge is a genuine, large
@@ -178,7 +178,7 @@ dotnet run --project TradingEdge.MaxFlyer -c Release -- \
 ### The practical long takeaway (independent of ever shorting)
 
 A long who buys these breakouts would be **strictly better off doing nothing and
-waiting ~2 hours**: at the <1h horizon the long loses −$102/trip, growing to −$370/trip
+waiting ~2 hours**: at the <1h horizon the long loses −\$102/trip, growing to −\$370/trip
 by >3h. High-volume breakouts to new intraday highs are a place to *avoid* as a long,
 full stop.
 
@@ -192,14 +192,14 @@ broad short (hold-to-MOC) trips by **% change vs prior close at entry**
 
 | % vs prev close at entry | n | win% | avg P&L/trip | PF |
 |---|---|---|---|---|
-| 10–25% | 470 | 63.8% | **+$65** | 1.121 |
-| 25–50% | 859 | 67.5% | +$202 | 1.300 |
-| 50–100% | 646 | 72.6% | +$492 | 1.592 |
-| 100–200% | 188 | 74.5% | +$1,069 | **2.353** |
-| **200%+** | 28 | 82.1% | **+$2,138** | **3.730** |
+| 10–25% | 470 | 63.8% | **+\$65** | 1.121 |
+| 25–50% | 859 | 67.5% | +\$202 | 1.300 |
+| 50–100% | 646 | 72.6% | +\$492 | 1.592 |
+| 100–200% | 188 | 74.5% | +\$1,069 | **2.353** |
+| **200%+** | 28 | 82.1% | **+\$2,138** | **3.730** |
 
 **The short edge scales monotonically with how extended the stock already is** — win
-rate 64% → 82%, per-trip profit +$65 → +$2,138 (a 33× spread), and PF 1.12 → 3.73. The
+rate 64% → 82%, per-trip profit +\$65 → +\$2,138 (a 33× spread), and PF 1.12 → 3.73. The
 least-extended names (up 10–25%) barely fade at all (PF 1.12 — sub-tradeable after
 costs); the parabolic ones (up 100%+) fade hard and reliably (PF 2.35+). In PF terms the
 tradeable region is roughly the **>50% band (PF ~1.6+)**, ideally **>100% (PF 2.35+)**.
@@ -220,14 +220,14 @@ never reverts rides to MOC. (Run via the candidate cache, see below.)
 
 | config | win% | net P&L | PF |
 |---|---|---|---|
-| **hold-to-MOC (no target)** | 69.0% | **+$782,641** | **1.509** |
-| vwap | 73.6% | +$150,668 | 1.188 |
-| ma (10) | 67.6% | +$61,495 | 1.118 |
-| ma (20) | 69.8% | +$46,229 | 1.065 |
-| ma (50) | 73.6% | +$188,274 | 1.216 |
-| channel (10) | 67.7% | +$115,688 | 1.145 |
-| channel (20) | 69.8% | +$228,397 | 1.243 |
-| channel (50) | 71.9% | +$429,862 | 1.366 |
+| **hold-to-MOC (no target)** | 69.0% | **+\$782,641** | **1.509** |
+| vwap | 73.6% | +\$150,668 | 1.188 |
+| ma (10) | 67.6% | +\$61,495 | 1.118 |
+| ma (20) | 69.8% | +\$46,229 | 1.065 |
+| ma (50) | 73.6% | +\$188,274 | 1.216 |
+| channel (10) | 67.7% | +\$115,688 | 1.145 |
+| channel (20) | 69.8% | +\$228,397 | 1.243 |
+| channel (50) | 71.9% | +\$429,862 | 1.366 |
 
 **Every target is worse than holding to the close**, on both PF and net P&L. A
 take-profit target *caps the winners* while doing nothing about the losers (the
@@ -255,8 +255,8 @@ reversal/squeeze worth buying. Test: flip the gap band to `[−2.0, −0.10]` (o
 
 | universe | side | trips | win% | net P&L | PF |
 |---|---|---|---|---|---|
-| down-gappers (≥10% down) | long | 647 | 40.2% | −$86,067 | **0.760** |
-| down-gappers (≥10% down) | short | 647 | 57.5% | +$86,067 | **1.316** |
+| down-gappers (≥10% down) | long | 647 | 40.2% | −\$86,067 | **0.760** |
+| down-gappers (≥10% down) | short | 647 | 57.5% | +\$86,067 | **1.316** |
 
 **Buying the down-gapper breakout is still negative** (PF 0.76) — less negative than the
 up-gapper long (0.59) but a loser all the same. The "down a lot → reversal bounce" thesis
@@ -327,12 +327,12 @@ to the 2-bar high). Run on both gap universes, both sides.
 
 | universe | dir | side | trips | win% | net P&L | PF |
 |---|---|---|---|---|---|---|
-| up-gappers | up (high) | short | 2,191 | 69.0% | +$782,641 | **1.509** |
-| up-gappers | up (high) | long | 2,191 | 28.0% | −$14,766 | 0.587 |
-| up-gappers | **down (low)** | **long** | 1,247 | 51.6% | +$165,911 | **1.342** |
-| up-gappers | down (low) | short | 1,247 | 46.8% | −$165,911 | 0.745 |
-| down-gappers | **down (low)** | **long** | 1,095 | 56.6% | +$147,032 | **1.320** |
-| down-gappers | down (low) | short | 1,095 | 42.5% | −$147,032 | 0.758 |
+| up-gappers | up (high) | short | 2,191 | 69.0% | +\$782,641 | **1.509** |
+| up-gappers | up (high) | long | 2,191 | 28.0% | −\$14,766 | 0.587 |
+| up-gappers | **down (low)** | **long** | 1,247 | 51.6% | +\$165,911 | **1.342** |
+| up-gappers | down (low) | short | 1,247 | 46.8% | −\$165,911 | 0.745 |
+| down-gappers | **down (low)** | **long** | 1,095 | 56.6% | +\$147,032 | **1.320** |
+| down-gappers | down (low) | short | 1,095 | 42.5% | −\$147,032 | 0.758 |
 
 **The breakout is a fade in *both* directions.** Break to a new high → short it (PF 1.51).
 Break to a new low → **long it** (PF 1.32–1.34). The new-low fade long works on *both* gap
@@ -389,7 +389,7 @@ universes (quality filters off), hold-to-MOC.
 | down-gappers | down (low) | long | 1,095 → **1,432** | 1.320 → **1.233** |
 
 **The edge survives, slightly softened.** The wick trigger roughly doubles the up-breakout
-short count (4,172 trips) and the short stays strongly profitable (PF 1.427, net **+$1.29M**
+short count (4,172 trips) and the short stays strongly profitable (PF 1.427, net **+\$1.29M**
 gross) — the extra "pierce-but-close-inside" new highs *also* fade. PFs drop a little
 (1.51→1.43, 1.34→1.19) because the looser trigger admits marginal breakouts that revert
 less cleanly, but every cell keeps its sign and the wrong-side trades stay losers
@@ -459,24 +459,24 @@ close trigger, hold-to-MOC after fill.
 | | direct (stopless, hold-to-MOC) | **trail-entry (session-high stop)** |
 |---|---|---|
 | trips | 2,962 | 2,949 |
-| net P&L | +$880,677 | +$311,135 |
+| net P&L | +\$880,677 | +\$311,135 |
 | PF | 1.397 | 1.208 |
 | win% | 67.7% | 39.6% |
-| mean / trip | +$297 | +$106 |
-| **std / trip** | **$3,107** | **$1,469** |
+| mean / trip | +\$297 | +\$106 |
+| **std / trip** | **\$3,107** | **\$1,469** |
 | per-trip Sharpe (mean/std) | 0.096 | 0.072 |
-| **worst single trade** | **−$52,819** | **−$4,381** |
+| **worst single trade** | **−\$52,819** | **−\$4,381** |
 
 **Trail-entry fixes the run-over but at a real cost to the edge.** It halves per-trade
-volatility ($3,107 → $1,469) and **caps the worst trade 12× ($52.8k → $4.4k)** — the
+volatility (\$3,107 → \$1,469) and **caps the worst trade 12× (\$52.8k → \$4.4k)** — the
 session-high stop means you are *never* run over. But it gives up ~⅔ of the net P&L and a
 chunk of per-trip Sharpe (0.096 → 0.072), because waiting for the rollover misses the
 names that fade immediately and the session-high stop shakes you out of names that wiggle
 to a fresh high before bleeding all day. **The aggregate verdict: the run-overs were
-*priced in* — the all-day bleed more than pays for the occasional −$50k hit, so on a
+*priced in* — the all-day bleed more than pays for the occasional −\$50k hit, so on a
 per-trade basis the stopless direct short is still better risk-adjusted.** (Caveat: with a
-bounded ~$4.4k worst case you can size the trail book far larger per unit of capital-at-
-risk, and a −$4.4k tail is survivable where a −$53k tail is account-ending — neither of
+bounded ~\$4.4k worst case you can size the trail book far larger per unit of capital-at-
+risk, and a −\$4.4k tail is survivable where a −\$53k tail is account-ending — neither of
 which the per-trade Sharpe captures.)
 
 **Extension breakdown — and trail-entry hurts *most* exactly where the direct edge is
@@ -484,11 +484,11 @@ strongest.** PF and worst-trade by at-entry %-vs-prev-close:
 
 | extension @ entry | direct PF | trail PF | direct worst | trail worst |
 |---|---:|---:|---:|---:|
-| 10–25% | 1.147 | 1.150 | −$42,607 | −$2,805 |
-| 25–50% | 1.216 | 0.967 | −$52,819 | −$3,974 |
-| 50–100% | 1.418 | 1.319 | −$47,375 | −$3,848 |
-| 100–200% | 1.891 | 1.598 | −$17,144 | −$3,560 |
-| **200%+** | **3.706** | **1.371** | −$7,327 | −$4,381 |
+| 10–25% | 1.147 | 1.150 | −\$42,607 | −\$2,805 |
+| 25–50% | 1.216 | 0.967 | −\$52,819 | −\$3,974 |
+| 50–100% | 1.418 | 1.319 | −\$47,375 | −\$3,848 |
+| 100–200% | 1.891 | 1.598 | −\$17,144 | −\$3,560 |
+| **200%+** | **3.706** | **1.371** | −\$7,327 | −\$4,381 |
 
 Two findings stand out:
 
@@ -498,7 +498,7 @@ Two findings stand out:
    and those are precisely the names with the biggest, most reliable all-day de-rating. The
    direct short's clean monotonic 1.15→3.71 becomes a flat, non-monotonic ~1.0–1.6.
 2. **The catastrophic run-overs are NOT in the high-extension tail — they're in the mid
-   bands.** Direct worst-trade is −$53k at 25–50% and −$47k at 50–100%, but only −$7k at
+   bands.** Direct worst-trade is −\$53k at 25–50% and −\$47k at 50–100%, but only −\$7k at
    200%+. A stock already up 200% is exhausted and fades; a stock up only 40% still has room
    to double on you. So trail-entry's tail-protection is well-targeted at 25–100% but its
    edge-cost lands hardest at 200%+ (where run-over risk is already lowest). The mis-match
@@ -520,9 +520,9 @@ short, both hold-to-MOC:
 
 | variant | trips | net P&L | PF | win% |
 |---|---|---|---|---|
-| frontside, stopless | 2,962 | +$880,677 | **1.397** | 67.7% |
-| **backside, stopless** | 2,949 | +$702,467 | **1.329** | 65.3% |
-| backside + session stop (Run 9) | 2,949 | +$311,135 | 1.208 | 39.6% |
+| frontside, stopless | 2,962 | +\$880,677 | **1.397** | 67.7% |
+| **backside, stopless** | 2,949 | +\$702,467 | **1.329** | 65.3% |
+| backside + session stop (Run 9) | 2,949 | +\$311,135 | 1.208 | 39.6% |
 
 **The entry-timing change alone costs only ~0.07 PF (1.397 → 1.329); the session stop costs
 another ~0.12 (→ 1.208) — the stop is ~2× more damaging than the backside timing.** And
@@ -535,11 +535,11 @@ uniform shift, it has a sweet spot:
 
 | extension @ entry | frontside PF | backside PF | front worst | back worst |
 |---|---:|---:|---:|---:|
-| 10–25% | 1.147 | **0.954** | −$42,607 | −$43,411 |
-| 25–50% | 1.216 | 1.102 | −$52,819 | −$56,683 |
-| 50–100% | 1.418 | 1.429 | −$47,375 | −$20,801 |
-| **100–200%** | 1.891 | **2.380** | −$17,144 | −$15,312 |
-| 200%+ | **3.706** | 2.040 | −$7,327 | −$9,175 |
+| 10–25% | 1.147 | **0.954** | −\$42,607 | −\$43,411 |
+| 25–50% | 1.216 | 1.102 | −\$52,819 | −\$56,683 |
+| 50–100% | 1.418 | 1.429 | −\$47,375 | −\$20,801 |
+| **100–200%** | 1.891 | **2.380** | −\$17,144 | −\$15,312 |
+| 200%+ | **3.706** | 2.040 | −\$7,327 | −\$9,175 |
 
 - **Low extension (10–50%): backside is worse** — at 10–25% it goes *negative* (0.95). Mild
   movers have little rollover to wait for; the close-below confirmation just enters late.
@@ -565,10 +565,10 @@ price rises X above the entry. Frontside short, up-gapper universe, hold-to-MOC 
 
 | variant | net P&L | PF | std/trip | worst | # stopped |
 |---|---|---|---|---|---|
-| stopless | +$880,677 | **1.397** | $3,107 | −$52,819 | — |
-| +50% stop | +$453,066 | 1.181 | $2,443 | −$9,036 | 378 |
-| +75% stop | +$538,948 | 1.214 | $2,700 | −$11,079 | 207 |
-| +100% stop | +$562,038 | 1.224 | $2,896 | −$29,133 | 129 |
+| stopless | +\$880,677 | **1.397** | \$3,107 | −\$52,819 | — |
+| +50% stop | +\$453,066 | 1.181 | \$2,443 | −\$9,036 | 378 |
+| +75% stop | +\$538,948 | 1.214 | \$2,700 | −\$11,079 | 207 |
+| +100% stop | +\$562,038 | 1.224 | \$2,896 | −\$29,133 | 129 |
 
 **No — even very wide stops do not preserve the edge.** PF drops materially (1.40 → 1.18–1.22)
 at every level. Two reasons:
@@ -600,7 +600,7 @@ mild-mover that runs 50% is a catastrophe the stop *realizes* instead of letting
 band), converging toward stopless — the same pattern as the Run-5 targets and the Run-9
 trail stop. There is no sweet-spot stop level that beats holding; the limit (infinitely
 wide = stopless) is the best. And the tail trade-off is poor: the 50% stop cuts the worst
-trade −$53k → −$9k but costs ~$430k of net P&L to do it.
+trade −\$53k → −\$9k but costs ~\$430k of net P&L to do it.
 
 **The frontside fade edge is inseparable from sitting through the adverse excursion.** The
 profit comes from holding the parabolic faders through their run-up to the eventual
@@ -622,9 +622,9 @@ rollover *after* the +50%. Frontside, up-gapper universe, hold-to-MOC.
 
 | variant | trips | PF | win% | net P&L |
 |---|---|---|---|---|
-| short on the breakout (stopless) | 2,962 | 1.397 | 67.7% | +$880,677 |
-| **rise +50%, immediate** | 378 | **1.726** | 70.1% | +$284,848 |
-| rise +50% + trail (rollover after) | 373 | 1.659 | 70.2% | +$251,009 |
+| short on the breakout (stopless) | 2,962 | 1.397 | 67.7% | +\$880,677 |
+| **rise +50%, immediate** | 378 | **1.726** | 70.1% | +\$284,848 |
+| rise +50% + trail (rollover after) | 373 | 1.659 | 70.2% | +\$251,009 |
 
 **Waiting for the +50% parabolic move lifts PF 1.40 → 1.73** — a large jump in trade
 *quality*. Only ~13% of breakouts ever run +50% (2,962 → 378 trips), and those are exactly
@@ -637,20 +637,20 @@ often starts fading right there, so the extra rollover delay forfeits the first 
 
 | | short on breakout | rise +50% |
 |---|---:|---:|
-| mean / trip | +$297 | **+$754** |
+| mean / trip | +\$297 | **+\$754** |
 | **per-trip Sharpe (mean/std)** | 0.096 | **0.181** |
-| worst trade | −$52,819 | **−$31,880** |
+| worst trade | −\$52,819 | **−\$31,880** |
 
-Per-trip Sharpe nearly **doubles** (0.096 → 0.181) and the worst trade shrinks (−$53k →
-−$32k) — **with no stop at all**. By letting the name run +50% before shorting, you simply
+Per-trip Sharpe nearly **doubles** (0.096 → 0.181) and the worst trade shrinks (−\$53k →
+−\$32k) — **with no stop at all**. By letting the name run +50% before shorting, you simply
 *don't take* the trades that would have kept running; the ones left are exhausted and fade.
 Extension breakdown (no sub-25% entries exist by construction — all have run +50%):
 
 | at-entry band | n | PF | win% | worst |
 |---|---:|---:|---:|---:|
-| 50–100% | 89 | 2.336 | 73.0 | −$25,072 |
-| 100–200% | 218 | 1.359 | 67.4 | −$31,880 |
-| 200%+ | 71 | 2.899 | 74.6 | −$8,096 |
+| 50–100% | 89 | 2.336 | 73.0 | −\$25,072 |
+| 100–200% | 218 | 1.359 | 67.4 | −\$31,880 |
+| 200%+ | 71 | 2.899 | 74.6 | −\$8,096 |
 
 The mild-mover band is gone; every trade sits in the rich part of the curve. The 100–200%
 band is weakest (PF 1.36 — ran +50% to land merely *strong*, not yet exhausted); the 200%+
@@ -679,12 +679,12 @@ prev close; `prevClose` threaded into the intraday engine.)
 
 | strategy | trips | PF | net P&L | per-trip Sharpe | worst |
 |---|---|---|---|---|---|
-| frontside (short every breakout) | 2,962 | 1.397 | +$880,677 | 0.096 | −$52,819 |
-| **ext-gate 50% (conditional)** | 1,278 | **1.573** | **+$682,631** | 0.148 | −$47,375 |
-| rise +50% from breakout (Run 11) | 378 | 1.726 | +$284,848 | 0.181 | −$31,880 |
+| frontside (short every breakout) | 2,962 | 1.397 | +\$880,677 | 0.096 | −\$52,819 |
+| **ext-gate 50% (conditional)** | 1,278 | **1.573** | **+\$682,631** | 0.148 | −\$47,375 |
+| rise +50% from breakout (Run 11) | 378 | 1.726 | +\$284,848 | 0.181 | −\$31,880 |
 
 **The conditional gate is the sweet spot between the two.** It keeps ~77% of the
-all-breakouts net P&L (+$682k vs +$880k) while lifting PF 1.40 → 1.57 and improving per-trip
+all-breakouts net P&L (+\$682k vs +\$880k) while lifting PF 1.40 → 1.57 and improving per-trip
 Sharpe ~50% (0.096 → 0.148). It keeps far more trips than Run 11 (1,278 vs 378) because the
 threshold is absolute day-extension, not +50% *from the breakout* — a name breaking out
 already at +60% qualifies for an immediate direct entry (Run 11 would have made it run to
@@ -697,12 +697,12 @@ the rest is the clean monotonic curve with the mild-mover drag removed:
 | at-entry band | n | PF | win% | worst |
 |---|---:|---:|---:|---:|
 | < 50% | 1 | — | — | (rounding edge) |
-| 50–100% | 930 | 1.363 | 70.9 | −$47,375 |
-| 100–200% | 296 | 1.965 | 73.6 | −$17,144 |
-| 200%+ | 51 | 3.557 | 78.4 | −$7,327 |
+| 50–100% | 930 | 1.363 | 70.9 | −\$47,375 |
+| 100–200% | 296 | 1.965 | 73.6 | −\$17,144 |
+| 200%+ | 51 | 3.557 | 78.4 | −\$7,327 |
 
-**Trade-off vs Run 11:** the conditional gate's worst trade (−$47k) is larger than Run 11's
-(−$32k), because the *direct* leg shorts names already ≥ 50% at the breakout and some keep
+**Trade-off vs Run 11:** the conditional gate's worst trade (−\$47k) is larger than Run 11's
+(−\$32k), because the *direct* leg shorts names already ≥ 50% at the breakout and some keep
 running before fading (the run-over), whereas Run 11's "+50% from breakout" implicitly waited
 longer and entered more-exhausted names. So the conditional trades a bit more tail risk for
 ~2.4× the net P&L. **Ranking by purpose: most net + good PF → ext-gate; best PF + lowest tail
@@ -711,8 +711,8 @@ longer and entered more-exhausted names. So the conditional trades a bit more ta
 ### Addendum — layering a rise/rollover race on the `< 50%` branch (no effect)
 
 The finer ext-gate breakdown shows the edge is weak/fat-tailed in the **50–100%** band
-(PF ~1.36, the bulk — 930 trips — and the catastrophic −$47k/−$21k worst trades) and clean
-above 100% (PF 1.88 → 3.87 by 200–300%, worst only −$7k). The 50–100% trips are *direct*
+(PF ~1.36, the bulk — 930 trips — and the catastrophic −\$47k/−\$21k worst trades) and clean
+above 100% (PF 1.88 → 3.87 by 200–300%, worst only −\$7k). The 50–100% trips are *direct*
 entries (names already ≥ 50% at the breakout, shorted straight in). A proposed refinement:
 in the `< 50%`-at-breakout branch, race two confirmations — if price runs **+50% from the
 breakout price** first, take it; else wait for the **rollover** (close back through the
@@ -721,18 +721,18 @@ breakout price** first, take it; else wait for the **rollover** (close back thro
 
 | variant | trips | PF | net | per-trip Sharpe | worst |
 |---|---|---|---|---|---|
-| ext-gate 0.5 (rollover-gated only) | 1,278 | 1.573 | +$682,631 | 0.148 | −$47,375 |
-| ext-gate 0.5 + rise 0.5 (race) | 1,278 | 1.573 | +$686,778 | 0.149 | −$47,375 |
+| ext-gate 0.5 (rollover-gated only) | 1,278 | 1.573 | +\$682,631 | 0.148 | −\$47,375 |
+| ext-gate 0.5 + rise 0.5 (race) | 1,278 | 1.573 | +\$686,778 | 0.149 | −\$47,375 |
 
 **The rise leg is mechanically correct but economically inert.** Same trips, same PF, same
-worst trade; only **68 entries re-timed** (rise fired before the rollover) for a ~$4k net
+worst trade; only **68 entries re-timed** (rise fired before the rollover) for a ~\$4k net
 difference. The reason is structural: a name in the `< 50%` branch (broke out below +50% on
 the day) needs a *further* +50% from its breakout price to trigger the rise — a large move
 that almost always carries it past the rollover point first, so the rollover wins the race.
 The rollover-gated path already captures these names; the rise race just occasionally
 re-prices the same fill.
 
-**And the −$47k tail is untouched — because it is not in this branch.** The worst trades are
+**And the −\$47k tail is untouched — because it is not in this branch.** The worst trades are
 in the *direct* leg (≥ 50% at the breakout), which neither the rise nor the rollover logic
 governs. Attacking that tail would require confirming the *direct* leg too (never enter
 straight in), which thins the 50–100% band — or, more simply, **capping position size in the

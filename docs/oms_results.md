@@ -32,7 +32,7 @@ slipped against the order by `SlippageBp`. `Repeg(after, bp, max)`: a limit move
 before what CONSUMES it): (1) fills of resting orders; (2) every `Close` — cancel a want / a resting entry, or place
 the exit (Rest at the exit-signal vwap until 15:45, Cross after; a MARKET exit frees its units at placement);
 (3) every Long/Short — a re-signal updates the want; else the entry checks in order, each a logged reject reason:
-`signal_only`, `after_cutoff` (≥ 15:45), `sub_dollar` (signalPx < $1, FlushFader only), `cap` (units + u > 20),
+`signal_only`, `after_cutoff` (≥ 15:45), `sub_dollar` (signalPx < \$1, FlushFader only), `cap` (units + u > 20),
 `too_small` (0 shares), `gross` (> 4× equity); cap/gross → PENDING (skip-not-queue is a knob); (4) pending wants enter
 when capacity allows AND price is STRICTLY past the signal (below a long's, above a short's), re-checked every second;
 (5) the schedule: from 15:45 resting exits become crosses; from 15:45 while gross > 200 % close largest-units first;
@@ -107,14 +107,14 @@ consequence, not a bug, but the +17 % in ten days is mostly three SpikeFader tra
 `scan oms --systems flushfader --schedule off --entry-mode cross --exit-mode cross --no-queue --free-on-fill` on
 2026-01-02..2026-08-31 (166 days, 44,848 messages, 38 min, 0 invariant violations) vs `scripts/equity/oms_cap_seal.py`
 (the replay kernel on the sealed reference trips `broad_reference_trips.parquet`, with the OMS's conventions: decide
-at the signal second, ties in symbol order, units free at the exit fill, the $1 floor on the signal vwap, units =
+at the signal second, ties in symbol order, units free at the exit fill, the \$1 floor on the signal vwap, units =
 the OMS's own per-signal `units`), window 2026-01-02..08-21 (the reference's last day):
 
 | | trips | taken | busy (already_open) | sub_dollar | reason mismatches | fills | Σ ret × units per day |
 |---|---|---|---|---|---|---|---|
 | replay vs OMS | 21,946 | **3,617 = 3,617** | 11,992 = 11,992 | 6,337 = 6,337 | **0** | 3,617 matched, max Δ px 0, sec mismatches 0 | 160 days, max Δ **0.000**, totals +25.570766 = +25.570766 |
 
-Two things the seal had to know: (1) the OMS tests "ticker busy" BEFORE the $1 floor (the replay's order was the
+Two things the seal had to know: (1) the OMS tests "ticker busy" BEFORE the \$1 floor (the replay's order was the
 reverse — reasons only, no trade changes); (2) the reference audit trail carries the NEXT-OPEN REWRITE on MOC exits
 (`SignalSink.resolvedExit`: 4,241 MOC exits in the window, 7 rewritten to the next open — e.g. REPL 2026-04-10, halted
 at 09:40, one 16:00 print at 4.76, next open 1.71): the OMS exits at the 16:00 bar by ruling 2 (no overnight book), so
@@ -127,7 +127,7 @@ window at 20 units with FlushFader alone (no `cap` rejects) — it is the ticker
 Four systems (Snoozers signal-only), defaults (100,000 · 7.5 %/unit · cap 20 · 200 % cut and cross exits from 15:45 ·
 flatten 15:58 · 0 bp slippage · no fees), 166 days, ~94 min per run at four concurrent runs, 0 invariant violations
 everywhere. ⚠ Dollar columns COMPOUND (sizing on each day's opening equity, ~24 trades a day) — compare **PF on
-ret × units, Σ ret × units and bp per trade**, not net $. `repeg` = 60 s, +10 bp, 3 steps, then cross.
+ret × units, Σ ret × units and bp per trade**, not net \$. `repeg` = 60 s, +10 bp, 3 steps, then cross.
 ⚠ Not the full period (the plan said 2020–2026; with all four engines resident a day costs ~30 s → ~14 h per run,
 so the A/B ran on 2026); the follow-up is the full period for the winning configuration only.
 
@@ -139,7 +139,7 @@ so the A/B ran on 2026); the follow-up is the full period for the winning config
 | repeg / rest | 3,845 | 99 % | 1.47 | +3,213 % | +31 / +106 | −84 % | 53 | 17 |
 | **cross / cross** | 3,952 | 100 % | **1.92** | **+5,538 %** | **+65** / +118 | −84 % | 0 | 18 |
 
-Per system (PF on $, avg bp, hold):
+Per system (PF on \$, avg bp, hold):
 
 | entries / exits | FlushFader n / PF / bp / hold | SpikeFader n / PF / bp / hold | LowFader n / PF / bp / hold |
 |---|---|---|---|
@@ -147,7 +147,7 @@ Per system (PF on $, avg bp, hold):
 | repeg / rest | 3,598 / 1.12 / +17 / 20 | 235 / 3.11 / +242 / 23 | 12 / 1.47 / −70 / 342 |
 | cross / cross | 3,703 / 1.41 / +49 / 15 | 237 / 4.27 / +324 / 17 | 12 / 3.56 / −65 / 342 |
 
-Per month (n / net $ / PF / worst day), rest/rest vs cross/cross:
+Per month (n / net \$ / PF / worst day), rest/rest vs cross/cross:
 
 | month | rest/rest | cross/cross |
 |---|---|---|
@@ -179,7 +179,7 @@ The full 2 × 3 matrix, PF on ret × units (avg bp per trade), 166 days, 0 invar
 | repeg 60 s / +10 bp / 3 | 1.47 (+31) | 1.68 (+45) |
 | **cross** | 1.68 (+52) | **1.92 (+65)** |
 
-| entries / exits | trades | fill rate | PF (ret×units) | Σ ret×units | avg / median bp | worst day $ (compounded) |
+| entries / exits | trades | fill rate | PF (ret×units) | Σ ret×units | avg / median bp | worst day \$ (compounded) |
 |---|---|---|---|---|---|---|
 | rest / cross | 3,776 | 96 % | 1.67 | +4,097 % | +45 / +110 | −92,164 |
 | repeg / cross | 3,907 | 99 % | 1.68 | +4,216 % | +45 / +107 | −102,734 |
@@ -187,10 +187,10 @@ The full 2 × 3 matrix, PF on ret × units (avg bp per trade), 166 days, 0 invar
 | cross / cross | 3,952 | 100 % | 1.92 | +5,538 % | +65 / +118 | −241,728 |
 | rest / rest, `--cut-gross 4` (200 % rule OFF) | 3,714 | 96 % | 1.46 | +3,113 % | +31 / +108 | −65,810 — **identical to rest/rest** |
 
-Per system, PF $ / avg bp: FlushFader rest/cross 1.24 / +30 · cross/rest 1.27 / +37 · cross/cross 1.41 / +49;
+Per system, PF \$ / avg bp: FlushFader rest/cross 1.24 / +30 · cross/rest 1.27 / +37 · cross/cross 1.41 / +49;
 SpikeFader 3.65 / +283 · 3.64 / +287 · 4.27 / +324; LowFader (12 trades) 2.01 · 2.45 · 3.56.
 
-Per month, n / net $ / PF / worst day — the diagonal:
+Per month, n / net \$ / PF / worst day — the diagonal:
 
 | month | rest/cross | cross/rest | cross/cross |
 |---|---|---|---|
@@ -217,10 +217,10 @@ each), and the effects add: cross/cross 1.92 vs rest/rest 1.46, every month, eve
 - **The 200 % rule never fired** in any run: 20 units × 7.5 % = 150 % gross, so the cut cannot bind at these
   settings; `--cut-gross 4` is byte-identical to the default. It only matters if the unit fraction rises (10 % → 200 %)
   or the cap does. The cap itself never bound either (peak 19.5 units, p50 6.5; 0 `cap` rejects in 8 months) — the
-  ticker rule refuses 16k re-signals, the $1 floor 6.5k FlushFader signals.
+  ticker rule refuses 16k re-signals, the \$1 floor 6.5k FlushFader signals.
 - ⚠ What this does NOT price: the crosses are at the bar's vwap with 0 bp slippage and no fees — the §S43y frame said
   "cross the entry, rest the exit" partly because rests EARN rebates; on the broad book the rebates were +0.55 %/trade
-  (§S49). With take fees at $0.003/sh both ways on ~$7.5k lines, the cross costs ≈ 8–15 bp a side — a chunk of the
+  (§S49). With take fees at \$0.003/sh both ways on ~\$7.5k lines, the cross costs ≈ 8–15 bp a side — a chunk of the
   15–20 bp each side wins here, not all of it. The next run: cross/cross vs rest/rest with `--fee 0.003 --rebate 0.002`.
 - ⚠ 2026 only, and the per-day cost (~30 s with four engines resident) is what kept it there; the full-period run
   is cross/cross only, next.
@@ -230,15 +230,15 @@ each), and the effects add: cross/cross 1.92 vs rest/rest 1.46, every month, eve
 
 ### The fee run — the verdict holds, cross / cross is the default
 
-Same 2026 window, generic ECN costs (take $0.003/sh on crosses, maker rebate $0.002/sh on resting fills — the broker
-memory note's placeholder until the broker is chosen); PF on $ now includes the fees, PF on ret × units does not:
+Same 2026 window, generic ECN costs (take \$0.003/sh on crosses, maker rebate \$0.002/sh on resting fills — the broker
+memory note's placeholder until the broker is chosen); PF on \$ now includes the fees, PF on ret × units does not:
 
-| entries / exits | trades | PF $ (no fees) | PF $ (with fees) | fees total | fee per trade | avg shares | equity end (compounded) |
+| entries / exits | trades | PF \$ (no fees) | PF \$ (with fees) | fees total | fee per trade | avg shares | equity end (compounded) |
 |---|---|---|---|---|---|---|---|
 | rest / rest | 3,714 | 1.43 | **1.50** | −136,625 (rebates EARN) | −36.79 | 9,355 | 1,295,184 |
 | cross / cross | 3,952 | 1.85 | **1.73** | +412,730 | +104.44 | 17,406 | 3,159,893 |
 
-Per system with fees, PF $: FlushFader rest/rest 1.18 vs cross/cross (fees) 1.34; SpikeFader 3.17 vs 3.98;
+Per system with fees, PF \$: FlushFader rest/rest 1.18 vs cross/cross (fees) 1.34; SpikeFader 3.17 vs 3.98;
 LowFader 1.68 vs 3.2 (12 trades). The rebates are worth ≈ +0.07 PF to resting, the take fees ≈ −0.12 PF to
 crossing (on lines twice as large, since the crossed path compounded faster) — together ≈ 0.2 PF, and cross/cross
 still leads by 0.23. **RULED (2026-09-11): the OMS defaults become `EntryMode = EntryCross`, `ExitMode = ExitCross`**

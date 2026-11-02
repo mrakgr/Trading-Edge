@@ -35,7 +35,7 @@ Commits `06545b6` → `9983f32`.
 | `ADV ≥ $500k` | `avgvol20_prior × close_m1` | causal (20 PRECEDING AND 1 PRECEDING) |
 | `rvol_0945 ≥ 0.1` | `rvol_0945_honest` | |
 | morning | `entry ≤ 11:30` | Run 27 |
-| float < $300M, breadth ×3 | not in v1 | joins to float.db / `pct_above_20` — later |
+| float < \$300M, breadth ×3 | not in v1 | joins to float.db / `pct_above_20` — later |
 
 ## The whitelists (no base run — the user's standing rule)
 
@@ -57,7 +57,7 @@ Commits `06545b6` → `9983f32`.
 
 `data/lowfader_wl_spec` (37,934 whitelisted ticker-days in range, 15 min): **695,906 trips /
 21,700 tkd**. `data/lowfader_study1_spec.log`. ⚠ Not yet comparable to the 1m PF 3.38: no
-float < $300M (the 1m book's biggest lever: sub-$300M PF 2.8–3.3 vs 1.3–1.4 large-cap) and
+float < \$300M (the 1m book's biggest lever: sub-\$300M PF 2.8–3.3 vs 1.3–1.4 large-cap) and
 no breadth ×3; 2020+ only; fills at the next 1s bar's vwap, not the 1m breakout close.
 
 ### L1a — the bare session-low long is a loser in every year
@@ -109,7 +109,7 @@ higher PF up to the −12% floor, with n in the tens.
   `vol_vs_high`, `chg_1d`, `chg_20m`, `chg_3d` — and `chg_7d` inert.
 * Two side-flip inversions, both actionable: **drop the morning gate** (afternoon entries
   lift the book to 1.558) and **band `chg_1d` at [−30%, −8%]** (the deep end is a knife).
-* ⏭ The float < $300M join (the 1m book's biggest lever) and breadth ×3 — without them the
+* ⏭ The float < \$300M join (the 1m book's biggest lever) and breadth ×3 — without them the
   1m comparison is not fair. Then the exit grid (the aux HIGH marks are recorded: is a 9m
   high cover better than MOC on the long, as it was on the short?). The base run (571k
   tkd, multi-hour) only if the record-first breadth is wanted.
@@ -138,9 +138,9 @@ Drop the morning gate, drop `chg_7d`, band `chg_1d` at [−30%, −8%]:
 knives), and 7-year PF−1 by year 2.82 / 2.17 / −0.52 / 0.13 / 1.11 / 0.62 / 1.00 (2022 the
 one loser, on 17 trades). The 20m-high cover on top: PF−1 1.94 at 103% of MOC's net.
 
-### L2b — ⭐ FLOAT < $300M is the lever on 1s exactly as on 1m
+### L2b — ⭐ FLOAT < \$300M is the lever on 1s exactly as on 1m
 
-| float at entry ($M), 1s spec mc=1 | n | PF−1 | net% | win% | worst% | <−20% |
+| float at entry (\$M), 1s spec mc=1 | n | PF−1 | net% | win% | worst% | <−20% |
 |---|---:|---:|---:|---:|---:|---:|
 | 0–50 | 46 | 1.35 | 147 | 65.2 | −22.7 | 2.17 |
 | **50–150** | 28 | **5.49** | 184 | 75.0 | −16.7 | 0.00 |
@@ -149,9 +149,9 @@ one loser, on 17 trades). The 20m-high cover on top: PF−1 1.94 at 103% of MOC'
 | > 1,000 | 13 | ~0.6 | 22 | | | |
 | no float data | 102 | 0.60 | 138 | 55.9 | −24.5 | 0.98 |
 
-**`float < $300M`: 108 trips, PF−1 2.27, net 430, win 67%, worst −22.7%, tail 0.9%** (vs ≥ $300M:
+**`float < $300M`: 108 trips, PF−1 2.27, net 430, win 67%, worst −22.7%, tail 0.9%** (vs ≥ \$300M:
 0.57). On the 1m spec the same cut gives 80 trips at **3.02** — the 1m book's own number (PF
-3.38 = PF−1 2.38) with its own lever. The 1m doc's reading holds verbatim: "$150–300M best,
+3.38 = PF−1 2.38) with its own lever. The 1m doc's reading holds verbatim: "\$150–300M best,
 micro-floats not best once 3d strength is required" — the 50–150M band is the apex here.
 By year (1s spec, float < 300M): 7.6 / 4.0 / −0.8 / −0.2 / 29.3 / 2.3 / −0.2 — 4 of 7 positive,
 n in the teens per year.
@@ -169,7 +169,7 @@ even sharper (3.19 vs 0.35). A size-up, not a gate — the weak-breadth days sti
 
 ### L2d — the full 1m production analog on 1s
 
-**1s spec ∧ float < $300M, ×3 on breadth ≥ 0.65** (mc=1, 108 trips, ~15/yr): equal-weight
+**1s spec ∧ float < \$300M, ×3 on breadth ≥ 0.65** (mc=1, 108 trips, ~15/yr): equal-weight
 PF−1 2.27 / net 430; sized net/exposure 503, **PF−1 2.97**; with the 20m-high cover PF−1 **3.11**.
 The high-breadth half alone: **51 trips, PF−1 3.92, win 72.5%, worst −16.7%, 0% below −20%.**
 
@@ -205,19 +205,19 @@ and is inert. Neither belongs in the 1s spec.
 |---|---:|---:|---:|---:|---:|---|
 | 1m spec as-is | 267 | 1.247 | 669 | −65.8 | 1.12 | 47 / 98 / 17 / 21 / 32 / 35 / 17 |
 | 1s spec (no morning gate, no 7d, 1d band) | 378 | 1.228 | 854 | −24.5 | 0.79 | 68 / 120 / 25 / 26 / 40 / 65 / 34 |
-| **1m spec ∧ float < $300M** | 105 | **3.417** | 495 | −22.7 | 0.95 | (11.1 / 5.0 / −0.9 / 0.7 / 30.0 / 3.9 / 1.2) |
-| 1s spec ∧ float < $300M | 143 | 2.281 | 518 | −22.7 | 0.70 | (6.6 / 4.8 / −0.9 / −0.3 / 44.1 / 2.3 / 0.2) |
-| 1s spec ∧ float < $300M, ×3 breadth | 143 | 2.678 (net/exp 582) | 1,111 | −50.6 | | |
+| **1m spec ∧ float < \$300M** | 105 | **3.417** | 495 | −22.7 | 0.95 | (11.1 / 5.0 / −0.9 / 0.7 / 30.0 / 3.9 / 1.2) |
+| 1s spec ∧ float < \$300M | 143 | 2.281 | 518 | −22.7 | 0.70 | (6.6 / 4.8 / −0.9 / −0.3 / 44.1 / 2.3 / 0.2) |
+| 1s spec ∧ float < \$300M, ×3 breadth | 143 | 2.678 (net/exp 582) | 1,111 | −50.6 | | |
 | — its breadth ≥ 0.65 half | 65 | **3.158** | 296 | −16.9 | **0.00** | |
 
 **The 1m spec with the float gate reads PF−1 3.42 on the 1s tape — LowFlyer's own
 production number (PF 3.38) reproduced causally, on 2020–26, at ~15 trades a year.** The
 1s spec trades more (143 vs 105) at a lower PF (2.28) with a smaller worst trade; the two
 are the same net. Float bands agree with the 1m doc in every detail (50–150M the apex:
-23.0 on the 1m spec, 3.36 on the 1s; ≥ $300M ~0.6–1.0; no-float names 0.36–0.58).
+23.0 on the 1m spec, 3.36 on the 1s; ≥ \$300M ~0.6–1.0; no-float names 0.36–0.58).
 
 **⚠ The 20m-high cover does NOT help the float-gated book:** on the broad books it lifts
-PF−1 (1.25 → 1.89; 1.23 → 1.69) at ~95% of net, but on 1s spec ∧ float < $300M it *lowers*
+PF−1 (1.25 → 1.89; 1.23 → 1.69) at ~95% of net, but on 1s spec ∧ float < \$300M it *lowers*
 it (2.28 → 2.18, ×3 book 2.68 → 2.09). A tight-float flush's edge is the whole-day bounce;
 covering at the first 20m high leaves it on the table. **MOC stays the exit for the float
 book; the cover is a broad-book tool.**
@@ -229,7 +229,7 @@ peak −20..−15%), a knife below −30% (13–23% tails), ~0 above −5% — t
 
 * **Working spec (1s):** session-low LONG, fill next bar, hold to **MOC**; `flush_1m ≥ −12%`,
   `vol_vs_high ≥ 0.90`, `chg_1d ∈ [−30%, −8%]`, `chg_20m ≤ −3%`, `chg_3d ∈ [−3%, +30%]`,
-  **float < $300M**, all session (no morning gate); size ×3 on D−1 breadth ≥ 0.65 and on flush
+  **float < \$300M**, all session (no morning gate); size ×3 on D−1 breadth ≥ 0.65 and on flush
   depth toward −12%. Dropped from the 1m spec: the −0.7% flush gate (inert on 1s), `chg_7d`,
   `adv`, `rvol_0945`, the morning gate. ~20 trades a year at PF−1 2.3–2.7; the 1m spec's
   literal transplant with float reads 3.42 at ~15.
@@ -482,25 +482,25 @@ write (seconds). Study script: `scripts/analysis/lowfader_alltape.py` (universe 
 `dollar_vol_60` ladder, rr × liquidity for the user's TODO — "the outperformance of the low-rr cell might be
 manifesting in very illiquid stocks" — the 20–40bp band, spec v2 + 10m cover on the new names, mc=0 and mc=1).
 
-## §L7 — the EXPANDED-UNIVERSE corpus (2026-09-05 night): 11.78M trips / 916,633 tkd, the whole tape ≥ $100k/min
+## §L7 — the EXPANDED-UNIVERSE corpus (2026-09-05 night): 11.78M trips / 916,633 tkd, the whole tape ≥ \$100k/min
 
 **What ran.** `lowfader_alltape_whitelist` (8.1M tkd, 20bp volat mirror only), floors `--min-dv-0945-tape 0
 --min-barnum 0 --min-volat-20m 0.002`, eight globs after two OOM kills (14 workers), one pre-emptive stop (5 workers
 climbing) and two boundary reruns (h1c/h2e) — every whitelist day present, zero duplicate tkd. ⚠ **The engine's HARD
 ENTRY FLOORS `dv60 ≥ $100k ∧ tc60 ≥ 60` were ACTIVE** (`--base-run` keeps the signal definition; `min(dollar_vol_60)`
-in the corpus = $100,000.10). So this is "the whole tape *above $100k a minute and 60 trades a minute at the signal*";
+in the corpus = \$100,000.10). So this is "the whole tape *above \$100k a minute and 60 trades a minute at the signal*";
 the illiquid tail of the user's TODO (rr < 0.5 as an illiquidity premium) is NOT sampled — a floors-off rerun
 (`--dv-floor-60 0 --tc-floor-60 0`, ~3 h at 3 workers) is the user's call. Study: `data/lowfader_alltape_study.log`.
 
 **L7a — the added names, bare:** 658,553 tkd / 4.76M trips beyond the old candidate table read PF22 0.96 (old
 universe 0.94) — the same zero. The old-candidate names admitted only by the 20bp floor (4,938 tkd, 27 trips/tkd)
-are the WORST cell on the tape bare: PF22 0.52, 44% win, −2.6%/trade, 4.1% tail. Raw price < $1: 0.70–0.78, 5–12%
+are the WORST cell on the tape bare: PF22 0.52, 44% win, −2.6%/trade, 4.1% tail. Raw price < \$1: 0.70–0.78, 5–12%
 tail (fee-dead, as LowFlyer found). By `dollar_vol_60` the bare book is flat 0.91–0.97 at every tier; the one
-bare cell above 1.1 is the most liquid new names (≥ $2.5M/min, 11k tkd, 1.34).
+bare cell above 1.1 is the most liquid new names (≥ \$2.5M/min, 11k tkd, 1.34).
 
-**L7b — rr × liquidity (the TODO, as far as sampled):** 2022+ every cell 0.76–1.07 except the ≥ $2.5M/min column at
-rr ≥ 4 (1.25–1.32, 6.5k tkd). In the least-liquid tier sampled ($100–250k/min) the quiet end reads 1.00–1.01 and
-the loud end 0.86–0.91 — the U's quiet side, no premium. Whether a premium exists BELOW $100k/min is open.
+**L7b — rr × liquidity (the TODO, as far as sampled):** 2022+ every cell 0.76–1.07 except the ≥ \$2.5M/min column at
+rr ≥ 4 (1.25–1.32, 6.5k tkd). In the least-liquid tier sampled (\$100–250k/min) the quiet end reads 1.00–1.01 and
+the loud end 0.86–0.91 — the U's quiet side, no premium. Whether a premium exists BELOW \$100k/min is open.
 
 **L7c — VOLATILITY on the whole tape:** the bare book's best cells moved DOWN: 20–30bp PF22 1.03 (481k tkd, 0.06%
 tail), 30–40bp 1.05, 40–50 1.03, 50–60 1.01, 60–80 0.95, 80–100 0.89, ≥ 100bp 0.63–0.76 (tail 7–24%). Same shape
@@ -515,37 +515,37 @@ on the old universe alone (1.04 / 1.06 at 20–40bp). The 40bp floor was never a
 | **spec v2 gates in the 20–40bp band** | 4,316 | 560 | 387 | 2.04 | **1.61** | 60.3 | −24.8 | 1.38 | 1.05 | 2.83 | 3.17 | 2.71 |
 
 **The spec does NOT transfer to the added names** (0.66 mc=0; mc=1 −0.17 MOC / −0.07 10m) — and the reason is a
-LIQUIDITY gate the old universe had hidden: spec v2 by `dollar_vol_60` reads $100–250k 0.51 · $250k–1M 0.99–1.00 ·
-**$1–2.5M 1.53 · ≥ $2.5M 2.26**. The new names' trips sit at $100k–$1M (median $234k/min vs $560k old). ⇒ spec v2
-needs **`dollar_vol_60 ≥ $1M` at the signal** (time-clock) as an explicit gate — the old $2M-first-15m candidate
+LIQUIDITY gate the old universe had hidden: spec v2 by `dollar_vol_60` reads \$100–250k 0.51 · \$250k–1M 0.99–1.00 ·
+**\$1–2.5M 1.53 · ≥ \$2.5M 2.26**. The new names' trips sit at \$100k–\$1M (median \$234k/min vs \$560k old). ⇒ spec v2
+needs **`dollar_vol_60 ≥ $1M` at the signal** (time-clock) as an explicit gate — the old \$2M-first-15m candidate
 floor was standing in for it. **The 20–40bp band under the spec gates WORKS**: 560 tkd at PF22 1.61, 60% win, worst
 −24.8, 0.4% tail, positive in all five modern years — the volat floor can drop to 20bp *inside the spec* (bare it
 is the worst cell). Old universe 509 vs the earlier 466 tkd: the 43 extra are `barnum < 22` early-episode days,
 and they read worse (2.93 vs 3.25) — S40e's cut holds. mc=1 on the expanded spec book: old universe 10m 0.85, all
 else ≤ 0.25 — the ordinal/ladder question is unchanged.
 
-**Verdict:** the expansion adds NOTHING under $1M/min; above it the added names are few. Next: (1) `dollar_vol_60 ≥
-$1M` into the spec and re-read the whole ladder on the union corpus; (2) the 20–40bp band joins the spec's volat
-band → (20, 100]; (3) the floors-off rerun only if the illiquid TODO is still worth 3 h — the ≥ $100k evidence says
-the quiet-rr cell carries no liquidity premium down to $100k/min.
+**Verdict:** the expansion adds NOTHING under \$1M/min; above it the added names are few. Next: (1) `dollar_vol_60 ≥
+\$1M` into the spec and re-read the whole ladder on the union corpus; (2) the 20–40bp band joins the spec's volat
+band → (20, 100]; (3) the floors-off rerun only if the illiquid TODO is still worth 3 h — the ≥ \$100k evidence says
+the quiet-rr cell carries no liquidity premium down to \$100k/min.
 
 ## §L8 — SPEC v3: `dollar_vol_60 ≥ $1M` (time-clock) + what the old candidate floor was really doing (2026-09-05 night)
 
 **Adopted (user):** `dollar_vol_60 ≥ $1M` — TIME-clock (`tDvSum60`, 60 tradeable seconds; the `_bar` twin is the
-substitution pair), the same accumulator as the engine's own $100k floor. In the engine as the ordinal gate
+substitution pair), the same accumulator as the engine's own \$100k floor. In the engine as the ordinal gate
 `OrdMinDv60 = 1e6` (`--ord-min-dv-60`); `spec_ord` validated 2,520 = 2,520 vs post-hoc on the spec whitelist.
-**On the old universe it is additive: (40,100]bp spec v2 498 tkd PF−1 2.09 → +dv_60 ≥ $1M 331 tkd PF−1 3.01**
+**On the old universe it is additive: (40,100]bp spec v2 498 tkd PF−1 2.09 → +dv_60 ≥ \$1M 331 tkd PF−1 3.01**
 (2022+ 4.81 / 0.88 / 4.71 / 4.22 / 2.10; net22 5,731 → 5,348, −7%). ⚠ "old universe" here = in `mr_candidate_1s_v2`
 ∧ `barnum ≥ 22`; 498 vs the earlier 466 tkd = signals with volat in (39, 40) bp that the old 40bp mirror excluded.
 
-**But the ADDED names still lose above $1M/min** (228 tkd, PF−1 −0.57; mc=1 negative). Split by WHY they failed
-the old candidate floor (spec v2 ∧ dv_60 ≥ $1M, 2022+ PF−1): failed only `n_bars_1s ≥ 200` **−0.60 (216 tkd)**;
-had `dv_0945_tape ≥ $2M` but failed n_bars/barnum/type −0.39 (149); morning dv $500k–2M −0.74; < $500k −0.57;
+**But the ADDED names still lose above \$1M/min** (228 tkd, PF−1 −0.57; mc=1 negative). Split by WHY they failed
+the old candidate floor (spec v2 ∧ dv_60 ≥ \$1M, 2022+ PF−1): failed only `n_bars_1s ≥ 200` **−0.60 (216 tkd)**;
+had `dv_0945_tape ≥ $2M` but failed n_bars/barnum/type −0.39 (149); morning dv \$500k–2M −0.74; < \$500k −0.57;
 `barnum < 22` −0.71. ⇒ **the load-bearing morning condition is `n_bars_1s ≥ 200`** (≥ 200 traded seconds in the
 first 15 minutes — a name trading continuously from the open), not the dollars; a name that is loud at the signal
 but was not trading at the open does not bounce. Both are causal at 09:45. And `dv_0945_tape` is a BAND on the
-spec-v3 book: < $2M loses (−0.57..−0.77), **$2M–5M 0.80, $5M–20M 2.76 (271 tkd, 71.5% win)**, ≥ $20M −0.06
-(91 tkd, median px $41 — the mega-liquid names do not bounce). The 20–40bp band inside the spec is positive but
+spec-v3 book: < \$2M loses (−0.57..−0.77), **\$2M–5M 0.80, \$5M–20M 2.76 (271 tkd, 71.5% win)**, ≥ \$20M −0.06
+(91 tkd, median px \$41 — the mega-liquid names do not bounce). The 20–40bp band inside the spec is positive but
 DILUTIVE on the old universe ((20,100] 803 tkd 1.31 vs (40,100] 498 tkd 2.09) → a lower tier, not the core.
 
 **⭐ SPEC v3 (2026-09-05 night):** v2 ∧ `dollar_vol_60 ≥ $1M` ∧ `n_bars_1s ≥ 200` ∧ `dv_0945_tape ∈ [$2M, $20M)`
@@ -565,7 +565,7 @@ base). **ADOPTED: floor 50bp.** The `rr` dependence and the trade count are unto
 entry family, not a looser gate.
 
 **⭐ SPEC v3 (2026-09-05 night):** `volat_20m ∈ (50, 100] ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧
-rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M` on the old universe (`n_bars_1s ≥ 200`, `barnum ≥ 22`).
+rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ \$1M` on the old universe (`n_bars_1s ≥ 200`, `barnum ≥ 22`).
 mc=0: 1,532 trips / 200 tkd (114 in 2022+), PF−1 6.77, 75.5% win, worst −16.7, 0% tail.
 
 **mc = k (user: "maybe we should actually consider averaging down"):** greedy replay, up to k concurrent positions per
@@ -768,8 +768,8 @@ nothing over the 20m one on this spec because the legs coincide.
 we have are so low that we cannot be sure we aren't overfitting, but I think this system is likely to have an edge").
 
 **⭐ SPEC v3 FINAL:** `volat_20m ∈ (50,100] ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧ lows_120 ≥ 30 ∧ rr ≥ 2 ∧
-chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2%` on the mr_candidate_1s_v2 universe (barnum ≥ 22, the
-engine's $100k/60-trade floors). mc=0: 433 trips / 106 tkd (61 in 2022+). **mc=1 MOC 16.0 tr/yr, PF−1 7.30, net22 294, worst
+chg_1d ≤ −4% ∧ gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ \$1M ∧ crf ≤ −0.2%` on the mr_candidate_1s_v2 universe (barnum ≥ 22, the
+engine's \$100k/60-trade floors). mc=0: 433 trips / 106 tkd (61 in 2022+). **mc=1 MOC 16.0 tr/yr, PF−1 7.30, net22 294, worst
 −11.1; 10m cover 4.31 / 261; mc=5 47.4 tr/yr, PF−1 10.42, net22 1,117, worst −11.1.** Year table (mc=1 MOC / mc=5):
 
 | year | n | MOC PF | MOC net | win% | mc=5 n | mc=5 PF | mc=5 net | worst |
@@ -959,17 +959,17 @@ min(PF−1, 10)/max = **0.26 (mc=1) / 0.27 (mc=5)**; sqrt fallback 0.51 / 0.52; 
 Held-out avg%/trade per unit exposure by year (mc=5, X/E vs equal): 2020 7.6 vs 6.3 · 2021 8.7 vs 7.2 · 2022 7.7 vs 6.1 ·
 2023 2.4 vs 2.2 · 2024 14.5 vs 10.5 · 2025 8.1 vs 6.8 · 2026 4.8 vs 4.0. Two levers, one weight to remember: **E ≈ ¼ of X.**
 
-## §L20 — ⭐⭐ THE FINAL SYSTEM: SPEC v3.1 (+ $20M ceiling), NO averaging down, two-grade sizing; breadth and float re-checked (2026-09-06)
+## §L20 — ⭐⭐ THE FINAL SYSTEM: SPEC v3.1 (+ \$20M ceiling), NO averaging down, two-grade sizing; breadth and float re-checked (2026-09-06)
 
 > **⚠ SUPERSEDED the same day by §L23 (SPEC v4 = WIDE-VG): the v3.1 spec below survives as the STRICT predicate, one half of the A+ sizing cell.**
 
-**User decisions:** the `dv_0945_tape < $20M` ceiling goes IN (§L8/§L19's band: above $20M the 2022+ book nets zero); **NO
+**User decisions:** the `dv_0945_tape < $20M` ceiling goes IN (§L8/§L19's band: above \$20M the 2022+ book nets zero); **NO
 averaging down** — crf fixed the which-bar problem, so a small account takes the FULL position on the first qualifying signal
-(mc=1 MOC). Engine: `OrdMaxDv0945Tape = 2e7` added to the Ord gates; `spec_ord > 0` ≡ the spec (317 trips / 84 tkd, none ≥ $20M).
+(mc=1 MOC). Engine: `OrdMaxDv0945Tape = 2e7` added to the Ord gates; `spec_ord > 0` ≡ the spec (317 trips / 84 tkd, none ≥ \$20M).
 
 **SPEC v3.1 FINAL** (all on the signal bar, 1s tape; the engine's Ord gates carry every term):
 `volat_20m ∈ (50, 100] bp ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧ lows_120 ≥ 30 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧
-gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < $20M` · universe `mr_candidate_1s_v2` (barnum ≥ 22;
+gap_adj_60 ≤ 30 ∧ dollar_vol_60 ≥ \$1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < \$20M` · universe `mr_candidate_1s_v2` (barnum ≥ 22;
 the table's own floors `dv_0945_tape ≥ $2M`, `n_bars_1s ≥ 200`) · engine floors `dv_60 ≥ $100k`, `tc_60 ≥ 60`, entry window
 09:45–15:00 · exit MOC · one position per ticker-day, the first qualifying signal · **sizing: grade X = `rr ≥ 5 ∨ lows_rr3_120 ≥
 20` → 1.00, E = none → 0.29** (min(PF−1,10)/max; LOYO folds 0.20–0.40; held-out 7/7 years, 1.16×).
@@ -1020,22 +1020,22 @@ entry for [[feedback_side_flip_inverts_rulings]]'s list: the port inverts even w
 
 ### FLOAT (SEC public float, ASOF known_date ≤ trade_date, revalued to the entry day) — still discriminates, but this is a LARGE-CAP book now
 
-Coverage 79% (82% in 2022+). Median float at entry **$2.2B** (q25 $0.7B); LowFlyer's `< $300M` gate covers **8 of 84**
+Coverage 79% (82% in 2022+). Median float at entry **\$2.2B** (q25 \$0.7B); LowFlyer's `< $300M` gate covers **8 of 84**
 trades — the liquidity floors (`dv_0945 ≥ $2M`, `dollar_vol_60 ≥ $1M`) moved the book up-cap.
 
 | float at entry | n | n22 | PF−1 | PF−1 22+ | win | avg% | net22 | worst |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| ≤ $100M | 6 | 4 | inf | inf | 100 | 14.9 | 64 | +6.4 |
-| ($100M, $300M] | 2 | 0 | inf | — | 100 | 10.5 | 0 | +5.7 |
-| ($300M, $1B] | 14 | 10 | 12.1 | 18.0 | 71 | 6.2 | 51 | −4.3 |
-| ($1B, $3B] | 15 | 12 | 2.17 | 6.23 | 67 | 4.1 | 73 | −10.6 |
-| > $3B | 29 | 16 | 8.23 | 17.3 | 79 | 4.5 | 81 | −5.7 |
+| ≤ \$100M | 6 | 4 | inf | inf | 100 | 14.9 | 64 | +6.4 |
+| (\$100M, \$300M] | 2 | 0 | inf | — | 100 | 10.5 | 0 | +5.7 |
+| (\$300M, \$1B] | 14 | 10 | 12.1 | 18.0 | 71 | 6.2 | 51 | −4.3 |
+| (\$1B, \$3B] | 15 | 12 | 2.17 | 6.23 | 67 | 4.1 | 73 | −10.6 |
+| > \$3B | 29 | 16 | 8.23 | 17.3 | 79 | 4.5 | 81 | −5.7 |
 | no float | 18 | 9 | 6.00 | 2.32 | 72 | 4.8 | 26 | −6.2 |
-| **< $300M** | 8 | 4 | inf | inf | 100 | 13.8 | 64 | +5.7 |
-| **≥ $300M** | 58 | 38 | 5.43 | 10.7 | 74 | 4.8 | 205 | −10.6 |
+| **< \$300M** | 8 | 4 | inf | inf | 100 | 13.8 | 64 | +5.7 |
+| **≥ \$300M** | 58 | 38 | 5.43 | 10.7 | 74 | 4.8 | 205 | −10.6 |
 
-ρ(log float, ret) = −0.27; every one of the 39 mc=0 rows under $300M is a winner (avg 16.5%), and the 8 mc=1 trades are all
-winners every year they occur. Above $300M the ladder is NOT monotone ($1–3B the weakest band, > $3B fine). **Verdict: the
+ρ(log float, ret) = −0.27; every one of the 39 mc=0 rows under \$300M is a winner (avg 16.5%), and the 8 mc=1 trades are all
+winners every year they occur. Above \$300M the ladder is NOT monotone (\$1–3B the weakest band, > \$3B fine). **Verdict: the
 low-float overreaction is real and survives, but as a gate it would delete 90% of the book; as a THIRD size-up voice it is
 5 X-trades + 3 E-trades — too thin to earn a weight. Keep `float < $300M` as a watch-item voice (all winners) and revisit
 when the count passes ~20.**
@@ -1044,20 +1044,20 @@ when the count passes ~20.**
 float voice as watch items; a second entry family for more days ("failed gap-up" short); Scanner port of SPEC v3.1 + the
 two new engine features (LegCounters price stamps, RrLegCounts) when LowFader goes live.
 
-### §L20 addendum — the $2M floor question and the wider-frame check on breadth/float (2026-09-06)
+### §L20 addendum — the \$2M floor question and the wider-frame check on breadth/float (2026-09-06)
 
 **Drop the `dv_0945_tape ≥ $2M` floor, keep `n_bars_1s ≥ 200`? NO — it adds 4 ticker-days in 6.6 years.** Whole-tape corpus
 (`lowfader_alltape_*`, no candidate filters) with SPEC v3.1 ∧ `n_bars_1s ≥ 200` and no floor: 345 trips / 92 tkd vs the FINAL
-84. The added sub-$2M cell: 14 trips / 4 tkd / 4 mc=1 trades (0.6/yr): IPOB 2020 −3.4, IXHL 2025 +28.4, **NAK 2020 −36.8 (worse
-than the book's worst by 26 pts)**, PGY 2023 +2.4 — net −9, PF−1 −0.24. Only 44 sub-$2M days pass the rest of the spec at all,
-and 4 of those pass `dollar_vol_60 ≥ $1M` (a name that printed < $2M in 15 minutes must print $1M in the signal minute — rr
+84. The added sub-\$2M cell: 14 trips / 4 tkd / 4 mc=1 trades (0.6/yr): IPOB 2020 −3.4, IXHL 2025 +28.4, **NAK 2020 −36.8 (worse
+than the book's worst by 26 pts)**, PGY 2023 +2.4 — net −9, PF−1 −0.24. Only 44 sub-\$2M days pass the rest of the spec at all,
+and 4 of those pass `dollar_vol_60 ≥ $1M` (a name that printed < \$2M in 15 minutes must print \$1M in the signal minute — rr
 9–40). **The floor is nearly redundant with the signal-minute liquidity gate; keep it.** (Also: `dv_0945 ≥ $2M ∧ barnum < 22`
 = 4 tkd at −0.32 — the barnum gate is right too.)
 
 **Breadth and float on the spec's own supersets** (the only way to widen the frame without changing the system;
 `data/lowfader_final_breadth_float_wide.log`), mc=1 MOC:
 
-| frame | trades | breadth ≥ 0.65: n / PF−1 / avg% | breadth < 0.65: PF−1 / avg% | float < $300M: n / win / avg% | float ≥ $300M: PF−1 / avg% |
+| frame | trades | breadth ≥ 0.65: n / PF−1 / avg% | breadth < 0.65: PF−1 / avg% | float < \$300M: n / win / avg% | float ≥ \$300M: PF−1 / avg% |
 |---|---:|---|---|---|---|
 | FINAL v3.1 | 84 | 14 / 2.60 / 3.5 | 9.08 / 6.1 | 8 / 100% / 13.8 | 5.43 / 4.8 |
 | no crf (rr ≥ 2) | 150 | 28 / 1.51 / 2.3 | 4.60 / 4.2 | 11 / 100% / 10.3 | 3.14 / 3.5 |
@@ -1069,10 +1069,10 @@ return, and the by-year sign holds (2020 3.1–3.3 vs 4.8–6.4; 2024 −2.5..�
 flips). ⭐ Ruling: **breadth ≥ 0.65 is a DOWNGRADE for LowFader** (LowFlyer's ×3 size-up inverts on this universe). Still
 14–28 trades, so it stays a watch item rather than a weight; if adopted it would be a grade-E-like haircut, never a skip.
 
-**Float: robust but uncountable.** Every sub-$300M trade in every frame is a winner (8–11 of them, avg 10–14%), and the count does
-NOT grow with the wider frames — it is the UNIVERSE (the $2M / $1M liquidity floors) that makes this a large-cap book, and §L20's
-floor test shows the sub-$2M names cannot be added. The low-float overreaction is a different system's territory (LowFlyer's, on
-the 1m tape with its $500k ADV floor). ⭐ Ruling: **`float < $300M` = a watch-item size-up voice; not adoptable at n = 8.**
+**Float: robust but uncountable.** Every sub-\$300M trade in every frame is a winner (8–11 of them, avg 10–14%), and the count does
+NOT grow with the wider frames — it is the UNIVERSE (the \$2M / \$1M liquidity floors) that makes this a large-cap book, and §L20's
+floor test shows the sub-\$2M names cannot be added. The low-float overreaction is a different system's territory (LowFlyer's, on
+the 1m tape with its \$500k ADV floor). ⭐ Ruling: **`float < $300M` = a watch-item size-up voice; not adoptable at n = 8.**
 
 ## §L21 — ⭐ RELAXING WITH crf IN PLACE: the WIDE variant (2026-09-06, user: "a PF 2 system with a lot more trades")
 
@@ -1107,7 +1107,7 @@ eff → −0.3 adds 62 trades at PF 1.25 (2022+ 0.61, net −55, worst −34): *
 | l600 40 → 30, l120 30 → 20, chg_1d → 0 | 1–3 | — | — | — | — | inert |
 | rate 0.15 → 0.10 / off | 86 / 118 | 1.46 / 1.69 | 1.54 / 1.43 | 82 / 98 | −29.3 | ❌ the rate gate is real |
 | rr 2 → 1.5 / 1.0 | 11 / 23 | 1.56 / 1.46 | 0.39 / 0.77 | −13 / −7 | −13.7 | ❌ |
-| dollar_vol_60 $1M → $500k / $250k | 39 / 57 | 1.53 / 1.91 | 0.82 / 0.86 | −10 / −11 | −25.7 | ❌ |
+| dollar_vol_60 \$1M → \$500k / \$250k | 39 / 57 | 1.53 / 1.91 | 0.82 / 0.86 | −10 / −11 | −25.7 | ❌ |
 | volat ceiling off | 39 | 3.72 | 3.11 | 332 | −54.7 | ❌ lottery (18% tail) |
 | eff → −0.5 / −0.3 | 42 / 62 | 1.64 / 1.25 | 0.45 / 0.61 | −38 / −55 | −34.2 | ❌ |
 
@@ -1206,7 +1206,7 @@ Engine: two Ord defaults (`OrdVolatLo 0.003`, `OrdMaxGapAdj60 60`) once ratified
 ## §L23 — ⭐⭐ RATIFIED: SPEC v4 = WIDE-VG, sizing A = STRICT ∧ X (2026-09-06, user: "tripling the trades for a 40% net increase is worth it")
 
 **SPEC v4 (LowFader, 1s tape, LONG, MOC):** `volat_20m ∈ (30, 100] bp ∧ eff_ewma_10m < −0.7 ∧ lows_600 ≥ 40 ∧ rate_600 ≥ 0.15 ∧
-lows_120 ≥ 30 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 60 ∧ dollar_vol_60 ≥ $1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < $20M` · universe
+lows_120 ≥ 30 ∧ rr ≥ 2 ∧ chg_1d ≤ −4% ∧ gap_adj_60 ≤ 60 ∧ dollar_vol_60 ≥ \$1M ∧ crf ≤ −0.2% ∧ dv_0945_tape < \$20M` · universe
 `mr_candidate_1s_v2` (barnum ≥ 22; `dv_0945_tape ≥ $2M`, `n_bars_1s ≥ 200`) · engine floors `dv_60 ≥ $100k`, `tc_60 ≥ 60` ·
 entry 09:45–15:00 · one position per ticker-day = the FIRST qualifying bar, exit MOC, no averaging down.
 **Sizing:** A = `STRICT ∧ X` → 1.00, where STRICT = the entry bar also has `volat_20m > 50bp ∧ gap_adj_60 ≤ 30` (the v3.1 spec)
@@ -1229,7 +1229,7 @@ Verified on `data/lowfader_wl_wide`: `spec_ord > 0` ≡ SPEC v4, 221 = 221 tkd (
 boundary), max ordinal 28. `lowfader_wide_whitelist` (360 tkd) is the spec-v4 superset whitelist; a rerun takes seconds.
 
 Watch items carried forward (§L20): breadth ≥ 0.65 is a downgrade (not adopted), `float < $300M` is an all-winner voice at n = 8
-(not adopted), `dv_0945` band kept at [$2M, $20M). Scanner port of SPEC v4 + the 2026-09-06 engine features when LowFader goes live.
+(not adopted), `dv_0945` band kept at [\$2M, \$20M). Scanner port of SPEC v4 + the 2026-09-06 engine features when LowFader goes live.
 
 ## §L24 — the `volat_20m > 100bp` cell: covers cost more than they save; trade it at ~0.2× or not at all (2026-09-06, user)
 
@@ -1253,8 +1253,8 @@ what an equivalent-PF cell would get, adjusted for the tail. `scripts/analysis/l
 | ≤ 100bp (v4) | 10m | 3.81 | 3.77 | 70 | 2.2 | 303 | −14.1 | −4.2 | 0.9 | 0.0 | 7 |
 
 The cell is a lottery ticket: sd 46 vs the book's 7, 12% of trades under −10%, and the avg +12.6% is carried by ONE trade —
-**CTNT 2024-05-20, +265%** (entered 12:01 at $4.04 after a −63% flush from a $10.62 open to $2.71 by 12:30, closed $14.76; verified
-on the raw 1s tape and `daily_adjusted`; the stock fell to $1.18 the next day) — plus four at +53…+70% (CUBI on the SVB Monday
+**CTNT 2024-05-20, +265%** (entered 12:01 at \$4.04 after a −63% flush from a \$10.62 open to \$2.71 by 12:30, closed \$14.76; verified
+on the raw 1s tape and `daily_adjusted`; the stock fell to \$1.18 the next day) — plus four at +53…+70% (CUBI on the SVB Monday
 2023-03-13 +70, YYAI +58, DOGZ +55, MNK +53). Distribution of the cell as its own system (first > 100bp bar per tkd, 49 trades —
 8 more than the 41 whose FIRST v4 bar is > 100bp): quantiles 0/5/25/50/75/95/100% = −54.7 / −16.4 / −2.4 / **+8.8** / +16.6 / +57 /
 +265; 10 of 49 above +20%, 2 below −20%; the top 3 winners are 394 of the 716 net (55%). Median +8.8% is real edge; the mean is
@@ -1321,13 +1321,13 @@ fork of the Scanner's FlushFader engine carrying exactly the ratified spec, beca
 with `--base-run` and the spec IS the research engine's `ordPass` (Intraday.fs:2360-2374): session-low signal (the strictly-prior
 `RunMinMa`), the time-clock floors, volat ≥ 30 bp, and the 11 ORD gates in the research conjunction's order (volat (30,100] ·
 `EwmaEffMa 20.0` of the SIGNED slot returns < −0.7 · lows_600 ≥ 40 · rate_600 ≥ 0.15 · rr ≥ 2 · chg_1d ≤ −4% against
-close_m1 + div_m1 from the candidate row (nan fails closed) · gap_adj_60 ≤ 60 · dv_60 ≥ $1M · lows_120 ≥ 30 · crf ≤ −0.2% ·
-dv_0945 < $20M); exit = the first bar at/after the close fills at its vwap (research `NextOpenExit = false`; every corpus exit is
+close_m1 + div_m1 from the candidate row (nan fails closed) · gap_adj_60 ≤ 60 · dv_60 ≥ \$1M · lows_120 ≥ 30 · crf ≤ −0.2% ·
+dv_0945 < \$20M); exit = the first bar at/after the close fills at its vwap (research `NextOpenExit = false`; every corpus exit is
 "moc" at 57600 — ⚠ the FlushFader sink's next_open rewrite does NOT apply here). `LowFaderBook.fs` = the FIRST qualifying signal
 per ticker-day (mc = 1, no averaging down) + the A/rest grade (A = volat > 50 bp ∧ gap_adj_60 ≤ 30 ∧ (rr ≥ 5 ∨ lows_rr3_120 ≥ 20)
 → 1.00, rest 0.30; nan rr counts as not ≥ 5). The engine stays a sampler (every ordPass bar emits) so a rejected order never
 silences the next low; the OMS owns "one position per ticker". `RrLegCounts` (§L16) rides the 2m leg, reset with it on a new
-120-bar high. **Price floor: NONE** — user 2026-09-10 on the numbers: the 7 sub-$1 book trades are PF 6.01 / +8.4% each (6 of 7
+120-bar high. **Price floor: NONE** — user 2026-09-10 on the numbers: the 7 sub-\$1 book trades are PF 6.01 / +8.4% each (6 of 7
 winners); without them 214 @ 5.095 vs 5.152 with. The fee wall goes to the OMS.
 
 **Reference** = `scripts/equity/lowfader_reference.py` on the ratified corpus (`WHERE spec_ord > 0`): 753 engine-level trips on

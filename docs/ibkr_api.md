@@ -130,10 +130,10 @@ allowed to *see*. Consequences:
 ## §I7 Venues and permissions (09-12)
 
 - **CME crypto futures are 24/7 since 05-29.** MBT hours string: Sat 02:00–04:00 ET maintenance, otherwise
-  continuous. Micro BTC `MBT` (0.1 BTC, tick 5.0 = $0.50), micro ETH `MET`. What-if margin MBTU6: init
-  $2,341 / maint $2,007; METU6 init $101.
+  continuous. Micro BTC `MBT` (0.1 BTC, tick 5.0 = \$0.50), micro ETH `MET`. What-if margin MBTU6: init
+  \$2,341 / maint \$2,007; METU6 init \$101.
 - **Coinbase Derivatives** = IBKR exchange `COINDERIV` (Coinbase Derivatives LLC, ex-FairX, CFTC DCM,
-  cleared at Nodal Clear; not Coinbase International). Nano BTC `BIT` (0.01 BTC, tick $0.05), nano ETH `ET`
+  cleared at Nodal Clear; not Coinbase International). Nano BTC `BIT` (0.01 BTC, tick \$0.05), nano ETH `ET`
   monthlies, plus perpetual-style `BIP`/`ETP` expiring 2030-12-20 (`BIPZ30` conId 805366677, market rule
   380). Continuous Fri 18:00 → Mon 17:00 ET. Live weekend volume (3,444 contracts in 3 h on a Saturday).
   ⚠ **Rejected for this account** at what-if: *"No Trading Permission, Customer Ineligible; No Opening

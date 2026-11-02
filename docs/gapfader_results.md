@@ -21,10 +21,10 @@ mirrored: warrants, rights, SPAC units, preferred issues, the CEF list); the pre
 
 ## GF-1 — the gap census, open → close (2026-10-12)
 
-`scripts/equity/gapfader_census.py` → `data/equity/gapfader/census.parquet` (1,277,988 gaps |gap| ≥ 2 %, raw open ≥ $0.50,
-dv20_prior ≥ $250k, 2016-08-08 .. 2026-09-04; the official open and the 1s bars' first RTH vwap agree, median Δ 0).
-Report `scripts/equity/gapfader_tables.py` → `data/equity/gapfader/tables.md`. Below: raw open ≥ $1, dv20_prior ≥
-$1M, no early closes — **946,324 gaps; the FADE at the open to the official close, equal weight, NO costs.**
+`scripts/equity/gapfader_census.py` → `data/equity/gapfader/census.parquet` (1,277,988 gaps |gap| ≥ 2 %, raw open ≥ \$0.50,
+dv20_prior ≥ \$250k, 2016-08-08 .. 2026-09-04; the official open and the 1s bars' first RTH vwap agree, median Δ 0).
+Report `scripts/equity/gapfader_tables.py` → `data/equity/gapfader/tables.md`. Below: raw open ≥ \$1, dv20_prior ≥
+\$1M, no early closes — **946,324 gaps; the FADE at the open to the official close, equal weight, NO costs.**
 
 **Gap DOWN (fade = buy the open):**
 
@@ -216,54 +216,54 @@ Trades:
 
 | | SPY up ≥ 1 % (against) | SPY up 0.5–1 % | quiet < 0.5 % | SPY down 0.5–1 % | SPY down ≥ 1 % (with) | all |
 |---|---|---|---|---|---|---|
-| $1–2 | 201 | 509 | 3,613 | 932 | 1,989 | 7,244 |
-| $2–3 | 148 | 343 | 2,412 | 675 | 1,933 | 5,511 |
-| $3–5 | 187 | 435 | 3,140 | 926 | 3,235 | 7,923 |
-| $5–10 | 288 | 639 | 4,540 | 1,407 | 6,688 | 13,562 |
-| $10–20 | 308 | 629 | 4,766 | 1,481 | 8,303 | 15,487 |
-| $20–50 | 312 | 712 | 5,482 | 1,691 | 10,395 | 18,592 |
-| ≥ $50 | 263 | 567 | 4,071 | 1,198 | 7,900 | 13,999 |
+| \$1–2 | 201 | 509 | 3,613 | 932 | 1,989 | 7,244 |
+| \$2–3 | 148 | 343 | 2,412 | 675 | 1,933 | 5,511 |
+| \$3–5 | 187 | 435 | 3,140 | 926 | 3,235 | 7,923 |
+| \$5–10 | 288 | 639 | 4,540 | 1,407 | 6,688 | 13,562 |
+| \$10–20 | 308 | 629 | 4,766 | 1,481 | 8,303 | 15,487 |
+| \$20–50 | 312 | 712 | 5,482 | 1,691 | 10,395 | 18,592 |
+| ≥ \$50 | 263 | 567 | 4,071 | 1,198 | 7,900 | 13,999 |
 | all | 1,707 | 3,834 | 28,024 | 8,310 | 40,443 | 82,318 |
 
 PF (open → close):
 
 | | SPY up ≥ 1 % (against) | SPY up 0.5–1 % | quiet < 0.5 % | SPY down 0.5–1 % | SPY down ≥ 1 % (with) | all |
 |---|---|---|---|---|---|---|
-| $1–2 | 2.24 | 1.48 | 1.57 | 1.74 | 1.29 | 1.52 |
-| $2–3 | 1.45 | 1.38 | 1.52 | 1.49 | 1.09 | 1.34 |
-| $3–5 | 1.44 | 1.15 | 1.23 | 1.51 | 1.03 | 1.18 |
-| $5–10 | 1.45 | 1.28 | 1.32 | 1.29 | 0.82 | 1.06 |
-| $10–20 | 1.27 | 1.44 | 1.16 | 1.31 | 0.71 | 0.92 |
-| $20–50 | 1.24 | 1.00 | 1.24 | 1.20 | 0.76 | 0.94 |
-| ≥ $50 | 1.70 | 1.28 | 1.08 | 1.22 | 0.89 | 1.00 |
+| \$1–2 | 2.24 | 1.48 | 1.57 | 1.74 | 1.29 | 1.52 |
+| \$2–3 | 1.45 | 1.38 | 1.52 | 1.49 | 1.09 | 1.34 |
+| \$3–5 | 1.44 | 1.15 | 1.23 | 1.51 | 1.03 | 1.18 |
+| \$5–10 | 1.45 | 1.28 | 1.32 | 1.29 | 0.82 | 1.06 |
+| \$10–20 | 1.27 | 1.44 | 1.16 | 1.31 | 0.71 | 0.92 |
+| \$20–50 | 1.24 | 1.00 | 1.24 | 1.20 | 0.76 | 0.94 |
+| ≥ \$50 | 1.70 | 1.28 | 1.08 | 1.22 | 0.89 | 1.00 |
 | all | 1.49 | 1.27 | 1.29 | 1.36 | 0.85 | 1.07 |
 
-- **Price is the second axis: cheaper fades better.** $1–2 PF 1.52 overall (1.57 on quiet days), $2–3 1.34; from $5 up
-  the quiet-day PF is 1.08–1.32 and every ≥ $5 row loses on with-market days.
-- **The with-market column (SPY down ≥ 1 %) is half the trades (40,443) and loses from $5 up (0.71–0.89)** — GF-3's
+- **Price is the second axis: cheaper fades better.** \$1–2 PF 1.52 overall (1.57 on quiet days), \$2–3 1.34; from \$5 up
+  the quiet-day PF is 1.08–1.32 and every ≥ \$5 row loses on with-market days.
+- **The with-market column (SPY down ≥ 1 %) is half the trades (40,443) and loses from \$5 up (0.71–0.89)** — GF-3's
   "drop with-market moderate gaps", by price. Without it: 41,875 trades (~4,150 / yr).
 - Against-market days are the best cells (1.24–2.24) but thin: 1,707 trades (~170 / yr) from ~110 days (clustered).
-- ⚠ No costs: at $1–2 the 0.2c/share commission alone is ~0.13 % a side, and the spread more; the cheap rows' edge must be
+- ⚠ No costs: at \$1–2 the 0.2c/share commission alone is ~0.13 % a side, and the spread more; the cheap rows' edge must be
   re-measured with costs before it is trusted. The entry is the OPEN — a MOO, the order verified on live 10-15/16
   (NSDQ; NYSE / NYSE American via SMART).
 
 **GF-5 costed (user: "how the gains relate to fees"):** mean % per trade, gross → NET of 0.7c/share round trip (0.2c
 commission a side + ~0.15c each auction: the MOO entry and the official-close exit are auction prints, so no spread).
-Cost = 0.50 % of the trade at $1–2, 0.29 % at $2–3, 0.18 % at $3–5, 0.10 % at $5–10, ≤ 0.05 % above.
+Cost = 0.50 % of the trade at \$1–2, 0.29 % at \$2–3, 0.18 % at \$3–5, 0.10 % at \$5–10, ≤ 0.05 % above.
 
 | price | against ≥ 1 % | SPY up 0.5–1 % | quiet | SPY down 0.5–1 % | with ≥ 1 % |
 |---|---|---|---|---|---|
-| $1–2 | +2.74 → +2.25 | +1.28 → +0.78 | +1.36 → +0.85 | +1.50 → +1.00 | +0.76 → +0.27 |
-| $2–3 | +1.19 → +0.90 | +1.06 → +0.76 | +1.35 → +1.06 | +1.09 → +0.80 | +0.25 → −0.04 |
-| $3–5 | +1.26 → +1.08 | +0.52 → +0.34 | +0.71 → +0.53 | +1.14 → +0.96 | +0.10 → −0.08 |
-| $5–10 | +1.30 → +1.20 | +0.80 → +0.70 | +0.88 → +0.78 | +0.68 → +0.58 | −0.53 → −0.63 |
-| $10–20 | +0.69 → +0.64 | +1.07 → +1.02 | +0.43 → +0.38 | +0.63 → +0.58 | −0.86 → −0.91 |
-| $20–50 | +0.55 → +0.53 | −0.00 → −0.03 | +0.53 → +0.50 | +0.39 → +0.37 | −0.60 → −0.62 |
-| ≥ $50 | +1.05 → +1.05 | +0.52 → +0.52 | +0.16 → +0.15 | +0.37 → +0.36 | −0.22 → −0.23 |
+| \$1–2 | +2.74 → +2.25 | +1.28 → +0.78 | +1.36 → +0.85 | +1.50 → +1.00 | +0.76 → +0.27 |
+| \$2–3 | +1.19 → +0.90 | +1.06 → +0.76 | +1.35 → +1.06 | +1.09 → +0.80 | +0.25 → −0.04 |
+| \$3–5 | +1.26 → +1.08 | +0.52 → +0.34 | +0.71 → +0.53 | +1.14 → +0.96 | +0.10 → −0.08 |
+| \$5–10 | +1.30 → +1.20 | +0.80 → +0.70 | +0.88 → +0.78 | +0.68 → +0.58 | −0.53 → −0.63 |
+| \$10–20 | +0.69 → +0.64 | +1.07 → +1.02 | +0.43 → +0.38 | +0.63 → +0.58 | −0.86 → −0.91 |
+| \$20–50 | +0.55 → +0.53 | −0.00 → −0.03 | +0.53 → +0.50 | +0.39 → +0.37 | −0.60 → −0.62 |
+| ≥ \$50 | +1.05 → +1.05 | +0.52 → +0.52 | +0.16 → +0.15 | +0.37 → +0.36 | −0.22 → −0.23 |
 
-Net PF, quiet days: $1–2 1.33, $2–3 1.39, $3–5 1.17, $5–10 1.27, $10–20 1.14, $20–50 1.23, ≥ $50 1.08. The fees take
-~⅓ of the $1–2 edge and ~¼ of the $2–3 edge but leave every non-with-market cell positive; the with-market column is
-≈ 0 or negative everywhere from $2 up. (The auction fees are an assumption — Rob has not answered; the statement's fee
+Net PF, quiet days: \$1–2 1.33, \$2–3 1.39, \$3–5 1.17, \$5–10 1.27, \$10–20 1.14, \$20–50 1.23, ≥ \$50 1.08. The fees take
+~⅓ of the \$1–2 edge and ~¼ of the \$2–3 edge but leave every non-with-market cell positive; the with-market column is
+≈ 0 or negative everywhere from \$2 up. (The auction fees are an assumption — Rob has not answered; the statement's fee
 lines will settle it.)
 
 ## GF-6 — buy the DIP of a heavy-premarket gap-UP? (2026-10-16; user: GF-4's open → close long loses — can a limit below the open fix it?)
@@ -401,12 +401,12 @@ Held the open at 10:00, PF to the close (clip +50 %), median; and the QUIET-tape
 Alone, more premarket volume does NOT help (≥ 5×: the worst). Combined with a quiet tape it gives the first long cell
 with a positive median. **rvol_pm 1–5 ∧ held at 10:00 ∧ trades 09:30–10:00 < 10.1k:** n 398 (356 days), mean +1.87 %,
 median +0.16 %, win 56 %, PF 1.73, clip +50 % 1.61, clip +20 % 1.36, top 5 % trimmed 0.97, to the next open 1.54; EVERY
-year > 1 (1.15–12.3 on 4–73 trades); every gap and price band > 1 (1.11–2.31); dv20_prior ≥ $10M only 1.03. Control, the
+year > 1 (1.15–12.3 on 4–73 trades); every gap and price band > 1 (1.11–2.31); dv20_prior ≥ \$10M only 1.03. Control, the
 same band with a BUSY tape: n 908, median −2.89 %, PF 1.00, clip 0.67. The TRADE COUNT decides, not the volume: by
 rvol_30m (volume 09:30–10:00 / avgvol20_prior) the same band is flat (PF 0.80–1.36, medians negative).
 
 ⚠ Candidate, NOT a feature yet: the band (1–5) and the cut (10.1k, a population quintile edge) were read off this table
-(selection); ~40 trades a year; few prints = thin names — the entry (a 1s vwap at 10:00) ignores the spread, and at $1–3
+(selection); ~40 trades a year; few prints = thin names — the entry (a 1s vwap at 10:00) ignores the spread, and at \$1–3
 the 0.29–0.50 % fee alone exceeds the +0.16 % median. Next: threshold robustness (rvol 0.8–6, the cut 5k / 15k / 20k, a
 cut relative to the stock's own print rate), the spread at 10:00 from the quotes, and costs.
 
@@ -430,8 +430,8 @@ and `volat_pres` (30 present 1s bars per slot — the engines'); the two correla
 - **Not tail-driven:** below 40 bp the PF with gains clipped at +50 % EQUALS the raw PF (1.42 / 1.38), the medians are
   positive and 1 year in 11 is below 1 — unlike every GF-6 … GF-10 cell. Small, steady winners.
 - **Costed (0.7c / share round trip; entry at the 1s vwap — the spread not modelled):** volat_clk < 40, all rvol_pm ≥ 0.2:
-  n 1,598 (~160 / yr), median price $23.86, net mean +0.37 %, **net PF 1.32 (2016–20 1.61 / 2021–26 1.20)**; net PF by price
-  1.16 ($1–3) / 1.30 / 1.42 / 1.30 (≥ $30); by gap 1.35 / 1.31 / 1.22.
+  n 1,598 (~160 / yr), median price \$23.86, net mean +0.37 %, **net PF 1.32 (2016–20 1.61 / 2021–26 1.20)**; net PF by price
+  1.16 (\$1–3) / 1.30 / 1.42 / 1.30 (≥ \$30); by gap 1.35 / 1.31 / 1.22.
 - With rvol_pm 1–5: n 258, net PF 2.47 (4.75 / 1.72) — the volatility and the GF-10b trade-count cut overlap (rvol 1–5,
   low volat × few trades: PF 1.93, median +0.13 %, n 266).
 
@@ -462,8 +462,8 @@ volat / few trades −1.4 … −2.0 %) — but the answer there is to be out an
 | quiet days | 27,992 | 1.45 (1.42 / 1.47) | 1.23 | 0 / 11 |
 | against ≥ 1 % | 1,707 | 1.60 (1.97 / 1.41) | 1.42 | 0 / 11 |
 
-By price (all days), → 10:00 / → close net PF: $1–2 1.59 / 1.29, $2–3 1.57 / 1.22, $3–5 1.39 / 1.11, $5–10 1.29 / 1.02,
-$10–20 1.28 / 0.91, $20–50 1.34 / 0.93, ≥ $50 1.46 / 0.99.
+By price (all days), → 10:00 / → close net PF: \$1–2 1.59 / 1.29, \$2–3 1.57 / 1.22, \$3–5 1.39 / 1.11, \$5–10 1.29 / 1.02,
+\$10–20 1.28 / 0.91, \$20–50 1.34 / 0.93, ≥ \$50 1.46 / 0.99.
 
 - The with-market days — GF-3/GF-5's losing column — are a WINNER with a 10:00 exit: those stocks bounce at the open
   with the rest of the market and then go down with it. No market filter is needed.
@@ -492,7 +492,7 @@ sold at the first 1s vwap at/after 09:30 + T. Net PF (0.7c / share round trip):
 0 losing years (net) from 30 to 120 min on all days. Ex with-market the edge is IMMEDIATE (1 min: +0.59 % gross) and decays;
 with-market days lose until ~20 min, then the market's "10 o'clock reversal" (a smooth rise 09:50 → 10:02 — checked
 second by second: no step at 10:00:00, not an artifact; ⚠ half the with-market trades are 2020). By price, 30–45 min:
-1.27–1.61 in every band ($1–3 best). Bigger gaps want later exits (15–30 %: 2.16 at 30 min → 2.56 at 60 min).
+1.27–1.61 in every band (\$1–3 best). Bigger gaps want later exits (15–30 %: 2.16 at 30 min → 2.56 at 60 min).
 ⚠ The 1-min result is an AUCTION effect (a thin name's opening print is low): real for a MOO fill, but the sale crosses
 the spread — unmeasured. **⇒ One exit for every day: 10:00–10:15.** In and out before FlushFader's 09:45+ entries matter.
 
@@ -518,19 +518,19 @@ TRADE-THROUGH (a 1s vwap above it) at the target; else sold at the time stop. Ne
 
 ## GF-15 — VOLUME around the open, and the premarket entry (2026-10-16; user: "enter in the premarket with limit orders, get rebates?")
 
-`scripts/equity/gapfader_pm_volume.py` → `data/equity/gapfader/pm_volume.{md,parquet}`. $ volume per gap (median; p25 / p75
-in the md): 04:00–07:00 $33, 07:00–09:00 $9.4k, 09:00–09:30 $8.8k, **the opening cross (the 09:30:00 1s bar) $27k (p25 $0)**,
-09:30–09:35 $269k, 09:30–10:00 $1.34M (a whole day: dv20_prior $14.9M). 90 % have a premarket trade, 82 % in 09:00–09:30
+`scripts/equity/gapfader_pm_volume.py` → `data/equity/gapfader/pm_volume.{md,parquet}`. \$ volume per gap (median; p25 / p75
+in the md): 04:00–07:00 \$33, 07:00–09:00 \$9.4k, 09:00–09:30 \$8.8k, **the opening cross (the 09:30:00 1s bar) \$27k (p25 \$0)**,
+09:30–09:35 \$269k, 09:30–10:00 \$1.34M (a whole day: dv20_prior \$14.9M). 90 % have a premarket trade, 82 % in 09:00–09:30
 (median 6 active seconds of 1,800).
 
 - **The premarket is ABOVE the open:** the 09:00–09:30 vwap is above the official open in 74 % of the gaps (median
   +0.76 %, p90 +3.9 %); the last premarket print in 67 % (median +0.34 %). These names slide INTO the open — the open is
-  near the low (hence the 1-min bounce, GF-13). Premarket $ traded BELOW the open in 09:00–09:30: median $0 (≥ $5k in
+  near the low (hence the 1-min bounce, GF-13). Premarket \$ traded BELOW the open in 09:00–09:30: median \$0 (≥ \$5k in
   28 %). ⇒ **No premarket entry**: a premarket buy pays more than the MOO, and a limit low enough to beat the open
   almost never fills.
-- **Capacity at the cross is thin:** 10 % of the cross = median $2.7k a name (p75 $30k); a quarter of the gaps show NO
+- **Capacity at the cross is thin:** 10 % of the cross = median \$2.7k a name (p75 \$30k); a quarter of the gaps show NO
   volume in the 09:30:00 bar (⚠ to check on the trades tape: the official opening print's own time and size). The
-  first 5 min trade 10× the cross ($269k): a position larger than the cross allows is filled in the first minutes.
+  first 5 min trade 10× the cross (\$269k): a position larger than the cross allows is filled in the first minutes.
 
 ## GF-16 — BUY DOWN: a limit below the open instead of the MOO, by the market (2026-10-16; user: "on big MARKET gap-down days we have more time to buy, could even buy down")
 
@@ -556,13 +556,13 @@ a target at 50 % of the gap from the entry. Net PF (fill %):
 auction — no extra volume.) A buy limit at the official open, 09:30:01 → 09:35 / 09:50, filled at the open on a
 trade-through (or a touch); exit 10:15 or a target at 50 % of the gap after the fill; 0.55c / share.
 
-- **The volume is there:** $ traded at or below the open after the cross, median per gap — first 1 min $7.4k, 5 min
-  $60k, 20 min $228k (the cross: $27k); 22 % of the gaps never trade back to the open within 5 min.
+- **The volume is there:** \$ traded at or below the open after the cross, median per gap — first 1 min \$7.4k, 5 min
+  \$60k, 20 min \$228k (the cross: \$27k); 22 % of the gaps never trade back to the open within 5 min.
 - **…but it is ADVERSE SELECTION:** the limit fills 77–86 % of the gaps at PF 1.00–1.03 (all days; quiet days 0.89–0.93,
   9 of 11 years lose; market gap-down days 1.15–1.17) against the MOO's 1.47. The 14 % it MISSES — the gaps that never
   come back to the open — are where the MOO's edge lives: on them the MOO makes +2.75 % a trade, win 92 %, PF 14.
 - ⇒ **The edge is in the opening auction itself** (the low opening print, then the bounce). The cross is the capacity;
-  volume bought after it is a different, break-even trade. Size each position as a share of the cross (median $2.7k at
+  volume bought after it is a different, break-even trade. Size each position as a share of the cross (median \$2.7k at
   10 %); the binding limit comes with account size, not now.
 
 ## GF-18 — the entry as a LIMIT-ON-OPEN, and which names get one (2026-10-16; user: "how will we know where they open?")
@@ -593,9 +593,9 @@ feasible (pending orders tie up buying power; ~5,600 names).
 
 | source | what | history | real time, non-pro | note |
 |---|---|---|---|---|
-| Massive | NYSE order imbalances (NOI) only | none | $49 / month | no Nasdaq, Arca or NYSE American |
-| Databento | XNAS.ITCH (NOII), XNYS / XASE / ARCX.PILLAR imbalance; no BZX | from 2018-05 | live XNAS.ITCH is for businesses only; the $199 plan has no imbalance | history: full Nasdaq ~$17.5k, the day's candidates only ~$0.23 / day |
-| **IBKR** (2026-10-17, its public market-data pricing page) | NYSE Order Imbalances $1, NYSE MKT (American) Order Imbalances $1, NYSE Arca Order Imbalances $1 a month each (pro the same); Nasdaq's NOII comes with **TotalView-OpenView $16.50** (pro $90) | none | ≈ **$19.50 / month** for the four listings; no BZX line | TWS API generic tick **225**: Auction Volume (34), Auction Price (35, the indicative price), Auction Imbalance (36), Regulatory Imbalance (61) |
+| Massive | NYSE order imbalances (NOI) only | none | \$49 / month | no Nasdaq, Arca or NYSE American |
+| Databento | XNAS.ITCH (NOII), XNYS / XASE / ARCX.PILLAR imbalance; no BZX | from 2018-05 | live XNAS.ITCH is for businesses only; the \$199 plan has no imbalance | history: full Nasdaq ~\$17.5k, the day's candidates only ~\$0.23 / day |
+| **IBKR** (2026-10-17, its public market-data pricing page) | NYSE Order Imbalances \$1, NYSE MKT (American) Order Imbalances \$1, NYSE Arca Order Imbalances \$1 a month each (pro the same); Nasdaq's NOII comes with **TotalView-OpenView \$16.50** (pro \$90) | none | ≈ **\$19.50 / month** for the four listings; no BZX line | TWS API generic tick **225**: Auction Volume (34), Auction Price (35, the indicative price), Auction Imbalance (36), Regulatory Imbalance (61) |
 
 **⭐ The clock decides it, not the price.** Each listing's imbalance starts at a different time, and the Oms's MOO / LOO
 cutoff is **09:25** (Lightspeed, Rob 2026-10-12; `L3Types.MooUntil`):
@@ -622,7 +622,7 @@ Open before subscribing:
 `scripts/equity/gapfader_preopen_quotes.py` (Massive REST v3/quotes: the NBBO standing at 09:25:00 + every update to 09:30,
 every universe ticker, 10 days 2026-10-02 … 10-15, ~38 s a day) → `data/equity/gapfader/preopen_quotes/<date>.parquet`;
 `scripts/equity/gapfader_preopen_vs_open.py` → `data/equity/gapfader/preopen_vs_open.{md,parquet}`. Population: prev close
-≥ $1, dv20_prior ≥ $1M — 3,857 names a day, ALL of them (not only the weak-premarket ones: no premarket trades yet for
+≥ \$1, dv20_prior ≥ \$1M — 3,857 names a day, ALL of them (not only the weak-premarket ones: no premarket trades yet for
 these days). Every name has a two-sided NBBO at 09:25 (never crossed or locked on the SIP).
 
 | 09:25 spread | share | mid vs open: median abs err | p90 | open inside the 09:25 bid–ask |
@@ -781,54 +781,54 @@ be half its trades.
 ## GF-24 — the OPENING CROSS vs the daily dollar volume, and the trade by LIQUIDITY (2026-10-17; user: "do gaps in more liquid stocks make better trades?")
 
 `scripts/equity/gapfader_cross_liquidity.py` → `data/equity/gapfader/cross_liquidity.{md,parquet}` (+ `_trades.parquet`).
-The cross from the bulk trades tape (GF-15's proxy was the 09:30:00 1s bar, p25 $0): the largest print with condition 17
+The cross from the bulk trades tape (GF-15's proxy was the 09:30:00 1s bar, p25 \$0): the largest print with condition 17
 (opening trade) 09:28–10:00 — the listing exchange's cross (checked on AAPL / SOFI / WFF = Nasdaq 12, F = NYSE 10, UEC =
 NYSE American 1; other venues print tiny openers; the condition-16 copy of the same print is not counted). Found for
 98.5 % of the 82,285 trades; ⚠ its price = the official open for only 76.1 % (to check: which print the daily open is);
 14.6 % of the crosses print at or after 09:31, 6.7 % after 09:35 (late NYSE opens).
 
-**The cross is ~1 % of the daily dollar volume, at every liquidity**: Spearman ρ(cross $, dv20_prior) 0.78, log-log slope
+**The cross is ~1 % of the daily dollar volume, at every liquidity**: Spearman ρ(cross \$, dv20_prior) 0.78, log-log slope
 **1.01**.
 
-| dv20_prior | trades / yr | cross $ p25 | median | p75 | cross / dv20 median (p25–p75) | no cross |
+| dv20_prior | trades / yr | cross \$ p25 | median | p75 | cross / dv20 median (p25–p75) | no cross |
 |---|---|---|---|---|---|---|
-| $1–2M | 790 | $4.7k | $14.9k | $38k | 1.05 % (0.33–2.64) | 2.7 % |
-| $2–5M | 1,228 | $12.4k | $33.8k | $78k | 1.06 % (0.40–2.35) | 1.7 % |
-| $5–10M | 1,061 | $28.9k | $70.9k | $150k | 1.00 % (0.41–2.10) | 1.4 % |
-| $10–25M | 1,475 | $63.6k | $145k | $289k | 0.93 % (0.42–1.80) | 1.3 % |
-| $25–100M | 1,793 | $206k | $432k | $813k | 0.91 % (0.48–1.59) | 1.5 % |
-| ≥ $100M | 1,133 | $1.17M | $2.41M | $4.96M | 1.05 % (0.64–1.66) | 0.7 % |
+| \$1–2M | 790 | \$4.7k | \$14.9k | \$38k | 1.05 % (0.33–2.64) | 2.7 % |
+| \$2–5M | 1,228 | \$12.4k | \$33.8k | \$78k | 1.06 % (0.40–2.35) | 1.7 % |
+| \$5–10M | 1,061 | \$28.9k | \$70.9k | \$150k | 1.00 % (0.41–2.10) | 1.4 % |
+| \$10–25M | 1,475 | \$63.6k | \$145k | \$289k | 0.93 % (0.42–1.80) | 1.3 % |
+| \$25–100M | 1,793 | \$206k | \$432k | \$813k | 0.91 % (0.48–1.59) | 1.5 % |
+| ≥ \$100M | 1,133 | \$1.17M | \$2.41M | \$4.96M | 1.05 % (0.64–1.66) | 0.7 % |
 
 **The edge falls with liquidity** (GF-21's exit; ex-2020 in bold):
 
 | dv20_prior | PF−1 all | **PF−1 ex-2020** | avg % ex-2020 | median % ex-2020 | PF clip ex-2020 | losing yrs ex-2020 |
 |---|---|---|---|---|---|---|
-| $1–2M | 1.19 | **1.39** | +1.53 % | +3.07 % | 2.39 | 0/10 |
-| $2–5M | 0.72 | **0.74** | +0.98 % | +1.96 % | 1.74 | 0/10 |
-| $5–10M | 0.55 | **0.57** | +0.76 % | +1.24 % | 1.57 | 0/10 |
-| $10–25M | 0.41 | **0.48** | +0.62 % | +0.91 % | 1.48 | 0/10 |
-| $25–100M | 0.35 | **0.41** | +0.49 % | +0.61 % | 1.41 | 0/10 |
-| ≥ $100M | 0.40 | **0.29** | +0.31 % | +0.34 % | 1.29 | 1/10 |
+| \$1–2M | 1.19 | **1.39** | +1.53 % | +3.07 % | 2.39 | 0/10 |
+| \$2–5M | 0.72 | **0.74** | +0.98 % | +1.96 % | 1.74 | 0/10 |
+| \$5–10M | 0.55 | **0.57** | +0.76 % | +1.24 % | 1.57 | 0/10 |
+| \$10–25M | 0.41 | **0.48** | +0.62 % | +0.91 % | 1.48 | 0/10 |
+| \$25–100M | 0.35 | **0.41** | +0.49 % | +0.61 % | 1.41 | 0/10 |
+| ≥ \$100M | 0.40 | **0.29** | +0.31 % | +0.34 % | 1.29 | 1/10 |
 
-By the cross's own dollars (known only at the open — capacity, not a gate; ex-2020): none 1.47 · < $5k **3.45** · $5–25k
-1.34 · $25–100k 0.44 · $100–500k 0.29 · ≥ $500k 0.28. The thinner the auction, the bigger the dislocation it prints.
+By the cross's own dollars (known only at the open — capacity, not a gate; ex-2020): none 1.47 · < \$5k **3.45** · \$5–25k
+1.34 · \$25–100k 0.44 · \$100–500k 0.29 · ≥ \$500k 0.28. The thinner the auction, the bigger the dislocation it prints.
 
 **Reading.** (1) dv20_prior is a CAUSAL grade (known before the open) and a monotone one, 0/10 losing years in every band
 but the top: under L2's rule the illiquid gaps earn the most units. (2) But the capacity runs the other way: the cross is
-~1 % of dv20, so the $1–2M names (PF−1 1.39) cross a median $15k. (3) Capacity-limited estimate (ex-2020; position =
+~1 % of dv20, so the \$1–2M names (PF−1 1.39) cross a median \$15k. (3) Capacity-limited estimate (ex-2020; position =
 min(units × 15 % × equity, 10 % × 1 % × dv20_prior), units = the band's PF−1; the units cap, other systems, the screen's
 coverage and the LOO fills IGNORED):
 
-| equity | avg position | capacity binds | $ / day | % of equity / day | Σ units / day |
+| equity | avg position | capacity binds | \$ / day | % of equity / day | Σ units / day |
 |---|---|---|---|---|---|
-| $8k | $691 | 8 % | $151 | 1.89 % | 14.3 |
-| $30k | $2,086 | 21 % | $386 | 1.29 % | 11.5 |
-| $100k | $5,211 | 40 % | $835 | 0.83 % | 8.6 |
-| $300k | $10,950 | 61 % | $1,532 | 0.51 % | 6.0 |
-| $1M | $21,430 | 80 % | $2,608 | 0.26 % | 3.5 |
+| \$8k | \$691 | 8 % | \$151 | 1.89 % | 14.3 |
+| \$30k | \$2,086 | 21 % | \$386 | 1.29 % | 11.5 |
+| \$100k | \$5,211 | 40 % | \$835 | 0.83 % | 8.6 |
+| \$300k | \$10,950 | 61 % | \$1,532 | 0.51 % | 6.0 |
+| \$1M | \$21,430 | 80 % | \$2,608 | 0.26 % | 3.5 |
 
 ⚠ At 8k the day's positions sum to 14.3 units, all opened at 09:30: the 10-unit book cap binds (≈ 1.3 %/day). The system
-is a small-account edge: it scales sub-linearly from ~$30k and is worth ~0.3 %/day at $1M.
+is a small-account edge: it scales sub-linearly from ~\$30k and is worth ~0.3 %/day at \$1M.
 
 ## GF-25 — the screen on the WEAK-PREMARKET names: the ASK alone is not enough (2026-10-17)
 
@@ -851,14 +851,14 @@ prev close × 0.96 (it fills iff the stock opens ≥ 4 % down).
 
 By liquidity (dv20_prior):
 
-| screen | $1–5M (57 trades): caught / LOOs a day / fill | $5–25M (85) | ≥ $25M (154) |
+| screen | \$1–5M (57 trades): caught / LOOs a day / fill | \$5–25M (85) | ≥ \$25M (154) |
 |---|---|---|---|
 | ask ≤ −3 % | 26 % / 3.1 / 55 % | 31 % / 5.8 / 50 % | 64 % / 17.3 / 61 % |
 | last print ≤ −3 % | 63 % / 22.6 / 17 % | 73 % / 27.0 / 24 % | 88 % / 43.9 / 33 % |
 | ask ≤ −3 % OR print ≤ −3 % | 65 % / 22.7 / 17 % | 73 % / 27.1 / 24 % | 89 % / 44.1 / 33 % |
 
 **Reading.** GF-19's "the ask catches 72 %" was every name — the heavy-premarket (news) gaps, whose books follow the news.
-On the weak-premarket names the 09:25 ask catches 47 %, and only 26 % in the $1–5M band, the best one (GF-24: PF−1 1.39):
+On the weak-premarket names the 09:25 ask catches 47 %, and only 26 % in the \$1–5M band, the best one (GF-24: PF−1 1.39):
 their books are wide (the missed trades' spread median 4.7 %) with stale offers near the prev close (missed ask median
 −0.7 % while the open is −4.5 %). The few PRINTS a thin name has are the better signal there: last print ≤ −3 % catches
 63–88 %. The OR of both is the best screen — 80 % at ~94 LOOs a day, 27 % filling. The SURPRISES (no print before 09:25)
@@ -868,8 +868,8 @@ a live check (one LOO, read `pendingOrdersMarginRequirements`).
 
 ## GF-26 — premarket ACTIVITY (1s bars) vs rvol_pm, and where they disagree (2026-10-17; user: "bar counts in the hour before the open instead of rvol? block trades with little activity")
 
-`scripts/equity/gapfader_pm_activity.py` → `data/equity/gapfader/pm_activity.{md,parquet}`. EVERY gap-down ≥ 4 % (open ≥ $1,
-dv20_prior ≥ $1M; all premarket volumes: 131,359 trades); active 1s bars and trade count 08:30–09:30; GF-21's exit.
+`scripts/equity/gapfader_pm_activity.py` → `data/equity/gapfader/pm_activity.{md,parquet}`. EVERY gap-down ≥ 4 % (open ≥ \$1,
+dv20_prior ≥ \$1M; all premarket volumes: 131,359 trades); active 1s bars and trade count 08:30–09:30; GF-21's exit.
 Spearman ρ: bars vs rvol_pm 0.82, bars vs trades 0.99 (the same feature), bars vs dv20_prior 0.45, rvol_pm vs dv20 0.08.
 ⚠ Knowability: the window ends at the open — for a decision before a 09:25 cutoff, use 08:25–09:25.
 
@@ -904,15 +904,15 @@ Each alone (PF−1 ex-2020; losing years ex-2020):
 
 | dv20 \ bars | 0 | 1–9 | 10–29 | 30–99 | ≥ 100 |
 |---|---|---|---|---|---|
-| $1–2M | 2.86 (1,543) | 1.16 (3,556) | 1.01 (1,182) | 0.49 (133) | · |
-| $2–5M | 1.17 (1,681) | 0.72 (4,834) | 0.65 (2,478) | 0.48 (751) | · |
-| $5–10M | 0.84 (1,039) | 0.59 (3,508) | 0.48 (2,267) | 0.54 (1,366) | · |
-| $10–25M | 0.96 (1,012) | 0.50 (4,097) | 0.43 (3,066) | 0.43 (2,538) | 0.35 (449) |
-| $25–100M | 1.52 (630) | 0.54 (3,222) | 0.36 (3,379) | 0.33 (3,858) | 0.24 (1,579) |
-| ≥ $100M | · | 0.85 (428) | 0.32 (1,081) | 0.21 (2,569) | 0.28 (3,558) |
+| \$1–2M | 2.86 (1,543) | 1.16 (3,556) | 1.01 (1,182) | 0.49 (133) | · |
+| \$2–5M | 1.17 (1,681) | 0.72 (4,834) | 0.65 (2,478) | 0.48 (751) | · |
+| \$5–10M | 0.84 (1,039) | 0.59 (3,508) | 0.48 (2,267) | 0.54 (1,366) | · |
+| \$10–25M | 0.96 (1,012) | 0.50 (4,097) | 0.43 (3,066) | 0.43 (2,538) | 0.35 (449) |
+| \$25–100M | 1.52 (630) | 0.54 (3,222) | 0.36 (3,379) | 0.33 (3,858) | 0.24 (1,579) |
+| ≥ \$100M | · | 0.85 (428) | 0.32 (1,081) | 0.21 (2,569) | 0.28 (3,558) |
 
-and rvol within a liquidity band (< 0.005 vs 0.005–0.02): $1–2M 1.91 / 0.74 · $2–5M 1.04 / 0.39 · $5–10M 0.84 / 0.29 ·
-$10–25M 0.75 / 0.23 · $25–100M 0.53 / 0.30 · ≥ $100M 0.40 / 0.24. **Both survive the control in every row**: liquidity,
+and rvol within a liquidity band (< 0.005 vs 0.005–0.02): \$1–2M 1.91 / 0.74 · \$2–5M 1.04 / 0.39 · \$5–10M 0.84 / 0.29 ·
+\$10–25M 0.75 / 0.23 · \$25–100M 0.53 / 0.30 · ≥ \$100M 0.40 / 0.24. **Both survive the control in every row**: liquidity,
 rvol_pm and the premarket bars are three grades, all known before the open, none a proxy for another. The trade is a
 quiet name in a quiet premarket; the quieter on all three, the bigger the dislocation the cross prints.
 
@@ -960,10 +960,10 @@ By liquidity, 2016–2026 ex-2020, PF−1 (trades):
 
 | dv20_prior | Nasdaq | NYSE | NYSE American |
 |---|---|---|---|
-| $1–5M | 1.25 (7,659) | **0.13** (2,174) | 1.13 (545) |
-| $5–25M | 0.69 (8,930) | **0.05** (4,361) | 0.90 (449) |
-| $25–100M | 0.58 (5,566) | **0.18** (4,210) | −0.06 (225) |
-| ≥ $100M | 0.33 (3,424) | **0.15** (3,330) | 0.54 (85) |
+| \$1–5M | 1.25 (7,659) | **0.13** (2,174) | 1.13 (545) |
+| \$5–25M | 0.69 (8,930) | **0.05** (4,361) | 0.90 (449) |
+| \$25–100M | 0.58 (5,566) | **0.18** (4,210) | −0.06 (225) |
+| ≥ \$100M | 0.33 (3,424) | **0.15** (3,330) | 0.54 (85) |
 | all | 0.78 (25,579) | **0.12** (14,075) | 0.72 (1,304) |
 
 By year, PF−1 Nasdaq / NYSE: 2016 1.54 / 0.06 · 2017 0.53 / 0.55 · 2018 0.72 / 0.12 · 2019 0.70 / −0.17 · 2020 0.82 / 0.11 ·
@@ -985,7 +985,7 @@ American 240, Cboe BZX 1 (CBOE itself), **NYSE Arca 0** — Arca lists ETPs (2,5
 
 ## GF-28 — the gap-down long on plain ETFs (2026-10-17; user's curiosity — the account's owner cannot trade US ETFs)
 
-`scripts/equity/gapfader_etf.py` → `data/equity/gapfader/etf.{md,parquet}`. Type ETF, gap ≤ −4 %, open ≥ $1, dv20_prior ≥ $1M,
+`scripts/equity/gapfader_etf.py` → `data/equity/gapfader/etf.{md,parquet}`. Type ETF, gap ≤ −4 %, open ≥ \$1, dv20_prior ≥ \$1M,
 2016-08 … 2026-09; **leveraged / inverse funds removed** (user): by name — 2X / 3X / −1X, Ultra, Leveraged, Inverse, Bear,
 Bull, Short (not short-duration bond funds), Roundhill WeeklyPay (1.2×), YieldBOOST, Daily Target — 20,752 of 29,713 gaps
 (556 funds); 8,961 gaps left in 1,586 plain funds. GF-21's exit.
@@ -1012,12 +1012,12 @@ outside crash days it is ~60 trades a year — and the account cannot trade them
 
 ### GF-18d — where to get NASDAQ's imbalance (NOII) (2026-10-17; user: "the cheapest Nasdaq imbalance data besides IBKR"; GF-27: NYSE's is useless to us)
 
-NOII is part of Nasdaq TotalView (no standalone NOII product for individuals); TotalView's exchange fee is ~$15 a month
+NOII is part of Nasdaq TotalView (no standalone NOII product for individuals); TotalView's exchange fee is ~\$15 a month
 non-professional, so any vendor's price is that plus its own margin and licensing.
 
 | source | Nasdaq NOII | access | price | catch |
 |---|---|---|---|---|
-| **IBKR** (TWS API, generic tick 225) | via TotalView-OpenView | TWS / IB Gateway (runs headless on Linux with IBC) | **$16.50 / month** | the gateway; tick 225 for Nasdaq names unverified |
+| **IBKR** (TWS API, generic tick 225) | via TotalView-OpenView | TWS / IB Gateway (runs headless on Linux with IBC) | **\$16.50 / month** | the gateway; tick 225 for Nasdaq names unverified |
 | Webull OpenAPI | an NOII snapshot endpoint (Asian sites: 09:28–09:30 open, 5 s) | plain REST, no gateway | unknown | US OpenAPI needs a Webull US brokerage account; the EU OpenAPI lists TotalView "for Non-Display OpenAPI usage" but no NOII endpoint |
 | QuoteMedia API | yes, with a TotalView entitlement | REST + streaming | unknown | aimed at businesses |
 | dxFeed | native Order Imbalance event (added 06-2026) | API | contact sales | aimed at market makers / execution algos |
@@ -1026,20 +1026,20 @@ non-professional, so any vendor's price is that plus its own margin and licensin
 | Massive | **none** (its KB: NYSE only) | — | — | — |
 
 Cadence (Nasdaq's TotalView-ITCH spec): every 10 s 09:25–09:28, every second 09:28–09:30. ⇒ The cheapest settled route
-is IBKR — one month ($16.50) on the existing account answers whether tick 225 carries Nasdaq's NOII before 09:28.
+is IBKR — one month (\$16.50) on the existing account answers whether tick 225 carries Nasdaq's NOII before 09:28.
 ⚠ Licensing: driving an automated system is NON-DISPLAY use, which exchanges license separately; IBKR's line is priced
 for display — to ask IBKR (Webull's EU line is the only one that says non-display explicitly).
 
 **Licensing (Nasdaq Equity 7, SR-NASDAQ-2024-076 Exhibit 5, "Enhanced Display Solution"):** an individual cannot license
 TotalView directly (Databento's TotalView-live post: "Nasdaq doesn't permit non-professional or individual users to start a
-license" — its live XNAS.ITCH is for business entities). A DISTRIBUTOR pays Nasdaq $4,390 a month (2026) for the right to
-offer TotalView "with access to an API or similar solution"; its Professional subscribers then pay $88.00 / month, its
-Non-Professional subscribers "the applicable Nasdaq Level 2 or Nasdaq TotalView rate" (~$15). ⇒ The way in is a broker's or
+license" — its live XNAS.ITCH is for business entities). A DISTRIBUTOR pays Nasdaq \$4,390 a month (2026) for the right to
+offer TotalView "with access to an API or similar solution"; its Professional subscribers then pay \$88.00 / month, its
+Non-Professional subscribers "the applicable Nasdaq Level 2 or Nasdaq TotalView rate" (~\$15). ⇒ The way in is a broker's or
 vendor's API product with TotalView. Candidates:
 
 | | API | login | TotalView via the API | NOII through it | an EU resident's account |
 |---|---|---|---|---|---|
-| IBKR | TWS API | IB Gateway (a GUI; IBC + a virtual display automates it, 2FA ~weekly) | yes ($16.50) | tick 225, unverified for Nasdaq | yes (the user has one) |
+| IBKR | TWS API | IB Gateway (a GUI; IBC + a virtual display automates it, 2FA ~weekly) | yes (\$16.50) | tick 225, unverified for Nasdaq | yes (the user has one) |
 | moomoo OpenAPI | OpenD | a command-line build for Linux, account + password in OpenD.xml | the API's US quotes: Nasdaq Basic + TotalView (60 levels) | unconfirmed | **❌ no EU residents** (moomoo's own list 2026: US, CA, SG, AU, JP, MY, NZ; the UK / EU "future expansion") |
 | Webull OpenAPI | REST | API keys | yes (EU: "for Non-Display OpenAPI usage") | US / Asia only (snapshot endpoint) | EU API lacks the NOII endpoint |
 | TradeStation WebAPI | REST / HTTP streaming | OAuth | yes (Level 2 / TotalView depth) | unconfirmed | unknown |
@@ -1053,7 +1053,7 @@ the trade there = 23.7 a day):
 
 | watch list | names a day | trades in it | one pass at 25 / s |
 |---|---|---|---|
-| every name (prev close ≥ $1, dv20 ≥ $1M) | 2,094 | 100 % | ~84 s |
+| every name (prev close ≥ \$1, dv20 ≥ \$1M) | 2,094 | 100 % | ~84 s |
 | + weak premarket to 09:25 | 1,914 | 100 % | ~77 s |
 | + ask ≤ prev close | 264 | 80 % | ~11 s |
 | + ask ≤ −1 % | 97 | 68 % | ~4 s |
@@ -1087,18 +1087,18 @@ Spearman ρ: trades vs dollar volume 0.83, trades vs active bars 0.90, trades vs
 | active bars | 0.91 / 1.00 / 0.68 / 0.83 / 0.60 | −0.19 / −0.08 / −1.51 / −1.15 / −3.03 |
 | rvol30 | 0.80 / 0.86 / 1.13 / 0.75 / 0.55 | −0.97 / −0.58 / +0.04 / −0.87 / −3.30 |
 
-**The substitution test** (median splits: 15.2k trades, $29.4M):
+**The substitution test** (median splits: 15.2k trades, \$29.4M):
 
 | | n | median % | PF clip +50 % | net PF | years < 1 |
 |---|---|---|---|---|---|
-| few trades, large $ | 534 | **+0.08** | **1.18** | 1.27 | 5/11 |
-| few trades, small $ | 2,425 | −0.56 | 1.03 | 1.21 | 4/11 |
-| many trades, small $ | 534 | **−3.91** | 0.71 | 1.07 | 9/11 |
-| many trades, large $ | 2,426 | −1.80 | 0.63 | 0.76 | 6/11 |
+| few trades, large \$ | 534 | **+0.08** | **1.18** | 1.27 | 5/11 |
+| few trades, small \$ | 2,425 | −0.56 | 1.03 | 1.21 | 4/11 |
+| many trades, small \$ | 534 | **−3.91** | 0.71 | 1.07 | 9/11 |
+| many trades, large \$ | 2,426 | −1.80 | 0.63 | 0.76 | 6/11 |
 
 - **No: the trade count carries the information, the dollar volume does not.** At the same dollar volume, more trades is
   worse; at the same trade count, more dollars is a little better.
-- **The average trade size ($ per trade) is not the clean version:** ρ 0.89 with the share price. Its medians rise with
+- **The average trade size (\$ per trade) is not the clean version:** ρ 0.89 with the share price. Its medians rise with
   it (−3.2 % → +0.1 %), but its PF is not monotone, and inside rvol_pm 1–5 it inverts.
 - Reading: the count is the number of separate decisions to trade. A held gap-up chased by thousands of small prints is
   being distributed into (GF-10's "busy tape = distribution"); volume measures size, the edge is about the crowd.
@@ -1418,7 +1418,7 @@ With calm · fading: 10:00 1.56 · 10:30 1.70 · (a) 1.55 · (b) 1.60 (19 / yr, 
 - **(b) is a selection, not a better entry.** It buys only the third of the days that break the opening-range low (median
   2.2 % below the 10:00 price; p10 −5.2 %), and those days lose if bought at 10:00 (0.23). It skips the two thirds that never
   look back, which are the big winners (4.95).
-- Per trade it's better (mean +0.51 % vs +0.37 %), but the total is smaller. With $1 per trade, the sum of net % is:
+- Per trade it's better (mean +0.51 % vs +0.37 %), but the total is smaller. With \$1 per trade, the sum of net % is:
 
   | entry | total |
   |---|---|
@@ -1560,18 +1560,18 @@ Median short +0.79 %, mean net +0.86 %.
 | rvol_pm ≥ 1 | 1.43 [3] |
 | gap ≤ −20 % | **1.38 [1]** |
 | gap −4 … −20 % | 1.13–1.30 |
-| price $1–3 | **1.68** |
-| price $3–10 | 1.33 |
-| price $10–30 | 0.98 |
-| price ≥ $30 | 1.04 |
-| dv20 $1–5M | **1.46 [0]** |
-| dv20 $5–25M | 1.26 |
-| dv20 ≥ $25M | 0.92 |
+| price \$1–3 | **1.68** |
+| price \$3–10 | 1.33 |
+| price \$10–30 | 0.98 |
+| price ≥ \$30 | 1.04 |
+| dv20 \$1–5M | **1.46 [0]** |
+| dv20 \$5–25M | 1.26 |
+| dv20 ≥ \$25M | 0.92 |
 | ≥ 10 % below the prior close at 10:00 (95 % of the cell) | 1.28 |
 | < 10 % below | 0.90 |
 
 ⚠ **The edge sits exactly where shorting is hardest.**
-- It lives in cheap (under $10), thin (dv20 under $25M), deeply gapped names: the hard-to-borrow end. The locate fee per share
+- It lives in cheap (under \$10), thin (dv20 under \$25M), deeply gapped names: the hard-to-borrow end. The locate fee per share
   there can be a large fraction of a +0.86 % mean.
 - 95 % are under the **SSR uptick rule** (down ≥ 10 % from the prior close). The short must rest above the NBB, so it has to
   be a maker entry. That is our style anyway, but the fill rate is unknown.
@@ -1588,35 +1588,35 @@ Base: 2,964 trades, 269 / yr, net **1.29** at 10:00 (1/11 losing years) and 1.31
 | rvol_pm | < 0.02 1.03 [5] · 0.02–0.2 1.24 [1] · 0.2–1 1.41 [3] · **1–5 2.54** [2] (22 / yr) · ≥ 5 1.43 (4.19 → 0.82 by half) |
 | rvol30 | 1–2 1.21 [3] · 2–5 **1.52** [1] · ≥ 5 **2.36** [1] (18 / yr): monotone |
 | gap | 4–6 % 1.11 [5] · **6–10 % 1.49** [1] · 10–20 % 1.24 [2] · 20–40 % 1.42 [4] · ≥ 40 % 1.06 (5.54 → 0.49, decayed) |
-| price | $1–3 1.62 (n 74) · $3–10 1.27 · $10–30 1.38 · $30–100 1.30 · **≥ $100 1.07** [4] |
-| dv20 | **$1–5M 1.64** [1] · $5–25M 1.21 · $25–100M 1.03 [6] · ≥ $100M 1.37: U-shaped |
+| price | \$1–3 1.62 (n 74) · \$3–10 1.27 · \$10–30 1.38 · \$30–100 1.30 · **≥ \$100 1.07** [4] |
+| dv20 | **\$1–5M 1.64** [1] · \$5–25M 1.21 · \$25–100M 1.03 [6] · ≥ \$100M 1.37: U-shaped |
 | fading | 1.43 [1] vs 1.23 [1] |
 
 Two-way with rvol_pm (< 0.2 / ≥ 0.2):
 
 | | rvol_pm < 0.2 | rvol_pm ≥ 0.2 |
 |---|---|---|
-| dv20 $1–5M | 1.45 | **2.20 [0/11]** (274) |
-| dv20 $25–100M | 0.99 | 1.14 |
+| dv20 \$1–5M | 1.45 | **2.20 [0/11]** (274) |
+| dv20 \$25–100M | 0.99 | 1.14 |
 | gap 6–10 % | 1.39 | **1.84** |
 | gap 4–6 % | 0.95 | 1.76 |
-| price $3–10 | 1.07 | 1.71 |
-| price ≥ $100 | 0.98 | 1.37 |
+| price \$3–10 | 1.07 | 1.71 |
+| price ≥ \$100 | 0.98 | 1.37 |
 
 **Reading:** the clean graders are **rvol30** (monotone), **rvol_pm** (monotone up to 5) and **fading**. dv20 is U-shaped:
-thin names are best and $25–100M is dead. Gap and price are noisy, except that ≥ 40 % gaps and ≥ $100 stocks are weak.
+thin names are best and \$25–100M is dead. Gap and price are noisy, except that ≥ 40 % gaps and ≥ \$100 stocks are weak.
 
-Narrowing to the best cells reaches PF 2+ (dv20 $1–5M · rvol_pm ≥ 0.2: 2.20, 0/11), but on 25–30 trades a year, and every cut
+Narrowing to the best cells reaches PF 2+ (dv20 \$1–5M · rvol_pm ≥ 0.2: 2.20, 0/11), but on 25–30 trades a year, and every cut
 was read off this table. ⇒ The next step is a **PF−1 sizing model** (FlushFaderV2's method: logit p, log W, log L) on the base
 cell, with ln rvol30, ln rvol_pm, fading, the dv20 shape and a gap term, scored on the two half holdouts. That turns these
 graders into position size without hard cuts.
 
-### GF-43 — below the $1M dv20 floor (2026-10-20, user)
+### GF-43 — below the \$1M dv20 floor (2026-10-20, user)
 
-The census starts at dv20 $250k, so this band is $0.25–1M: 46,020 gap-ups, with the tape built as in GF-38 (cache
+The census starts at dv20 \$250k, so this band is \$0.25–1M: 46,020 gap-ups, with the tape built as in GF-38 (cache
 `swing_sub1m.parquet`). Script: `scripts/equity/gapfader_swing_sub1m.py` → `data/equity/gapfader/swing_sub1m.md`.
 
-| held at 10:00, net PF 10:00 [n, losing years] | dv20 $0.25–0.5M | $0.5–1M | $1–5M (GF-42) |
+| held at 10:00, net PF 10:00 [n, losing years] | dv20 \$0.25–0.5M | \$0.5–1M | \$1–5M (GF-42) |
 |---|---|---|---|
 | calm | 0.97 [649, 6] | 1.19 [1,054, 3] | 1.09 [6,346, 4] |
 | not calm | 0.83 [5,510, **11/11**] | 0.87 [5,338, **11/11**] | 1.03 [11,584, 7] |
@@ -1625,19 +1625,19 @@ The census starts at dv20 $250k, so this band is $0.25–1M: 46,020 gap-ups, wit
 | calm · rvol30 ≥ 1 · rvol_pm ≥ 0.2 | 1.75 [92, 3] | 1.37 [111, 5] | **2.20** [274, 0] |
 | not calm · rvol30 ≥ 1 | **0.70** [1,508, 10/11] | **0.74** [1,486, 10/11] | 0.98 [2,913, 6] |
 
-- **The calm · rvol30 ≥ 1 rule holds below $1M** (1.43–1.52), but there are only ~34 trades / yr, with 3–4 losing years.
-  Fees take a visible share: $0.25–0.5M is 1.72 raw vs 1.52 net, with median price $7.69.
+- **The calm · rvol30 ≥ 1 rule holds below \$1M** (1.43–1.52), but there are only ~34 trades / yr, with 3–4 losing years.
+  Fees take a visible share: \$0.25–0.5M is 1.72 raw vs 1.52 net, with median price \$7.69.
 - The year table (net PF): 2016 5.43 (8 trades) · 2017 1.11 · 2018 0.72 · 2019 2.94 · 2020 1.13 · 2021 1.11 · 2022 2.94 ·
   2023 1.02 · 2024 2.15 · 2025 1.50 · 2026 1.42.
-- Fading and rvol_pm, the graders that worked from $1M up, are noise here (n 59–111).
+- Fading and rvol_pm, the graders that worked from \$1M up, are noise here (n 59–111).
 - **Thin and not calm is the worst place to be long:** 0.70–0.74, losing in 10–11 of 11 years.
 - ⚠ Our net PF charges only the 0.7c commission; the spread is not modelled, and it is widest exactly in these names.
-  Median 09:30–10:00 dollar volume is $1.3M, so capacity is fine for a small account, but a maker fill model is needed
+  Median 09:30–10:00 dollar volume is \$1.3M, so capacity is fine for a small account, but a maker fill model is needed
   before this band is trusted.
 
-⇒ Extend the swing's universe to dv20 ≥ $500k at most, and only under calm · rvol30 ≥ 1. The $1–5M band stays the core.
+⇒ Extend the swing's universe to dv20 ≥ \$500k at most, and only under calm · rvol30 ≥ 1. The \$1–5M band stays the core.
 
-### GF-44 — dv20 $1–5M · calm · held · rvol30 ≥ 1, by gap and price, with fading (2026-10-20, user)
+### GF-44 — dv20 \$1–5M · calm · held · rvol30 ≥ 1, by gap and price, with fading (2026-10-20, user)
 
 693 trades, 63 / yr, net 1.64 (1/11 losing years). Fading 1.76 vs not fading 1.52. Script:
 `scripts/equity/gapfader_dv15_breakdown.py` → `data/equity/gapfader/dv15_breakdown.md`. Net PF 10:00 [n, losing years]:
@@ -1648,19 +1648,19 @@ The census starts at dv20 $250k, so this band is $0.25–1M: 46,020 gap-ups, wit
 | gap 6–10 % | **1.85** [232, 1] | 1.73 | 2.00 |
 | gap 10–20 % | **1.70** [159, 2] | 2.34 | 1.23 |
 | gap 20–40 % | 5.38 [63, 4] (7.98 → 2.71) | 2.24 [20] | 8.20 [43] |
-| price $1–3 | 1.50 [61, 5] | 0.66 | 3.76 |
-| price $3–10 | 1.38 [230, 2] (0.88 → 2.01) | **1.93** | **0.99** |
-| **price $10–30** | **2.03 [299, 0/11]** | 2.02 | 2.04 |
-| price ≥ $30 | 1.58 [103, 5] | 1.77 | 1.34 |
+| price \$1–3 | 1.50 [61, 5] | 0.66 | 3.76 |
+| price \$3–10 | 1.38 [230, 2] (0.88 → 2.01) | **1.93** | **0.99** |
+| **price \$10–30** | **2.03 [299, 0/11]** | 2.02 | 2.04 |
+| price ≥ \$30 | 1.58 [103, 5] | 1.77 | 1.34 |
 
-Gap × price, all: the **$10–30 column is positive at every gap** (4–6 % 1.80 · 6–10 % 1.83 · 10–20 % 1.93 · 20–40 % 7.09,
-n 31). 4–6 % gaps on stocks under $10 are about breakeven (0.96–1.01).
+Gap × price, all: the **\$10–30 column is positive at every gap** (4–6 % 1.80 · 6–10 % 1.83 · 10–20 % 1.93 · 20–40 % 7.09,
+n 31). 4–6 % gaps on stocks under \$10 are about breakeven (0.96–1.01).
 
 **Reading:**
-- The one segment that holds across the other splits is **price $10–30**: 2.03 with 0/11 losing years, about 27 / yr. It is
+- The one segment that holds across the other splits is **price \$10–30**: 2.03 with 0/11 losing years, about 27 / yr. It is
   the same at every gap, and it doesn't care about fading (2.02 vs 2.04).
-- Inside this band **fading is not a consistent grader**. It helps at $3–10 (1.93 vs 0.99) and on 10–20 % gaps, but goes the
-  other way at $1–3 and on 6–10 % / 20–40 % gaps. The cells are 20–160 trades, i.e. noise. In the full base (GF-42) it was 1.43
+- Inside this band **fading is not a consistent grader**. It helps at \$3–10 (1.93 vs 0.99) and on 10–20 % gaps, but goes the
+  other way at \$1–3 and on 6–10 % / 20–40 % gaps. The cells are 20–160 trades, i.e. noise. In the full base (GF-42) it was 1.43
   vs 1.23. Leave it to the sizing model, not a hard cut.
 - 4–6 % gaps are the weak end (1.23, with 2016–20 at 0.85).
 - ⚠ Every cell here is 2–27 trades a year, after about 30 splits of one sample. Read it as shape for the model, not as rules.
@@ -1671,7 +1671,7 @@ n 31). 4–6 % gaps on stocks under $10 are about breakeven (0.96–1.01).
 FlushFaderV2's machinery: logit p, log W, log L by IRLS, PF−1 = p / ((1−p)·L/W) − 1.
 - **The trade as designed:** a LOO in the cross; half sold at 50 % of the gap and half at 75 % (resting limits,
   trade-through) until 10:00; the rest at 10:00 (GF-21's maker exit); 0.40c.
-- **Gates knowable at the decision:** gap ≤ −4 % · open ≥ $1 · dv20 ≥ $1M · no early close · not NYSE-listed (today's map)
+- **Gates knowable at the decision:** gap ≤ −4 % · open ≥ \$1 · dv20 ≥ \$1M · no early close · not NYSE-listed (today's map)
   · **rvol28** < 0.02, where rvol28 = premarket volume 04:00–09:28 / avgvol20_prior. The census's rvol_pm ran to 09:30.
 - **The open as the auction price plus noise:** |e| lognormal, median 0.10 %, p90 0.65 % (the 10-19 gap watch). A trade
   needs both the noisy and the true gap ≤ −4 %.
@@ -1682,8 +1682,8 @@ FlushFaderV2's machinery: logit p, log W, log L by IRLS, PF−1 = p / ((1−p)·
 
 | | 2016–19 | 2020 | 2021–23 | 2024–26 |
 |---|---|---|---|---|
-| dv20 $1–5M | 1.24 | 1.63 | 1.88 | **2.63** |
-| dv20 ≥ $100M | **2.76** | 1.85 | 1.54 | 1.19 |
+| dv20 \$1–5M | 1.24 | 1.63 | 1.88 | **2.63** |
+| dv20 ≥ \$100M | **2.76** | 1.85 | 1.54 | 1.19 |
 | rvol28 < 0.001 | 1.79 | 1.77 | 2.58 | 2.83 |
 | rvol28 0.01–0.02 | 1.01 | 1.38 | 1.33 | 1.37 |
 | bars 0 | 2.17 | 2.30 | 2.63 | 3.13 |
@@ -1778,9 +1778,9 @@ the 0.25 %-of-ADV cap and the book's unit cap will bind, and L2's sizing needs t
 `gapfader_census.py` computes `avgvol20_prior` / `dv20_prior` with `ROWS BETWEEN 20 PRECEDING AND 1 PRECEDING` over a
 ticker's daily rows with NO date bound and no break between listings. When a ticker is recycled, the window mixes the two
 companies. ARIA 2026-08-13: 3 rows of the new ARIA (the Aria Opportunities ETF, a few hundred shares a day) plus 17 rows of
-ARIAD Pharmaceuticals from early 2017 → avgvol20_prior 6.97M, dv20 $166M for a security that trades ~$1k a day.
+ARIAD Pharmaceuticals from early 2017 → avgvol20_prior 6.97M, dv20 \$166M for a security that trades ~\$1k a day.
 
-| census rows | 20-row window spans > 1,100 days | spans > 60 days | in the model's pool (open ≥ $1, dv20 ≥ $1M, gap ≤ −4 %, rvol_pm < 0.05, no early close) with a > 1,100-day window |
+| census rows | 20-row window spans > 1,100 days | spans > 60 days | in the model's pool (open ≥ \$1, dv20 ≥ \$1M, gap ≤ −4 %, rvol_pm < 0.05, no early close) with a > 1,100-day window |
 |---|---|---|---|
 | 1,278,260 | 4,333 (0.34 %) | 6,221 | **495** (~1.5 % of the pool) |
 
@@ -1791,7 +1791,7 @@ the fix is an episode break (a > 45-day gap between rows, as `barnum`) in the ce
 **FIXED + REFITTED the same day (user):** the census's 20-session windows now run inside the episode (`(ticker, episode)`,
 the rule of `scripts/equity/build_daily_episodes_causal_view.sql`), as does the Oms's `Reference.volume20s` (so the two agree
 exactly: 11,974 census rows over 23 days, worst 8e-16). Census 1,278,260 → 1,272,551 rows (5,796 out, 87 in, 118 values
-moved); the gap-down pool (open ≥ $1, dv20 ≥ $1M, gap ≤ −4 %, rvol_pm < 0.02) 73,693 → 73,176 (520 out, 3 in, spread over
+moved); the gap-down pool (open ≥ \$1, dv20 ≥ \$1M, gap ≤ −4 %, rvol_pm < 0.02) 73,693 → 73,176 (520 out, 3 in, spread over
 every year). GF-45 refitted on it (`gf_coefficients.json`; the previous fit kept as `gf_coefficients_pre_gf46.json`, the
 report as `sizing_model_pre_gf46.md`):
 
@@ -1852,7 +1852,7 @@ totals over the whole day, carry this inflation — to be fixed and every system
 `scripts/equity/gapfader_consistency.py` (output `data/equity/gapfader/consistency.md`, not tracked). The GF-45c trades
 (same gates, same auction-price noise), the Oms's exit (ONE target at 50 % to 10:00, then the 10:00 vwap; 0.40c) and the
 Oms's sizing at a FIXED 8,000 (pf1 from gf_coefficients.json; clip [0.125, 2] × 15 % of equity; the 0.25 %-of-dv20 cap; the
-day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 50 % / 100 % under $3; minimum notional 200).
+day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 50 % / 100 % under \$3; minimum notional 200).
 15,523 of 49,044 trades taken (~6 a day; the book binds daily). P&L in % of the 8,000, not compounded.
 
 | period | max drawdown | worst day | worst week | worst month | losing streak: days / weeks / months | losing days / weeks / months | net PF |
@@ -1871,7 +1871,7 @@ day's signals ranked by pf1 into the book: 10 units, margin 100 % of equity at 5
 
 ## GF-49 — the DEATH-SPIRAL rule: refuse a stock down ≥ 95 % in a year (2026-10-26, user, after NIVF)
 
-**Status 2026-10-28: REJECTED** (user): superseded by the dv60_med ≥ $500k floor (GF-54), which keeps only 105 of
+**Status 2026-10-28: REJECTED** (user): superseded by the dv60_med ≥ \$500k floor (GF-54), which keeps only 105 of
 these 961 trades. See the end of GF-55.
 
 `scripts/equity/gapfader_spiral.py` → `data/equity/gapfader/spiral.{md,parquet}`. User: "we need to avoid trading stocks
@@ -1931,8 +1931,8 @@ The features, over the 20 prior sessions in the episode:
 | bars20_med < 250 | 3,776 | **2.41** | **3.13** |
 | bars20_med 2,000–4,000 | 11,440 | 1.51 | 1.61 |
 | bars20_med 8,000–16,000 | 2,418 | 1.33 | 1.23 |
-| dv20_med < $0.5M | 5,677 | **2.55** | **3.46** |
-| dv20_med ≥ $25M | 13,334 | 1.49 | 1.55 |
+| dv20_med < \$0.5M | 5,677 | **2.55** | **3.46** |
+| dv20_med ≥ \$25M | 13,334 | 1.49 | 1.55 |
 | spike ≥ 5 | 8,322 | **2.20** | **3.01** |
 | spike < 1.25 | 28,050 | 1.40 | 1.47 |
 | ALL | 49,044 | 1.62 | 1.80 |
@@ -1942,15 +1942,15 @@ The features, over the 20 prior sessions in the episode:
   | rule | Δ PF units | random p5 … p95 |
   |---|---|---|
   | bars20_med < 250 | −0.091 | −0.014 … +0.014 |
-  | dv20_med < $1M | −0.229 | ±0.02 |
+  | dv20_med < \$1M | −0.229 | ±0.02 |
   | spike ≥ 5 | −0.170 | ±0.02 |
 
 - **It holds in every regime.** bars20_med < 500, refused vs kept: 2016–19 1.64 vs 1.23 · 2020 1.75 vs 1.52 · 2021–23 2.63 vs
   1.49 · 2024–26 2.68 vs 1.65. This is GF-18 / GF-45 again: the surprises and the thin names carry the edge.
-- **NIVF on 2026-10-26 would have passed both floors.** Its 20 prior sessions: dv20 mean $14.9M, median **$2.32M**, spike 6.4,
+- **NIVF on 2026-10-26 would have passed both floors.** Its 20 prior sessions: dv20 mean \$14.9M, median **\$2.32M**, spike 6.4,
   bars20_med **3,545** (1,102 … 20,599 a day). By the median it was not thin.
-- **Capping the size by the median** (MaxNotional = 0.25 % × dv20_med instead of the mean; 8k equity, $200 floor): $ PF 1.81 →
-  1.69, total −20 %, 2024–26 −28 %. NIVF is untouched (its cap would have been $5.8k against a $421 position).
+- **Capping the size by the median** (MaxNotional = 0.25 % × dv20_med instead of the mean; 8k equity, \$200 floor): \$ PF 1.81 →
+  1.69, total −20 %, 2024–26 −28 %. NIVF is untouched (its cap would have been \$5.8k against a \$421 position).
 - **What did go wrong on NIVF is the EXIT.** The 10:00 time stop's maker exit rested on the ask while the stock fell, and it
   sold at 11:52–11:53 at 1.18 / 1.17. That is −11.7 % against about −6.5 % at the 10:00 price the backtest assumes (the sell
   went out at 1.25 = the ask), so roughly half the loss is the exit's.
@@ -1972,16 +1972,16 @@ The features, over the 20 prior sessions in the episode:
 | bars_d1 250–500 | 3,229 | 2.67 | 3.06 |
 | bars_d1 4,000–8,000 | 8,636 | 1.38 | 1.39 |
 | bars_d1 ≥ 16,000 | 581 | 1.19 | 1.11 |
-| dv_d1 < $0.25M | 1,618 | **5.90** | **7.58** |
-| dv_d1 ≥ $25M | 15,617 | 1.50 | 1.58 |
+| dv_d1 < \$0.25M | 1,618 | **5.90** | **7.58** |
+| dv_d1 ≥ \$25M | 15,617 | 1.50 | 1.58 |
 | rel_d1 < 0.25 (yesterday quiet vs the median) | 682 | 3.65 | 5.38 |
 | rel_d1 ≥ 5 (yesterday busy) | 5,050 | 1.81 | 2.16 |
 
 - **Every floor cuts the edge far beyond the iso control.** bars_d1 < 500: Δ PF units −0.178 against random ±0.014; dv_d1 <
-  $1M: −0.206 against ±0.016. The quiet-yesterday trades lead in every regime: bars_d1 < 500, 2021–23 4.56 vs 1.49 · 2024–26
+  \$1M: −0.206 against ±0.016. The quiet-yesterday trades lead in every regime: bars_d1 < 500, 2021–23 4.56 vs 1.49 · 2024–26
   4.63 vs 1.65.
 - **A busy yesterday** (rel_d1 ≥ 5) is neutral: Δ −0.032, inside the random band's edge.
-- **NIVF on 2026-10-26** would have passed these too: D−1 (10-23) 3,348 bars, $1.59M.
+- **NIVF on 2026-10-26** would have passed these too: D−1 (10-23) 3,348 bars, \$1.59M.
 
 ⚠ **This is where the backtest's execution model is weakest.** PF 4.8–5.9 on names that barely traded the day before is too
 good to take at face value. In a thin name the target "fills" on any trade-through print, however small, and the 10:00 exit
@@ -1995,21 +1995,21 @@ pays the spread, and the comparison is made by activity bucket.
 - `dv60_med`: the median of volume × close over the 60 prior sessions in the episode (fewer for a younger listing; 96.5 % have 60).
 - `surge` = dv20_med / dv60_med: the last 20 sessions against the last 60.
 
-**Why:** NIVF passed GF-50's 20-session median ($2.32M) because its 20 sessions were the death-spiral frenzy (09-30: $144M,
-859M shares at $0.17). Over 60 sessions its median is **$224k** (Aug and Sep ~$150k a day): surge ≈ 10. GIXI (listed
-2026-09-02, 37 sessions) is thin on both: $99k over 20, $166k over all 37; one day (10-12, $184M) carried 83 % of its 20
-sessions' dollars, so the MEAN gate ($11.0M ≥ $1M) passed it.
+**Why:** NIVF passed GF-50's 20-session median (\$2.32M) because its 20 sessions were the death-spiral frenzy (09-30: \$144M,
+859M shares at \$0.17). Over 60 sessions its median is **\$224k** (Aug and Sep ~\$150k a day): surge ≈ 10. GIXI (listed
+2026-09-02, 37 sessions) is thin on both: \$99k over 20, \$166k over all 37; one day (10-12, \$184M) carried 83 % of its 20
+sessions' dollars, so the MEAN gate (\$11.0M ≥ \$1M) passed it.
 
 **The thinner over 60 sessions, the better the trade — a cleaner gradient than over 20.**
 
 | dv60_med decile | n | PF flat | PF units |
 |---|---|---|---|
-| D1 < $0.149M | 4,905 | **2.48** | **3.30** |
-| D2 $0.149–0.719M | 4,904 | 2.19 | 2.80 |
-| D3 $0.72–1.72M | 4,904 | 1.63 | 1.80 |
-| D4 $1.72–3.22M | 4,905 | 1.44 | 1.57 |
-| D5–D9 $3.2–85M | 24,521 | 1.33–1.48 | 1.43–1.62 |
-| D10 > $85M | 4,905 | 1.64 | 1.77 |
+| D1 < \$0.149M | 4,905 | **2.48** | **3.30** |
+| D2 \$0.149–0.719M | 4,904 | 2.19 | 2.80 |
+| D3 \$0.72–1.72M | 4,904 | 1.63 | 1.80 |
+| D4 \$1.72–3.22M | 4,905 | 1.44 | 1.57 |
+| D5–D9 \$3.2–85M | 24,521 | 1.33–1.48 | 1.43–1.62 |
+| D10 > \$85M | 4,905 | 1.64 | 1.77 |
 | ALL | 49,044 | 1.62 | 1.80 |
 
 | surge | n | PF flat | PF units |
@@ -2021,10 +2021,10 @@ sessions' dollars, so the MEAN gate ($11.0M ≥ $1M) passed it.
 | ≥ 8 | 2,178 | 1.90 | 2.52 |
 
 - **D1 leads in every year** 2016–2026 (flat 1.72–3.21; the book 1.21–2.03). D2 leads in 10 of 11 (2021: 1.45 vs 1.81).
-- **Every floor cuts the edge far beyond the iso control.** dv60_med < $0.25M refuses 13.1 %: Δ PF units −0.159 against random
-  ±0.019, −107.5 of Σ units·r (−28 %); < $1M: −0.251, −44 %. The refused thin trades lead in every regime: < $0.25M,
+- **Every floor cuts the edge far beyond the iso control.** dv60_med < \$0.25M refuses 13.1 %: Δ PF units −0.159 against random
+  ±0.019, −107.5 of Σ units·r (−28 %); < \$1M: −0.251, −44 %. The refused thin trades lead in every regime: < \$0.25M,
   2016–19 2.02 vs 1.27 · 2020 2.08 vs 1.52 · 2021–23 2.71 vs 1.52 · 2024–26 2.41 vs 1.66.
-- **NIVF's shape** (dv60_med < $0.25M and surge ≥ 4): 2,297 trades, PF 2.29 / 2.95 — better than the book. A surge is no
+- **NIVF's shape** (dv60_med < \$0.25M and surge ≥ 4): 2,297 trades, PF 2.29 / 2.95 — better than the book. A surge is no
   warning sign either: surge ≥ 4 refused = 1.98 / 2.62, Δ −0.050.
 - **The sizing already leans this way**: dv60_med ~ pf1 Spearman −0.335 (the model's `ldv` is the MEAN dv20); the units
   PF exceeds the flat one most in the thin deciles (D1 3.30 vs 2.48).
@@ -2038,7 +2038,7 @@ dv60_med adds to pf1 (dv60_med deciles within pf1 bands).
 `scripts/equity/gapfader_dv60_model.py` → `data/equity/gapfader/dv60_model.{md,parquet}`. GF-45's book verbatim (49,044
 trades after GF-46, seed 20261020); the current model refits to `gf_coefficients.json` exactly (max |Δβ| 0) and gives the
 live pf1 of 10-26 exactly (NIVF 0.371, GIXI 0.840). Only `ldv = ln dv20_prior` (the 20-session MEAN) is swapped; rvol's two
-terms stay, and so do the gates (dv20_prior ≥ $1M). Each model is fitted and scored on the same trade, on two trades: the
+terms stay, and so do the gates (dv20_prior ≥ \$1M). Each model is fitted and scored on the same trade, on two trades: the
 DESIGN trade GF-45 was fitted on (½ at 50 % / ½ at 75 %) and the one the OMS RUNS (one target at 50 %).
 
 **The 60-session median beats the 20-session mean on every holdout, on both trades.**
@@ -2061,22 +2061,22 @@ DESIGN trade GF-45 was fitted on (½ at 50 % / ½ at 75 %) and the one the OMS R
 - Fitted as production (2021–26, design trade): ln dv60_med per SD odds × 0.780, W × 0.877, L × 0.840 (current's ln dv20:
   0.835 / 0.932 / 0.897) — the same direction, steeper. Mean predicted PF−1 0.853 vs 0.867; Spearman between the two
   models +0.858; at the 0.125 floor 7.7 % vs 4.8 %, at the 2-unit cap 4.8 % both.
-- **Where they disagree most** (in-sample): 1,849 trades the new model sizes ≥ 2× the current (median dv20 mean $41.7M,
-  dv60_med $0.11M — a quiet name with a spike in its 20 sessions) are only flat PF 1.35, units 1.49 current vs 1.45 new;
-  the 1.25–2× band (4,119, dv60_med $0.149M) is PF 2.24, units 2.71 vs 2.63. The model's gain is in the ranking of the bulk
+- **Where they disagree most** (in-sample): 1,849 trades the new model sizes ≥ 2× the current (median dv20 mean \$41.7M,
+  dv60_med \$0.11M — a quiet name with a spike in its 20 sessions) are only flat PF 1.35, units 1.49 current vs 1.45 new;
+  the 1.25–2× band (4,119, dv60_med \$0.149M) is PF 2.24, units 2.71 vs 2.63. The model's gain is in the ranking of the bulk
   (0.8–1.25×: 10,982 trades, units 2.98 → 3.10), not in its upsizing of the spike names.
 
 **NIVF and GIXI on 10-26 would have been sized LARGER, not smaller:**
 
 | ticker | dv20 mean | dv60_med | rvol | pf1 current (= live) | pf1 dv60_med | units |
 |---|---|---|---|---|---|---|
-| NIVF | $14.93M | $0.224M | 0.0140 | 0.371 | 0.735 | 0.37 → 0.73 |
-| GIXI | $11.03M | $0.166M | 0.0033 | 0.840 | 1.274 | 0.84 → 1.27 |
+| NIVF | \$14.93M | \$0.224M | 0.0140 | 0.371 | 0.735 | 0.37 → 0.73 |
+| GIXI | \$11.03M | \$0.166M | 0.0033 | 0.840 | 1.274 | 0.84 → 1.27 |
 
 Both are the "quiet name, one spike" shape. The system's cap (MaxNotional = 0.25 % × dv20_prior, the mean) is untouched
-here; on the median it would bind hard (GIXI: $415). GF-50 measured a median-based cap at −20 % of P&L.
+here; on the median it would bind hard (GIXI: \$415). GF-50 measured a median-based cap at −20 % of P&L.
 
-## GF-54 — THE PRODUCTION REFIT on the 60-session MEDIAN: the model, the gates, the cap; the $500k floor; the Oms's trade (2026-10-27, user)
+## GF-54 — THE PRODUCTION REFIT on the 60-session MEDIAN: the model, the gates, the cap; the \$500k floor; the Oms's trade (2026-10-27, user)
 
 `scripts/equity/gapfader_model_v2.py` → `data/equity/gapfader/model_v2.{md,parquet}` and **`gf_coefficients_gf54.json`**
 (production's `gf_coefficients.json` untouched until the Oms switches).
@@ -2086,7 +2086,7 @@ here; on the median it would bind hard (GIXI: $415). GF-50 measured a median-bas
   vol60_med = median(volume / n) × n(D) (shares on D's scale), over the 60 prior sessions in the episode. A younger
   listing uses all its prior sessions, 20 at the least (the census and the Oms's Reference need 20) — "I like that
   approach". rvol = premarket volume / vol60_med, in the terms and in the rvol < 0.02 gate.
-- **The floor is dv60_med ≥ $500k**, replacing dv20_prior ≥ $1M: "to trade we actually need counter parties". The
+- **The floor is dv60_med ≥ \$500k**, replacing dv20_prior ≥ \$1M: "to trade we actually need counter parties". The
   backtest's PF below it (GF-52) is discounted as not a quantity we can trade.
 - **The cap**: MaxNotional = 0.25 % × dv60_med.
 - **Fitted on the trade the Oms runs**: one target at 50 % to 10:00, then the 10:00 1s vwap.
@@ -2097,7 +2097,7 @@ date). Their tape is GF-45's cache plus `sizing_tape_cut_ext.parquet` (5,718 row
 
 | book | n | flat PF | 2016–19 | 2020 | 2021–23 | 2024–26 |
 |---|---|---|---|---|---|---|
-| **dv60_med ≥ $500k, rvol60 < 0.02** | **38,055** | **1.566** | 1.272 | 1.562 | 1.570 | 1.773 |
+| **dv60_med ≥ \$500k, rvol60 < 0.02** | **38,055** | **1.566** | 1.272 | 1.562 | 1.570 | 1.773 |
 | … GF-45's gates pass too | 34,620 | 1.520 | 1.255 | 1.549 | 1.515 | 1.672 |
 | … not in GF-45's | 3,435 | 2.092 | 1.439 | 1.783 | 2.049 | 2.997 |
 | … fewer than 60 sessions behind the medians | 1,163 | 3.350 | 3.111 | 1.370 | 4.107 | 4.121 |
@@ -2125,13 +2125,13 @@ date). Their tape is GF-45's cache plus `sizing_tape_cut_ext.parquet` (5,718 row
   none reach the 2-unit cap, so GapFader takes less capacity than before (the user: free it for FlushFader).
   In-sample units PF 1.879 vs flat 1.663.
 - **Calibration** (in-sample deciles): predicted PF−1 0.14 → 1.42, realised 0.24 → 1.88; deciles 1–5 realise 0.24–0.42.
-- **10-26's NIVF (dv60_med $224k) and GIXI ($166k) are below the floor**: neither would have traded.
+- **10-26's NIVF (dv60_med \$224k) and GIXI (\$166k) are below the floor**: neither would have traded.
 
 ## GF-55 — CONSISTENCY of the system as deployed since 2026-10-27 (2026-10-28, user: "its % of profitable days, weeks and months")
 
 `scripts/equity/gapfader_consistency_v2.py` (output `data/equity/gapfader/consistency_v2.md`, not tracked). GF-48's method
 on GF-54's book (`model_v2.parquet`):
-- **The system:** the gates dv60_med ≥ $500k · rvol60 < 0.02; GF-54's model; the cap 0.25 % × dv60_med; ONE target at
+- **The system:** the gates dv60_med ≥ \$500k · rvol60 < 0.02; GF-54's model; the cap 0.25 % × dv60_med; ONE target at
   50 % to 10:00.
 - **The sizing:** the Oms's at a FIXED 8,000 (no compounding), the day's signals ranked by pf1 into the 10-unit / 100 %-
   margin book.
@@ -2149,10 +2149,10 @@ on GF-54's book (`model_v2.parquet`):
 - **By year:** profitable months were lowest in 2017 (58 %) and 2023 (75 %). Every year was net positive (2016's five
   months +13 % … 2025 +246 % of E).
 - **Frequency:** trades on 2,400 of ~2,630 weekdays, a median of 5 a day.
-- **Vs GF-48 (the 20-session mean, the $1M floor):**
+- **Vs GF-48 (the 20-session mean, the \$1M floor):**
   - losing months 6 % → 11 % and PF 2.16 → 1.71;
   - the max drawdown 29.4 % → 19.0 %.
-  - The $500k floor drops the thinnest names: the best backtest PF (GF-52), but not tradeable at our size.
+  - The \$500k floor drops the thinnest names: the best backtest PF (GF-52), but not tradeable at our size.
 - ⚠ **The same optimism as GF-48:**
   - the model is in-sample on 2021–26 (2016–19 is the honest guide);
   - every LOO fills at the open and the target on the trade-through;
@@ -2161,7 +2161,7 @@ on GF-54's book (`model_v2.parquet`):
 
 **GF-49's death-spiral rule: REJECTED (user 2026-10-28).** "The new 60d median volume feature supersedes it. The big issue
 with these death-spiral stocks is the liquidity and not their overall trend." The check: of GF-49's 961 trades with
-chg_1y ≤ −95 %, only 105 (11 %) pass dv60_med ≥ $500k. They are 0.28 % of GF-54's book, with a flat PF of 1.44 there vs
+chg_1y ≤ −95 %, only 105 (11 %) pass dv60_med ≥ \$500k. They are 0.28 % of GF-54's book, with a flat PF of 1.44 there vs
 the book's 1.57.
 
 ## GF-56 — the gap as the HOLDER'S RETURN; the −50 % split guard (2026-10-31, user)
@@ -2178,8 +2178,8 @@ the target's other end, unchanged); `gapfader_model_v2.py`'s auction gap and `ga
 `model_v2.py --coefficients-out` wrote the refit beside them (`gf_coefficients_holder_refit.json`, not used).
 
 **The effect, with the auction noise held fixed** (the previous book, its own noise recovered, under the new gates):
-3 of 38,055 candidates drop out, all on an ex-dividend day; at 8k the traded book is 13,992 trades / +$111,112 / PF 1.707
-against 13,991 / +$111,147 / 1.707 — every year identical but 2020 (−$35). LowFader: identical on all 10,472 ex-dividend
+3 of 38,055 candidates drop out, all on an ex-dividend day; at 8k the traded book is 13,992 trades / +\$111,112 / PF 1.707
+against 13,991 / +\$111,147 / 1.707 — every year identical but 2020 (−\$35). LowFader: identical on all 10,472 ex-dividend
 ticker-days 2020-01 … 2026-06 (the one trade, AOS 2020-07-30, unchanged).
 
 ⚠ **The full rebuild reshuffled ~9 % of the book's membership (3,449 rows) for an unrelated reason:** GF-45's rows draw
@@ -2196,7 +2196,7 @@ pre-holder book minus the 3 ex-dividend rows — 38,052 trades, r1 identical (vs
 13,995 trades, days / weeks / months 72 / 81 / 89 %, PF 1.71, +138 % (`consistency_v2.md`).
 
 **The −50 % guard** (the Oms's GapVerdict.SplitSuspect): GF-54's book at 8k has 9 trades below a −50 % gap, together
-−$42 (such real gaps average −6.0 % a trade); refusing them is free, and it stops a vendor split dated D that the tape
+−\$42 (such real gaps average −6.0 % a trade); refusing them is free, and it stops a vendor split dated D that the tape
 never shows (OIO 2026-04-24: a −67 % "gap") from being bought at the model's deepest size.
 
 ## GF-57 — the gap-up long swing entered on a DIP: the efficiency ratio after 10:00 (2026-11-01, user)
@@ -2343,8 +2343,8 @@ minute's first 1s vwap; the rest at the close.
   Only targets so far out that they rarely fill (+10 %, 2 × the morning range: 5–6 %) tie no target.
 - **With GF-60 the trade's shape is ASYMMETRIC:** dips after 10:00 revert (a stop sells the low, an add at −3 % pays),
   rallies CONTINUE (a target sells the run). The PF lives in the right tail: no stop, no target, the add on the dip.
-- **Verdict:** exits do not lift the swing past GF-59's 1.31. The levers left are the SELECTION (GF-44: dv20 $1–5M ·
-  price $10–30 was 2.03) and the HOLD (the winners still running at 16:00 suggest testing past the close).
+- **Verdict:** exits do not lift the swing past GF-59's 1.31. The levers left are the SELECTION (GF-44: dv20 \$1–5M ·
+  price \$10–30 was 2.03) and the HOLD (the winners still running at 16:00 suggest testing past the close).
 
 ## GF-62 — the gap-up swing HELD PAST THE CLOSE, winners and losers apart (2026-11-01, user)
 

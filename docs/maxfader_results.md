@@ -77,7 +77,7 @@ floor could reject a day the engine accepts. 0.9 s/day; ~59% of candidates flagg
 * **Record-first, `--base-run`.** SpikeFader's speed/eff stack is OFF: it was derived
   for a 20m-high / 9m-cover trade; this is a session-high / MOC trade. Ports are
   hypotheses (`feedback_side_flip_inverts_rulings`).
-* **Universe gates kept identical to SpikeFader's base**: volat_20m ≥ 40bp, dv60 ≥ $100k,
+* **Universe gates kept identical to SpikeFader's base**: volat_20m ≥ 40bp, dv60 ≥ \$100k,
   tc60 ≥ 60, barnum ≥ 22, entries 09:45–15:00 (12:00 on early closes), MOC 16:00 (13:00).
 * Metric = PF−1 (`feedback: measure edge as PF−1`), raw (a short's return is +100%-bounded;
   MaxFlyerV2 doc), with the tail block on every table. Three controls before any gate is

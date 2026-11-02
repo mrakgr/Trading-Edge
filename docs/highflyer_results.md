@@ -7,7 +7,7 @@ Each version's original content is reproduced **verbatim** below, in order. The 
 - **v1** — realistic-fill rewrite (caught the top-tick fill bug; PF ~1.7–1.8, not 3.0).
 - **v2** — log-space volatility filters (log ATR% / tightness) + the move-cap.
 - **v3** — HighFlyer, clipped methodology (the named production system; +50%-clip standard).
-- **v4** — HighFlyer, float-feature era (dollar-float < $300M → ~PF 2.47).
+- **v4** — HighFlyer, float-feature era (dollar-float < \$300M → ~PF 2.47).
 
 The current production state is **v3/v4 (HighFlyer)**; v0–v2 are retained as historical record.
 
@@ -31,7 +31,7 @@ The current production state is **v3/v4 (HighFlyer)**; v0–v2 are retained as h
 
 # Mid-Cap Momentum v0 — Regime-Dependent, Prints in Parabolic Bull Innings
 
-**Status: working signal with strong regime dependence — exactly the expected shape.** A naive high-volume breakout-to-52-week-high system, long-only, run over the full US equity daily history **2005-01-01 → 2026-05-13** (CS/ADRC universe, ≥$1M trailing dollar volume). It makes large profits in parabolic bull stretches (2020, 2013, 2009, the 2024→2026 AI run) and bleeds in bears / post-blowoff unwinds (2021, 2022, 2023, 2008). Net P&L **+$1.64M** at a fixed $10k/trade, uncapped, no compounding, across **25,799 trips**.
+**Status: working signal with strong regime dependence — exactly the expected shape.** A naive high-volume breakout-to-52-week-high system, long-only, run over the full US equity daily history **2005-01-01 → 2026-05-13** (CS/ADRC universe, ≥\$1M trailing dollar volume). It makes large profits in parabolic bull stretches (2020, 2013, 2009, the 2024→2026 AI run) and bleeds in bears / post-blowoff unwinds (2021, 2022, 2023, 2008). Net P&L **+\$1.64M** at a fixed \$10k/trade, uncapped, no compounding, across **25,799 trips**.
 
 This is **v0**: no regime filter, no market-cap bucketing, no parameter tuning. The point of this run is to characterize *when* this style works — and to see whether the current environment looks like one of its good innings (it does).
 
@@ -48,11 +48,11 @@ Evaluated on each day **T**'s close, using **split- and dividend-adjusted** pric
   - **RVOL ≥ 3**: `adj_volume / avg_volume_4w ≥ 3`, where `avg_volume_4w` is the trailing 4-week average **excluding the current day** (`stock_volume_4w`, a 28-day RANGE window ending one day prior).
   - **New 52-week high**: `adj_close ≥ max(adj_close)` over the **prior 252 trading days** (excluding today).
 - **Entry fill**: day **T's close** (same-day close — see caveat).
-- **Sizing**: fixed **$10,000 notional per trade**, **uncapped** concurrent positions, **no compounding**. Each trip is independent; the same ticker may hold many overlapping trips.
+- **Sizing**: fixed **\$10,000 notional per trade**, **uncapped** concurrent positions, **no compounding**. Each trip is independent; the same ticker may hold many overlapping trips.
 - **Trailing stop**: the **15-day low** = `min(adj_low)` over the prior 15 trading days (excluding today). A position stops out the first day its `adj_low ≤` that level; the **exit fills at the NEXT day's open** (`adj_open[D+1]`) — deliberately not into the stop area.
 - **Stop-only**: the trailing stop is the only exit. No time stop, no profit target. Trips still open at the end of the data are **marked-to-market at the final available adj_close** and flagged `open=1` (so recent months show unrealized P&L).
 
-**Universe**: tickers in the daily data from 2005-01-01 onward (pre-2005 history is used only to warm up the 252/15/28-day windows). A ticker is eligible only after **≥21 prior trading days**. Default to **CS/ADRC security types only** (common stock + ADRs — drops ETFs/warrants/preferreds) and a **≥$1M trailing avg dollar volume** floor. The dollar-volume floor is the v0 **liquidity proxy for "mid cap"**, since we have no shares-outstanding data yet (a true market-cap breakdown is deferred — see Next steps).
+**Universe**: tickers in the daily data from 2005-01-01 onward (pre-2005 history is used only to warm up the 252/15/28-day windows). A ticker is eligible only after **≥21 prior trading days**. Default to **CS/ADRC security types only** (common stock + ADRs — drops ETFs/warrants/preferreds) and a **≥\$1M trailing avg dollar volume** floor. The dollar-volume floor is the v0 **liquidity proxy for "mid cap"**, since we have no shares-outstanding data yet (a true market-cap breakdown is deferred — see Next steps).
 
 All of the above are CLI flags (`--up-threshold`, `--rvol-threshold`, `--lookback-high`, `--stop-low-window`, `--min-prior-days`, `--min-avg-dollar-volume`, `--all-security-types`, `--notional`, `--start-date`, `--end-date`).
 
@@ -71,7 +71,7 @@ Reads the shared **`data/trading.db`** (DuckDB, 8.3 GB) **read-only**; the requi
 
 ## Headline result — by year (entry date)
 
-25,799 trips, 681 still open (MTM'd at the 2026-05-13 close). Net P&L **+$1,644,645**. Bucketed by **entry** date ("when the system fired").
+25,799 trips, 681 still open (MTM'd at the 2026-05-13 close). Net P&L **+\$1,644,645**. Bucketed by **entry** date ("when the system fired").
 
 | year | trades | win% | PF | net P&L |
 | ---- | -----: | ---: | ---: | -------: |
@@ -100,14 +100,14 @@ Reads the shared **`data/trading.db`** (DuckDB, 8.3 GB) **read-only**; the requi
 
 ## What the by-year table says
 
-- **It prints in parabolic bull innings.** The four standout years are textbook melt-ups: **2020** (COVID liquidity surge, +$2.6M, PF 2.32), **2013** (the QE-driven momentum bull, +$745k, PF 2.08), **2009** (post-GFC V-recovery, +$462k, PF 2.01), and **2026 YTD** (the AI run, +$418k, PF 1.80). 2017, 2016, 2012, 2010 are solid second-tier bull years.
-- **It bleeds in bears and post-blowoff unwinds.** The worst year is **2021** (−$1.14M, PF 0.65) — the system gave a large chunk of its 2020 gains *back* as the post-COVID momentum top rolled over (note 2021 also has the **most trades of any year, 2542** — the signal fires most heavily right as it stops working, a classic late-cycle failure mode). **2022** (rate-hike bear, PF 0.31) and **2023** (PF 0.47) compound the damage; **2008** (GFC, PF 0.37) is the other clear bear.
+- **It prints in parabolic bull innings.** The four standout years are textbook melt-ups: **2020** (COVID liquidity surge, +\$2.6M, PF 2.32), **2013** (the QE-driven momentum bull, +\$745k, PF 2.08), **2009** (post-GFC V-recovery, +\$462k, PF 2.01), and **2026 YTD** (the AI run, +\$418k, PF 1.80). 2017, 2016, 2012, 2010 are solid second-tier bull years.
+- **It bleeds in bears and post-blowoff unwinds.** The worst year is **2021** (−\$1.14M, PF 0.65) — the system gave a large chunk of its 2020 gains *back* as the post-COVID momentum top rolled over (note 2021 also has the **most trades of any year, 2542** — the signal fires most heavily right as it stops working, a classic late-cycle failure mode). **2022** (rate-hike bear, PF 0.31) and **2023** (PF 0.47) compound the damage; **2008** (GFC, PF 0.37) is the other clear bear.
 - **Win rate is always a minority (29–52%); the edge, when it exists, is in the tail.** This is a momentum/trend signature: most breakouts fail the trailing stop quickly for small losses, and a few run far. Profit factor — not win rate — is the regime tell. In good years PF ≫ 1 on a sub-50% win rate; in bad years even a 40%+ win rate posts PF < 0.5 because the winners don't run.
 - **The current environment looks like a good inning.** 2024 and 2025 net negative *on the year*, but that masks a sharp month-level alternation (below) — and the most recent months (2025-08/09, 2026-01, 2026-03/04) are among the strongest in the whole sample. This is consistent with a late-bull "7th–9th inning" character: violent, profitable momentum bursts interleaved with equally violent give-backs.
 
 ## Full monthly breakdown (by entry month)
 
-The monthly view shows the regime alternation the annual table smooths over — e.g. the +$1.23M of 2020-11 alone, or the −$759k of 2021-02 immediately after 2021-01's +$433k.
+The monthly view shows the regime alternation the annual table smooths over — e.g. the +\$1.23M of 2020-11 alone, or the −\$759k of 2021-02 immediately after 2021-01's +\$433k.
 
 > **Note:** P&L below is bucketed by **entry date** (when the system fired), Kelly/flat as stated in the section it came from.
 
@@ -377,51 +377,51 @@ The monthly view shows the regime alternation the annual table smooths over — 
 
 ### Reading the monthly table
 
-- **The biggest single months are clustered in melt-ups**: 2020-11 (+$1.23M), 2020-12 (+$958k), 2009-12 (+$542k), 2021-01 (+$433k), 2020-05/07 (+$306k/+$302k). Several of these are dominated by a handful of trips that ran far — concentration to watch (a future pass should check top-trip contribution per month, mirroring the Donchian "one-day" caveat in [donchian_fade_v0_results.md](donchian_fade_v0_results.md)).
-- **The biggest losing months immediately *follow* the biggest winners**: 2021-02 (−$759k) right after 2021-01's +$433k; the whole 2021 H1 give-back follows the 2020 H2 surge. The signal does not turn itself off at the top — it fires *hardest* into the reversal (2021-01/02 are the two highest-trade-count months in the sample, 501 and 572). This is the single clearest argument for a **regime filter**.
-- **2024–2026 is choppy but tilting up late.** Within two net-negative annual numbers, the monthly view shows strong bursts (2024-08 +$119k, 2025-09 +$184k, 2026-01 +$171k, 2026-04 +$185k) interleaved with sharp give-backs (2024-12 −$236k, 2025-02 −$258k, 2025-10 −$226k). The most recent two months (2026-04 PF 3.22, 2026-05 PF 1.19) are positive. Late-bull alternation, with the recent tape leaning bullish.
+- **The biggest single months are clustered in melt-ups**: 2020-11 (+\$1.23M), 2020-12 (+\$958k), 2009-12 (+\$542k), 2021-01 (+\$433k), 2020-05/07 (+\$306k/+\$302k). Several of these are dominated by a handful of trips that ran far — concentration to watch (a future pass should check top-trip contribution per month, mirroring the Donchian "one-day" caveat in [donchian_fade_v0_results.md](donchian_fade_v0_results.md)).
+- **The biggest losing months immediately *follow* the biggest winners**: 2021-02 (−\$759k) right after 2021-01's +\$433k; the whole 2021 H1 give-back follows the 2020 H2 surge. The signal does not turn itself off at the top — it fires *hardest* into the reversal (2021-01/02 are the two highest-trade-count months in the sample, 501 and 572). This is the single clearest argument for a **regime filter**.
+- **2024–2026 is choppy but tilting up late.** Within two net-negative annual numbers, the monthly view shows strong bursts (2024-08 +\$119k, 2025-09 +\$184k, 2026-01 +\$171k, 2026-04 +\$185k) interleaved with sharp give-backs (2024-12 −\$236k, 2025-02 −\$258k, 2025-10 −\$226k). The most recent two months (2026-04 PF 3.22, 2026-05 PF 1.19) are positive. Late-bull alternation, with the recent tape leaning bullish.
 
 ## Breakdown by average dollar volume (market-cap proxy)
 
-We have no shares-outstanding data yet, so trailing 4-week **average daily dollar volume at entry** is the v0 stand-in for market cap (carried on every trip as `avg_dollar_volume_4w_at_entry`). This run **lowers the liquidity floor to $100k** (`--min-avg-dollar-volume 100000`) to probe whether the edge extends into smaller names than the original $1M-floor run reached. Lowering the floor only *adds* the new sub-$1M tiers — the $1M+ tiers are byte-identical to the original run.
+We have no shares-outstanding data yet, so trailing 4-week **average daily dollar volume at entry** is the v0 stand-in for market cap (carried on every trip as `avg_dollar_volume_4w_at_entry`). This run **lowers the liquidity floor to \$100k** (`--min-avg-dollar-volume 100000`) to probe whether the edge extends into smaller names than the original \$1M-floor run reached. Lowering the floor only *adds* the new sub-\$1M tiers — the \$1M+ tiers are byte-identical to the original run.
 
-**$100k-floor run: 37,309 trips, net P&L +$3,441,699** (vs the $1M-floor run's 25,799 trips / +$1.64M). The extra +$1.80M is almost entirely the newly-admitted sub-$1M names.
+**\$100k-floor run: 37,309 trips, net P&L +\$3,441,699** (vs the \$1M-floor run's 25,799 trips / +\$1.64M). The extra +\$1.80M is almost entirely the newly-admitted sub-\$1M names.
 
 | ADV tier (at entry) | trades | win% | PF | net P&L |
 | ------------------- | -----: | ---: | ---: | -------: |
-| **$100-300k** | 4812 | 38.4% | 1.12 | +569,414 |
-| **$300k-1M** | 6698 | 39.1% | 1.19 | **+1,227,639** |
-| **$1-3M** | 6476 | 39.0% | **1.25** | **+1,471,290** |
-| $3-10M | 7197 | 38.9% | 1.04 | +220,551 |
-| $10-30M | 5486 | 41.1% | 0.97 | −124,281 |
-| $30-100M | 4169 | 42.7% | 0.98 | −42,921 |
-| $100M-1B | 2301 | 43.5% | 1.04 | +61,845 |
-| $1B+ | 170 | 49.4% | 1.42 | +58,160 |
+| **\$100-300k** | 4812 | 38.4% | 1.12 | +569,414 |
+| **\$300k-1M** | 6698 | 39.1% | 1.19 | **+1,227,639** |
+| **\$1-3M** | 6476 | 39.0% | **1.25** | **+1,471,290** |
+| \$3-10M | 7197 | 38.9% | 1.04 | +220,551 |
+| \$10-30M | 5486 | 41.1% | 0.97 | −124,281 |
+| \$30-100M | 4169 | 42.7% | 0.98 | −42,921 |
+| \$100M-1B | 2301 | 43.5% | 1.04 | +61,845 |
+| \$1B+ | 170 | 49.4% | 1.42 | +58,160 |
 
 ### Reading the dollar-volume table
 
-- **The edge is concentrated in low-liquidity small-caps.** The three lowest tiers ($100k–$3M) carry essentially all the profit: **+$3.27M of the +$3.44M total**. The sweet spot is **$300k–$3M** (PF 1.19 and 1.25, +$1.23M and +$1.47M) — big enough to be tradable, small enough that the breakout-to-new-high momentum hasn't been arbitraged away.
-- **The mid-liquidity tiers are dead-to-negative.** $10–30M (PF 0.97) and $30–100M (PF 0.98) lose money; $3–10M is barely above water (PF 1.04). The naive breakout is essentially efficient-market noise once names are liquid enough for institutions to police them.
-- **The very smallest tier ($100–300k) is positive but thinner** (PF 1.12) than $300k–$3M — diminishing returns at the bottom, consistent with rising real-world frictions (spread, impact, borrow, capacity) that this v0 does **not** model. **This is the critical caveat: the lowest tiers are exactly where the unmodeled costs bite hardest**, so their gross edge overstates the net. Capacity at $100–300k ADV is also tiny relative to a six-figure-plus book.
+- **The edge is concentrated in low-liquidity small-caps.** The three lowest tiers (\$100k–\$3M) carry essentially all the profit: **+\$3.27M of the +\$3.44M total**. The sweet spot is **\$300k–\$3M** (PF 1.19 and 1.25, +\$1.23M and +\$1.47M) — big enough to be tradable, small enough that the breakout-to-new-high momentum hasn't been arbitraged away.
+- **The mid-liquidity tiers are dead-to-negative.** \$10–30M (PF 0.97) and \$30–100M (PF 0.98) lose money; \$3–10M is barely above water (PF 1.04). The naive breakout is essentially efficient-market noise once names are liquid enough for institutions to police them.
+- **The very smallest tier (\$100–300k) is positive but thinner** (PF 1.12) than \$300k–\$3M — diminishing returns at the bottom, consistent with rising real-world frictions (spread, impact, borrow, capacity) that this v0 does **not** model. **This is the critical caveat: the lowest tiers are exactly where the unmodeled costs bite hardest**, so their gross edge overstates the net. Capacity at \$100–300k ADV is also tiny relative to a six-figure-plus book.
 - **Win rate rises monotonically with liquidity (38% → 49%) while profit factor does not.** Bigger names win slightly more often but their winners don't run — the low-tier edge is a fat right tail (a few big momentum runners), not a higher hit rate. Same momentum signature as the time-series view.
-- **The $1B+ tier (PF 1.42) is a small-sample curiosity** (170 trips) — mega-cap breakouts on 3× RVOL are rare and these few ran well; not enough to lean on.
+- **The \$1B+ tier (PF 1.42) is a small-sample curiosity** (170 trips) — mega-cap breakouts on 3× RVOL are rare and these few ran well; not enough to lean on.
 
-**Takeaway:** "mid-cap momentum" is a misnomer for what actually works here — the edge is a **small-cap / low-float** breakout effect, strongest in the $300k–$3M ADV band, and it decays as names get liquid. The next refinement should (a) realistically cost the low tiers to see how much survives, and (b) treat the dollar-volume band as a primary *filter*, not just a reporting cut.
+**Takeaway:** "mid-cap momentum" is a misnomer for what actually works here — the edge is a **small-cap / low-float** breakout effect, strongest in the \$300k–\$3M ADV band, and it decays as names get liquid. The next refinement should (a) realistically cost the low tiers to see how much survives, and (b) treat the dollar-volume band as a primary *filter*, not just a reporting cut.
 
 Outputs for this run: `data/equity/momentum_v0/trips_adv100k.csv`, `data/equity/momentum_v0/breakdown_adv100k.log`.
 
-## Dollar-volume sweet-spot sliced by time (within $100k–$3M)
+## Dollar-volume sweet-spot sliced by time (within \$100k–\$3M)
 
-The earlier dollar-volume cut showed the edge living in the $100k–$3M band; the time-series view showed strong regime dependence. This section crosses the two: a **yearly and monthly breakdown for each of the three sub-buckets** in that band, from the $100k-floor run (`trips_adv100k.csv`). As expected, every bucket is regime-dependent — each one prints in the parabolic-bull years (2009, 2013, 2020) and bleeds in the bears (2008, 2022, 2023) — but the *degree* and the recent (2024–2026) behaviour differ by bucket.
+The earlier dollar-volume cut showed the edge living in the \$100k–\$3M band; the time-series view showed strong regime dependence. This section crosses the two: a **yearly and monthly breakdown for each of the three sub-buckets** in that band, from the \$100k-floor run (`trips_adv100k.csv`). As expected, every bucket is regime-dependent — each one prints in the parabolic-bull years (2009, 2013, 2020) and bleeds in the bears (2008, 2022, 2023) — but the *degree* and the recent (2024–2026) behaviour differ by bucket.
 
 **Cross-bucket reading (yearly view):**
 
 - **All three share the bull/bear regime spine** — each posts big positive years in 2009, 2013, 2020 (PFs ~2–4.5) and loses in 2022–2023. The momentum edge is conditional on regime *within every liquidity slice*, so the dollar-volume cut and a future regime filter are complementary, not substitutes.
-- **The two upper buckets ($300k–1M, $1–3M) are the engine of the melt-up years**: $1–3M alone made +$564k in 2009, +$441k in 2013, +$618k in 2020; $300k–1M made +$420k in 2012, +$442k in 2013, +$425k in 2020. These are where the fat-tailed winners concentrate.
-- **The smallest bucket ($100-300k) marches to a different drum.** It was the *only* bucket that made money in 2008 (PF 3.04, +$134k) and 2018 (the larger buckets lost there), but it has been net-negative every year 2022→2026. Lowest capacity, highest unmodeled-cost exposure, and the most idiosyncratic — least trustworthy of the three despite its positive lifetime total.
-- **Recent regime (2024–2026) splits the buckets:** $1–3M has stabilised (2024 −$82k, 2025 −$65k, **2026 +$23k / PF 1.17**), $300k–1M is still bleeding (2025 −$242k, 2026 −$61k), and $100-300k is uniformly weak. If the current AI-bull is a good inning, it is showing up **first and most cleanly in the $1–3M band** — consistent with that being the most tradable, least-frictional slice of the edge.
+- **The two upper buckets (\$300k–1M, \$1–3M) are the engine of the melt-up years**: \$1–3M alone made +\$564k in 2009, +\$441k in 2013, +\$618k in 2020; \$300k–1M made +\$420k in 2012, +\$442k in 2013, +\$425k in 2020. These are where the fat-tailed winners concentrate.
+- **The smallest bucket (\$100-300k) marches to a different drum.** It was the *only* bucket that made money in 2008 (PF 3.04, +\$134k) and 2018 (the larger buckets lost there), but it has been net-negative every year 2022→2026. Lowest capacity, highest unmodeled-cost exposure, and the most idiosyncratic — least trustworthy of the three despite its positive lifetime total.
+- **Recent regime (2024–2026) splits the buckets:** \$1–3M has stabilised (2024 −\$82k, 2025 −\$65k, **2026 +\$23k / PF 1.17**), \$300k–1M is still bleeding (2025 −\$242k, 2026 −\$61k), and \$100-300k is uniformly weak. If the current AI-bull is a good inning, it is showing up **first and most cleanly in the \$1–3M band** — consistent with that being the most tradable, least-frictional slice of the edge.
 
-### Bucket $100-300k
+### Bucket \$100-300k
 
 **4,812 trips, net P&L +569,415.**
 
@@ -457,7 +457,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 > **Note:** bucketed by **entry date**.
 
 <details>
-<summary>Monthly table — $100-300k bucket, by entry date — click to expand</summary>
+<summary>Monthly table — \$100-300k bucket, by entry date — click to expand</summary>
 
 | period | trades | win% | PF | net P&L |
 | --- | --: | --: | --: | --: |
@@ -719,7 +719,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 
 </details>
 
-### Bucket $300k-1M
+### Bucket \$300k-1M
 
 **6,698 trips, net P&L +1,227,637.**
 
@@ -755,7 +755,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 > **Note:** bucketed by **entry date**.
 
 <details>
-<summary>Monthly table — $300k-1M bucket, by entry date — click to expand</summary>
+<summary>Monthly table — \$300k-1M bucket, by entry date — click to expand</summary>
 
 | period | trades | win% | PF | net P&L |
 | --- | --: | --: | --: | --: |
@@ -1018,7 +1018,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 
 </details>
 
-### Bucket $1-3M
+### Bucket \$1-3M
 
 **6,476 trips, net P&L +1,471,289.**
 
@@ -1054,7 +1054,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 > **Note:** bucketed by **entry date**.
 
 <details>
-<summary>Monthly table — $1-3M bucket, by entry date — click to expand</summary>
+<summary>Monthly table — \$1-3M bucket, by entry date — click to expand</summary>
 
 | period | trades | win% | PF | net P&L |
 | --- | --: | --: | --: | --: |
@@ -1316,7 +1316,7 @@ The earlier dollar-volume cut showed the edge living in the $100k–$3M band; th
 
 ## Volatility & consolidation structure at entry
 
-Two more entry-context dimensions, both computed over the **14 trading days prior** to the breakout (no lookahead), from the $100k-floor run (`trips_adv100k.csv`):
+Two more entry-context dimensions, both computed over the **14 trading days prior** to the breakout (no lookahead), from the \$100k-floor run (`trips_adv100k.csv`):
 
 - **14-day ATR%** — the name's baseline daily volatility going into the breakout, `mean(true_range) / entry_close`. `true_range = max(high−low, |high−prev_close|, |low−prev_close|)` (the repo's standard, mirrored from `gap_play`).
 - **Consolidation tightness** — `range / (14 × ATR)`, where `range` is the 14-day span (highest high − lowest low). Near **1.0** the prior window trended cleanly; well **below** 1 price chopped in a tight band relative to its daily travel — a "coiled spring." Bounded and scale-free (median 0.29, max 0.99 across all trips).
@@ -1332,7 +1332,7 @@ Two more entry-context dimensions, both computed over the **14 trading days prio
 | 12-20% | 367 | 22.1% | 0.63 | −386,412 |
 | 20%+ | 34 | 14.7% | 0.29 | −82,919 |
 
-**Low-to-moderate baseline volatility wins; high volatility loses hard.** Everything ≤8% ATR is net-positive (sweet spot **3–5%**, +$2.6M, PF 1.29); everything ≥8% bleeds (−$1.79M combined). Win rate falls monotonically with ATR (45% → 15%). A breakout in a calm name follows through; a breakout in an already-frantic name is exhaustion/noise. This is a clean *exclusion* filter: drop entries whose name is already moving >8%/day.
+**Low-to-moderate baseline volatility wins; high volatility loses hard.** Everything ≤8% ATR is net-positive (sweet spot **3–5%**, +\$2.6M, PF 1.29); everything ≥8% bleeds (−\$1.79M combined). Win rate falls monotonically with ATR (45% → 15%). A breakout in a calm name follows through; a breakout in an already-frantic name is exhaustion/noise. This is a clean *exclusion* filter: drop entries whose name is already moving >8%/day.
 
 ### By consolidation tightness = range / (14 × ATR) at entry
 
@@ -1344,7 +1344,7 @@ Two more entry-context dimensions, both computed over the **14 trading days prio
 | 0.70-0.85 | 286 | 24.8% | 0.41 | −454,013 |
 | 0.85+ (trend) | 71 | 21.1% | 0.21 | −196,278 |
 
-**The entire system's edge lives in the tightest bucket.** Breakouts from a tight prior base (ratio <0.40) made **+$5.0M — more than the whole system's net P&L** — while *every* looser tier is net-negative, degrading monotonically as the prior structure widens (PF 1.22 → 0.21; win rate 41% → 21%).
+**The entire system's edge lives in the tightest bucket.** Breakouts from a tight prior base (ratio <0.40) made **+\$5.0M — more than the whole system's net P&L** — while *every* looser tier is net-negative, degrading monotonically as the prior structure widens (PF 1.22 → 0.21; win rate 41% → 21%).
 
 This is the **"coiled spring" thesis — and it reverses the earlier crypto result.** The same range-vs-ATR compression filter *failed* on 1-minute crypto intraday breakouts ([consol_breakout_v0_results.md](consol_breakout_v0_results.md)), but on **daily equities it is the strongest single filter found so far**. The mechanism is plausible: a daily breakout from a tight multi-week base is a genuine accumulation → markup transition, whereas a breakout from an already-wide/trending base is just chasing extension. At 1m crypto that structure is microstructure noise; at the daily horizon it's a real regime.
 
@@ -1352,126 +1352,126 @@ Caveat on tier sizes: 30,051 of 37,309 trips are *already* <0.40 (most breakouts
 
 #### Inside the tight bucket (<0.40 sub-sliced)
 
-The <0.40 bucket (+$5.0M, 30,051 trips) broken into finer tightness bands. Reconciles exactly to the parent (sub-tiers sum to 30,051 trips / +$5,008,319).
+The <0.40 bucket (+\$5.0M, 30,051 trips) broken into finer tightness bands. Reconciles exactly to the parent (sub-tiers sum to 30,051 trips / +\$5,008,319).
 
 | tightness (within <0.40) | trades | win% | PF | net P&L | avg/trip |
 | ------------------------ | -----: | ---: | ---: | -------: | -------: |
-| **<0.15** | 244 | 45.9% | **1.69** | +90,320 | **+$370** |
-| 0.15-0.20 | 4024 | 41.9% | 1.31 | +780,489 | +$194 |
-| 0.20-0.25 | 8074 | 42.1% | 1.29 | +1,579,498 | +$196 |
-| 0.25-0.30 | 7646 | 41.6% | 1.21 | +1,160,951 | +$152 |
-| 0.30-0.35 | 5876 | 40.2% | 1.16 | +770,149 | +$131 |
-| 0.35-0.40 | 4187 | 38.4% | 1.16 | +626,912 | +$150 |
+| **<0.15** | 244 | 45.9% | **1.69** | +90,320 | **+\$370** |
+| 0.15-0.20 | 4024 | 41.9% | 1.31 | +780,489 | +\$194 |
+| 0.20-0.25 | 8074 | 42.1% | 1.29 | +1,579,498 | +\$196 |
+| 0.25-0.30 | 7646 | 41.6% | 1.21 | +1,160,951 | +\$152 |
+| 0.30-0.35 | 5876 | 40.2% | 1.16 | +770,149 | +\$131 |
+| 0.35-0.40 | 4187 | 38.4% | 1.16 | +626,912 | +\$150 |
 
-**The edge is a continuum, not a threshold — and it keeps strengthening to the tightest extreme.** Both profit factor and average P&L per trip rise monotonically as the base tightens (PF 1.16 at 0.35-0.40 → **1.69** at <0.15; avg/trip $131 → **$370**, roughly 2× the bucket mean). There is **no saturation and no tail reversal**: the tightest cell (<0.15, 244 trips — small but not trivial) is the single best sub-tier on both PF and per-trip P&L. Win rate also climbs gently (38% → 46%), but as everywhere in this system the real driver is winner size relative to losers (PF), not hit rate.
+**The edge is a continuum, not a threshold — and it keeps strengthening to the tightest extreme.** Both profit factor and average P&L per trip rise monotonically as the base tightens (PF 1.16 at 0.35-0.40 → **1.69** at <0.15; avg/trip \$131 → **\$370**, roughly 2× the bucket mean). There is **no saturation and no tail reversal**: the tightest cell (<0.15, 244 trips — small but not trivial) is the single best sub-tier on both PF and per-trip P&L. Win rate also climbs gently (38% → 46%), but as everywhere in this system the real driver is winner size relative to losers (PF), not hit rate.
 
-The **deployable core is the 0.15–0.30 band**: +$3.5M of the +$5.0M across ~20k trips — tight enough to carry strong edge, populated enough to absorb capital. The sub-0.15 tier is the highest-quality signal but thin (≈11 trips/year). Practically: the tighter the pre-breakout base, the better, with diminishing trade count as the cutoff falls.
+The **deployable core is the 0.15–0.30 band**: +\$3.5M of the +\$5.0M across ~20k trips — tight enough to carry strong edge, populated enough to absorb capital. The sub-0.15 tier is the highest-quality signal but thin (≈11 trips/year). Practically: the tighter the pre-breakout base, the better, with diminishing trade count as the cutoff falls.
 
 Both dimensions are now carried on every trip (`atr_pct_14_at_entry`, `range_pct_14_at_entry`, `tightness_14_at_entry`) for future cross-tabulation.
 
 ### ATR% within the tight bucket (the two filters are complementary)
 
-Crossing the two volatility dimensions — ATR% tiers *inside* the tight (<0.40) base universe — confirms they are mostly independent and stack cleanly (sub-tiers reconcile to the +$5.0M / 30,051-trip tight total):
+Crossing the two volatility dimensions — ATR% tiers *inside* the tight (<0.40) base universe — confirms they are mostly independent and stack cleanly (sub-tiers reconcile to the +\$5.0M / 30,051-trip tight total):
 
 | ATR% (tight <0.40) | trades | win% | PF | net P&L | avg/trip |
 | ------------------ | -----: | ---: | ---: | -------: | -------: |
-| <3% | 11,729 | 44.7% | 1.29 | +1,484,763 | +$127 |
-| **3-5%** | 10,410 | 42.1% | **1.37** | **+2,512,473** | **+$241** |
-| 5-8% | 6,149 | 36.2% | 1.20 | +1,437,311 | +$234 |
-| 8-12% | 1,523 | 28.9% | 0.88 | −313,808 | −$206 |
-| 12-20% | 222 | 27.0% | 0.89 | −64,838 | −$292 |
-| 20%+ | 18 | 11.1% | 0.29 | −47,583 | −$2,643 |
+| <3% | 11,729 | 44.7% | 1.29 | +1,484,763 | +\$127 |
+| **3-5%** | 10,410 | 42.1% | **1.37** | **+2,512,473** | **+\$241** |
+| 5-8% | 6,149 | 36.2% | 1.20 | +1,437,311 | +\$234 |
+| 8-12% | 1,523 | 28.9% | 0.88 | −313,808 | −\$206 |
+| 12-20% | 222 | 27.0% | 0.89 | −64,838 | −\$292 |
+| 20%+ | 18 | 11.1% | 0.29 | −47,583 | −\$2,643 |
 
-- **Applying tightness did not collapse the ATR pattern** — it is still strongly positive across all sub-8% tiers, then cliffs. The whole **<8% range works** (<3% PF 1.29, 3-5% PF 1.37, 5-8% PF 1.20); per-trip edge peaks at 3-5% (+$241) but the calm <3% names are reliably profitable too (PF 1.29, $127/trip), just lower-octane. **3-5% sharpens to PF 1.37 here vs 1.29 standalone** — the tightness filter removed losers and concentrated the edge.
+- **Applying tightness did not collapse the ATR pattern** — it is still strongly positive across all sub-8% tiers, then cliffs. The whole **<8% range works** (<3% PF 1.29, 3-5% PF 1.37, 5-8% PF 1.20); per-trip edge peaks at 3-5% (+\$241) but the calm <3% names are reliably profitable too (PF 1.29, \$127/trip), just lower-octane. **3-5% sharpens to PF 1.37 here vs 1.29 standalone** — the tightness filter removed losers and concentrated the edge.
 - **The ≥8% tiers are net-negative even inside tight bases** (8-12% PF 0.88). A *tight multi-week base that is still a high-daily-ATR name* is a worse trade — the volatility lives in the daily bar even when the range is compressed. So the refined entry is **tight base AND ATR% < 8%** (keep everything below the cliff), not a narrow band.
 
-**Combined `tight AND ATR<8%`: 28,288 trips, PF 1.29, +$5,434,547, +$192/trip** — vs tight-only's 30,051 / PF 1.22 / +$5.0M / $167. Cutting just the ≥8% tail (~1,763 trips) *adds* +$426k and lifts PF and avg/trip: a pure improvement.
+**Combined `tight AND ATR<8%`: 28,288 trips, PF 1.29, +\$5,434,547, +\$192/trip** — vs tight-only's 30,051 / PF 1.22 / +\$5.0M / \$167. Cutting just the ≥8% tail (~1,763 trips) *adds* +\$426k and lifts PF and avg/trip: a pure improvement.
 
 **Why tightness did NOT subsume ATR% (the surprising part):** the two are nearly orthogonal — **correlation only +0.25**, and the ATR distribution barely shifts when you filter to tight bases (median ATR 0.037 → 0.035). The reason is that **ATR appears in both metrics, but as a ratio it cancels**: ATR% = ATR/price (absolute daily jumpiness), while tightness = 14-day range / (14 × ATR) has ATR in the *denominator*. So a stock can be **high-ATR yet tight** (big daily moves that keep cancelling → ping-pongs in a band) or **low-ATR yet loose** (small moves all pointing one way → steady trend). "Contracted" and "calm" are genuinely separate properties, which is exactly why the two filters stack instead of one absorbing the other. This is Minervini's "constructive" profile: contracted *and* not too jumpy.
 
 ### RVOL and gap size — only useful *conditioned on* a tight base
 
-The two entry triggers themselves — RVOL (`adj_volume / avg_volume_4w`, floor 3×) and the same-day gap (`pct_up`, floor 5%) — show a striking **interaction with tightness**: on raw entries they have *no* usable edge (the big tiers are catastrophic), but on the refined tight + ATR<8% set the relationship **inverts** and bigger becomes better. Both views below; the all-entries set is the trailing-stop baseline (37,309 trips, +$3.44M), the refined set is tight<0.40 AND ATR<8% + expansion-0.70 exit (28,288 trips, +$6.18M). Each pair of tables reconciles to its set.
+The two entry triggers themselves — RVOL (`adj_volume / avg_volume_4w`, floor 3×) and the same-day gap (`pct_up`, floor 5%) — show a striking **interaction with tightness**: on raw entries they have *no* usable edge (the big tiers are catastrophic), but on the refined tight + ATR<8% set the relationship **inverts** and bigger becomes better. Both views below; the all-entries set is the trailing-stop baseline (37,309 trips, +\$3.44M), the refined set is tight<0.40 AND ATR<8% + expansion-0.70 exit (28,288 trips, +\$6.18M). Each pair of tables reconciles to its set.
 
 **RVOL (all entries, trailing-stop baseline):**
 
 | RVOL | trades | win% | PF | net P&L | avg/trip |
 | ---- | -----: | ---: | ---: | -------: | -------: |
-| 3-4x | 12,533 | 39.1% | 1.19 | +1,778,536 | +$142 |
-| 4-6x | 11,289 | 39.9% | 1.19 | +1,686,140 | +$149 |
-| 6-10x | 6,877 | 41.6% | 1.19 | +1,091,014 | +$159 |
-| 10-20x | 3,444 | 40.6% | **0.97** | −99,935 | −$29 |
-| 20x+ | 3,166 | 39.3% | **0.77** | −1,014,056 | −$320 |
+| 3-4x | 12,533 | 39.1% | 1.19 | +1,778,536 | +\$142 |
+| 4-6x | 11,289 | 39.9% | 1.19 | +1,686,140 | +\$149 |
+| 6-10x | 6,877 | 41.6% | 1.19 | +1,091,014 | +\$159 |
+| 10-20x | 3,444 | 40.6% | **0.97** | −99,935 | −\$29 |
+| 20x+ | 3,166 | 39.3% | **0.77** | −1,014,056 | −\$320 |
 
 **Gap size (all entries, trailing-stop baseline):**
 
 | gap (pct_up) | trades | win% | PF | net P&L | avg/trip |
 | ------------ | -----: | ---: | ---: | -------: | -------: |
-| 5-8% | 10,526 | 41.1% | 1.28 | +1,644,864 | +$156 |
-| 8-12% | 9,251 | 40.2% | 1.28 | +1,730,149 | +$187 |
-| 12-20% | 9,267 | 40.9% | 1.22 | +1,615,076 | +$174 |
-| 20-40% | 5,593 | 39.5% | 1.12 | +786,675 | +$141 |
-| 40%+ | 2,672 | 32.4% | **0.61** | −2,335,066 | −$874 |
+| 5-8% | 10,526 | 41.1% | 1.28 | +1,644,864 | +\$156 |
+| 8-12% | 9,251 | 40.2% | 1.28 | +1,730,149 | +\$187 |
+| 12-20% | 9,267 | 40.9% | 1.22 | +1,615,076 | +\$174 |
+| 20-40% | 5,593 | 39.5% | 1.12 | +786,675 | +\$141 |
+| 40%+ | 2,672 | 32.4% | **0.61** | −2,335,066 | −\$874 |
 
-On the raw set the pattern is flat-then-cliff: RVOL is a uniform ~1.19 up to 10x then turns **negative** (>20x PF 0.77, −$1.0M), and gap size is fine to 40% then **collapses** (40%+ PF 0.61, −$2.3M — the classic gap-and-fade). Standalone, neither has a usable monotonic edge, and their extremes are where the system bleeds.
+On the raw set the pattern is flat-then-cliff: RVOL is a uniform ~1.19 up to 10x then turns **negative** (>20x PF 0.77, −\$1.0M), and gap size is fine to 40% then **collapses** (40%+ PF 0.61, −\$2.3M — the classic gap-and-fade). Standalone, neither has a usable monotonic edge, and their extremes are where the system bleeds.
 
 **RVOL (refined set):**
 
 | RVOL | trades | win% | PF | net P&L | avg/trip | (all-entries PF) |
 | ---- | -----: | ---: | ---: | -------: | -------: | ---: |
-| 3-4x | 9,467 | 40.0% | 1.23 | +1,344,460 | +$142 | 1.19 |
-| 4-6x | 8,653 | 41.8% | 1.39 | +2,059,253 | +$238 | 1.19 |
-| **6-10x** | 5,208 | 44.1% | **1.55** | +1,771,397 | **+$340** | 1.19 |
-| 10-20x | 2,490 | 44.3% | 1.45 | +720,678 | +$289 | **0.97** |
-| 20x+ | 2,470 | 43.6% | 1.12 | +288,255 | +$117 | **0.77** |
+| 3-4x | 9,467 | 40.0% | 1.23 | +1,344,460 | +\$142 | 1.19 |
+| 4-6x | 8,653 | 41.8% | 1.39 | +2,059,253 | +\$238 | 1.19 |
+| **6-10x** | 5,208 | 44.1% | **1.55** | +1,771,397 | **+\$340** | 1.19 |
+| 10-20x | 2,490 | 44.3% | 1.45 | +720,678 | +\$289 | **0.97** |
+| 20x+ | 2,470 | 43.6% | 1.12 | +288,255 | +\$117 | **0.77** |
 
 **Gap size (refined set):**
 
 | gap (pct_up) | trades | win% | PF | net P&L | avg/trip | (all-entries PF) |
 | ------------ | -----: | ---: | ---: | -------: | -------: | ---: |
-| 5-8% | 8,324 | 42.0% | 1.35 | +1,448,224 | +$174 | 1.28 |
-| 8-12% | 7,382 | 40.8% | 1.23 | +999,678 | +$135 | 1.28 |
-| 12-20% | 7,148 | 42.6% | 1.43 | +1,974,831 | +$276 | 1.22 |
-| **20-40%** | 3,809 | 44.3% | **1.48** | +1,463,650 | **+$384** | 1.12 |
-| 40%+ | 1,625 | 39.5% | 1.13 | +297,661 | +$183 | **0.61** |
+| 5-8% | 8,324 | 42.0% | 1.35 | +1,448,224 | +\$174 | 1.28 |
+| 8-12% | 7,382 | 40.8% | 1.23 | +999,678 | +\$135 | 1.28 |
+| 12-20% | 7,148 | 42.6% | 1.43 | +1,974,831 | +\$276 | 1.22 |
+| **20-40%** | 3,809 | 44.3% | **1.48** | +1,463,650 | **+\$384** | 1.12 |
+| 40%+ | 1,625 | 39.5% | 1.13 | +297,661 | +\$183 | **0.61** |
 
-- **On all entries these signals are dangerous at the extremes** — RVOL >10x is net-negative (PF 0.97 → 0.77), and a 40%+ gap is catastrophic (PF 0.61, −$2.3M, the classic gap-and-fade). Standalone, "more RVOL / bigger gap" is *worse*.
-- **Conditioned on a tight base they flip to strongly positive.** RVOL rises to a 6-10x sweet spot (PF 1.55, $340/trip) and even 10-20x is excellent (1.45); the 20-40% gap tier is the single best per-trip cell in the study (+$384, PF 1.48), and 40%+ gaps stay positive (1.13). The contraction filter is what separates an **explosive breakout from a base** (institutional accumulation releasing) from a **blow-off / exhaustion spike** (a loose, jumpy name gapping into a reversal). Once you require the tight base, the magnitude of the volume/gap surge becomes a *quality* signal rather than a danger sign.
+- **On all entries these signals are dangerous at the extremes** — RVOL >10x is net-negative (PF 0.97 → 0.77), and a 40%+ gap is catastrophic (PF 0.61, −\$2.3M, the classic gap-and-fade). Standalone, "more RVOL / bigger gap" is *worse*.
+- **Conditioned on a tight base they flip to strongly positive.** RVOL rises to a 6-10x sweet spot (PF 1.55, \$340/trip) and even 10-20x is excellent (1.45); the 20-40% gap tier is the single best per-trip cell in the study (+\$384, PF 1.48), and 40%+ gaps stay positive (1.13). The contraction filter is what separates an **explosive breakout from a base** (institutional accumulation releasing) from a **blow-off / exhaustion spike** (a loose, jumpy name gapping into a reversal). Once you require the tight base, the magnitude of the volume/gap surge becomes a *quality* signal rather than a danger sign.
 - **Practical consequence:** do **not** layer a low-RVOL or small-gap cap on top of the tightness filter — that would delete the best cells (6-10x RVOL, 12-40% gaps). The refined entry already keeps the strong ones and the contraction filter neutralises the fade risk that makes big gaps dangerous on raw entries. The only mildly soft cells are the very floors (3-4x RVOL, 8-12% gap) and the extreme tails (20x+, 40%+), both still net-positive on the refined set.
 
 ## SPY regime filter (10MA vs 20MA)
 
-The classic momentum regime rule: **only take longs when SPY's 10-day MA is above its 20-day MA** (a fast trend-confirmation on the index). Computed post-hoc on SPY's split-adjusted close — dividends shift the MA levels in parallel, so the crossover is unaffected. Over 2005→2026, **64.5% of trading days are "bull" (10>20MA)**, 35.5% bear/neutral. Each trip's entry date is tagged with the regime in force that day; `trips_adv100k.csv` ($100k floor) is the dataset.
+The classic momentum regime rule: **only take longs when SPY's 10-day MA is above its 20-day MA** (a fast trend-confirmation on the index). Computed post-hoc on SPY's split-adjusted close — dividends shift the MA levels in parallel, so the crossover is unaffected. Over 2005→2026, **64.5% of trading days are "bull" (10>20MA)**, 35.5% bear/neutral. Each trip's entry date is tagged with the regime in force that day; `trips_adv100k.csv` (\$100k floor) is the dataset.
 
 ### By regime (whole system)
 
 | regime | trades | win% | PF | net P&L | avg/trip |
 | ------ | -----: | ---: | ---: | -------: | -------: |
-| **bull (10>20MA)** | 27712 | 39.7% | **1.13** | **+3,023,200** | +$109 |
-| bear (10≤20MA) | 9597 | 40.6% | 1.05 | +418,498 | +$44 |
+| **bull (10>20MA)** | 27712 | 39.7% | **1.13** | **+3,023,200** | +\$109 |
+| bear (10≤20MA) | 9597 | 40.6% | 1.05 | +418,498 | +\$44 |
 
-The regime filter helps, but it is a **weaker lever than the volatility filter**. Bull regime roughly **doubles per-trip P&L** ($109 vs $44) and holds **88% of the system's profit** in 74% of the trips — yet bear regime is **not outright negative** (PF 1.05): the naive breakout still grinds a small positive even against the index. On its own, "buy in a bull tape" is a mild edge; tightness is the strong one.
+The regime filter helps, but it is a **weaker lever than the volatility filter**. Bull regime roughly **doubles per-trip P&L** (\$109 vs \$44) and holds **88% of the system's profit** in 74% of the trips — yet bear regime is **not outright negative** (PF 1.05): the naive breakout still grinds a small positive even against the index. On its own, "buy in a bull tape" is a mild edge; tightness is the strong one.
 
 ### Tightness × regime (do they stack?)
 
 | tightness | regime | trades | win% | PF | net P&L | avg/trip |
 | --------- | ------ | -----: | ---: | ---: | -------: | -------: |
-| **<0.40 tight** | **bull** | 21924 | 40.8% | **1.26** | **+4,322,987** | **+$197** |
-| <0.40 tight | bear | 8127 | 41.9% | 1.12 | +685,332 | +$84 |
-| 0.40-0.55 | bull | 4544 | 36.8% | 0.97 | −158,738 | −$35 |
-| 0.40-0.55 | bear | 1115 | 35.2% | 1.01 | +10,233 | +$9 |
-| 0.55-0.70 | bull | 967 | 32.7% | 0.61 | −621,093 | −$642 |
-| 0.55-0.70 | bear | 275 | 30.5% | 0.74 | −146,732 | −$534 |
-| 0.70-0.85 | bull | 222 | 24.8% | 0.38 | −359,997 | −$1,622 |
-| 0.70-0.85 | bear | 64 | 25.0% | 0.48 | −94,017 | −$1,469 |
-| 0.85+ trend | bull | 55 | 21.8% | 0.18 | −159,959 | −$2,908 |
-| 0.85+ trend | bear | 16 | 18.8% | 0.34 | −36,319 | −$2,270 |
+| **<0.40 tight** | **bull** | 21924 | 40.8% | **1.26** | **+4,322,987** | **+\$197** |
+| <0.40 tight | bear | 8127 | 41.9% | 1.12 | +685,332 | +\$84 |
+| 0.40-0.55 | bull | 4544 | 36.8% | 0.97 | −158,738 | −\$35 |
+| 0.40-0.55 | bear | 1115 | 35.2% | 1.01 | +10,233 | +\$9 |
+| 0.55-0.70 | bull | 967 | 32.7% | 0.61 | −621,093 | −\$642 |
+| 0.55-0.70 | bear | 275 | 30.5% | 0.74 | −146,732 | −\$534 |
+| 0.70-0.85 | bull | 222 | 24.8% | 0.38 | −359,997 | −\$1,622 |
+| 0.70-0.85 | bear | 64 | 25.0% | 0.48 | −94,017 | −\$1,469 |
+| 0.85+ trend | bull | 55 | 21.8% | 0.18 | −159,959 | −\$2,908 |
+| 0.85+ trend | bear | 16 | 18.8% | 0.34 | −36,319 | −\$2,270 |
 
 **They stack, and the volatility filter dominates.** Three readings:
 
-- **The optimal cell is tight + bull: PF 1.26, +$4.32M, $197/trip** over 21,924 trips — **86% of the tight-bucket profit and 126% of the whole unfiltered system** (the loose tiers are net drags). The practical rule is "**tight base AND bull regime.**"
-- **Regime adds a clean second lift inside the tight bucket** — tight+bull ($197/trip) more than doubles tight+bear ($84/trip). But **tight+bear is still solidly positive** (PF 1.12, +$685k): the contraction edge survives a weak tape, it just pays less.
-- **The regime filter cannot rescue a loose base.** Every non-tight tier loses money *even in bull regime* (0.40-0.55 bull −$159k, worse as the base widens). A bull market does not make a wide-base breakout work — confirming volatility contraction is the primary edge, the market backdrop secondary.
+- **The optimal cell is tight + bull: PF 1.26, +\$4.32M, \$197/trip** over 21,924 trips — **86% of the tight-bucket profit and 126% of the whole unfiltered system** (the loose tiers are net drags). The practical rule is "**tight base AND bull regime.**"
+- **Regime adds a clean second lift inside the tight bucket** — tight+bull (\$197/trip) more than doubles tight+bear (\$84/trip). But **tight+bear is still solidly positive** (PF 1.12, +\$685k): the contraction edge survives a weak tape, it just pays less.
+- **The regime filter cannot rescue a loose base.** Every non-tight tier loses money *even in bull regime* (0.40-0.55 bull −\$159k, worse as the base widens). A bull market does not make a wide-base breakout work — confirming volatility contraction is the primary edge, the market backdrop secondary.
 
 ### Combined rule (tight <0.40 AND bull) by year
 
@@ -1500,7 +1500,7 @@ The regime filter helps, but it is a **weaker lever than the volatility filter**
 | 2025 | 1443 | 36.7% | 0.91 | −159,726 |
 | 2026 | 474 | 43.5% | 1.45 | +154,852 |
 
-**The honest limitation: the combined filter does NOT save the bad years.** 2021 (−$568k), 2022 (−$172k) and 2023 (−$450k) stay deeply negative *with both filters on*. The daily SPY 10/20MA cross is too slow and too index-centric to dodge a momentum-stock bear when the headline index holds up — 2021 is the textbook case (S&P fine, small-cap momentum collapsed). So the regime filter trims the drawdown years modestly but does not flip them; the system remains regime-dependent even after filtering. The melt-up years (2009, 2012, 2013, 2020) still carry the record (+$0.5M–$2.2M each).
+**The honest limitation: the combined filter does NOT save the bad years.** 2021 (−\$568k), 2022 (−\$172k) and 2023 (−\$450k) stay deeply negative *with both filters on*. The daily SPY 10/20MA cross is too slow and too index-centric to dodge a momentum-stock bear when the headline index holds up — 2021 is the textbook case (S&P fine, small-cap momentum collapsed). So the regime filter trims the drawdown years modestly but does not flip them; the system remains regime-dependent even after filtering. The melt-up years (2009, 2012, 2013, 2020) still carry the record (+\$0.5M–\$2.2M each).
 
 ### A slower cross (25/50) is *not* the fix
 
@@ -1512,7 +1512,7 @@ The 10/20 (Qullamaggie's rule) whips around; a natural thought is that a slower 
 | tight + 10/20 | 21,924 | +4,322,987 | **1.26** |
 | tight + 25/50 | 23,888 | +4,384,044 | 1.24 |
 
-And the give-back years got **worse**, not better: 2021 −$614k (vs −$568k at 10/20), 2025 −$313k (vs −$160k), 2018 −$146k (vs −$79k). The reason is mechanical: **a slower MA stays "bull" longer into a topping process**, so it keeps you long *deeper* into the decline before flipping. The whip-reduction cuts both ways — fewer false bear flips, but later exits from real tops — and it admits ~2k more trades that are below average (net barely rises, PF falls).
+And the give-back years got **worse**, not better: 2021 −\$614k (vs −\$568k at 10/20), 2025 −\$313k (vs −\$160k), 2018 −\$146k (vs −\$79k). The reason is mechanical: **a slower MA stays "bull" longer into a topping process**, so it keeps you long *deeper* into the decline before flipping. The whip-reduction cuts both ways — fewer false bear flips, but later exits from real tops — and it admits ~2k more trades that are below average (net barely rises, PF falls).
 
 **The deeper lesson: no SPY index MA cross can fix this, because the index was not the problem.** In 2021 the cap-weighted S&P kept making new highs while small-cap/momentum names (what this system actually trades) collapsed — the ARKK-style unwind. Any filter watching SPY stays bullish straight through that carnage; a slower one stays bullish even longer. To filter 2021–2023 we need a signal that senses **momentum-stock health specifically**, not the headline index — pursued next.
 
@@ -1526,10 +1526,10 @@ Since no *index* MA fixes 2021–2023 (the index held up while momentum names br
 
 | regime | trades | win% | PF | net P&L | avg/trip |
 | ------ | -----: | ---: | ---: | -------: | -------: |
-| **healthy (3mo realized > 0)** | 19272 | 41.1% | **1.17** | +2,507,873 | +$130 |
-| unhealthy | 18037 | 38.8% | 1.05 | +933,825 | +$52 |
+| **healthy (3mo realized > 0)** | 19272 | 41.1% | **1.17** | +2,507,873 | +\$130 |
+| unhealthy | 18037 | 38.8% | 1.05 | +933,825 | +\$52 |
 
-Per-trip, this discriminates *better* than the SPY cross ($130 vs $52, a 2.5× ratio) — but it splits the book roughly in half, and "unhealthy" is still mildly positive.
+Per-trip, this discriminates *better* than the SPY cross (\$130 vs \$52, a 2.5× ratio) — but it splits the book roughly in half, and "unhealthy" is still mildly positive.
 
 ### Combined (tight <0.40 AND healthy) by year — the real test
 
@@ -1553,26 +1553,26 @@ Per-trip, this discriminates *better* than the SPY cross ($130 vs $52, a 2.5× r
 | 2020 | 714 | 51.3% | 3.63 | +1,399,518 |
 | 2021 | 2387 | 33.0% | 0.76 | −650,354 |
 | 2022 | 86 | 37.2% | 0.56 | −29,631 |
-| 2023 | 0 | — | — | $0 (no trades) |
+| 2023 | 0 | — | — | \$0 (no trades) |
 | 2024 | 55 | 23.6% | 0.39 | −37,608 |
 | 2025 | 254 | 31.9% | 0.54 | −136,502 |
 | 2026 | 326 | 48.8% | 1.39 | +84,079 |
 
-**Combined totals: 15,705 trips, PF 1.29, +$3,096,347, +$197/trip — the highest PF of any rule tried** (but the fewest trades; it sits out a lot). The give-back years, head to head with the SPY rule:
+**Combined totals: 15,705 trips, PF 1.29, +\$3,096,347, +\$197/trip — the highest PF of any rule tried** (but the fewest trades; it sits out a lot). The give-back years, head to head with the SPY rule:
 
 | year | tight only | tight + SPY 10/20 | tight + healthy(3mo) |
 | ---- | ---------: | ----------------: | -------------------: |
 | 2021 | −652,352 | −568,043 | **−650,354** |
 | 2022 | −352,266 | −172,365 | **−29,631** |
-| 2023 | −494,503 | −449,598 | **$0 (no trades)** |
+| 2023 | −494,503 | −449,598 | **\$0 (no trades)** |
 | 2025 | −329,723 | −159,726 | −136,502 |
 
 **It is the best tool yet for *grinding* bears, and useless against a *violent top.*** Two distinct failure modes, and this filter only catches one:
 
-- **Grinding declines (2022, 2023, 2015) — caught cleanly.** After a sustained losing stretch the trailing health goes negative and stays there, so the system simply stops trading. **2023 is eliminated entirely** (zero entries passed both filters); **2022 shrinks from −$352k to −$30k**; 2008 to −$47k; 2009 admits only 42 trades (it waited until the strategy was working again before re-engaging — exactly the desired behaviour).
-- **A violent top right after a melt-up (2021) — missed.** 2021's collapse came *immediately* after the explosive 2020 (+$1.4M) and the Jan-2021 blow-off, so the 3-month trailing health was still strongly positive going into the February top. A backward-looking health metric is structurally **late** to a sharp reversal that follows a strong run — the same lag that hurt the slow MA, now self-referential. 2021 stays −$650k, essentially unfiltered.
+- **Grinding declines (2022, 2023, 2015) — caught cleanly.** After a sustained losing stretch the trailing health goes negative and stays there, so the system simply stops trading. **2023 is eliminated entirely** (zero entries passed both filters); **2022 shrinks from −\$352k to −\$30k**; 2008 to −\$47k; 2009 admits only 42 trades (it waited until the strategy was working again before re-engaging — exactly the desired behaviour).
+- **A violent top right after a melt-up (2021) — missed.** 2021's collapse came *immediately* after the explosive 2020 (+\$1.4M) and the Jan-2021 blow-off, so the 3-month trailing health was still strongly positive going into the February top. A backward-looking health metric is structurally **late** to a sharp reversal that follows a strong run — the same lag that hurt the slow MA, now self-referential. 2021 stays −\$650k, essentially unfiltered.
 
-So the dream of "make $2M in 2020 and not give it back in 2021" is **not** solved by trailing realized P&L either: the give-back happens too fast, before the health signal can turn. What this filter *does* buy is avoidance of the long post-2021 / 2022–2023 grind — which the SPY cross could not do. The two filters are complementary in *which* bad years they help, and neither catches 2021.
+So the dream of "make \$2M in 2020 and not give it back in 2021" is **not** solved by trailing realized P&L either: the give-back happens too fast, before the health signal can turn. What this filter *does* buy is avoidance of the long post-2021 / 2022–2023 grind — which the SPY cross could not do. The two filters are complementary in *which* bad years they help, and neither catches 2021.
 
 Both regime signals are weak-to-moderate levers next to the volatility-contraction filter, which remains the single dominant edge.
 
@@ -1580,14 +1580,14 @@ Both regime signals are weak-to-moderate levers next to the volatility-contracti
 
 The regime filters trimmed the bad years but could not fix the 2021 give-back, because the problem is not *which* trades you take — it is *how long you hold the winners*. The fix is to use the **same volatility metric for exits that we use for entries**: a stock that breaks out of a tight base and then goes **parabolic** sees its tightness `range/(14×ATR)` *expand*. So: hold a position only while it stays reasonably tight, and **exit when the held-day rolling tightness rises above a threshold** (volatility expansion = the move is becoming overextended). Both exits run together — the 15-day-low stop AND the expansion exit — and whichever fires first wins (exit next open, no lookahead). Implemented in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs); CLI flag `--expansion-exit <thr>`.
 
-### Threshold sweep (whole book, $100k floor)
+### Threshold sweep (whole book, \$100k floor)
 
 | exit rule | trades | net P&L | PF | avg/trip |
 | --------- | -----: | -------: | ---: | -------: |
-| stop only (baseline) | 37,309 | +3,441,699 | 1.11 | +$92 |
-| stop + expansion 0.55 | 37,309 | +4,713,135 | 1.18 | +$126 |
-| **stop + expansion 0.70** | 37,309 | **+5,165,701** | 1.17 | **+$138** |
-| stop + expansion 0.85 | 37,309 | +3,906,851 | 1.12 | +$105 |
+| stop only (baseline) | 37,309 | +3,441,699 | 1.11 | +\$92 |
+| stop + expansion 0.55 | 37,309 | +4,713,135 | 1.18 | +\$126 |
+| **stop + expansion 0.70** | 37,309 | **+5,165,701** | 1.17 | **+\$138** |
+| stop + expansion 0.85 | 37,309 | +3,906,851 | 1.12 | +\$105 |
 
 Trade count is unchanged (every entry still opens exactly one trip — the exit only changes *where* it closes). **0.70 is the sweet spot: +50% net P&L and +50% avg/trip over the stop-only baseline.** 0.55 exits too eagerly (bails on names still running); 0.85 only catches extreme blow-offs and lets too much round-trip back to the stop first.
 
@@ -1601,7 +1601,7 @@ Splitting the 0.70 book by *which* exit closed each trip is decisive:
 | mtm (still open) | 665 | 58.9% | 5.12 | +975,632 |
 | stop (15-day-low) | 34565 (92.6%) | 39.0% | 0.98 | −507,678 |
 
-**Only 5.6% of trips exit on expansion — and that sleeve carries essentially the entire book** (PF 4.62, +$4.7M), while the 92.6% that exit on the trailing stop net *negative*. The expansion exit is selling the parabola near its high — locking in the fat-tailed winner before it gives the move back. The stop is left cleaning up the names that simply faded. (Tighter thresholds concentrate this further: expansion-sleeve PF is 3.54 at 0.55, **4.62 at 0.70, 8.47 at 0.85** — the rarer the trigger, the more extreme the blow-off it catches.)
+**Only 5.6% of trips exit on expansion — and that sleeve carries essentially the entire book** (PF 4.62, +\$4.7M), while the 92.6% that exit on the trailing stop net *negative*. The expansion exit is selling the parabola near its high — locking in the fat-tailed winner before it gives the move back. The stop is left cleaning up the names that simply faded. (Tighter thresholds concentrate this further: expansion-sleeve PF is 3.54 at 0.55, **4.62 at 0.70, 8.47 at 0.85** — the rarer the trigger, the more extreme the blow-off it catches.)
 
 ### The 2021 give-back is (mostly) solved
 
@@ -1614,7 +1614,7 @@ This is the result the regime filters could not produce. Give-back years, **tigh
 | 2023 | −494,503 | −441,408 |
 | 2025 | −329,723 | −272,217 |
 
-**2021 collapses from −$652k to −$65k — a 90% reduction, essentially breakeven.** This is exactly the "made $2M in 2020, gave it back in 2021" problem. The mechanism is precise: the 2021 momentum top was a *parabolic blow-off* — names went vertical and their volatility expanded, so the expansion exit sold them near the highs **before** they round-tripped to the 15-day-low stop. No index regime could see this (the S&P held up); each stock's own volatility structure could. The grinding bears (2022, 2023, 2025) improve only modestly — those names fade *without* a clean parabolic expansion, so the stop still does the (losing) work. The expansion exit specifically rescues the **post-melt-up blow-off**, which is 2021's signature.
+**2021 collapses from −\$652k to −\$65k — a 90% reduction, essentially breakeven.** This is exactly the "made \$2M in 2020, gave it back in 2021" problem. The mechanism is precise: the 2021 momentum top was a *parabolic blow-off* — names went vertical and their volatility expanded, so the expansion exit sold them near the highs **before** they round-tripped to the 15-day-low stop. No index regime could see this (the S&P held up); each stock's own volatility structure could. The grinding bears (2022, 2023, 2025) improve only modestly — those names fade *without* a clean parabolic expansion, so the stop still does the (losing) work. The expansion exit specifically rescues the **post-melt-up blow-off**, which is 2021's signature.
 
 ### Full by-year with expansion 0.70 (whole book)
 
@@ -1643,7 +1643,7 @@ This is the result the regime filters could not produce. Give-back years, **tigh
 | 2025 | 2226 | 36.0% | 0.85 | −412,584 |
 | 2026 | 908 | 43.5% | 1.49 | +331,490 |
 
-Compared to the stop-only headline table, every melt-up year holds (2013 +$1.43M, 2020 +$3.09M, 2026 +$331k) while 2021 at the whole-book level improves from −$1.14M to −$389k. The exit is now carried on every trip as `exit_reason` (`stop` / `expansion` / `mtm`).
+Compared to the stop-only headline table, every melt-up year holds (2013 +\$1.43M, 2020 +\$3.09M, 2026 +\$331k) while 2021 at the whole-book level improves from −\$1.14M to −\$389k. The exit is now carried on every trip as `exit_reason` (`stop` / `expansion` / `mtm`).
 
 ## Stacking the best levers: expansion exit + self-referential health
 
@@ -1651,12 +1651,12 @@ Combining the volatility-expansion exit (0.70) with the self-referential health 
 
 | config | trades | net P&L | PF | avg/trip |
 | ------ | -----: | -------: | ---: | -------: |
-| exp 0.70 (all entries) | 37,309 | +5,165,701 | 1.17 | +$138 |
-| exp 0.70 + healthy | 22,098 | +3,861,270 | 1.23 | +$175 |
-| exp 0.70 + tight (<0.40) | 30,051 | +5,756,019 | 1.27 | +$192 |
-| **exp 0.70 + tight + healthy** | 17,942 | +3,849,659 | **1.31** | **+$215** |
+| exp 0.70 (all entries) | 37,309 | +5,165,701 | 1.17 | +\$138 |
+| exp 0.70 + healthy | 22,098 | +3,861,270 | 1.23 | +\$175 |
+| exp 0.70 + tight (<0.40) | 30,051 | +5,756,019 | 1.27 | +\$192 |
+| **exp 0.70 + tight + healthy** | 17,942 | +3,849,659 | **1.31** | **+\$215** |
 
-**The full stack reaches PF 1.31 / +$215 per trip — the best quality of any configuration**, ~2.3× the raw stop-only baseline's $92/trip. But it is a **quality-vs-volume trade**: health cuts the book to 17,942 trips (under half) and *lowers* net P&L vs exp+tight-only ($3.85M vs $5.76M), because it sits out a lot — including good trades.
+**The full stack reaches PF 1.31 / +\$215 per trip — the best quality of any configuration**, ~2.3× the raw stop-only baseline's \$92/trip. But it is a **quality-vs-volume trade**: health cuts the book to 17,942 trips (under half) and *lowers* net P&L vs exp+tight-only (\$3.85M vs \$5.76M), because it sits out a lot — including good trades.
 
 ### The two filters are complementary — but health is a blunt instrument
 
@@ -1672,8 +1672,8 @@ Give-back years, exp+tight vs the full stack (tight-entry universe):
 
 The honest read:
 
-- **They own *different* bad years.** The expansion exit already fixed **2021** (−$65k; unchanged by health — those entries were all made while trailing health was still green, so all pass). Health then fixes the **grinding bears the exit could not**: **2022 −$302k → −$12k, 2023 −$441k → eliminated** (zero entries passed). Blow-off protection (exit) + grind protection (health) cover different failure modes.
-- **But health actively *hurts* the whippy years.** **2024 flips +$194k → −$150k and 2025 −$272k → −$469k.** This is the lag: after a drawdown health turns red and you sit out the *recovery*, then turns green just in time to catch the next dip — in chop (2024/2025) that is worse than staying in. Health also discards a lot of good recovery P&L (it sits out most of 2009 and much of 2016/2020).
+- **They own *different* bad years.** The expansion exit already fixed **2021** (−\$65k; unchanged by health — those entries were all made while trailing health was still green, so all pass). Health then fixes the **grinding bears the exit could not**: **2022 −\$302k → −\$12k, 2023 −\$441k → eliminated** (zero entries passed). Blow-off protection (exit) + grind protection (health) cover different failure modes.
+- **But health actively *hurts* the whippy years.** **2024 flips +\$194k → −\$150k and 2025 −\$272k → −\$469k.** This is the lag: after a drawdown health turns red and you sit out the *recovery*, then turns green just in time to catch the next dip — in chop (2024/2025) that is worse than staying in. Health also discards a lot of good recovery P&L (it sits out most of 2009 and much of 2016/2020).
 
 **Verdict: the expansion exit is the unambiguous win; the health filter is a tradeoff.** It raises headline PF and cleanly removes 2022/2023, but at the cost of new damage in choppy years and a much smaller book. Whether to run it depends on objective — max PF / drawdown-aversion (use it) vs max net P&L / capacity (skip it, run exp+tight). The lag in the trailing-realized health signal is the weakness; a **breadth-based regime signal** (how many stocks are above their 20/50/100-day MAs) may give a less laggy read — investigated next.
 
@@ -1690,7 +1690,7 @@ The SPY MA cross and the self-referential health filter share a weakness: SPY ig
 | % > 50-day MA > 0.60 | 16,081 | +5,222,079 | 1.45 |
 | % > 100-day MA > 0.50 | 24,086 | +5,508,154 | 1.32 |
 
-**This is the best regime filter found** — and unlike the health filter, it raises PF *without sacrificing net P&L*. `breadth50 > 0.50` lifts PF **1.27 → 1.36 while net P&L barely moves** ($5.76M → $5.73M): it removes losing trades surgically rather than sitting out good ones. Tightening to 0.60 pushes PF to 1.45 but starts costing real P&L (it sits out ~half the book).
+**This is the best regime filter found** — and unlike the health filter, it raises PF *without sacrificing net P&L*. `breadth50 > 0.50` lifts PF **1.27 → 1.36 while net P&L barely moves** (\$5.76M → \$5.73M): it removes losing trades surgically rather than sitting out good ones. Tightening to 0.60 pushes PF to 1.45 but starts costing real P&L (it sits out ~half the book).
 
 ### By year (exp+tight vs +breadth50 > 0.50)
 
@@ -1719,37 +1719,37 @@ The SPY MA cross and the self-referential health filter share a weakness: SPY ig
 | 2025 | −272,217 | +18,983 |
 | 2026 | +261,976 | +221,498 |
 
-**It improves nearly every losing year and flips four of them positive** — 2008 (−$159k → +$11k), 2015 (−$58k → +$79k), 2018 (−$5k → +$58k), and the choppy **2025 (−$272k → +$19k)** — while the melt-up years give up almost nothing (2020 $2.49M → $2.37M, 2013 $1.31M → $1.16M). This is exactly the surgical filtering the trailing-realized **health** filter could *not* do: breadth fixed 2025 instead of making it worse (health flipped 2025 to −$469k via its recovery-lag). Breadth is coincident, not lagging like realized P&L, so it doesn't get trapped sitting out recoveries.
+**It improves nearly every losing year and flips four of them positive** — 2008 (−\$159k → +\$11k), 2015 (−\$58k → +\$79k), 2018 (−\$5k → +\$58k), and the choppy **2025 (−\$272k → +\$19k)** — while the melt-up years give up almost nothing (2020 \$2.49M → \$2.37M, 2013 \$1.31M → \$1.16M). This is exactly the surgical filtering the trailing-realized **health** filter could *not* do: breadth fixed 2025 instead of making it worse (health flipped 2025 to −\$469k via its recovery-lag). Breadth is coincident, not lagging like realized P&L, so it doesn't get trapped sitting out recoveries.
 
-**The two stubborn years remain 2021 and 2023.** 2021 (−$45k) was already mostly solved by the expansion exit; breadth shaves a little more. **2023 (−$458k) is essentially unchanged** — a slow grind where breadth oscillated around 50%, so the filter let trades through. And the honest structural limit persists: **breadth, like every price-based regime signal, *peaks at the top*** — on 2021-02-16 (the exact momentum high) 83% of stocks were above their 50-day MA and 90% above their 100-day. A breadth-high filter is maximally long right into the blow-off. Only the expansion *exit* — which reads each stock's own parabola — caught 2021; breadth (and all aggregate-state filters) cannot.
+**The two stubborn years remain 2021 and 2023.** 2021 (−\$45k) was already mostly solved by the expansion exit; breadth shaves a little more. **2023 (−\$458k) is essentially unchanged** — a slow grind where breadth oscillated around 50%, so the filter let trades through. And the honest structural limit persists: **breadth, like every price-based regime signal, *peaks at the top*** — on 2021-02-16 (the exact momentum high) 83% of stocks were above their 50-day MA and 90% above their 100-day. A breadth-high filter is maximally long right into the blow-off. Only the expansion *exit* — which reads each stock's own parabola — caught 2021; breadth (and all aggregate-state filters) cannot.
 
 ### Where this leaves the long system
 
-Best configurations to date, whole-book ($100k floor) unless noted:
+Best configurations to date, whole-book (\$100k floor) unless noted:
 
 | config | trades | net P&L | PF | avg/trip |
 | ------ | -----: | -------: | ---: | -------: |
-| stop only (baseline) | 37,309 | +3,441,699 | 1.11 | +$92 |
-| + expansion-0.70 exit | 37,309 | +5,165,701 | 1.17 | +$138 |
-| + tight (<0.40) entry | 30,051 | +5,756,019 | 1.27 | +$192 |
-| **+ breadth50 > 0.50 entry** | 22,886 | +5,729,622 | **1.36** | **+$250** |
-| (alt) + self-ref health entry | 17,942 | +3,849,659 | 1.31 | +$215 |
+| stop only (baseline) | 37,309 | +3,441,699 | 1.11 | +\$92 |
+| + expansion-0.70 exit | 37,309 | +5,165,701 | 1.17 | +\$138 |
+| + tight (<0.40) entry | 30,051 | +5,756,019 | 1.27 | +\$192 |
+| **+ breadth50 > 0.50 entry** | 22,886 | +5,729,622 | **1.36** | **+\$250** |
+| (alt) + self-ref health entry | 17,942 | +3,849,659 | 1.31 | +\$215 |
 
-The compounding picture: **volatility contraction (entry) → expansion (exit) → breadth (regime)** stack to PF 1.36 at +$250/trip — nearly **3× the raw baseline's $92/trip** — while keeping 23k trades and almost all the net P&L. The expansion exit is the single biggest lever (it owns the 2021 fix); breadth is the best *entry* regime filter; the tightness entry filter is the foundation. 2023 (slow grind, no parabolic blow-off, breadth near 50%) is the one regime none of these levers cleanly solves.
+The compounding picture: **volatility contraction (entry) → expansion (exit) → breadth (regime)** stack to PF 1.36 at +\$250/trip — nearly **3× the raw baseline's \$92/trip** — while keeping 23k trades and almost all the net P&L. The expansion exit is the single biggest lever (it owns the 2021 fix); breadth is the best *entry* regime filter; the tightness entry filter is the foundation. 2023 (slow grind, no parabolic blow-off, breadth near 50%) is the one regime none of these levers cleanly solves.
 
 ## Short-term exits: harvest the drift instead of holding for the runner
 
-Everything above optimizes for **big wins** — hold the breakout via a trailing stop, let the parabola run, exit on volatility expansion. The opposite question: what if we just **hold a fixed 1–3 days and take the immediate post-breakout drift**, never riding for the big move? Tested post-hoc on the same tight-entry universe (`tight<0.40`, $100k floor), no stop and no expansion exit — enter at day-T close, exit at the close N trading days later.
+Everything above optimizes for **big wins** — hold the breakout via a trailing stop, let the parabola run, exit on volatility expansion. The opposite question: what if we just **hold a fixed 1–3 days and take the immediate post-breakout drift**, never riding for the big move? Tested post-hoc on the same tight-entry universe (`tight<0.40`, \$100k floor), no stop and no expansion exit — enter at day-T close, exit at the close N trading days later.
 
 ### Fixed-N-day holds (tight entries)
 
 | exit | trades | win% | PF | net P&L | avg/trip |
 | ---- | -----: | ---: | ---: | -------: | -------: |
-| hold 1d | 30,009 | 48.3% | 1.11 | +714,652 | +$24 |
-| hold 2d | 29,981 | 48.3% | 1.12 | +1,034,196 | +$35 |
-| hold 3d | 29,954 | 49.2% | 1.16 | +1,537,823 | +$51 |
-| hold 5d | 29,910 | 49.4% | 1.21 | +2,433,256 | +$81 |
-| hold 10d | 29,793 | 49.6% | 1.19 | +2,897,315 | +$97 |
+| hold 1d | 30,009 | 48.3% | 1.11 | +714,652 | +\$24 |
+| hold 2d | 29,981 | 48.3% | 1.12 | +1,034,196 | +\$35 |
+| hold 3d | 29,954 | 49.2% | 1.16 | +1,537,823 | +\$51 |
+| hold 5d | 29,910 | 49.4% | 1.21 | +2,433,256 | +\$81 |
+| hold 10d | 29,793 | 49.6% | 1.19 | +2,897,315 | +\$97 |
 
 **The post-breakout drift is real and positive from day 1.** Every short hold profits (PF ≥ 1.11), the edge builds monotonically through ~5–10 days, and there is no "give-back" inside the first 10 days — these breakouts keep drifting up. Win rate is ~48–50% (vs ~40% for the big-win system — short holds win more often but each win is small).
 
@@ -1757,15 +1757,15 @@ The same holds with the **refined entry filter (tight <0.40 AND ATR% < 8%)** —
 
 | exit | trades | win% | PF | net P&L | avg/trip |
 | ---- | -----: | ---: | ---: | -------: | -------: |
-| hold 1d | 28,253 | 48.7% | 1.11 | +654,516 | +$23 |
-| hold 2d | 28,228 | 48.8% | 1.12 | +899,512 | +$32 |
-| hold 3d | 28,204 | 49.7% | 1.18 | +1,497,514 | +$53 |
-| hold 5d | 28,163 | 49.9% | 1.24 | +2,355,446 | +$84 |
-| hold 10d | 28,051 | 50.3% | 1.23 | +2,953,744 | +$105 |
+| hold 1d | 28,253 | 48.7% | 1.11 | +654,516 | +\$23 |
+| hold 2d | 28,228 | 48.8% | 1.12 | +899,512 | +\$32 |
+| hold 3d | 28,204 | 49.7% | 1.18 | +1,497,514 | +\$53 |
+| hold 5d | 28,163 | 49.9% | 1.24 | +2,355,446 | +\$84 |
+| hold 10d | 28,051 | 50.3% | 1.23 | +2,953,744 | +\$105 |
 
 Same shape, slightly cleaner — consistent with the ATR<8% cut being a pure quality bump at every horizon (it removes the high-daily-ATR names that drift worst). The by-year robustness analysis below uses the tight-only hold for continuity with the earlier comparison; the ATR refinement would shift each year marginally in the same direction.
 
-**On raw P&L the short hold is worse than the big-win system** ($51/trip at 3d vs **$192/trip** for expansion-exit+tight): the parabolic runners captured by the expansion exit are ~4× the per-trade edge of the drift. If the objective is total dollars, hold for the runner.
+**On raw P&L the short hold is worse than the big-win system** (\$51/trip at 3d vs **\$192/trip** for expansion-exit+tight): the parabolic runners captured by the expansion exit are ~4× the per-trade edge of the drift. If the objective is total dollars, hold for the runner.
 
 ### But the short hold is far more *robust* — it sidesteps the regime problem entirely
 
@@ -1798,9 +1798,9 @@ Because you are out in 1–3 days, you cannot round-trip a multi-month decline. 
 
 This is the most striking comparison in the study:
 
-- **2021 is *positive* (+$96k)** — vs −$65k for the (already-expansion-fixed) big-win system. You take the breakout drift and you are gone before the round-trip.
-- **2023 — the one year NO other lever could fix — is nearly flat (−$35k)** vs **−$441k** for the big-win system. The grinding bear that defeated breadth, health, and the expansion exit is almost neutralized just by not holding.
-- **2025 is roughly flat-to-positive** (+$2k / +$56k) vs −$272k.
+- **2021 is *positive* (+\$96k)** — vs −\$65k for the (already-expansion-fixed) big-win system. You take the breakout drift and you are gone before the round-trip.
+- **2023 — the one year NO other lever could fix — is nearly flat (−\$35k)** vs **−\$441k** for the big-win system. The grinding bear that defeated breadth, health, and the expansion exit is almost neutralized just by not holding.
+- **2025 is roughly flat-to-positive** (+\$2k / +\$56k) vs −\$272k.
 - Only **2008 and 2022** (sharp, fast crashes that gap *through* a 3-day hold) stay meaningfully negative — and even those are a fraction of the big-win losses.
 
 **Positivity / drawdown, head to head:**
@@ -1808,10 +1808,10 @@ This is the most striking comparison in the study:
 | metric | hold 3d | exp+tight (big-win) |
 | ------ | ------: | ------------------: |
 | years positive | **18 / 22** | 13 / 22 |
-| worst year | **−$79,830** | −$441,408 |
-| total net P&L | +$1,537,824 | +$5,756,019 |
+| worst year | **−\$79,830** | −\$441,408 |
+| total net P&L | +\$1,537,824 | +\$5,756,019 |
 
-**The fork is clear: the same signal supports two different systems.** Swing for the fences (hold the runner via the expansion exit) → ~4× the dollars but lumpy, regime-dependent, and 2023 stays a −$441k hole. Harvest the drift (3–5 day hold) → a quarter of the dollars per trade but **18/22 green years, a worst year 5.5× smaller, and the regime dependence largely gone** — a much higher-Sharpe, lower-magnitude book. Which to run is an objective choice (capacity/absolute return vs consistency/drawdown), and they could even be combined (drift-harvest base + a runner sleeve). All post-hoc on the existing entries — no engine change.
+**The fork is clear: the same signal supports two different systems.** Swing for the fences (hold the runner via the expansion exit) → ~4× the dollars but lumpy, regime-dependent, and 2023 stays a −\$441k hole. Harvest the drift (3–5 day hold) → a quarter of the dollars per trade but **18/22 green years, a worst year 5.5× smaller, and the regime dependence largely gone** — a much higher-Sharpe, lower-magnitude book. Which to run is an objective choice (capacity/absolute return vs consistency/drawdown), and they could even be combined (drift-harvest base + a runner sleeve). All post-hoc on the existing entries — no engine change.
 
 ### Drift by tightness tier — contraction matters even at 3 days
 
@@ -1819,13 +1819,13 @@ The fixed-N-day results above used the tight (<0.40) universe. Breaking the **3-
 
 | tightness | trades | win% (3d) | PF (3d) | net 3d | avg 3d | net 5d | avg 5d |
 | --------- | -----: | --------: | ------: | -----: | -----: | -----: | -----: |
-| **<0.40 tight** | 29,954 | 49.2% | **1.16** | **+1,537,823** | +$51 | +2,433,256 | +$81 |
-| 0.40-0.55 | 5,632 | 42.7% | 0.84 | −502,577 | −$89 | −563,744 | −$100 |
-| 0.55-0.70 | 1,226 | 38.7% | 0.73 | −315,943 | −$258 | −481,880 | −$395 |
-| 0.70-0.85 | 282 | 22.7% | 0.29 | −315,061 | −$1,117 | −330,223 | −$1,184 |
-| 0.85+ trend | 71 | 26.8% | 0.18 | −131,283 | −$1,849 | −150,776 | −$2,124 |
+| **<0.40 tight** | 29,954 | 49.2% | **1.16** | **+1,537,823** | +\$51 | +2,433,256 | +\$81 |
+| 0.40-0.55 | 5,632 | 42.7% | 0.84 | −502,577 | −\$89 | −563,744 | −\$100 |
+| 0.55-0.70 | 1,226 | 38.7% | 0.73 | −315,943 | −\$258 | −481,880 | −\$395 |
+| 0.70-0.85 | 282 | 22.7% | 0.29 | −315,061 | −\$1,117 | −330,223 | −\$1,184 |
+| 0.85+ trend | 71 | 26.8% | 0.18 | −131,283 | −\$1,849 | −150,776 | −\$2,124 |
 
-**A loose-base breakout doesn't even give you a 3-day drift** — the 0.85+ tier averages −$1,849/trip over just three days. So volatility contraction is necessary even for the immediate post-breakout pop, not only for the long hold. The punchline: across **all** entries (every tightness, 37,165 trades) the 3-day drift is a negligible **+$273k (~+$7/trip)** — the tight subset (+$51/trip) carries essentially all of it while the loose tiers bleed it back. Without the contraction filter there is barely a *short-horizon* drift edge at all. (This also reinforces the short thesis: the loose/expanded breakouts are bad longs at *every* horizon → good short candidates for the reversal book.)
+**A loose-base breakout doesn't even give you a 3-day drift** — the 0.85+ tier averages −\$1,849/trip over just three days. So volatility contraction is necessary even for the immediate post-breakout pop, not only for the long hold. The punchline: across **all** entries (every tightness, 37,165 trades) the 3-day drift is a negligible **+\$273k (~+\$7/trip)** — the tight subset (+\$51/trip) carries essentially all of it while the loose tiers bleed it back. Without the contraction filter there is barely a *short-horizon* drift edge at all. (This also reinforces the short thesis: the loose/expanded breakouts are bad longs at *every* horizon → good short candidates for the reversal book.)
 
 ### Breadth on the drift system — barely needed
 
@@ -1833,25 +1833,25 @@ Layering the breadth50 > 0.50 regime filter onto the tight-entry drift:
 
 | config | trades | net P&L | PF | avg/trip |
 | ------ | -----: | -------: | ---: | -------: |
-| hold 3d (tight) | 29,954 | +1,537,823 | 1.16 | +$51 |
-| hold 3d + breadth50 > 0.50 | 22,808 | +1,335,638 | 1.18 | +$59 |
-| hold 5d (tight) | 29,910 | +2,433,256 | 1.21 | +$81 |
-| hold 5d + breadth50 > 0.50 | 22,769 | +2,231,434 | 1.26 | +$98 |
+| hold 3d (tight) | 29,954 | +1,537,823 | 1.16 | +\$51 |
+| hold 3d + breadth50 > 0.50 | 22,808 | +1,335,638 | 1.18 | +\$59 |
+| hold 5d (tight) | 29,910 | +2,433,256 | 1.21 | +\$81 |
+| hold 5d + breadth50 > 0.50 | 22,769 | +2,231,434 | 1.26 | +\$98 |
 
-**Breadth helps the drift far less than it helped the big-win system** (5d: 1.21 → 1.26, vs the runner's 1.27 → 1.36). That is expected: the short hold is *already* regime-robust because it never holds through a decline, so a regime filter has little left to fix. By year it is a wash — it flips the two sharp-crash years (2008 −$80k → +$25k, 2022 −$73k → −$15k) but slightly *worsens* 2023 (−$35k → −$67k) and shaves the good years, netting ~−$200k overall for a small PF bump. **The drift system's decisive filter is tightness, not regime** — the opposite weighting from the big-win system, where the regime/exit levers mattered most.
+**Breadth helps the drift far less than it helped the big-win system** (5d: 1.21 → 1.26, vs the runner's 1.27 → 1.36). That is expected: the short hold is *already* regime-robust because it never holds through a decline, so a regime filter has little left to fix. By year it is a wash — it flips the two sharp-crash years (2008 −\$80k → +\$25k, 2022 −\$73k → −\$15k) but slightly *worsens* 2023 (−\$35k → −\$67k) and shaves the good years, netting ~−\$200k overall for a small PF bump. **The drift system's decisive filter is tightness, not regime** — the opposite weighting from the big-win system, where the regime/exit levers mattered most.
 
 ### Why the original system was profitable *before* the tightness filter
 
-The near-zero 3-day drift on raw entries raises a fair question: how did the +$3.44M baseline make money at all? Two reasons, both about *horizon* and *the loose drag*:
+The near-zero 3-day drift on raw entries raises a fair question: how did the +\$3.44M baseline make money at all? Two reasons, both about *horizon* and *the loose drag*:
 
 | cohort (trailing-stop hold) | trades | avg bars held | avg/trip | net P&L | PF |
 | --------------------------- | -----: | ------------: | -------: | ------: | ---: |
-| all entries | 37,309 | 28.7 | +$92 | +3,441,699 | 1.11 |
-| tight (<0.40) | 30,051 | 28.7 | +$167 | +5,008,319 | 1.22 |
-| loose (≥0.40) | 7,258 | 28.5 | −$216 | −1,566,621 | 0.84 |
+| all entries | 37,309 | 28.7 | +\$92 | +3,441,699 | 1.11 |
+| tight (<0.40) | 30,051 | 28.7 | +\$167 | +5,008,319 | 1.22 |
+| loose (≥0.40) | 7,258 | 28.5 | −\$216 | −1,566,621 | 0.84 |
 
-- **The edge was always in the long hold, not the short drift.** The baseline used the 15-day-low trailing stop, which holds ~**29 bars (weeks)** on average — not 3 days. The money is the handful of breakouts that keep running for weeks (classic fat tail), worth ~$92/trip across all entries vs only ~$7/trip at a 3-day horizon. The first three days are nearly flat; the *runners* pay.
-- **The tightness filter removed a drag, it didn't create the edge.** The baseline +$3.44M was already the tight cohort (+$5.0M) *minus* the loose-base cohort (−$1.57M, PF 0.84). The system was net-positive only because the tight winners outweighed the loose losers; filtering to tight bases just deletes the −$1.57M drag. So "the raw signal has no edge" is specifically a statement about the **3-day** horizon — at the hold-for-the-runner horizon the raw signal does earn, but entirely via the tight subset.
+- **The edge was always in the long hold, not the short drift.** The baseline used the 15-day-low trailing stop, which holds ~**29 bars (weeks)** on average — not 3 days. The money is the handful of breakouts that keep running for weeks (classic fat tail), worth ~\$92/trip across all entries vs only ~\$7/trip at a 3-day horizon. The first three days are nearly flat; the *runners* pay.
+- **The tightness filter removed a drag, it didn't create the edge.** The baseline +\$3.44M was already the tight cohort (+\$5.0M) *minus* the loose-base cohort (−\$1.57M, PF 0.84). The system was net-positive only because the tight winners outweighed the loose losers; filtering to tight bases just deletes the −\$1.57M drag. So "the raw signal has no edge" is specifically a statement about the **3-day** horizon — at the hold-for-the-runner horizon the raw signal does earn, but entirely via the tight subset.
 
 ## Time-stop and stall exits (the hybrid) — drawdown relief, not more profit
 
@@ -1860,25 +1860,25 @@ Two ways to add a *third* exit on top of the stop + expansion-0.70 exit, both me
 - **Time stop:** if no other exit has fired within N held bars, exit at bar T+N (next open).
 - **Stall exit:** exit if K consecutive held bars pass with no new *since-entry-high* close (momentum persistence broke).
 
-Both implemented in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (flags `--time-stop N`, `--stall K`), swept on the refined entry (tight <0.40 AND ATR% < 8%) + expansion-0.70 exit. Baseline (no third exit): **28,288 trips, PF 1.336, +$6,184,044, +$219/trip.**
+Both implemented in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (flags `--time-stop N`, `--stall K`), swept on the refined entry (tight <0.40 AND ATR% < 8%) + expansion-0.70 exit. Baseline (no third exit): **28,288 trips, PF 1.336, +\$6,184,044, +\$219/trip.**
 
 ### Sweep (whole book)
 
 | third exit | net P&L | PF | avg/trip |
 | ---------- | -------: | ---: | -------: |
-| **none (baseline)** | **+6,184,044** | 1.336 | +$219 |
-| time-stop 5d | +2,925,882 | 1.299 | +$103 |
-| time-stop 10d | +3,680,598 | 1.294 | +$130 |
-| time-stop 15d | +5,051,582 | 1.350 | +$179 |
-| time-stop 20d | +5,728,469 | **1.359** | +$203 |
-| time-stop 30d | +6,115,449 | 1.350 | +$216 |
-| stall 2d | +1,941,639 | 1.228 | +$69 |
-| stall 3d | +2,409,888 | 1.249 | +$85 |
-| stall 5d | +3,019,595 | 1.259 | +$107 |
-| stall 7d | +3,850,830 | 1.295 | +$136 |
-| stall 10d | +4,716,787 | 1.317 | +$167 |
+| **none (baseline)** | **+6,184,044** | 1.336 | +\$219 |
+| time-stop 5d | +2,925,882 | 1.299 | +\$103 |
+| time-stop 10d | +3,680,598 | 1.294 | +\$130 |
+| time-stop 15d | +5,051,582 | 1.350 | +\$179 |
+| time-stop 20d | +5,728,469 | **1.359** | +\$203 |
+| time-stop 30d | +6,115,449 | 1.350 | +\$216 |
+| stall 2d | +1,941,639 | 1.228 | +\$69 |
+| stall 3d | +2,409,888 | 1.249 | +\$85 |
+| stall 5d | +3,019,595 | 1.259 | +\$107 |
+| stall 7d | +3,850,830 | 1.295 | +\$136 |
+| stall 10d | +4,716,787 | 1.317 | +\$167 |
 
-**On raw P&L, neither beats just holding for the runner.** Every config nets *less* than baseline; only **time-stop 20d edges PF up** (1.359 vs 1.336) at a −$450k P&L cost. The deeper reason: the expansion exit already does the smart cutting — it sells runners at the parabola and the stop catches failures, so there is little dead money left to recover, and what these exits cut is disproportionately *future winners* (a trade that pauses for a few days mid-run is exactly what the stall exit boots right before it continues). The stall exit is the worse of the two — it never beats baseline on either axis.
+**On raw P&L, neither beats just holding for the runner.** Every config nets *less* than baseline; only **time-stop 20d edges PF up** (1.359 vs 1.336) at a −\$450k P&L cost. The deeper reason: the expansion exit already does the smart cutting — it sells runners at the parabola and the stop catches failures, so there is little dead money left to recover, and what these exits cut is disproportionately *future winners* (a trade that pauses for a few days mid-run is exactly what the stall exit boots right before it continues). The stall exit is the worse of the two — it never beats baseline on either axis.
 
 ### But the time-stop materially cuts the drawdown years
 
@@ -1891,24 +1891,24 @@ The total hides the real benefit. By year, the remaining bad years (after the AT
 | 2023 | −280,909 | **−108,848** | −202,713 |
 | 2025 | −141,315 | **−71,766** | −90,658 |
 
-**Time-stop 20d roughly halves every remaining drawdown year** — 2022 −44%, **2023 −61%** (the year no other lever could fix), 2025 −49%, and flips 2021 to +$231k. Capping the hold at 20 days stops trades from grinding all the way down to the 15-day-low stop over many weeks in a bad regime. The exit-reason mix confirms the mechanism: in the baseline the *stop* sleeve is the weak link (26,659 trips, PF 1.13); time-stop 20d intercepts those trades at day 20 — the winners exit via `time` (PF 8.0) while only genuine failures fall through to `stop`.
+**Time-stop 20d roughly halves every remaining drawdown year** — 2022 −44%, **2023 −61%** (the year no other lever could fix), 2025 −49%, and flips 2021 to +\$231k. Capping the hold at 20 days stops trades from grinding all the way down to the 15-day-low stop over many weeks in a bad regime. The exit-reason mix confirms the mechanism: in the baseline the *stop* sleeve is the weak link (26,659 trips, PF 1.13); time-stop 20d intercepts those trades at day 20 — the winners exit via `time` (PF 8.0) while only genuine failures fall through to `stop`.
 
-**So the time stop is the same consistency-vs-magnitude fork as the short hold:** baseline maximizes dollars (+$6.18M) but leaves −$200-280k drawdown years; time-stop 20d gives up ~$450k of total for **~halved drawdowns and a positive 2023-adjacent profile**. Which to run is a risk-appetite choice — and a time stop *plus* the expansion exit is a coherent "let winners run, but don't let a dead trade bleed for two months" rule. The stall exit is dominated by the time stop and not worth running.
+**So the time stop is the same consistency-vs-magnitude fork as the short hold:** baseline maximizes dollars (+\$6.18M) but leaves −\$200-280k drawdown years; time-stop 20d gives up ~\$450k of total for **~halved drawdowns and a positive 2023-adjacent profile**. Which to run is a risk-appetite choice — and a time stop *plus* the expansion exit is a coherent "let winners run, but don't let a dead trade bleed for two months" rule. The stall exit is dominated by the time stop and not worth running.
 
 ### Stop-tightening to breakeven after N days (gentler, but dominated)
 
-The hard time stop force-sells winners at day N. A gentler variant: at bar T+N, **if the trade is in profit, raise the stop floor to the entry price** (stop = max(15-day-low, entry) thereafter) so it can never give back to a loss but a winner keeps running; **if it is NOT in profit at T+N, exit** (laggard cut). Implemented as `--breakeven-after N` in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (exit reasons `breakeven` / `time_be`). Swept on the same refined entry + expansion-0.70 baseline (28,288 trips, +$6.18M, PF 1.336).
+The hard time stop force-sells winners at day N. A gentler variant: at bar T+N, **if the trade is in profit, raise the stop floor to the entry price** (stop = max(15-day-low, entry) thereafter) so it can never give back to a loss but a winner keeps running; **if it is NOT in profit at T+N, exit** (laggard cut). Implemented as `--breakeven-after N` in [StopWalk.fs](../TradingEdge.MomentumBacktest/StopWalk.fs) (exit reasons `breakeven` / `time_be`). Swept on the same refined entry + expansion-0.70 baseline (28,288 trips, +\$6.18M, PF 1.336).
 
 | third exit | net P&L | PF | avg/trip |
 | ---------- | -------: | ---: | -------: |
-| none (baseline) | +6,184,044 | 1.336 | +$219 |
-| breakeven-after 5d | +3,386,805 | 1.315 | +$120 |
-| breakeven-after 10d | +4,128,264 | 1.308 | +$146 |
-| breakeven-after 15d | +5,146,135 | 1.337 | +$182 |
-| breakeven-after 20d | +5,752,506 | 1.345 | +$203 |
-| breakeven-after 30d | +6,018,553 | 1.337 | +$213 |
+| none (baseline) | +6,184,044 | 1.336 | +\$219 |
+| breakeven-after 5d | +3,386,805 | 1.315 | +\$120 |
+| breakeven-after 10d | +4,128,264 | 1.308 | +\$146 |
+| breakeven-after 15d | +5,146,135 | 1.337 | +\$182 |
+| breakeven-after 20d | +5,752,506 | 1.345 | +\$203 |
+| breakeven-after 30d | +6,018,553 | 1.337 | +\$213 |
 
-On total P&L it is **slightly gentler than the hard time stop** at the same N (be-20 +$5.75M vs hard-time-20 +$5.73M; be-15 +$5.15M vs +$5.05M) — confirming that *not* force-selling the winners, only flooring them, keeps a touch more upside. But it still does not beat the hold-the-runner baseline, and on the metric that motivated a time-based exit — **drawdown-year relief — it is clearly dominated by the hard time stop:**
+On total P&L it is **slightly gentler than the hard time stop** at the same N (be-20 +\$5.75M vs hard-time-20 +\$5.73M; be-15 +\$5.15M vs +\$5.05M) — confirming that *not* force-selling the winners, only flooring them, keeps a touch more upside. But it still does not beat the hold-the-runner baseline, and on the metric that motivated a time-based exit — **drawdown-year relief — it is clearly dominated by the hard time stop:**
 
 | year | baseline | breakeven-20 | hard time-20 |
 | ---- | -------: | -----------: | -----------: |
@@ -1917,9 +1917,9 @@ On total P&L it is **slightly gentler than the hard time stop** at the same N (b
 | 2023 | −280,909 | −255,599 | **−108,848** |
 | 2025 | −141,315 | **−211,558** | **−71,766** |
 
-The hard time stop beats breakeven-after in **every** drawdown year, and breakeven-20 even makes **2025 worse** (−$141k → −$212k). The exit-reason mix shows why: the `breakeven` sleeve nets only +$339k (PF 2.15) on 3,241 trips — flooring a mediocre winner at entry recovers little, because by the time it sags back to breakeven the whole open profit is gone — and most trades never arm it (they hit the 15-day-low or expansion exit first, so the floor rarely binds). The deeper lesson: **"let the modest winners keep running" is exactly the wrong instinct in a bear.** A trade only mildly green at day 20 is, in a bad regime, more likely to roll over than continue — the hard time stop cuts those too; breakeven-after keeps them and watches them give it back.
+The hard time stop beats breakeven-after in **every** drawdown year, and breakeven-20 even makes **2025 worse** (−\$141k → −\$212k). The exit-reason mix shows why: the `breakeven` sleeve nets only +\$339k (PF 2.15) on 3,241 trips — flooring a mediocre winner at entry recovers little, because by the time it sags back to breakeven the whole open profit is gone — and most trades never arm it (they hit the 15-day-low or expansion exit first, so the floor rarely binds). The deeper lesson: **"let the modest winners keep running" is exactly the wrong instinct in a bear.** A trade only mildly green at day 20 is, in a bad regime, more likely to roll over than continue — the hard time stop cuts those too; breakeven-after keeps them and watches them give it back.
 
-**Verdict on the whole exit investigation:** for **max P&L**, hold the runner (baseline, +$6.18M); for **drawdown relief**, the **hard time stop at ~20 days** is the best tool (halves the bad years, beats every alternative on the drawdown years). Breakeven-after and the stall exit are both dominated — gentler on paper, worse where it counts. The expansion exit remains the single most valuable add (it owns the 2021 fix and harvests the parabolas); everything else is a consistency-vs-magnitude dial on top of it.
+**Verdict on the whole exit investigation:** for **max P&L**, hold the runner (baseline, +\$6.18M); for **drawdown relief**, the **hard time stop at ~20 days** is the best tool (halves the bad years, beats every alternative on the drawdown years). Breakeven-after and the stall exit are both dominated — gentler on paper, worse where it counts. The expansion exit remains the single most valuable add (it owns the 2021 fix and harvests the parabolas); everything else is a consistency-vs-magnitude dial on top of it.
 
 ## Momentum structure: is the 52-week-high criterion actually the edge?
 
@@ -1927,24 +1927,24 @@ To test whether buying *strength* (new 52-week highs) beats buying breakouts *fr
 
 ### ⚠️ Methodology: the raw result is a low-price artifact
 
-Bucketed naively, the distance-from-52w-high table looked spectacular for *weakness* — the "15-30% below" tier showed PF 3.49 / +$29.7M. **It is an artifact.** 84.6% of that tier's P&L was a *single trade* netting $25M on a $10k notional (a ~2,500× "return" — a split/adjustment glitch), and the deep-discount tiers are dominated by sub-$5 stocks (the >50%-below tier is 54% under $5, median price $4.22). At fixed $10k notional, a low-priced beaten-down name buys a huge share count, so one adjustment error or penny-stock pop produces enormous fake P&L. **Every P&L-weighted breakdown is exposed to this; the deep-discount/low-price cells are where it bites hardest.** The clean test applies an **entry price ≥ $5 floor** and **clips per-trip returns at +500%**.
+Bucketed naively, the distance-from-52w-high table looked spectacular for *weakness* — the "15-30% below" tier showed PF 3.49 / +\$29.7M. **It is an artifact.** 84.6% of that tier's P&L was a *single trade* netting \$25M on a \$10k notional (a ~2,500× "return" — a split/adjustment glitch), and the deep-discount tiers are dominated by sub-\$5 stocks (the >50%-below tier is 54% under \$5, median price \$4.22). At fixed \$10k notional, a low-priced beaten-down name buys a huge share count, so one adjustment error or penny-stock pop produces enormous fake P&L. **Every P&L-weighted breakdown is exposed to this; the deep-discount/low-price cells are where it bites hardest.** The clean test applies an **entry price ≥ \$5 floor** and **clips per-trip returns at +500%**.
 
-> **Cross-section comparability caveat (why PF here ≠ PF in the exit tables).** The floor + clip make the structure tiers comparable *to each other*, but they also lower the PF of the legitimate tiers versus the un-clipped exit/time-stop sections. The same "at/above 52w-high" population is **PF 1.336** un-clipped/no-floor (the time-stop *baseline*), **1.229** with the $5 floor, and **1.174** after the +500% clip — the clip caps the real multi-bagger right-tail that higher-priced new-high names genuinely produce, and the floor drops some big sub-$5 winners. So the structure-section PFs (≈1.1-1.3) read lower than the exit-section PFs (≈1.34) **by construction, not because the edge is weaker** — they answer different questions: the exit tables estimate the *deployable book's* P&L (keep the real fat tails), the structure tables *rank tiers like-for-like* (cap tails for comparability). Compare PFs only within a section, never across.
+> **Cross-section comparability caveat (why PF here ≠ PF in the exit tables).** The floor + clip make the structure tiers comparable *to each other*, but they also lower the PF of the legitimate tiers versus the un-clipped exit/time-stop sections. The same "at/above 52w-high" population is **PF 1.336** un-clipped/no-floor (the time-stop *baseline*), **1.229** with the \$5 floor, and **1.174** after the +500% clip — the clip caps the real multi-bagger right-tail that higher-priced new-high names genuinely produce, and the floor drops some big sub-\$5 winners. So the structure-section PFs (≈1.1-1.3) read lower than the exit-section PFs (≈1.34) **by construction, not because the edge is weaker** — they answer different questions: the exit tables estimate the *deployable book's* P&L (keep the real fat tails), the structure tables *rank tiers like-for-like* (cap tails for comparability). Compare PFs only within a section, never across.
 
 ### Cleaned result — proximity to the 52-week high IS the edge
 
 | distance from 52w-high (close) | trades | win% | PF | net P&L | avg/trip |
 | ------------------------------ | -----: | ---: | ---: | -------: | -------: |
-| at/above (new high) | 24,521 | 42.0% | 1.17 | +2,608,417 | +$106 |
-| **within 5%** | 6,770 | 42.9% | **1.36** | +1,237,343 | **+$183** |
-| 5-15% below | 11,787 | 40.3% | 1.19 | +1,230,396 | +$104 |
-| 15-30% below | 13,415 | 38.2% | 1.12 | +979,027 | +$73 |
-| 30-50% below | 11,886 | 35.2% | **0.92** | −691,411 | −$58 |
-| >50% below | 9,226 | 29.5% | **0.83** | −1,792,378 | −$194 |
+| at/above (new high) | 24,521 | 42.0% | 1.17 | +2,608,417 | +\$106 |
+| **within 5%** | 6,770 | 42.9% | **1.36** | +1,237,343 | **+\$183** |
+| 5-15% below | 11,787 | 40.3% | 1.19 | +1,230,396 | +\$104 |
+| 15-30% below | 13,415 | 38.2% | 1.12 | +979,027 | +\$73 |
+| 30-50% below | 11,886 | 35.2% | **0.92** | −691,411 | −\$58 |
+| >50% below | 9,226 | 29.5% | **0.83** | −1,792,378 | −\$194 |
 
-Clean and monotonic: **the closer to the 52-week high, the better, turning net-negative beyond ~30% below.** Win rate falls monotonically with distance (43% → 30%). The nuance: the single best cell is **"within 5% of the high" (PF 1.36, $183/trip), slightly beating at/above (PF 1.17)** — buying *just into / approaching* a new high edges out buying the exact breakout, and anything within ~15% of the high is solidly positive. Breakouts from real weakness (>30% off the high) genuinely lose once the penny-stock lottery effect is stripped.
+Clean and monotonic: **the closer to the 52-week high, the better, turning net-negative beyond ~30% below.** Win rate falls monotonically with distance (43% → 30%). The nuance: the single best cell is **"within 5% of the high" (PF 1.36, \$183/trip), slightly beating at/above (PF 1.17)** — buying *just into / approaching* a new high edges out buying the exact breakout, and anything within ~15% of the high is solidly positive. Breakouts from real weakness (>30% off the high) genuinely lose once the penny-stock lottery effect is stripped.
 
-**Robustness — does the pattern survive removing the return clip (keeping only the $5 floor)?** Mostly yes: the monotonic "closer = better" shape and the within-5% sweet spot (PF 1.43 un-clipped) are unchanged for every tier **within ~30% of the high**, and `30-50% below` stays a reliable dead zone (PF 0.93 either way). The one tier that flips is **`>50% below`: PF 0.83 clipped → 1.21 un-clipped** — but that is *not* a recovered edge, it is a **fat-tail mirage on non-penny names** (median price $14). Its entire positive P&L is ~24 trips that returned >500% (+$5.2M from those alone, vs +$2.2M tier total — the other 9,200 trips net *negative*; trips >200% contribute +$6.3M). You cannot build a strategy on catching two-dozen specific 5-baggers out of 9,226 trades, so the clipped PF (0.83, a loser) is the honest characterization. Net: the clip doesn't change the conclusion — proximity to the high wins, deep-discount does not — it just stops a handful of unrepeatable multi-baggers from flattering the worst tier.
+**Robustness — does the pattern survive removing the return clip (keeping only the \$5 floor)?** Mostly yes: the monotonic "closer = better" shape and the within-5% sweet spot (PF 1.43 un-clipped) are unchanged for every tier **within ~30% of the high**, and `30-50% below` stays a reliable dead zone (PF 0.93 either way). The one tier that flips is **`>50% below`: PF 0.83 clipped → 1.21 un-clipped** — but that is *not* a recovered edge, it is a **fat-tail mirage on non-penny names** (median price \$14). Its entire positive P&L is ~24 trips that returned >500% (+\$5.2M from those alone, vs +\$2.2M tier total — the other 9,200 trips net *negative*; trips >200% contribute +\$6.3M). You cannot build a strategy on catching two-dozen specific 5-baggers out of 9,226 trades, so the clipped PF (0.83, a loser) is the honest characterization. Net: the clip doesn't change the conclusion — proximity to the high wins, deep-discount does not — it just stops a handful of unrepeatable multi-baggers from flattering the worst tier.
 
 > **⚠️ Short-side warning (for the future reversal book).** The same fat tail that flatters the long deep-discount tier is a *lethal* hazard on the SHORT side. Shorting 52-week highs / extended names blindly means that occasionally you are short one of these 100×-type runners — and a single such position, held with a fixed or slow stop, can wipe out the cumulative profit of hundreds of good shorts (the right-tail is effectively unbounded on the upside, unlike the −100% floor on a long). The 24 trips returning >500% here, and the broader observation that momentum names can run multiples, mean a short-reversal system **must** carry hard, fast, non-negotiable stops and/or strict size caps; it cannot use the "remove stops" approach that helps the long/mean-reversion side. Do not short strength without that protection.
 
@@ -1952,7 +1952,7 @@ Clean and monotonic: **the closer to the 52-week high, the better, turning net-n
 
 ## Momentum structure: MA distance, trailing returns, and the pre-breakout days
 
-With the **52w-high band** (within 15%) and **price floor** ($5) confirmed as the right filters, all three remaining structure breakdowns were run on that cleaned study set (gate-off `trips_structure.csv` filtered to `entry_price ≥ 5 AND entry ≥ 0.85 × hiclose_52w` → **43,081 trips, +$5.08M** clipped; per-trip returns clipped at +500% throughout). Distances derived in SQL from the raw level columns. **Note: the tightness (<0.40) and ATR (<8%) filters are already baked into this study set** (the CSV was generated with `--max-tightness 0.40 --max-atr-pct 0.08`), so every structure pattern below is *already conditioned on the contracted, low-ATR base* — these are not raw-universe results.
+With the **52w-high band** (within 15%) and **price floor** (\$5) confirmed as the right filters, all three remaining structure breakdowns were run on that cleaned study set (gate-off `trips_structure.csv` filtered to `entry_price ≥ 5 AND entry ≥ 0.85 × hiclose_52w` → **43,081 trips, +\$5.08M** clipped; per-trip returns clipped at +500% throughout). Distances derived in SQL from the raw level columns. **Note: the tightness (<0.40) and ATR (<8%) filters are already baked into this study set** (the CSV was generated with `--max-tightness 0.40 --max-atr-pct 0.08`), so every structure pattern below is *already conditioned on the contracted, low-ATR base* — these are not raw-universe results.
 
 ### Distance from the moving averages (extension)
 
@@ -1999,24 +1999,24 @@ Every structure lens points to the same archetype, and it is textbook Minervini/
 
 ## Stop variants: remove the price stop, or use Qullamaggie's day-low stop
 
-Mean-reversion systems often improve when you *remove* stops (the trailing stop whipsaws you out of recoveries). Does that carry to momentum? Two variants tested against the baseline 15-day-low trailing stop, all on the refined entry (tight<0.40, ATR<8%, expansion-0.70 exit), price ≥ $5:
+Mean-reversion systems often improve when you *remove* stops (the trailing stop whipsaws you out of recoveries). Does that carry to momentum? Two variants tested against the baseline 15-day-low trailing stop, all on the refined entry (tight<0.40, ATR<8%, expansion-0.70 exit), price ≥ \$5:
 
 - **Baseline** — 15-day-low trailing stop + expansion exit.
 - **Variant 1** — *no price stop at all*; exits are the **time stop (20d)** + expansion only.
 - **Variant 2 (Qullamaggie)** — initial stop at the **entry-day low**, trailing up to the 15-day-low once that rises above it (tight initial risk, then normal trail) + expansion.
 
-### Results (price ≥ $5; unclipped — the honest read for a stop comparison, since stops are a bet on tails)
+### Results (price ≥ \$5; unclipped — the honest read for a stop comparison, since stops are a bet on tails)
 
 | stop config | trades | net P&L | PF | win% | avg/trip | avg hold |
 | ----------- | -----: | -------: | ---: | ---: | -------: | -------: |
-| baseline (15-day-low) | 24,521 | **+3,447,458** | 1.229 | 42.0% | +$141 | 28d |
-| **V1: no stop + time-20** | 24,521 | +3,303,594 | **1.247** | **51.3%** | +$135 | 20d |
-| V2: Qullamaggie day-low | 24,521 | +2,873,787 | 1.245 | 35.7% | +$117 | 20d |
+| baseline (15-day-low) | 24,521 | **+3,447,458** | 1.229 | 42.0% | +\$141 | 28d |
+| **V1: no stop + time-20** | 24,521 | +3,303,594 | **1.247** | **51.3%** | +\$135 | 20d |
+| V2: Qullamaggie day-low | 24,521 | +2,873,787 | 1.245 | 35.7% | +\$117 | 20d |
 
 **Both variants raise PF (better risk-adjusted return) — the standard 15-day-low stop is not optimal — but neither raises gross P&L.** The two work in opposite ways:
 
-- **V1 (no price stop) — your mean-reversion intuition carries over.** Removing the trailing stop lifts **PF 1.229 → 1.247 and win rate 42% → 51%**: you stop getting shaken out at the 15-day-low, so more trades survive to run (expansion) or get a clean 20-day look (the exit mix is ~all `time` + `expansion`). Cost: net P&L −$144k, because the stop, whipsaws aside, did cut some real losers faster than a 20-day wait. Net = **higher-PF, much-higher-win-rate, smoothest equity, marginally less gross**.
-- **V2 (Qullamaggie day-low) — the opposite shape.** The tight entry-day-low stop is hit far more often (it sits much closer than the 15-day-low), so win rate *drops* to 35.7% and gross P&L falls most (−$574k) — but the survivors are high quality (expansion sleeve +$1.66M on 704 trips), so PF still rises to 1.245. Classic Qullamaggie: **tight initial risk, many small stop-outs, fewer-but-bigger winners** — minimizes per-trade loss at the cost of total.
+- **V1 (no price stop) — your mean-reversion intuition carries over.** Removing the trailing stop lifts **PF 1.229 → 1.247 and win rate 42% → 51%**: you stop getting shaken out at the 15-day-low, so more trades survive to run (expansion) or get a clean 20-day look (the exit mix is ~all `time` + `expansion`). Cost: net P&L −\$144k, because the stop, whipsaws aside, did cut some real losers faster than a 20-day wait. Net = **higher-PF, much-higher-win-rate, smoothest equity, marginally less gross**.
+- **V2 (Qullamaggie day-low) — the opposite shape.** The tight entry-day-low stop is hit far more often (it sits much closer than the 15-day-low), so win rate *drops* to 35.7% and gross P&L falls most (−\$574k) — but the survivors are high quality (expansion sleeve +\$1.66M on 704 trips), so PF still rises to 1.245. Classic Qullamaggie: **tight initial risk, many small stop-outs, fewer-but-bigger winners** — minimizes per-trade loss at the cost of total.
 
 ### And — crucially — removing the stop does NOT blow up the bear years
 
@@ -2028,25 +2028,25 @@ The fear with "no stops" is uncapped bleed in a downtrend. The opposite happens 
 | 2022 | −225,378 | **−124,743** | −165,266 |
 | 2023 | −287,283 | −214,408 | −208,913 |
 
-**Both variants improve every drawdown year**, and the standard 15-day-low stop is actually the *worst* in bears (it gives back the most). V1 is the standout overall — best win rate, best PF, best bear-year behavior — for only ~$144k less gross than baseline.
+**Both variants improve every drawdown year**, and the standard 15-day-low stop is actually the *worst* in bears (it gives back the most). V1 is the standout overall — best win rate, best PF, best bear-year behavior — for only ~\$144k less gross than baseline.
 
 **Verdict:** the 15-day-low trailing stop is not the right stop for this momentum system. **Replacing it with no-price-stop + a 20-day time exit (V1) is the best risk-adjusted choice** (higher PF, 51% win rate, smaller drawdowns); the Qullamaggie day-low stop (V2) is the choice if minimizing per-trade loss matters more than total return. This mirrors the mean-reversion finding — stops hurt — but the protection that makes "no stop" safe here is the **time stop**, not a price stop. (NB: this contrasts sharply with the short side, where stops are non-negotiable — see the short-side warning above.)
 
 ## Building the composite system (toward a tradeable PF)
 
-Moving from isolated tests to a stacked system. Fixed defaults: **VCP entry (tightness<0.40, ATR<8%) + expansion-0.70 exit**, and the **V1 exit regime as the new baseline (no price stop + 20-day time stop)** — chosen for its higher PF, 51% win rate, and bounded ~20-day hold (capital recycles fast; explicitly avoiding the 3-month time-stop trap). Study set: gate-off `trips_v1_structure.csv` (106,522 trips, V1 exits, all 66 structure columns), breadth lagged 1 day. **P&L unclipped** (the $5 price floor already removes the penny-stock artifact, so the real fat tails are kept for a deployable estimate).
+Moving from isolated tests to a stacked system. Fixed defaults: **VCP entry (tightness<0.40, ATR<8%) + expansion-0.70 exit**, and the **V1 exit regime as the new baseline (no price stop + 20-day time stop)** — chosen for its higher PF, 51% win rate, and bounded ~20-day hold (capital recycles fast; explicitly avoiding the 3-month time-stop trap). Study set: gate-off `trips_v1_structure.csv` (106,522 trips, V1 exits, all 66 structure columns), breadth lagged 1 day. **P&L unclipped** (the \$5 price floor already removes the penny-stock artifact, so the real fat tails are kept for a deployable estimate).
 
 ### Filter funnel (the 5 strength filters)
 
 | step | trades | PF | win% | avg/trip | hold |
 | ---- | -----: | ---: | ---: | -------: | ---: |
-| base (VCP+exp+V1, gate-off) | 106,522 | 1.22 | 46.8% | $164 | 20d |
-| + price > $5 | 77,605 | 1.06 | 48.2% | $39 | 21d |
-| + within 15% of 52w-high | 43,081 | 1.21 | 50.9% | $109 | 20d |
-| + breadth > 0.50 | 30,768 | 1.23 | 50.6% | $122 | 20d |
-| + above 13w MA | 30,392 | 1.30 | 50.6% | $154 | 20d |
+| base (VCP+exp+V1, gate-off) | 106,522 | 1.22 | 46.8% | \$164 | 20d |
+| + price > \$5 | 77,605 | 1.06 | 48.2% | \$39 | 21d |
+| + within 15% of 52w-high | 43,081 | 1.21 | 50.9% | \$109 | 20d |
+| + breadth > 0.50 | 30,768 | 1.23 | 50.6% | \$122 | 20d |
+| + above 13w MA | 30,392 | 1.30 | 50.6% | \$154 | 20d |
 
-The five "strength" filters land at **PF ~1.30** — solid but short of the 1.5 bar, and they are **largely redundant with each other** (within-15%-of-high, above-13w-MA, and breadth all select the same "near highs in an uptrend" regime, so each adds little after the first). Note the price>$5 step *lowers* PF on the full range (it strips the artifact gains the penny names were contributing); the within-15% step is what re-establishes the real edge. Hold time holds steady at ~20 days throughout (the V1 time stop).
+The five "strength" filters land at **PF ~1.30** — solid but short of the 1.5 bar, and they are **largely redundant with each other** (within-15%-of-high, above-13w-MA, and breadth all select the same "near highs in an uptrend" regime, so each adds little after the first). Note the price>\$5 step *lowers* PF on the full range (it strips the artifact gains the penny names were contributing); the within-15% step is what re-establishes the real edge. Hold time holds steady at ~20 days throughout (the V1 time stop).
 
 > **The 13w-MA filter is dropped as pure redundancy.** Tested head-to-head: with the within-15%-of-52wH filter on, adding "above 13w MA" changes the count by only +376 trades (30,768 → 30,392) and PF by 0.004 (1.292 → 1.296); at the selective end the two are *identical* (PF 1.562, the no-MA version giving 39 *more* trades). Anything within 15% of its 52w high is essentially always above its 13w MA, so the condition adds nothing. **Simplified system drops it** — same PF, one fewer parameter, more robust. The remaining strength filters are just **within 15% of 52w-high + breadth>0.5.**
 
@@ -2056,16 +2056,16 @@ The strength filters set the *regime*; pushing PF higher needs filters that *tri
 
 | config | trades | PF | win% | avg/trip | hold |
 | ------ | -----: | ---: | ---: | -------: | ---: |
-| composite + RVOL 4-20x | 17,420 | 1.43 | 51.4% | $213 | 21d |
-| composite + RVOL 6-20x | 7,890 | 1.46 | 52.2% | $231 | 21d |
-| + tightness < 0.30 | 5,617 | **1.56** | 52.7% | $264 | 21d |
-| + within 5% of 52w-high | 6,133 | 1.52 | 53.5% | $257 | 21d |
-| **+ both (tight<0.30 AND within 5%)** | 4,264 | **1.62** | 54.1% | $286 | 21d |
+| composite + RVOL 4-20x | 17,420 | 1.43 | 51.4% | \$213 | 21d |
+| composite + RVOL 6-20x | 7,890 | 1.46 | 52.2% | \$231 | 21d |
+| + tightness < 0.30 | 5,617 | **1.56** | 52.7% | \$264 | 21d |
+| + within 5% of 52w-high | 6,133 | 1.52 | 53.5% | \$257 | 21d |
+| **+ both (tight<0.30 AND within 5%)** | 4,264 | **1.62** | 54.1% | \$286 | 21d |
 
 **This clears the 1.5 target.** The decisive additions:
 - **An RVOL *floor* (≥6x, capped <20x)** — the weak 3-4x tier was the drag; demanding a *strong but not blow-off* volume surge lifts PF 1.30 → 1.46. (RVOL ≥20x is genuinely bad and dropped; a **gap cap was tried and rejected** — gap≥40% looks bad clipped but unclipped it holds real fat-tail winners, so capping it *lowers* deployable PF.)
 - **Tightness < 0.30** (vs <0.40) adds the most single jump (1.46 → 1.56) — the tighter-is-better sub-slice, confirmed.
-- **Both together → PF 1.62, 54% win, $286/trip**, and **hold stays ~21 days** — the selectivity comes entirely from entry quality, not from holding longer.
+- **Both together → PF 1.62, 54% win, \$286/trip**, and **hold stays ~21 days** — the selectivity comes entirely from entry quality, not from holding longer.
 
 ### The cost — and the capital-velocity lens
 
@@ -2073,11 +2073,11 @@ The 1.6-PF config is **4,264 trips over 21 years ≈ 200/year ≈ <1/day**. High
 
 ### Converging spec
 
-**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>$5, **20-day market breadth > 0.5-0.6** (the 20-day breadth beats the 50/100-day — see the breadth-period sweep). (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.6-1.8 with the 20-day breadth, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min) and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
+**Entry:** up≥5% on ≥6× (and <20×) RVOL, into a new-or-near 52-week high (**within 5-15%**), from a **tight base (tightness<0.30, ATR<8%)**, price>\$5, **20-day market breadth > 0.5-0.6** (the 20-day breadth beats the 50/100-day — see the breadth-period sweep). (The 13w-MA filter is dropped — redundant with the 52wH band, same PF.) **Exit:** no price stop; **20-day time stop** + volatility-expansion (tightness>0.70). → **PF ~1.6-1.8 with the 20-day breadth, ~54% win, ~21-day hold.** Still to test: the deferred intraday-RVOL entry timing (first 5/15/30/60 min) and the Qullamaggie day-low stop as a *capital-velocity* play (frees capital faster on failures even if gross PF is a touch lower).
 
 ### Yearly breakdown of the final system — 21 of 22 years positive
 
-The simplified composite — **VCP tight base (tightness<0.30, ATR<8%) + RVOL 6-20× + within 15% of the 52w-high + breadth>0.5, V1 exits (no price stop, 20-day time stop, expansion), price>$5** — by entry year (unclipped):
+The simplified composite — **VCP tight base (tightness<0.30, ATR<8%) + RVOL 6-20× + within 15% of the 52w-high + breadth>0.5, V1 exits (no price stop, 20-day time stop, expansion), price>\$5** — by entry year (unclipped):
 
 | year | trades | win% | PF | net P&L |
 | ---- | -----: | ---: | ---: | -------: |
@@ -2104,16 +2104,16 @@ The simplified composite — **VCP tight base (tightness<0.30, ATR<8%) + RVOL 6-
 | 2025 | 215 | 50.2% | 1.25 | +37,224 |
 | 2026 | 111 | 49.5% | 1.14 | +8,886 |
 
-**Total +$1,491,461, 21 of 22 years positive, worst year −$15,648 (2014, PF 0.88).** The one down year is a small chop-year loss — about 1/14th of the best year — not a drawdown event. The transformation vs the naive v0 is the headline: the years that *defined* the original system's regime risk are now neutralized —
+**Total +\$1,491,461, 21 of 22 years positive, worst year −\$15,648 (2014, PF 0.88).** The one down year is a small chop-year loss — about 1/14th of the best year — not a drawdown event. The transformation vs the naive v0 is the headline: the years that *defined* the original system's regime risk are now neutralized —
 
 | year | naive v0 | final composite |
 | ---- | -------: | --------------: |
-| 2008 | −$218,917 | +$13,116 |
-| 2021 | −$1,143,069 | +$160,194 |
-| 2022 | −$482,904 | +$2,689 |
-| 2023 | −$544,837 | +$1,533 |
+| 2008 | −\$218,917 | +\$13,116 |
+| 2021 | −\$1,143,069 | +\$160,194 |
+| 2022 | −\$482,904 | +\$2,689 |
+| 2023 | −\$544,837 | +\$1,533 |
 
-The bears that cost the naive system >$2.3M combined now net roughly flat-to-positive — exactly the right behavior for a momentum book in a hostile regime: **don't make money, but don't give it back.** Three mechanisms compound to produce this: the **entry filters** (only contracted bases near highs in a positive-breadth tape), the **20-day time stop** (caps the bleed before a topped name grinds down), and **breadth>0.5** (sits out the worst stretches). Meanwhile the melt-up years are untouched (2013 PF 2.77, 2020 2.02, 2024 2.08, 2017 1.81), and **win rate is a genuine majority in most years (50-63%)** — unusual for momentum, a direct consequence of the no-price-stop regime not shaking you out.
+The bears that cost the naive system >\$2.3M combined now net roughly flat-to-positive — exactly the right behavior for a momentum book in a hostile regime: **don't make money, but don't give it back.** Three mechanisms compound to produce this: the **entry filters** (only contracted bases near highs in a positive-breadth tape), the **20-day time stop** (caps the bleed before a topped name grinds down), and **breadth>0.5** (sits out the worst stretches). Meanwhile the melt-up years are untouched (2013 PF 2.77, 2020 2.02, 2024 2.08, 2017 1.81), and **win rate is a genuine majority in most years (50-63%)** — unusual for momentum, a direct consequence of the no-price-stop regime not shaking you out.
 
 **Caveat — thin bear-year samples.** 2008 (60 trips), 2022 (67), 2023 (186) are small because breadth>0.5 + near-highs correctly *suppresses* entries in bad tapes — which is the point, but it means those years' PFs rest on few trades and shouldn't be over-read. The edge is real and consistent; the precise bear-year P&L is noisier than the trade-rich bull years. The 2014 loss and the barely-positive 2022/2023/2026 also show the system is not magic — it's a *consistent, capital-preserving* momentum edge (PF ~1.5, 21/22 green, fast ~21-day capital turnover), not a holy grail.
 
@@ -2124,17 +2124,17 @@ Raising the breadth gate from 0.50 → 0.60 (still % above the 50-day MA) trades
 | | breadth > 0.50 | breadth > 0.60 |
 | -- | -------------: | -------------: |
 | total PF | 1.56 | **1.79** |
-| total net | +$1.49M | +$1.35M |
+| total net | +\$1.49M | +\$1.35M |
 | trades | 5,656 | 3,855 |
 | win% | 52.7% | 54.0% |
 | years positive | 21/22 | 21/22 |
-| worst year | −$15,648 (2014) | −$25,931 (2014) |
+| worst year | −\$15,648 (2014) | −\$25,931 (2014) |
 
-**PF jumps 1.56 → 1.79 for giving up ~$140k of total P&L and ~1,800 trades** — the marginal trades the stricter gate removes are low-quality, so per-trade edge rises sharply. Still 21/22 positive (same lone down year, 2014, which is slightly *worse* at −$26k — its losses were never a breadth problem; it was a whippy year for breakouts specifically). The melt-up years get even sharper (2020 PF **4.13** vs 2.02, 2024 2.53, 2013 2.32), and **2021 improves to PF 1.69 / +$199k** (vs 1.41 / +$160k) as the stricter gate filters more of the 2021-H2 deterioration. Cost: even thinner bear-year samples (2008 = 37 trips at PF 6.32 — not to be over-read; 2022 = 46). Net: **0.60 is the better setting if you want PF margin comfortably above 1.5 and tighter concentration into strong tapes**; 0.50 if you want more trades / fuller capital deployment.
+**PF jumps 1.56 → 1.79 for giving up ~\$140k of total P&L and ~1,800 trades** — the marginal trades the stricter gate removes are low-quality, so per-trade edge rises sharply. Still 21/22 positive (same lone down year, 2014, which is slightly *worse* at −\$26k — its losses were never a breadth problem; it was a whippy year for breakouts specifically). The melt-up years get even sharper (2020 PF **4.13** vs 2.02, 2024 2.53, 2013 2.32), and **2021 improves to PF 1.69 / +\$199k** (vs 1.41 / +\$160k) as the stricter gate filters more of the 2021-H2 deterioration. Cost: even thinner bear-year samples (2008 = 37 trips at PF 6.32 — not to be over-read; 2022 = 46). Net: **0.60 is the better setting if you want PF margin comfortably above 1.5 and tighter concentration into strong tapes**; 0.50 if you want more trades / fuller capital deployment.
 
 ### Breadth-period sweep — the 20-day is the better filter
 
-The breadth gate so far used **% above the 50-day MA** (≈8w, close to the system's own horizons). `breadth.parquet` also stores the 20- and 100-day versions, so sweeping period × threshold is free (no rebuild). On the selective base (VCP tight<0.30, RVOL 6-20×, within 15% of 52wH, V1 exits, price>$5), unclipped:
+The breadth gate so far used **% above the 50-day MA** (≈8w, close to the system's own horizons). `breadth.parquet` also stores the 20- and 100-day versions, so sweeping period × threshold is free (no rebuild). On the selective base (VCP tight<0.30, RVOL 6-20×, within 15% of 52wH, V1 exits, price>\$5), unclipped:
 
 | breadth filter | trades | net P&L | PF | win% |
 | -------------- | -----: | -------: | ---: | ---: |
@@ -2208,10 +2208,10 @@ Switching the breadth gate from 50-day to 20-day eliminates the lone down year (
 | 2025 | 114 | 50.9% | 1.16 | +14,326 |
 | 2026 | 39 | 61.5% | 3.21 | +25,936 |
 
-**The 2014 loss was a breadth-speed artifact.** Under 50d>0.5, 2014 was the one red year (−$16k); under 20d>0.5 it flips to **+$11k (PF 1.11)** and under 20d>0.6 to **+$13k (PF 1.18)**. 2014 had several sharp mid-year breadth dips (Jan, Jul-Aug, Oct) that the fast 20-day gate sidestepped but the slow 50-day rode straight through — the same lag lesson, now costing a whole year. With the 20-day:
+**The 2014 loss was a breadth-speed artifact.** Under 50d>0.5, 2014 was the one red year (−\$16k); under 20d>0.5 it flips to **+\$11k (PF 1.11)** and under 20d>0.6 to **+\$13k (PF 1.18)**. 2014 had several sharp mid-year breadth dips (Jan, Jul-Aug, Oct) that the fast 20-day gate sidestepped but the slow 50-day rode straight through — the same lag lesson, now costing a whole year. With the 20-day:
 
-- **20d>0.5 — 22/22 green, worst year 2025 (+$12k, PF 1.07)**, 4,906 trips, PF 1.64. More trades / fuller deployment.
-- **20d>0.6 — 22/22 green, worst year 2008 (+$6k), no year below PF 1.16**, 3,388 trips, PF 1.82. Tighter and higher-quality, melt-ups sharper (2020 PF 3.77, 2026 3.21, 2021 2.05), but bear-year samples get thin (2008=42, 2026=39 trips — high PFs there not to be over-read).
+- **20d>0.5 — 22/22 green, worst year 2025 (+\$12k, PF 1.07)**, 4,906 trips, PF 1.64. More trades / fuller deployment.
+- **20d>0.6 — 22/22 green, worst year 2008 (+\$6k), no year below PF 1.16**, 3,388 trips, PF 1.82. Tighter and higher-quality, melt-ups sharper (2020 PF 3.77, 2026 3.21, 2021 2.05), but bear-year samples get thin (2008=42, 2026=39 trips — high PFs there not to be over-read).
 
 This is the milestone: a 22-year, **22-of-22-years-positive** momentum system at **PF 1.6-1.8, ~53% win, ~21-day hold** — shines in the parabolic bulls (2013/2020/2021/2024 all PF ≥1.85) and preserves capital in every bear. The threshold is a pure selectivity dial: 0.5 for more trades, 0.6 for more PF margin; both clear the bar with no losing years.
 
@@ -2223,21 +2223,21 @@ Two sizing ideas tested post-hoc by re-weighting each trip's *return* (`exit/ent
 
 | RVOL | trades | win% | PF | avg/trip |
 | ---- | -----: | ---: | ---: | -------: |
-| 6-8x | 2,314 | 52.2% | 1.56 | $253 |
-| 8-10x | 1,139 | 51.2% | 1.30 | $161 |
-| 10-13x | 795 | 56.9% | 1.82 | $343 |
-| **13-16x** | 371 | 52.8% | **2.39** | **$647** |
-| **16-20x** | 287 | 56.4% | **2.64** | $583 |
+| 6-8x | 2,314 | 52.2% | 1.56 | \$253 |
+| 8-10x | 1,139 | 51.2% | 1.30 | \$161 |
+| 10-13x | 795 | 56.9% | 1.82 | \$343 |
+| **13-16x** | 371 | 52.8% | **2.39** | **\$647** |
+| **16-20x** | 287 | 56.4% | **2.64** | \$583 |
 
-Past ~10×, higher RVOL is monotonically better — the **13-20× cells are PF 2.4-2.6 at ~$580-650/trip** (≈2.5× the 6-8× cell). The bigger the (sub-exhaustion) volume surge, the better the trade — a strong sizing signal.
+Past ~10×, higher RVOL is monotonically better — the **13-20× cells are PF 2.4-2.6 at ~\$580-650/trip** (≈2.5× the 6-8× cell). The bigger the (sub-exhaustion) volume surge, the better the trade — a strong sizing signal.
 
 ### Inverse-ATR sizing — REJECTED
 
 Volatility-parity sizing (notional ∝ 1/ATR%, target ~5% risk, clipped [0.25×, 4×]) makes the system **worse**:
 
-| scheme (norm. to same avg notional) | return-per-$ | PF |
+| scheme (norm. to same avg notional) | return-per-\$ | PF |
 | ----------------------------------- | -----------: | ---: |
-| flat $10k | **2.96%** | **1.64** |
+| flat \$10k | **2.96%** | **1.64** |
 | inverse-ATR | 2.10% | 1.53 |
 | inverse-ATR × breadth>0.6 boost | 2.24% | 1.57 |
 
@@ -2258,7 +2258,7 @@ The both-true "A-trade" cell is **PF 2.69 / 7.18% average return — ~6× the ra
 
 Independent multipliers, normalized to matched average notional (pure reallocation):
 
-| scheme (norm.) | return-per-$ | PF |
+| scheme (norm.) | return-per-\$ | PF |
 | -------------- | -----------: | ---: |
 | flat | 2.96% | 1.64 |
 | RVOL 2× × breadth 2× | 3.63% | 1.81 |
@@ -2408,9 +2408,9 @@ Sizing each trade by the **product of its breadth-tercile and RVOL-tercile Kelly
 
 **Totals: flat PF 1.64 / ++1,449,849 → Kelly-sized PF 1.87 / ++1,930,215** — return-per-dollar 2.96% → **3.93% (+33%)**, at matched average size. Reading it:
 
-- **Still 22/22 positive** — sizing strengthened the weak years rather than risking them (2025 +$12k→+$24k, 2014 +$11k→+$22k).
-- **The big bull years amplify hardest** — 2021 +$219k → **+$465k** (PF 1.68→2.35), 2020 +$213k → **+$337k** (2.01→2.72) — exactly right, since those were high-breadth/high-RVOL years where the Kelly weights leaned in and were rewarded.
-- A few years give back slightly (2013 −$8k, 2017 −$12k, 2018 −$17k) as weight shifts away from their lower-tercile trades — a fair, expected reallocation cost. Net strongly positive across all years.
+- **Still 22/22 positive** — sizing strengthened the weak years rather than risking them (2025 +\$12k→+\$24k, 2014 +\$11k→+\$22k).
+- **The big bull years amplify hardest** — 2021 +\$219k → **+\$465k** (PF 1.68→2.35), 2020 +\$213k → **+\$337k** (2.01→2.72) — exactly right, since those were high-breadth/high-RVOL years where the Kelly weights leaned in and were rewarded.
+- A few years give back slightly (2013 −\$8k, 2017 −\$12k, 2018 −\$17k) as weight shifts away from their lower-tercile trades — a fair, expected reallocation cost. Net strongly positive across all years.
 
 **⚠️ In-sample caveat.** The tercile Kelly fractions were fit on the *same* 2005-2026 data they're then applied to, so this +33% is an optimistic, in-sample figure — the sizing edge will be smaller live. Two things mitigate (not eliminate) it: the weights use only the *coarse, well-sampled marginals* (3 terciles × 3 terciles, ~545-2000 trips each — not the noisy 25/50-cell estimates), and the product form is the additivity-justified low-parameter model. Running **half-Kelly** (halve every weight span) and **hard per-position caps** is the deployable version; the live expectation is "a meaningful but smaller sizing lift on top of the PF-1.6 base," not +33%.
 
@@ -2459,7 +2459,7 @@ The 3×3 joint PF grid is non-monotonic (noisy ~550-trip cells) while both *marg
 
 **Why `min` is the right operator (the principle):** the breadth/RVOL edge is **additive — it needs BOTH factors** (established earlier: the 2×2 showed independence/additivity). The correct combiner therefore rewards *both being present*, not *either*. `max` (OR) is satisfied by one signal and so overbets one-sided trades; `avg` partially does the same and mis-ranks them; **`min` (AND) is the only one that demands both, which is why it alone produces a monotonic sizing score.** Note these are different *groupings* of trades, not different statistics of the same set — `min`'s top bucket out-PFs `max`'s top bucket because `min`'s (AND-selected) elite is a small pure subset while `max`'s (OR-selected) "top" is a bloated superset. (Earlier confusion that "min PF > max PF is impossible" dissolves once you see they bucket *different trades*.)
 
-**`min`-of-marginals half-Kelly sized yearly result.** *Two-step:* (1) the `min`-of-marginal-PFs score is used **only to bucket** each trade into `min(breadth_t, rvol_t)` ∈ {1,2,3} — it is a **ranker/sorter, not the size**; (2) position size = each bucket's **realized half-Kelly** fraction, fit from that bucket's *actual* win-rate `W` and win/loss-ratio `R` (`f* = W − (1−W)/R`). So magnitude comes from realized outcomes, not from the PF-score value (we do **not** bet ∝ the score; PF is not a Kelly fraction). Mean-weight normalized to 1 (pure reallocation, no added leverage): half-Kelly fractions **0.074 / 0.108 / 0.176** (~2.4× span). Result: **flat $1.449M (PF 1.639) → min-Kelly $1.724M (PF 1.766)** = **+19% P&L, +0.13 PF**, positive all 22 years, with the lift concentrated in the high-breadth parabolic years (2020 +$72k, 2021 +$167k). This is **more conservative than the product-of-marginals sizing** (+33% in-sample, earlier section): `min` is a coarse, monotonically-*validated* 3-level ladder that refuses to up-size one-sided trades, trading a little in-sample upside for robustness — the better choice for deployment.
+**`min`-of-marginals half-Kelly sized yearly result.** *Two-step:* (1) the `min`-of-marginal-PFs score is used **only to bucket** each trade into `min(breadth_t, rvol_t)` ∈ {1,2,3} — it is a **ranker/sorter, not the size**; (2) position size = each bucket's **realized half-Kelly** fraction, fit from that bucket's *actual* win-rate `W` and win/loss-ratio `R` (`f* = W − (1−W)/R`). So magnitude comes from realized outcomes, not from the PF-score value (we do **not** bet ∝ the score; PF is not a Kelly fraction). Mean-weight normalized to 1 (pure reallocation, no added leverage): half-Kelly fractions **0.074 / 0.108 / 0.176** (~2.4× span). Result: **flat \$1.449M (PF 1.639) → min-Kelly \$1.724M (PF 1.766)** = **+19% P&L, +0.13 PF**, positive all 22 years, with the lift concentrated in the high-breadth parabolic years (2020 +\$72k, 2021 +\$167k). This is **more conservative than the product-of-marginals sizing** (+33% in-sample, earlier section): `min` is a coarse, monotonically-*validated* 3-level ladder that refuses to up-size one-sided trades, trading a little in-sample upside for robustness — the better choice for deployment.
 
 > **⚠️ In-sample caveat.** Both the bucketing (the marginal-PF cutoffs) and the per-bucket Kelly fractions were fit on the *same* 2005-2026 data they're applied to, so +19% is optimistic — the live lift will be smaller. `min` is *less* overfit than the product/fine-cell schemes (only 3 coarse, well-sampled buckets — 2,753 / 1,621 / 533 trades), but it is not out-of-sample. Deploy at half-Kelly (already applied) with hard per-position caps; treat +19% as an upper bound.
 
@@ -2724,15 +2724,15 @@ The 3×3 joint PF grid is non-monotonic (noisy ~550-trip cells) while both *marg
 
 </details>
 >
-> **⚠️ SUPERSEDED 2026-06-17 — the default exit is now Qulla day-low stop + N=1 trailing limit + 0.70 expansion, NO time stop** (see [Default system locked](#default-system-locked-qulla--n1-no-time-stop-2026-06-17) below). The min-bucket half-Kelly *sizing* is unchanged in spirit, but the half-Kelly fractions were **recomputed on the new exit's realized returns** to **0.113 / 0.153 / 0.166** (bucket PFs 2.07 / 2.75 / 3.18 — higher than the old 0.074/0.108/0.176 because the better exit lifts every bucket). The new system's full yearly + monthly Kelly-sized breakdown — **68.1% of months profitable (169/248), 21/22 years positive, total +$1,799,216** — is in the [Qulla N=1 monthly breakdown](#qulla--n1-trailing-limit-no-time-stop--monthly-breakdown-15-day-stop-min-bucket-half-kelly--2026-06-17) below.
+> **⚠️ SUPERSEDED 2026-06-17 — the default exit is now Qulla day-low stop + N=1 trailing limit + 0.70 expansion, NO time stop** (see [Default system locked](#default-system-locked-qulla--n1-no-time-stop-2026-06-17) below). The min-bucket half-Kelly *sizing* is unchanged in spirit, but the half-Kelly fractions were **recomputed on the new exit's realized returns** to **0.113 / 0.153 / 0.166** (bucket PFs 2.07 / 2.75 / 3.18 — higher than the old 0.074/0.108/0.176 because the better exit lifts every bucket). The new system's full yearly + monthly Kelly-sized breakdown — **68.1% of months profitable (169/248), 21/22 years positive, total +\$1,799,216** — is in the [Qulla N=1 monthly breakdown](#qulla--n1-trailing-limit-no-time-stop--monthly-breakdown-15-day-stop-min-bucket-half-kelly--2026-06-17) below.
 
 ### Qulla + N=1 trailing-limit, NO time stop — monthly breakdown (15-day stop, min-bucket half-Kelly) — 2026-06-17
 
 The original write-up of the no-time-stop default, on the **15-day** trailing-stop window (before the [window sweep](#trailing-stop-window-sweep--tighten-to-4-day-low-2026-06-17) showed w=4 is better). Same 5-filter system, Qulla day-low stop + N=1 trailing limit + 0.70 expansion, no time stop. **P&L bucketed by EXIT date** (realized P&L lands when the trade closes) — note this differs from the older entry-date sections above.
 
-half-Kelly **0.114 / 0.151 / 0.169** (recomputed on this system's realized returns; the better exit lifts every bucket's PF vs the old 0.074/0.108/0.176). Total **+$1,703,397** Kelly-sized (flat +$1,630,805), 3671 trips. **Months profitable (by exit date): 171/257 = 66.5%** of the 257-month calendar span. Years positive: 22/22. Avg up +$11,247 vs down −$2,972 (3.8:1). Worst streak 5mo; max DD $-45,488.
+half-Kelly **0.114 / 0.151 / 0.169** (recomputed on this system's realized returns; the better exit lifts every bucket's PF vs the old 0.074/0.108/0.176). Total **+\$1,703,397** Kelly-sized (flat +\$1,630,805), 3671 trips. **Months profitable (by exit date): 171/257 = 66.5%** of the 257-month calendar span. Years positive: 22/22. Avg up +\$11,247 vs down −\$2,972 (3.8:1). Worst streak 5mo; max DD \$-45,488.
 
-> **⚠️ Small-n monthly-PF caveat:** many months have 1–8 trades, so the monthly PF column is noisy (`inf` on no-loss months). Trust net$/win% at month level; PF is meaningful only at year/bucket level.
+> **⚠️ Small-n monthly-PF caveat:** many months have 1–8 trades, so the monthly PF column is noisy (`inf` on no-loss months). Trust net\$/win% at month level; PF is meaningful only at year/bucket level.
 
 Yearly (Kelly-sized, **by exit date**):
 | year | trips | win% | PF | net |
@@ -3015,19 +3015,19 @@ Yearly (Kelly-sized, **by exit date**):
 
 </details>
 
-**Monthly win/loss profile (production, Kelly-sized).** Of **241 months**: **151 winning / 90 losing → 62.7% monthly win rate**, no flat months. The asymmetry compounds the count: **avg winning month +$15,745 vs avg losing month −$7,247 (win/loss ratio 2.17)** — a *monthly* PF of ~3.6, far above the trade-level 1.77 because pooling trades into months diversifies away single-trade variance. The classic momentum profile: lose small ~4 months in 10, win ~2× as large the other 6.
+**Monthly win/loss profile (production, Kelly-sized).** Of **241 months**: **151 winning / 90 losing → 62.7% monthly win rate**, no flat months. The asymmetry compounds the count: **avg winning month +\$15,745 vs avg losing month −\$7,247 (win/loss ratio 2.17)** — a *monthly* PF of ~3.6, far above the trade-level 1.77 because pooling trades into months diversifies away single-trade variance. The classic momentum profile: lose small ~4 months in 10, win ~2× as large the other 6.
 
 **Losing-month streaks.** 90 losing months fall into **51 streaks** — most are isolated: 31 single months, 8 two-month, 8 three-month, 1 four-month, 3 five-month (39 of 51 are ≤2 months; only 4 ever reached ≥4). **Crucially, the longest streaks are NOT the deepest** — depth and duration diverge:
 
-| streak (months) | occurrences | worst by $ (period → P&L) |
+| streak (months) | occurrences | worst by \$ (period → P&L) |
 | --- | --- | --- |
 | 1 | 31 | — |
 | 2 | 8 | — |
-| 3 | 8 | **2021-02→04: −$114,787** (post-parabola give-back) |
-| 4 | 1 | 2015-06→09: −$6,485 |
-| 5 | 3 | 2019-05→10: −$29,578 |
+| 3 | 8 | **2021-02→04: −\$114,787** (post-parabola give-back) |
+| 4 | 1 | 2015-06→09: −\$6,485 |
+| 5 | 3 | 2019-05→10: −\$29,578 |
 
-So the **longest drought is 5 months** (3×, all shallow: −$30k / −$18k / −$9k), but the **deepest drawdown is a short, sharp 3-month streak — −$115k across 2021-02→04**, the parabola-peak give-back. Second-deepest is also 3 months (2024-12→2025-02, −$45k). The takeaway for a live operator: duration is mild (you rarely sit in the red more than 2 months, never more than 5), but the *dollar* pain is concentrated in a couple of sharp post-peak 3-month windows, not the long quiet droughts.
+So the **longest drought is 5 months** (3×, all shallow: −\$30k / −\$18k / −\$9k), but the **deepest drawdown is a short, sharp 3-month streak — −\$115k across 2021-02→04**, the parabola-peak give-back. Second-deepest is also 3 months (2024-12→2025-02, −\$45k). The takeaway for a live operator: duration is mild (you rarely sit in the red more than 2 months, never more than 5), but the *dollar* pain is concentrated in a couple of sharp post-peak 3-month windows, not the long quiet droughts.
 
 **How the cell PF is computed (important — it is NOT `min` of the marginals).** The `min(breadth_t, rvol_t)` index is used *only to group the actual trades* into 3 buckets; each bucket's PF is then computed **freshly from those pooled trades' realized returns** — `sum(winning-trade returns) / |sum(losing-trade returns)|` over the trades in the bucket. It is *not* derived from the two marginal PF numbers. Evidence it's ground-truth and not a marginal lookup: the grid PFs **1.41 / 1.68 / 2.81 do not equal any `min` of the marginals** (which would give min-of {1.37,1.38}=1.37, etc., not 1.41; and min{2.13,2.07}=2.07, not 2.81). The half-Kelly fraction per cell is likewise fit from those same pooled trades' actual win-rate `W` and win/loss-ratio `R`. So both numbers in every cell are realized statistics of the bucket's real trades, with `min` serving only as the bucket-assignment rule.
 
@@ -3051,13 +3051,13 @@ Bucket 1 decays cleanly (1.46→1.20, and Q5 is the only negative-median quintil
 
 ### Dollar-volume (ADV) on the FINAL system — a real, additive small-cap premium (2026-06-16)
 
-Re-running the avg-dollar-volume breakdown (`avg_dollar_volume_4w_at_entry`) on the *final filtered system* (vs the earlier naive pre-filter pass, which was muddied by penny-stock artifacts). The study CSV carries trips down to **$100k ADV** (the engine floor was set to $100k, not the production $1M); 28.4% of the filtered trips are sub-$1M ADV.
+Re-running the avg-dollar-volume breakdown (`avg_dollar_volume_4w_at_entry`) on the *final filtered system* (vs the earlier naive pre-filter pass, which was muddied by penny-stock artifacts). The study CSV carries trips down to **\$100k ADV** (the engine floor was set to \$100k, not the production \$1M); 28.4% of the filtered trips are sub-\$1M ADV.
 
-**Pooled ADV quintiles (full population, $100k floor):** PF declines as ADV rises — **1.86 → 1.70 → 1.70 → 1.40 → 1.48** (Q1 $0.1-0.5M best). **With the $1M floor applied** (more conservative), the sweet spot is the **$2.5-5.5M band (PF 1.80)** and there's a clear **dead zone at $13-34M ADV (PF 1.11, negative median)** — mid/large breakouts are the weakest trades.
+**Pooled ADV quintiles (full population, \$100k floor):** PF declines as ADV rises — **1.86 → 1.70 → 1.70 → 1.40 → 1.48** (Q1 \$0.1-0.5M best). **With the \$1M floor applied** (more conservative), the sweet spot is the **\$2.5-5.5M band (PF 1.80)** and there's a clear **dead zone at \$13-34M ADV (PF 1.11, negative median)** — mid/large breakouts are the weakest trades.
 
 **ADV is NOT redundant with RVOL — it's an additive lever.** Within every `min`-bucket, the low-ADV tercile out-performs and the **high-ADV tercile is distinctly worst** (buckets 1+2, ~90% of trades):
 
-| min-bucket / ADV tercile → | T1 (low, ~$0.1-1.5M) | T2 (mid) | T3 (high, >$10M) |
+| min-bucket / ADV tercile → | T1 (low, ~\$0.1-1.5M) | T2 (mid) | T3 (high, >\$10M) |
 | --- | --- | --- | --- |
 | **bucket 1** (PF) | 1.64 | 1.43 | **1.13** |
 | **bucket 2** (PF) | 1.68 | 2.09 | **1.26** |
@@ -3065,7 +3065,7 @@ Re-running the avg-dollar-volume breakdown (`avg_dollar_volume_4w_at_entry`) on 
 
 So the **small-cap momentum premium is real and survives the breadth/RVOL stack** — large-cap breakouts fade (efficiently priced), small-cap breakouts run. This matches the original Market-Wizards "aggressive mid/small-cap breakout" thesis.
 
-**Deployment read (small account):** the low-ADV edge is *accessible*, not a hazard. On a breakout day actual volume is far above the trailing ADV — the **RVOL≥6 filter guarantees ≥6× the average**, so a $600k-ADV name trades $3.6M+ that day, plenty for a small account to fill with manageable slippage. **A small account *should* lean into these names** (the edge is strongest there and large players can't). **No ADV ceiling filter is wanted** — instead, manage the illiquid tail with *sizing*: bet less on the lowest-ADV names (dovetails with the `min`-Kelly sizing) and reserve capital for other opportunities. ADV is thus a continuous, additive dimension usable for sizing (tilt small, down-weight the least liquid), not a gate.
+**Deployment read (small account):** the low-ADV edge is *accessible*, not a hazard. On a breakout day actual volume is far above the trailing ADV — the **RVOL≥6 filter guarantees ≥6× the average**, so a \$600k-ADV name trades \$3.6M+ that day, plenty for a small account to fill with manageable slippage. **A small account *should* lean into these names** (the edge is strongest there and large players can't). **No ADV ceiling filter is wanted** — instead, manage the illiquid tail with *sizing*: bet less on the lowest-ADV names (dovetails with the `min`-Kelly sizing) and reserve capital for other opportunities. ADV is thus a continuous, additive dimension usable for sizing (tilt small, down-weight the least liquid), not a gate.
 
 ### Stop-variant comparison — time stop vs real price stops (2026-06-16)
 
@@ -3128,25 +3128,25 @@ Given how dominant the time stop is (97% of exits), we tested dropping the expan
 The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-low, PF 1.50) as a *PF-vs-capital-velocity* tradeoff: Qulla recycles capital faster (median 17-bar hold), so the hope was that **annualized return on deployed capital** — which PF undersells for fast turnover — would favor Qulla despite the lower PF. Computed post-hoc on the identical 5-filter population via a date-keyed concurrent-capital sweep-line (`scripts/equity/return_on_capital.py`, adapted from `scripts/crypto/notional_at_risk.py`). **Two stages** (annualization base = the ~21.35-year span):
 
 - **Stage A — return on *realized concurrent demand*** (no cap): total P&L / concurrent-notional-base / years. Capital base = peak / p99 / p95 / mean of the daily concurrent-deployed-notional series (headline p95 — robust to a few extreme 2021 cluster-days).
-- **Stage B — fixed $100k book, NON-compounding**, min-Kelly sizing (the 3-bucket 0.074/0.108/0.176 weights), hard $20k per-position cap, **drop-the-new** on overflow (no eviction). Flat yield (profits swept, not reinvested) — chosen so early-year differences don't geometrically amplify and muddy the comparison.
+- **Stage B — fixed \$100k book, NON-compounding**, min-Kelly sizing (the 3-bucket 0.074/0.108/0.176 weights), hard \$20k per-position cap, **drop-the-new** on overflow (no eviction). Flat yield (profits swept, not reinvested) — chosen so early-year differences don't geometrically amplify and muddy the comparison.
 
 | metric | V1 (20d time) | Qulla (day-low) |
 | --- | --- | --- |
 | filtered trips | 4,907 | 3,511 |
-| total P&L | **$1,448,869** | $709,116 |
+| total P&L | **\$1,448,869** | \$709,116 |
 | PF | **1.64** | 1.50 |
-| p95 concurrent capital | $510,000 | **$400,000** |
-| peak concurrent capital | $1,110,000 | **$860,000** |
+| p95 concurrent capital | \$510,000 | **\$400,000** |
+| peak concurrent capital | \$1,110,000 | **\$860,000** |
 | **ann RoC @ p95** | **13.3%** | 8.3% |
 | **ann RoC @ mean** | **31.9%** | 20.1% |
-| **Stage B ann return ($100k book)** | **17.9%** | 8.6% |
+| **Stage B ann return (\$100k book)** | **17.9%** | 8.6% |
 | Stage B trade capture | 61.0% | 59.5% |
 
-**Verdict: V1 wins decisively on return-on-capital — the capital-velocity thesis is wrong.** Qulla *did* lower capital demand as predicted (p95 $400k vs $510k, ~22% less; peak $860k vs $1.11M) — but its **total P&L fell more than twice as much** ($709k vs $1.45M, −51%). The tight day-low stop doesn't just recycle capital faster; it **cuts winners short** — the same fast exits that free capital also clip trades that would have recovered and run (consistent with Qulla's −1.89% median trade: it bleeds to the tight stop constantly). So the numerator (P&L) collapses faster than the denominator (capital) shrinks, and RoC falls. Stage B confirms it from the achievable-book angle: on the *same* $100k book, V1 returns **17.9% vs Qulla's 8.6%**, with **near-identical capture** (61% vs 59.5%) — Qulla's faster recycling did **not** even let the book accept meaningfully more trades.
+**Verdict: V1 wins decisively on return-on-capital — the capital-velocity thesis is wrong.** Qulla *did* lower capital demand as predicted (p95 \$400k vs \$510k, ~22% less; peak \$860k vs \$1.11M) — but its **total P&L fell more than twice as much** (\$709k vs \$1.45M, −51%). The tight day-low stop doesn't just recycle capital faster; it **cuts winners short** — the same fast exits that free capital also clip trades that would have recovered and run (consistent with Qulla's −1.89% median trade: it bleeds to the tight stop constantly). So the numerator (P&L) collapses faster than the denominator (capital) shrinks, and RoC falls. Stage B confirms it from the achievable-book angle: on the *same* \$100k book, V1 returns **17.9% vs Qulla's 8.6%**, with **near-identical capture** (61% vs 59.5%) — Qulla's faster recycling did **not** even let the book accept meaningfully more trades.
 
 **So V1 (20-day time stop) is the production exit:** higher PF, ~2× the P&L, and higher return on capital at every capital base. Qulla's only remaining advantage is *structural* — a hard cap on hold length (anti-bagholding insurance), a risk-management property, not a return one. The original 2025-mistake motivation (capital tied up in topped names) is better addressed by V1's 20-day time stop, which is itself a hard hold cap, than by accepting Qulla's P&L penalty.
 
-> **Reading the Stage A bases:** p95 (~$510k for V1) is the realistic "capital to rarely turn a trade away"; mean (~$213k) the average tied-up capital; peak (~$1.1M) the worst 2021 cluster day. The 13-32% ann-RoC range across bases brackets the strategy's capital efficiency. **In-sample caveat** (Stage B sizing + filters fit on this data) applies as elsewhere.
+> **Reading the Stage A bases:** p95 (~\$510k for V1) is the realistic "capital to rarely turn a trade away"; mean (~\$213k) the average tied-up capital; peak (~\$1.1M) the worst 2021 cluster day. The 13-32% ann-RoC range across bases brackets the strategy's capital efficiency. **In-sample caveat** (Stage B sizing + filters fit on this data) applies as elsewhere.
 
 ### Mean-reversion trailing-limit exit — sell the bounce, not the stop (2026-06-16)
 
@@ -3159,47 +3159,47 @@ The stop-variant section left V1 (20d time stop, PF 1.64) vs Qulla (entry-day-lo
 > Corrected, realistic-fill results live in `docs/momentum_v1_results.md`. Kept here only as a
 > record of the mistake.
 
-Idea: when an exit fires (the price stop for variants A/B; the **time stop** for V1, which has no price stop), instead of dumping at the next open — often a bad print after a down-day-into-stop — rest a **sell LIMIT at the N-day high**, ratchet it DOWN-only each bar (`limit = min(limit, rolling N-day high)`), and fill on the first bar whose high reaches it (selling *into* a bounce). 5-bar time cap to market if no bounce comes. No-lookahead: a resting limit at price P fills when a later bar trades through P. New engine flags `--trail-limit-high N --trail-limit-time-cap M`; the conversion fires only on "get-me-out" exits (stop/breakeven/time), not the discretionary expansion/ATR exits. The whole sweep is on the **full production filter set** (price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**); shown at both the 0.85 band and the **0.95 band** (the [proximity optimum](#cleaned-result--proximity-to-the-52-week-high-is-the-edge)). The base column reproduces the documented PF-1.639 baseline exactly (0.85 band) — see the regression note below.
+Idea: when an exit fires (the price stop for variants A/B; the **time stop** for V1, which has no price stop), instead of dumping at the next open — often a bad print after a down-day-into-stop — rest a **sell LIMIT at the N-day high**, ratchet it DOWN-only each bar (`limit = min(limit, rolling N-day high)`), and fill on the first bar whose high reaches it (selling *into* a bounce). 5-bar time cap to market if no bounce comes. No-lookahead: a resting limit at price P fills when a later bar trades through P. New engine flags `--trail-limit-high N --trail-limit-time-cap M`; the conversion fires only on "get-me-out" exits (stop/breakeven/time), not the discretionary expansion/ATR exits. The whole sweep is on the **full production filter set** (price≥\$5, ADV≥\$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**); shown at both the 0.85 band and the **0.95 band** (the [proximity optimum](#cleaned-result--proximity-to-the-52-week-high-is-the-edge)). The base column reproduces the documented PF-1.639 baseline exactly (0.85 band) — see the regression note below.
 
 **0.95 band (the production-optimum proximity filter), 3,671 trips each — exit-only difference. ATR%<8% cap applied (the full production filter set):**
 
 | Variant | Exit | PF | Total P&L | Median % | Win% | Fill% |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| V1 (time stop) | base | 1.670 | $1,138,768 | 0.89 | 54.0 | — |
-| V1 | **N=1** | **1.988** | **$1,521,917** | 1.58 | 56.8 | 96.9 |
-| V1 | N=2 | 1.854 | $1,388,740 | 1.31 | 55.7 | 93.1 |
-| V1 | N=3 | 1.798 | $1,336,811 | 1.28 | 55.6 | 82.9 |
-| V1 | N=4 | 1.734 | $1,267,894 | 1.19 | 55.0 | 71.9 |
-| A (15d-low) | base | 1.709 | $1,150,023 | 0.30 | 51.5 | — |
-| A | **N=1** | **2.133** | **$1,583,066** | 1.11 | 54.3 | 97.0 |
-| A | N=2 | 1.945 | $1,430,589 | 0.97 | 53.9 | 92.6 |
-| A | N=3 | 1.841 | $1,343,647 | 0.88 | 53.8 | 80.3 |
-| A | N=4 | 1.758 | $1,260,208 | 0.73 | 53.6 | 67.0 |
-| B (Qulla day-low) | base | 1.711 | $986,441 | −1.02 | 44.9 | — |
-| B | **N=1** | **2.401** | **$1,505,400** | 0.00 | 49.9 | 97.7 |
-| B | N=2 | 2.080 | $1,333,163 | 0.13 | 50.7 | 92.7 |
-| B | N=3 | 1.892 | $1,208,291 | 0.19 | 51.2 | 78.7 |
-| B | N=4 | 1.800 | $1,140,836 | 0.22 | 51.6 | 65.5 |
+| V1 (time stop) | base | 1.670 | \$1,138,768 | 0.89 | 54.0 | — |
+| V1 | **N=1** | **1.988** | **\$1,521,917** | 1.58 | 56.8 | 96.9 |
+| V1 | N=2 | 1.854 | \$1,388,740 | 1.31 | 55.7 | 93.1 |
+| V1 | N=3 | 1.798 | \$1,336,811 | 1.28 | 55.6 | 82.9 |
+| V1 | N=4 | 1.734 | \$1,267,894 | 1.19 | 55.0 | 71.9 |
+| A (15d-low) | base | 1.709 | \$1,150,023 | 0.30 | 51.5 | — |
+| A | **N=1** | **2.133** | **\$1,583,066** | 1.11 | 54.3 | 97.0 |
+| A | N=2 | 1.945 | \$1,430,589 | 0.97 | 53.9 | 92.6 |
+| A | N=3 | 1.841 | \$1,343,647 | 0.88 | 53.8 | 80.3 |
+| A | N=4 | 1.758 | \$1,260,208 | 0.73 | 53.6 | 67.0 |
+| B (Qulla day-low) | base | 1.711 | \$986,441 | −1.02 | 44.9 | — |
+| B | **N=1** | **2.401** | **\$1,505,400** | 0.00 | 49.9 | 97.7 |
+| B | N=2 | 2.080 | \$1,333,163 | 0.13 | 50.7 | 92.7 |
+| B | N=3 | 1.892 | \$1,208,291 | 0.19 | 51.2 | 78.7 |
+| B | N=4 | 1.800 | \$1,140,836 | 0.22 | 51.6 | 65.5 |
 
 **0.85 band (the looser proximity filter), 4,907 trips each — same shape, slightly lower PF in every cell. ATR%<8% cap applied; base = the documented PF-1.639 production baseline, reproduced exactly:**
 
 | Variant | Exit | PF | Total P&L | Median % | Win% | Fill% |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
-| V1 (time stop) | base | 1.639 | $1,448,869 | 0.64 | 53.0 | — |
-| V1 | **N=1** | **1.954** | **$1,957,112** | 1.41 | 56.0 | 97.0 |
-| V1 | N=2 | 1.825 | $1,786,302 | 1.16 | 54.8 | 93.3 |
-| V1 | N=3 | 1.768 | $1,714,572 | 1.14 | 54.9 | 82.9 |
-| V1 | N=4 | 1.710 | $1,633,291 | 1.08 | 54.6 | 72.3 |
-| A (15d-low) | base | 1.664 | $1,443,263 | 0.12 | 50.5 | — |
-| A | **N=1** | **2.081** | **$2,020,111** | 0.89 | 53.5 | 97.2 |
-| A | N=2 | 1.898 | $1,818,528 | 0.73 | 53.0 | 92.8 |
-| A | N=3 | 1.808 | $1,715,171 | 0.72 | 53.1 | 80.4 |
-| A | N=4 | 1.735 | $1,619,902 | 0.64 | 53.0 | 67.5 |
-| B (Qulla day-low) | base | 1.660 | $1,224,294 | −1.20 | 43.8 | — |
-| B | **N=1** | **2.333** | **$1,912,600** | −0.02 | 49.4 | 97.8 |
-| B | N=2 | 2.018 | $1,678,190 | 0.03 | 50.1 | 92.8 |
-| B | N=3 | 1.839 | $1,516,091 | 0.11 | 50.5 | 78.6 |
-| B | N=4 | 1.748 | $1,426,780 | 0.16 | 51.1 | 65.3 |
+| V1 (time stop) | base | 1.639 | \$1,448,869 | 0.64 | 53.0 | — |
+| V1 | **N=1** | **1.954** | **\$1,957,112** | 1.41 | 56.0 | 97.0 |
+| V1 | N=2 | 1.825 | \$1,786,302 | 1.16 | 54.8 | 93.3 |
+| V1 | N=3 | 1.768 | \$1,714,572 | 1.14 | 54.9 | 82.9 |
+| V1 | N=4 | 1.710 | \$1,633,291 | 1.08 | 54.6 | 72.3 |
+| A (15d-low) | base | 1.664 | \$1,443,263 | 0.12 | 50.5 | — |
+| A | **N=1** | **2.081** | **\$2,020,111** | 0.89 | 53.5 | 97.2 |
+| A | N=2 | 1.898 | \$1,818,528 | 0.73 | 53.0 | 92.8 |
+| A | N=3 | 1.808 | \$1,715,171 | 0.72 | 53.1 | 80.4 |
+| A | N=4 | 1.735 | \$1,619,902 | 0.64 | 53.0 | 67.5 |
+| B (Qulla day-low) | base | 1.660 | \$1,224,294 | −1.20 | 43.8 | — |
+| B | **N=1** | **2.333** | **\$1,912,600** | −0.02 | 49.4 | 97.8 |
+| B | N=2 | 2.018 | \$1,678,190 | 0.03 | 50.1 | 92.8 |
+| B | N=3 | 1.839 | \$1,516,091 | 0.11 | 50.5 | 78.6 |
+| B | N=4 | 1.748 | \$1,426,780 | 0.16 | 51.1 | 65.3 |
 
 The 0.95 band beats 0.85 on PF in **every cell** (e.g. V1 N=1 1.988 vs 1.954; B N=1 2.401 vs 2.333), reconfirming the [proximity finding](#cleaned-result--proximity-to-the-52-week-high-is-the-edge) — but the trip count is lower (3,671 vs 4,907), so the 0.85 band carries more total P&L at slightly lower PF. The monotone N=1 > N=2 > N=3 > N=4 > base ordering is identical in both bands.
 
@@ -3212,7 +3212,7 @@ The 0.95 band beats 0.85 on PF in **every cell** (e.g. V1 N=1 1.988 vs 1.954; B 
 
 **Caveat on magnitude — sharpest at N=1:** the limit fills "when a bar's high ≥ the N-day-high limit," assuming a resting limit catches that price intrabar. On thin small-caps the N-day high may be a single untradeable tick. At N=1 essentially the **entire population (~97%, 0% timeout) is credited a "sell at the prior-bar high" fill**, so this is the most optimistic the mechanic can get — **N=1's PF 1.95-2.40 is the upper bound of the upper bound.** The robust takeaways are (a) the **monotone shape** (tighter target = better, no exception across 8 N-values × variants × bands) and (b) that even a *conservative* version (N=3/N=4, which leave 17-33% of exits to the honest market fill) is already a large improvement. A realistic execution model (limit fills only on demonstrated intrabar liquidity, or fill at a haircut to the N-day high) is the right next refinement before banking the N=1 magnitude. The best single config is **B (or A) at N=1, 0.95 band (PF 2.40 / 2.13)**; A-vs-B turns on the capital-velocity re-rank (B recycles faster — the [RoC analysis](#annualized-return-on-deployed-capital--v1-wins-outright-the-capital-velocity-thesis-fails) should be re-run with this exit, since the limit narrowed B's P&L gap to V1 dramatically).
 
-> **⚠️ Two filter regressions found & fixed (2026-06-16) — baseline now reproduces exactly.** While running this sweep, the V1 baseline first came in at PF 1.475 vs the documented 1.639. Two independent causes, both real: **(1) ADV floor** — the engine's `--min-avg-dollar-volume` **default had drifted to 1,000,000** (from the study's 100,000), silently rejecting ~1,400 sub-$1M-ADV breakouts, precisely the low-ADV small-caps that carry the [premium](#dollar-volume-adv-on-the-final-system--a-real-additive-small-cap-premium); default reset to 100,000. **(2) ATR% cap** — the runs omitted `--max-atr-pct 0.08`, admitting 167 high-ATR entries (every one with ATR%>8%, e.g. ZBIO at 9.4%) that blended to **PF 0.855** and dragged the system down. The ATR% and tightness filters are near-orthogonal (a stock can be a tight base *and* a jumpy high-ATR name), so tightness<0.30 does **not** subsume the ATR cap. With **both** filters applied, the baseline reproduces the documented system **to the dollar: 4,907 trips, PF 1.639, +$1,448,869.** The full production entry filter is therefore: price≥$5, ADV≥$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**, proximity band (0.85, optimum 0.95). All trailing-limit tables above already have both filters applied.
+> **⚠️ Two filter regressions found & fixed (2026-06-16) — baseline now reproduces exactly.** While running this sweep, the V1 baseline first came in at PF 1.475 vs the documented 1.639. Two independent causes, both real: **(1) ADV floor** — the engine's `--min-avg-dollar-volume` **default had drifted to 1,000,000** (from the study's 100,000), silently rejecting ~1,400 sub-\$1M-ADV breakouts, precisely the low-ADV small-caps that carry the [premium](#dollar-volume-adv-on-the-final-system--a-real-additive-small-cap-premium); default reset to 100,000. **(2) ATR% cap** — the runs omitted `--max-atr-pct 0.08`, admitting 167 high-ATR entries (every one with ATR%>8%, e.g. ZBIO at 9.4%) that blended to **PF 0.855** and dragged the system down. The ATR% and tightness filters are near-orthogonal (a stock can be a tight base *and* a jumpy high-ATR name), so tightness<0.30 does **not** subsume the ATR cap. With **both** filters applied, the baseline reproduces the documented system **to the dollar: 4,907 trips, PF 1.639, +\$1,448,869.** The full production entry filter is therefore: price≥\$5, ADV≥\$100k, breadth>0.5, rvol∈[6,20], tightness<0.30, **ATR%<8%**, proximity band (0.85, optimum 0.95). All trailing-limit tables above already have both filters applied.
 
 ### Default system locked: Qulla + N=1, NO time stop (2026-06-17)
 
@@ -3220,10 +3220,10 @@ The headline Qulla N=1 cell (PF 2.401) is now the **default production system**.
 
 | Qulla N=1, 0.95 band | Trips | Win% | PF | Total P&L | Median hold | Fill% |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **with `--time-stop 20`** (old default) | 3,671 | 49.9 | 2.401 | $1,505,400 | 18 | 97.7 |
-| **no time stop** (new default) | 3,671 | 46.1 | **2.426** | **$1,715,972** | 18 | 97.1 |
+| **with `--time-stop 20`** (old default) | 3,671 | 49.9 | 2.401 | \$1,505,400 | 18 | 97.7 |
+| **no time stop** (new default) | 3,671 | 46.1 | **2.426** | **\$1,715,972** | 18 | 97.1 |
 
-Same 3,671 trips and same 18-day median hold (the time-stop changes only *which* exit a handful of right-tail trades take, not the population). No-time-stop earns **+$210k (+14%) and +0.025 PF** — the time-stop was clipping a few day-20 trades that would otherwise have run to bigger wins (hence higher P&L, slightly lower win-rate from the added variance). The 18-day median is the **expansion exit + price stop** naturally clustering, *not* the time-stop biting — which is why removing it leaves the median untouched. **New default = Qulla day-low stop + N=1 trailing limit + 0.70 expansion exit, no time stop.**
+Same 3,671 trips and same 18-day median hold (the time-stop changes only *which* exit a handful of right-tail trades take, not the population). No-time-stop earns **+\$210k (+14%) and +0.025 PF** — the time-stop was clipping a few day-20 trades that would otherwise have run to bigger wins (hence higher P&L, slightly lower win-rate from the added variance). The 18-day median is the **expansion exit + price stop** naturally clustering, *not* the time-stop biting — which is why removing it leaves the median untouched. **New default = Qulla day-low stop + N=1 trailing limit + 0.70 expansion exit, no time stop.**
 
 > **Reproduction recipe (exact — so this never requires archaeology again).** The trail-limit grid is built from a broad base CSV (engine flags), then the production filter is applied **post-hoc** in SQL. The new default (Qulla N=1, no time stop) is:
 >
@@ -3278,17 +3278,17 @@ With the mean-reversion limit recovering the bad stop-fills, the 15-day trailing
 
 **Findings — sweet spot is the 4-day-low stop:**
 - **PF rises monotonically as the stop tightens** (2.40 at 15d → 2.81 at 4d → 3.03 at 1d) and **win rate climbs from 47% to 60%** — the tighter stop, paired with the limit that sells the bounce, cleans up the loss side.
-- **But net P&L is a plateau-then-cliff.** It holds ~$1.39–1.52M across windows 8→4, then **falls off below 4**: $1.39M (w=4) → $1.20M (w=3) → $1.02M (w=1, −37% vs the 15d default). The tightest stops amputate the right tail — the multi-week runners that carry the strategy get whipsawed out in 4–6 days.
-- **Window 4 is the edge of the plateau:** PF 2.811, win 54.2%, $1,387,731, **8-day median hold** (vs 17 at the 15d default). It buys **+0.42 PF and ~2× faster capital turnover for only −10% P&L** — a clear return-on-capital win (the metric that matters for a real, capital-constrained account). Below 4 you trade real P&L for a higher win-rate vanity metric.
+- **But net P&L is a plateau-then-cliff.** It holds ~\$1.39–1.52M across windows 8→4, then **falls off below 4**: \$1.39M (w=4) → \$1.20M (w=3) → \$1.02M (w=1, −37% vs the 15d default). The tightest stops amputate the right tail — the multi-week runners that carry the strategy get whipsawed out in 4–6 days.
+- **Window 4 is the edge of the plateau:** PF 2.811, win 54.2%, \$1,387,731, **8-day median hold** (vs 17 at the 15d default). It buys **+0.42 PF and ~2× faster capital turnover for only −10% P&L** — a clear return-on-capital win (the metric that matters for a real, capital-constrained account). Below 4 you trade real P&L for a higher win-rate vanity metric.
 - **New recommendation: `--stop-low-window 4`** on the Qulla N=1 no-time-stop default. The 15d default was tuned in a world where hitting the stop meant a bad market-on-open exit; the mean-reversion limit removed that penalty, so the stop should be tight.
 
-**The window is the swing-vs-position knob.** A loose stop (14d) is position-trading; a 1-day stop is Lance-Breitstein-style swing-trading — and it has the *best* consistency, at the cost of raw P&L. As the stop tightens 14→1: **months-profitable 69%→85%, max monthly drawdown −$45k→−$3.3k (~14× smaller), every window 22/22 years positive from w≤9** — while total P&L falls ~40%. **w=4 ⭐ is the P&L-on-plateau sweet spot; w=1 🛡 is the max-consistency / small-account / swing config.** Full per-window consistency table + yearly + (collapsible) monthly breakdowns for all 14 windows, each with its own recomputed half-Kelly fractions, are in the [all-windows breakdown](#trailing-stop-window-sweep--full-monthlyyearly-breakdowns-all-14-windows-2026-06-17) below.
+**The window is the swing-vs-position knob.** A loose stop (14d) is position-trading; a 1-day stop is Lance-Breitstein-style swing-trading — and it has the *best* consistency, at the cost of raw P&L. As the stop tightens 14→1: **months-profitable 69%→85%, max monthly drawdown −\$45k→−\$3.3k (~14× smaller), every window 22/22 years positive from w≤9** — while total P&L falls ~40%. **w=4 ⭐ is the P&L-on-plateau sweet spot; w=1 🛡 is the max-consistency / small-account / swing config.** Full per-window consistency table + yearly + (collapsible) monthly breakdowns for all 14 windows, each with its own recomputed half-Kelly fractions, are in the [all-windows breakdown](#trailing-stop-window-sweep--full-monthlyyearly-breakdowns-all-14-windows-2026-06-17) below.
 
 ### Trailing-stop window sweep — full monthly/yearly breakdowns, all 14 windows (2026-06-17)
 
 The [window sweep](#trailing-stop-window-sweep--tighten-to-4-day-low-2026-06-17) is the **swing-vs-position knob**: a loose stop (14d) is position-trading, a 1-day stop is Lance-Breitstein-style swing-trading. Same 3,671 entries every row — the window changes only *exits*. Each window's half-Kelly bucket fractions are **recomputed on that window's own realized returns**. **All P&L bucketed by EXIT date** (this differs from the older entry-date sections above). **Months-profitable uses a fixed 257-month calendar-span denominator** so the windows are directly comparable — a month with zero exits counts as neither win nor loss but stays in the denominator.
 
-**Takeaway:** as the stop tightens, **raw P&L falls but consistency rises** — months-profitable (of 257) 67%→79%, max drawdown −$45k→−$3.3k (~14× smaller), every window 22/22 years positive. **w=4 ⭐ = P&L-on-plateau sweet spot; w=1 🛡 = max-consistency / small-account / swing config.**
+**Takeaway:** as the stop tightens, **raw P&L falls but consistency rises** — months-profitable (of 257) 67%→79%, max drawdown −\$45k→−\$3.3k (~14× smaller), every window 22/22 years positive. **w=4 ⭐ = P&L-on-plateau sweet spot; w=1 🛡 = max-consistency / small-account / swing config.**
 
 #### Consistency across windows (Kelly-sized, by exit date)
 
@@ -3311,7 +3311,7 @@ The [window sweep](#trailing-stop-window-sweep--tighten-to-4-day-low-2026-06-17)
 
 #### Window = 14-day-low stop
 
-half-Kelly 0.114/0.151/0.169 · total **+$1,703,397** Kelly (flat +$1,630,805) · months **171/257 (67%)** · years **22/22** · up:dn **3.8:1** · max DD **-45,488** · worst streak **5mo**
+half-Kelly 0.114/0.151/0.169 · total **+\$1,703,397** Kelly (flat +\$1,630,805) · months **171/257 (67%)** · years **22/22** · up:dn **3.8:1** · max DD **-45,488** · worst streak **5mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -3596,7 +3596,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 13-day-low stop
 
-half-Kelly 0.116/0.155/0.174 · total **+$1,719,967** Kelly (flat +$1,643,317) · months **172/257 (67%)** · years **22/22** · up:dn **4.0:1** · max DD **-43,368** · worst streak **5mo**
+half-Kelly 0.116/0.155/0.174 · total **+\$1,719,967** Kelly (flat +\$1,643,317) · months **172/257 (67%)** · years **22/22** · up:dn **4.0:1** · max DD **-43,368** · worst streak **5mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -3881,7 +3881,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 12-day-low stop
 
-half-Kelly 0.119/0.156/0.180 · total **+$1,688,064** Kelly (flat +$1,610,526) · months **178/257 (69%)** · years **20/22** · up:dn **3.7:1** · max DD **-36,495** · worst streak **6mo**
+half-Kelly 0.119/0.156/0.180 · total **+\$1,688,064** Kelly (flat +\$1,610,526) · months **178/257 (69%)** · years **20/22** · up:dn **3.7:1** · max DD **-36,495** · worst streak **6mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -4167,7 +4167,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 11-day-low stop
 
-half-Kelly 0.120/0.159/0.185 · total **+$1,660,420** Kelly (flat +$1,581,012) · months **178/257 (69%)** · years **21/22** · up:dn **3.7:1** · max DD **-29,310** · worst streak **6mo**
+half-Kelly 0.120/0.159/0.185 · total **+\$1,660,420** Kelly (flat +\$1,581,012) · months **178/257 (69%)** · years **21/22** · up:dn **3.7:1** · max DD **-29,310** · worst streak **6mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -4453,7 +4453,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 10-day-low stop
 
-half-Kelly 0.119/0.160/0.186 · total **+$1,595,139** Kelly (flat +$1,513,249) · months **174/257 (68%)** · years **21/22** · up:dn **3.8:1** · max DD **-31,570** · worst streak **5mo**
+half-Kelly 0.119/0.160/0.186 · total **+\$1,595,139** Kelly (flat +\$1,513,249) · months **174/257 (68%)** · years **21/22** · up:dn **3.8:1** · max DD **-31,570** · worst streak **5mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -4737,7 +4737,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 9-day-low stop
 
-half-Kelly 0.123/0.163/0.190 · total **+$1,596,323** Kelly (flat +$1,517,491) · months **173/257 (67%)** · years **22/22** · up:dn **4.1:1** · max DD **-26,281** · worst streak **4mo**
+half-Kelly 0.123/0.163/0.190 · total **+\$1,596,323** Kelly (flat +\$1,517,491) · months **173/257 (67%)** · years **22/22** · up:dn **4.1:1** · max DD **-26,281** · worst streak **4mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -5021,7 +5021,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 8-day-low stop
 
-half-Kelly 0.125/0.174/0.192 · total **+$1,618,521** Kelly (flat +$1,522,020) · months **173/257 (67%)** · years **22/22** · up:dn **4.7:1** · max DD **-13,704** · worst streak **4mo**
+half-Kelly 0.125/0.174/0.192 · total **+\$1,618,521** Kelly (flat +\$1,522,020) · months **173/257 (67%)** · years **22/22** · up:dn **4.7:1** · max DD **-13,704** · worst streak **4mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -5306,7 +5306,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 7-day-low stop
 
-half-Kelly 0.127/0.177/0.186 · total **+$1,542,128** Kelly (flat +$1,455,102) · months **178/257 (69%)** · years **22/22** · up:dn **4.8:1** · max DD **-7,129** · worst streak **4mo**
+half-Kelly 0.127/0.177/0.186 · total **+\$1,542,128** Kelly (flat +\$1,455,102) · months **178/257 (69%)** · years **22/22** · up:dn **4.8:1** · max DD **-7,129** · worst streak **4mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -5589,7 +5589,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 6-day-low stop
 
-half-Kelly 0.130/0.185/0.190 · total **+$1,530,200** Kelly (flat +$1,437,140) · months **178/257 (69%)** · years **22/22** · up:dn **5.3:1** · max DD **-9,649** · worst streak **4mo**
+half-Kelly 0.130/0.185/0.190 · total **+\$1,530,200** Kelly (flat +\$1,437,140) · months **178/257 (69%)** · years **22/22** · up:dn **5.3:1** · max DD **-9,649** · worst streak **4mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -5872,7 +5872,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 5-day-low stop
 
-half-Kelly 0.132/0.193/0.201 · total **+$1,541,855** Kelly (flat +$1,435,900) · months **180/257 (70%)** · years **22/22** · up:dn **6.2:1** · max DD **-9,664** · worst streak **3mo**
+half-Kelly 0.132/0.193/0.201 · total **+\$1,541,855** Kelly (flat +\$1,435,900) · months **180/257 (70%)** · years **22/22** · up:dn **6.2:1** · max DD **-9,664** · worst streak **3mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -6157,7 +6157,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 4-day-low stop ⭐ (default)
 
-half-Kelly 0.142/0.196/0.214 · total **+$1,476,605** Kelly (flat +$1,387,731) · months **185/257 (72%)** · years **22/22** · up:dn **6.7:1** · max DD **-8,976** · worst streak **3mo**
+half-Kelly 0.142/0.196/0.214 · total **+\$1,476,605** Kelly (flat +\$1,387,731) · months **185/257 (72%)** · years **22/22** · up:dn **6.7:1** · max DD **-8,976** · worst streak **3mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -6442,7 +6442,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 3-day-low stop
 
-half-Kelly 0.140/0.199/0.209 · total **+$1,288,366** Kelly (flat +$1,204,814) · months **190/257 (74%)** · years **22/22** · up:dn **6.5:1** · max DD **-4,679** · worst streak **3mo**
+half-Kelly 0.140/0.199/0.209 · total **+\$1,288,366** Kelly (flat +\$1,204,814) · months **190/257 (74%)** · years **22/22** · up:dn **6.5:1** · max DD **-4,679** · worst streak **3mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -6725,7 +6725,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 2-day-low stop
 
-half-Kelly 0.149/0.215/0.208 · total **+$1,245,589** Kelly (flat +$1,164,409) · months **187/257 (73%)** · years **22/22** · up:dn **7.4:1** · max DD **-3,826** · worst streak **3mo**
+half-Kelly 0.149/0.215/0.208 · total **+\$1,245,589** Kelly (flat +\$1,164,409) · months **187/257 (73%)** · years **22/22** · up:dn **7.4:1** · max DD **-3,826** · worst streak **3mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -7003,7 +7003,7 @@ Yearly (Kelly-sized, by exit date):
 
 #### Window = 1-day-low stop 🛡 (swing / small-account)
 
-half-Kelly 0.174/0.228/0.189 · total **+$1,062,486** Kelly (flat +$1,022,469) · months **202/257 (79%)** · years **22/22** · up:dn **6.9:1** · max DD **-3,299** · worst streak **3mo**
+half-Kelly 0.174/0.228/0.189 · total **+\$1,062,486** Kelly (flat +\$1,022,469) · months **202/257 (79%)** · years **22/22** · up:dn **6.9:1** · max DD **-3,299** · worst streak **3mo**
 
 Yearly (Kelly-sized, by exit date):
 | year | trips | win% | PF | net |
@@ -7284,12 +7284,12 @@ Yearly (Kelly-sized, by exit date):
 - **Regime filtering is already present — via market breadth.** The earlier "no regime filter / add a SPY 10/20-day MA gate" caveat is **superseded**: the breadth filter (% of liquid stocks above their 20-day MA, lagged 1 day) *is* a market-regime gate, and a better one than a single SPY MA — it's the cross-sectional health of the actual tradable universe. The 22/22-years-positive result with `breadth>0.5` is the evidence it works. A separate SPY-MA gate is no longer a priority.
 - **"Mid cap" is approximated by a dollar-volume floor**, not real market cap (no shares-outstanding data yet). A true market-cap breakdown is deferred pending a Polygon shares-outstanding feed wired into `TradingEdge.Massive`.
 - **Survivorship**: the price universe is delisting-inclusive (good — no survivorship bias from prices), but `ticker_reference.type` is a *current* snapshot, so the CS/ADRC filter is approximate for delisted names.
-- **No costs modeled.** No commissions, no slippage, no borrow. At fixed $10k notional these are second-order vs the regime effect, but a realistic-execution pass should add them.
+- **No costs modeled.** No commissions, no slippage, no borrow. At fixed \$10k notional these are second-order vs the regime effect, but a realistic-execution pass should add them.
 - **Uncapped, non-compounding sizing** means net P&L is a raw breadth-and-edge measure, not an achievable equity curve — many concurrent positions can be open at once. A capped-book / fractional-equity variant is needed before reading these as portfolio returns.
 
 ## Next steps (in order)
 
-**✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, exhaustion-removal test, the `min`-of-marginals sizing, AND the annualized-return-on-capital adjudication are all complete (see the sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); size off the `min`-of-tercile-indices 3-bucket half-Kelly grid (+19% in-sample); **and V1 (20d time stop) is the production exit — it beats Qullamaggie on PF (1.64 vs 1.50), total P&L (~2×), AND annualized return on capital (13.3% vs 8.3% @ p95; 17.9% vs 8.6% on a $100k book). The capital-velocity thesis for Qulla failed: faster recycling cut winners short, so P&L fell more than capital demand did.** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
+**✅ DONE (2026-06-16):** the stop-variant comparison, median/win-rate re-examination, time-stop sweep, exhaustion-removal test, the `min`-of-marginals sizing, AND the annualized-return-on-capital adjudication are all complete (see the sections above). Net conclusions: T2-RVOL "anomaly" = mean tail artifact (RVOL is cleanly monotonic; breadth is a tail/payoff lever); keep the expansion sell (dropping it costs ~9 PF points); size off the `min`-of-tercile-indices 3-bucket half-Kelly grid (+19% in-sample); **and V1 (20d time stop) is the production exit — it beats Qullamaggie on PF (1.64 vs 1.50), total P&L (~2×), AND annualized return on capital (13.3% vs 8.3% @ p95; 17.9% vs 8.6% on a \$100k book). The capital-velocity thesis for Qulla failed: faster recycling cut winners short, so P&L fell more than capital demand did.** Engine infra done: `structure_levels` materialized + auto-rebuilt by `ingest-data`; `--no-structure` (~12→6 min); binary `--no-52w-high` replaced by numeric `--min-pct-of-52w-high`.
 
 **Immediate — the big lever: AI-agent news/catalyst analysis (2026-06-16 reprioritization):**
 1. **Automated news-catalyst classification with AI agents.** The thesis: these breakouts are catalyst-driven, and **separating *good* catalysts from *mediocre* ones could push this method above the PF-2 range** — a bigger lever than any volatility-measure refinement. Use AI agents to classify each breakout's catalyst (earnings beat, FDA, M&A, guidance raise, sympathy/momentum-only, etc.) and grade its quality, then bucket PF by catalyst class. This is a natural, high-value agent use case. (News-gathering infra already exists — see CLAUDE.md "News Search Strategy": Polygon `download-news` + Google-News date-range supplementation.)
@@ -7300,7 +7300,7 @@ Yearly (Kelly-sized, by exit date):
 **Deferred / opportunistic:**
 2. **Recompute `breadth.parquet` through the current date** once the latest daily bars are downloaded (Massive sub) — so we know which breadth tercile (and thus live Kelly size) the market is in *today*.
 3. **Intraday-RVOL entry timing** (first 5/15/30/60 min) — earlier entry for tighter risk control; deferred, needs intraday data.
-4. **Average-daily-dollar-volume breakdown on the FINAL system** — doable now (every trip carries `avg_dollar_volume_4w_at_entry`); bucket the composite system's PF by liquidity tier to see whether the edge concentrates in a particular dollar-volume band *within* the filtered universe (the earlier ADV breakdown was on the naive v0, pre-filters), and whether ADV is a sizing/selection lever. Apply the usual $5 floor + outlier discipline.
+4. **Average-daily-dollar-volume breakdown on the FINAL system** — doable now (every trip carries `avg_dollar_volume_4w_at_entry`); bucket the composite system's PF by liquidity tier to see whether the edge concentrates in a particular dollar-volume band *within* the filtered universe (the earlier ADV breakdown was on the naive v0, pre-filters), and whether ADV is a sizing/selection lever. Apply the usual \$5 floor + outlier discipline.
 5. **Real market-cap bucketing** once shares-outstanding is available (Massive shares-outstanding endpoint) — pair it with the ADV breakdown above; trips carry `avg_dollar_volume_4w_at_entry` as the interim proxy until then.
 
 ---
@@ -7347,9 +7347,9 @@ below is purely the fill correction, not an engine difference.
 
 ## Stop-window × exit-config sweep (realistic fills)
 
-Full production filter (price≥$5, ADV≥$100k, rvol∈[6,20], tightness<0.30, ATR%<8%, 0.95
+Full production filter (price≥\$5, ADV≥\$100k, rvol∈[6,20], tightness<0.30, ATR%<8%, 0.95
 proximity band), **breadth_lag1 > 0.5 applied post-hoc**, entries 2005-01-01 → 2026-05-13, fixed
-$10k/trade, uncapped, no compounding. 3,671 trips in every cell (entries + breadth identical;
+\$10k/trade, uncapped, no compounding. 3,671 trips in every cell (entries + breadth identical;
 only the exit fill moves). "mo+%" = share of calendar months with positive realized P&L;
 "maxDD" = deepest monthly-equity drawdown.
 
@@ -7392,11 +7392,11 @@ only the exit fill moves). "mo+%" = share of calendar months with positive reali
    bug. A real resting limit catches *some* bounces and edges baseline slightly, no more.
 
 3. **The PF–P&L trade-off across the stop window.** Looser stops (w=15) carry the most net P&L
-   (~$1.1M) by letting winners run, but at lower win rate (40%) and far deeper drawdown (−$71k+).
-   Tighter stops cut drawdown (w=4: −$17k) at lower total P&L. **Window 4 is the risk-adjusted
+   (~\$1.1M) by letting winners run, but at lower win rate (40%) and far deeper drawdown (−\$71k+).
+   Tighter stops cut drawdown (w=4: −\$17k) at lower total P&L. **Window 4 is the risk-adjusted
    sweet spot** (highest PF, shallowest drawdown); window 15 is the max-P&L / max-risk end. ⭐ marks
-   the chosen default: **stop-window 4 + baseline exit** — its −$16.8k drawdown is ~40% shallower
-   than N=1's −$27.5k for only −0.02 PF, a deliberate trade of PF for drawdown.
+   the chosen default: **stop-window 4 + baseline exit** — its −\$16.8k drawdown is ~40% shallower
+   than N=1's −\$27.5k for only −0.02 PF, a deliberate trade of PF for drawdown.
 
 4. **Monthly consistency tops out ~64–68%**, not the 80% v0 claimed. Higher-N exits raise win
    rate and month-positive % (more, smaller winners) but not PF.
@@ -7413,8 +7413,8 @@ The production rvol floor is 6.0. Lowering it admits more trades. Sweep at the d
 | 5 | 5,307 | 1.738 | +1,128,851 | −24,961 | 1.864 | +1,317,503 |
 | **6** | 3,671 | 1.760 | +805,994 | **−16,788** | 1.980 | +1,032,607 |
 
-More trades buy more total P&L (rvol≥3 nearly doubles flat net to $1.44M) but at lower PF and a
-**much** deeper drawdown (−$111k vs −$17k, ~6.5×).
+More trades buy more total P&L (rvol≥3 nearly doubles flat net to \$1.44M) but at lower PF and a
+**much** deeper drawdown (−\$111k vs −\$17k, ~6.5×).
 
 **The key finding (rvol≥5 vs ≥6): the extra trades are NOT lower quality — the deeper drawdown is
 just more exposure.** Adding ~45% more trades (3,671 → 5,307) leaves the share of profitable months
@@ -7440,11 +7440,11 @@ that contradicts the drawdown-conscious default.
 > section (PF 1.760 flat / 1.980 Kelly) are the old-entry baseline, kept for comparison.
 
 **Chosen to halve the drawdown at a small PF cost.** vs the N=1 trailing-limit exit, the baseline
-(just sell at the next open after a stop) cuts the max monthly drawdown from −$27.5k to **−$16.8k**
+(just sell at the next open after a stop) cuts the max monthly drawdown from −\$27.5k to **−\$16.8k**
 (flat sizing) for a negligible PF give-up (1.776 → 1.760). Given the preference to sacrifice some
 PF to halve drawdown, baseline is the default. The trailing limit added only ~+1% PF anyway.
 
-Yearly breakdown — flat $10k/trip **and** min-tercile half-Kelly sizing (realistic fill,
+Yearly breakdown — flat \$10k/trip **and** min-tercile half-Kelly sizing (realistic fill,
 post-breadth, 2005+). Half-Kelly fractions recomputed on THIS config's returns: **0.053 / 0.126 /
 0.149** for min-buckets 1/2/3 (breadth tiers <0.61 / 0.61–0.70 / ≥0.70; rvol tiers <7.2 / 7.2–9.6
 / ≥9.6; normalized to mean weight 1).
@@ -7482,10 +7482,10 @@ post-breadth, 2005+). Half-Kelly fractions recomputed on THIS config's returns: 
 | max monthly DD | **−16,788** | −18,369 |
 | years positive | 21/22 | 21/22 |
 
-Half-Kelly lifts PF to **1.98** for ~$227k more P&L, with the drawdown essentially unchanged
-(−$18.4k vs −$16.8k) — the sizing concentrates into the high-conviction buckets without adding
-tail risk. 21/22 years positive (only 2005, the cold-start year, is fractionally red at −$1.6k
-flat). **2020 is now POSITIVE even flat (+$1.8k), and +$18.3k Kelly** — the baseline's next-open
+Half-Kelly lifts PF to **1.98** for ~\$227k more P&L, with the drawdown essentially unchanged
+(−\$18.4k vs −\$16.8k) — the sizing concentrates into the high-conviction buckets without adding
+tail risk. 21/22 years positive (only 2005, the cold-start year, is fractionally red at −\$1.6k
+flat). **2020 is now POSITIVE even flat (+\$1.8k), and +\$18.3k Kelly** — the baseline's next-open
 exits got out of the COVID-crash names a touch better than the resting limit did.
 
 <details>
@@ -8045,7 +8045,7 @@ so the parameter sweeps below are minutes, not hours.
 ## The system in one screen
 
 Long-only daily momentum on US common stocks / ADRs (`ticker_reference.type IN ('CS','ADRC')`),
-2005–2026. One position per breakout signal, fixed $10k notional, uncapped concurrency, no
+2005–2026. One position per breakout signal, fixed \$10k notional, uncapped concurrency, no
 compounding (so net P&L is a raw edge-and-breadth measure, not an achievable equity curve).
 
 **Entry** — on a daily bar, go long at the close when ALL hold (each indicator uses *prior* bars,
@@ -8059,8 +8059,8 @@ no lookahead):
 | ATR% (log) | **< 0.11** | mean log-true-range over 14 prior bars (see below) |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear; sharper loose-tail cut than log). Raised 4.0 → 4.5 on 2026-06-20 (clean capacity gain; < 4.0 = max-PF, < 5.5 = max-capacity alternatives) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high |
-| price floor | **≥ $5** | no sub-$5 names |
-| liquidity | **avg dollar volume ≥ $100k** | 28-day average |
+| price floor | **≥ \$5** | no sub-\$5 names |
+| liquidity | **avg dollar volume ≥ \$100k** | 28-day average |
 | breadth (market-wide) | **`pct_above_20` lagged 1 day > 0.5** | applied post-hoc; risk-on regime only |
 
 **Exit** — a Qullamaggie-style trailing stop: floor = `max(min-low over prior 4 bars, entry-day
@@ -8075,9 +8075,9 @@ close.
 | trips | 2,227 |
 | win rate | 46.4% |
 | profit factor | **1.769** |
-| net P&L | +$527,594 |
+| net P&L | +\$527,594 |
 | % months positive | 58.1% |
-| max monthly drawdown | **−$33,772** |
+| max monthly drawdown | **−\$33,772** |
 | years positive | **21 / 22** |
 
 *(Headline recomputed 2026-06-18 on the dividend-adjustment-fixed `split_adjusted_prices` — see the
@@ -8087,12 +8087,12 @@ the bug corrupted.)*
 
 ---
 
-## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat $10k/trip, by entry year)
+## Yearly breakdown — PRE-time-stop default (window-low stop-4), filtered (flat \$10k/trip, by entry year)
 
 > **Which system:** this is the production default *as it stood before the 2026-06-19 stop-mechanics
 > rework* — **window-low trailing stop (stop-window 4), next-open exit, expansion off, ATR% < 0.11,
 > log-tightness < 4.0, entry-move ≥ 10%**, + breadth (lag-1 pct_above_20 > 0.5) + entry ≥ 2005. It is the
-> `≥ 10%` headline row above (**2,260 trips, PF 1.734, +$520,641, 58.7% positive months**). It is **not**
+> `≥ 10%` headline row above (**2,260 trips, PF 1.734, +\$520,641, 58.7% positive months**). It is **not**
 > the current default (5-day time-stop, no price stop, rvol [5,15] — see "The system in one screen"); the
 > time-stop system's own yearly/monthly breakdown has not yet been generated. Kept here as the historical
 > reference for the system's year-by-year robustness.
@@ -8122,14 +8122,14 @@ the bug corrupted.)*
 | 2025 | 119 | 39% | 0.97 | −1,570 |
 | 2026 | 48 | 46% | 2.75 | +28,501 |
 
-**21 of 22 years positive** (only 2025 fractionally red at −$1.6k). Crucially, the edge is now
+**21 of 22 years positive** (only 2025 fractionally red at −\$1.6k). Crucially, the edge is now
 *spread across years* rather than concentrated: 2021's COVID-bubble names — which dominated the old
-system — are largely filtered out by the tight ATR%/tightness gates (2021 is only +$9.5k here),
-and 2020 is solidly positive (+$57k) on the next-open exits getting clear of the March crash. The
-two biggest years (2019 +$104k, 2020 +$57k) are real momentum regimes, not a single blow-off.
+system — are largely filtered out by the tight ATR%/tightness gates (2021 is only +\$9.5k here),
+and 2020 is solidly positive (+\$57k) on the next-open exits getting clear of the March crash. The
+two biggest years (2019 +\$104k, 2020 +\$57k) are real momentum regimes, not a single blow-off.
 
 <details>
-<summary>Full monthly breakdown — net P&L by year × month ($k), flat sizing, by entry month — click to expand</summary>
+<summary>Full monthly breakdown — net P&L by year × month (\$k), flat sizing, by entry month — click to expand</summary>
 
 | year | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec | **year** |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -8156,9 +8156,9 @@ two biggest years (2019 +$104k, 2020 +$57k) are real momentum regimes, not a sin
 | 2025 | -1.1k | -2.5k | · | 26 | 380 | 4.8k | -5.6k | -714 | 12.8k | -7.3k | -171 | -2.0k | **-1.6k** |
 | 2026 | 28.8k | -2.1k | -1.0k | 1.5k | 1.3k | · | · | · | · | · | · | · | **28.5k** |
 
-`·` = no trades that month. 135 / 230 months positive (58.7%); worst month −$24.6k (Feb 2021,
-the post-blow-off unwind); best month +$99.6k (Feb 2019). Outlier months are upside (Feb 2019,
-Dec 2020 +$60k, Jan 2021/2026 ~+$30k), not catastrophic downside — the tight entry gate keeps the
+`·` = no trades that month. 135 / 230 months positive (58.7%); worst month −\$24.6k (Feb 2021,
+the post-blow-off unwind); best month +\$99.6k (Feb 2019). Outlier months are upside (Feb 2019,
+Dec 2020 +\$60k, Jan 2021/2026 ~+\$30k), not catastrophic downside — the tight entry gate keeps the
 left tail shallow.
 
 </details>
@@ -8299,7 +8299,7 @@ The signal is **bimodal**, with two distinct sweet spots and a trough between th
 
 1. **Right at the high (0–2%): PF 1.94** — the clean fresh breakout, highest win rate (46%).
 2. **Extended 10–20% above: PF 2.01** — names already in a confirmed strong run; biggest P&L
-   contributor ($330k).
+   contributor (\$330k).
 3. A **dead zone at 2–5% (PF 1.18)** — past the clean breakout but not yet a confirmed run.
 
 Names *well below* the high (< −15%, the early-stage breakouts) are the weakest on PF (1.21) but carry
@@ -8410,7 +8410,7 @@ entry_price/(1+pct_52w_high_at_entry)` and compare the (raw) open to it. Pure ga
 | gap-over (open at/above) | 1102 | 39.4% | 1.09 | +19k | | gap-over | 1.15 | 1.04 |
 
 **The intraday reclaim is far better and era-robust** — PF 1.43 (1.69 → 1.26 across eras), higher win
-rate, and it carries essentially ALL the dead zone's P&L ($137k of $156k). The gap-over half is the
+rate, and it carries essentially ALL the dead zone's P&L (\$137k of \$156k). The gap-over half is the
 genuinely dead part (PF 1.09, near break-even both eras). Mechanism: a name that opens below its 52w
 high and reclaims it through the session is a *live* breakout you're participating in; a gap-over is
 one that broke before the open — you're buying it already extended, after the fact. Unlike
@@ -8444,7 +8444,7 @@ below the 52w intraday high and close through it, vs open already at/above it:
 | gap-over | 1001 | 47.2% | 1.49 | +116k | | gap-over | 1.76 | **1.31** |
 
 **"Open below the prior high, close through it" is a broadly better entry than buying any close** —
-PF 1.92 vs 1.49, carrying **78% of the system's P&L** ($411k of $528k), steady across eras
+PF 1.92 vs 1.49, carrying **78% of the system's P&L** (\$411k of \$528k), steady across eras
 (1.98 → 1.89). The gap-over half is the weaker one and **decaying** (1.76 → 1.31 — buying breakouts
 that gapped over the high before the open has gotten worse over time, gap-and-fade / front-run).
 Note the gap-over has a slightly *higher* win rate (47.2 vs 45.8) but lower PF — its winners are
@@ -8457,8 +8457,8 @@ an extended gap.
 | --- | ---: | ---: |
 | trips | 2,227 | 1,226 |
 | PF | 1.769 | **1.917** |
-| net | $528k | $411k |
-| max monthly DD | −$33.8k | **−$23.6k** |
+| net | \$528k | \$411k |
+| max monthly DD | −\$33.8k | **−\$23.6k** |
 | % months + | 58.1% | 53.9% |
 
 +0.15 PF and **−30% max drawdown** for 78% of the P&L on 55% of the trips (only cost: fewer trades →
@@ -8489,17 +8489,17 @@ either misses or buys weakness.
 
 **But in the DEAD ZONE the opposite is true.** Re-run on pure gainers (`--up-threshold 0`) and
 isolate the 0–10%-above-intraday-high band. The dead-zone **at-close** baseline is PF **1.275 /
-$149.6k** (vs 1.757 for the rest of the system). Sweeping the limit params (dead-zone PF only):
+\$149.6k** (vs 1.757 for the rest of the system). Sweeping the limit params (dead-zone PF only):
 
 | trail / cap | n | PF | net |
 | --- | ---: | ---: | ---: |
-| **at-close (up=0)** | **2284** | **1.275** | **$149.6k** |
-| tw=1 cap=2 | 2260 | 1.199 | $74k |
-| tw=1 cap=5 | 2292 | 1.326 | $109k |
-| tw=1 cap=10 | 2290 | 1.39 | $128k |
-| tw=2 cap=5 | 2232 | 1.258 | $86k |
-| **tw=2 cap=10** | 2234 | **1.457** | $139k |
-| tw=4 cap=10 | 2123 | 1.455 | $140k |
+| **at-close (up=0)** | **2284** | **1.275** | **\$149.6k** |
+| tw=1 cap=2 | 2260 | 1.199 | \$74k |
+| tw=1 cap=5 | 2292 | 1.326 | \$109k |
+| tw=1 cap=10 | 2290 | 1.39 | \$128k |
+| tw=2 cap=5 | 2232 | 1.258 | \$86k |
+| **tw=2 cap=10** | 2234 | **1.457** | \$139k |
+| tw=4 cap=10 | 2123 | 1.455 | \$140k |
 
 A **long cap is essential** (cap=2 is strictly worse on both axes — it forces the open too fast); with
 cap=10 the dead-zone PF climbs to ~**1.45**. Unlike strong breakouts, **94.6% of dead-zone signals DO
@@ -8509,8 +8509,8 @@ best variant (tw=2/cap=10) by fill type:
 
 | dead-zone fill | n | % | PF | net |
 | --- | ---: | ---: | ---: | ---: |
-| **limit** | 2113 | 94.6% | **1.502** | +$143k |
-| open_after_cap | 121 | 5.4% | 0.759 | −$4k |
+| **limit** | 2113 | 94.6% | **1.502** | +\$143k |
+| open_after_cap | 121 | 5.4% | 0.759 | −\$4k |
 
 The limit fills are **PF 1.502 on the same trades** the at-close run booked at 1.275 — a genuine
 +0.23 PF from entering a few % lower on the pullback. The small `open_after_cap` tail (the runaways
@@ -8526,8 +8526,8 @@ that never retrace) is the only loser, and it's tiny.
 The dead zone's weakness was concentrated in the **modern era** (2015–26 at-close PF 1.175). The
 limit entry **lifts the modern era to 1.493** while leaving the early era ~unchanged (1.402→1.422) —
 it repairs the exact regime where the dead zone was broken, the opposite of a regime artifact. (Early-
-era P&L drops $96k→$65k because buying the close outright was already fine pre-2015; modern-era P&L is
-flat-to-up, $53k→$74k, at a far higher PF.)
+era P&L drops \$96k→\$65k because buying the close outright was already fine pre-2015; modern-era P&L is
+flat-to-up, \$53k→\$74k, at a far higher PF.)
 
 **Takeaway:** limit-entry is **position-dependent, mirroring everything else in this system.** For
 strong near-high breakouts, buy the close (they run). For the **0–10%-above-resistance dead zone**, a
@@ -8550,27 +8550,27 @@ On **reclaim** trades the limit adds a real **+0.27 PF** (1.331→1.603) at ~fla
 pullback on a name that opened below resistance and reclaimed it intraday is a clean improvement. On
 **gap-over** trades the limit does nothing (1.14→1.15): a name that already gapped through resistance
 either doesn't retrace to the 4-day low or the retrace means the gap is failing. The gap-over half is
-dead weight under *both* entry methods (~$15–22k on ~870 trades). So the best dead-zone cell is
+dead weight under *both* entry methods (~\$15–22k on ~870 trades). So the best dead-zone cell is
 **reclaim + limit**, and gap-overs should be dropped regardless of entry style.
 
 **DROP the timed-out (`open_after_cap`) trades — strictly dominant.** Splitting by fill type × reclaim:
 
 | dead-zone fill | n | PF | net |
 | --- | ---: | ---: | ---: |
-| limit fill — reclaim | 1284 | **1.669** | +$128.3k |
-| limit fill — gap-over | 829 | 1.158 | +$14.8k |
-| **open_after_cap — reclaim** | 78 | **0.687** | **−$4.3k** |
-| open_after_cap — gap-over | 43 | 0.987 | −$0.1k |
+| limit fill — reclaim | 1284 | **1.669** | +\$128.3k |
+| limit fill — gap-over | 829 | 1.158 | +\$14.8k |
+| **open_after_cap — reclaim** | 78 | **0.687** | **−\$4.3k** |
+| open_after_cap — gap-over | 43 | 0.987 | −\$0.1k |
 
 Both timed-out cells are sub-1.0; the reclaim ones are *especially* bad (PF 0.687) — they are exactly
 the reclaim names that **failed to retrace within 10 bars** (ran away), so the cap forces you in at the
 open chasing a faded breakout. Dropping all timeouts lifts the dead-zone limit run on **both axes at
-once** — PF **1.457→1.502** AND net **$138.8k→$143.1k** (a rare no-tradeoff cut, because the dropped
+once** — PF **1.457→1.502** AND net **\$138.8k→\$143.1k** (a rare no-tradeoff cut, because the dropped
 trades are net-negative). So the correct policy is **expire-on-timeout, not enter-at-the-open**: if
 the pullback doesn't come within the cap, the signal has invalidated itself.
 
 **Best dead-zone configuration found:** `--up-threshold 0` + 0–10%-above-intraday-high + **reclaim
-only** + **trailing buy limit (tw=2, cap=10) + drop timeouts** → **PF 1.669, +$128k on 1,284 trips**,
+only** + **trailing buy limit (tw=2, cap=10) + drop timeouts** → **PF 1.669, +\$128k on 1,284 trips**,
 the cleanest dead-zone cell of the session. (Engine currently enters at the open on timeout, tagged
 `open_after_cap`, so "drop timeouts" is a post-hoc filter today; an `--entry-expire-on-cap` flag would
 make it native.)
@@ -8584,7 +8584,7 @@ same up=0 runs into dead zone vs everything else (below the high, fresh 0% new h
 | **dead zone (0–10% above high)** | 1.275 | **1.457** |
 | **rest of universe** | **1.757** | 1.411 |
 
-On the rest, the limit **drops PF 1.757→1.411 and net P&L $671k→$254k** — a big loss. Win rate actually
+On the rest, the limit **drops PF 1.757→1.411 and net P&L \$671k→\$254k** — a big loss. Win rate actually
 *rises* (44%→53%) while PF *falls*: the classic "many small pullback wins, but you miss the few huge
 runners that carry the system" — the biggest winners are precisely the names that never retrace. It is
 not a timeout problem here (limit fills alone are 1.438, ~95% of rest-of-universe names do retrace);
@@ -8609,8 +8609,8 @@ beat, on the near-high universe (`pct_52w_high_at_entry ≥ 0`, pure gainers `up
 
 | mid-2021+ (near-high, at close) | n | PF | net | win% |
 | --- | ---: | ---: | ---: | ---: |
-| **gap-over** (signal-bar `adj_open ≥ hi_252_high`) | 277 | **1.09** | +$5.3k | 42.2 |
-| reclaim (open below → close above) | 336 | 1.22 | +$24.9k | 42.6 |
+| **gap-over** (signal-bar `adj_open ≥ hi_252_high`) | 277 | **1.09** | +\$5.3k | 42.2 |
+| reclaim (open below → close above) | 336 | 1.22 | +\$24.9k | 42.6 |
 
 Two takeaways for the open-entry work:
 - **Gap-overs are barely break-even at the close (PF 1.09)** in this window — a *low bar*, which is the
@@ -8635,12 +8635,12 @@ breakouts in stocks **far below their 52w intraday high** (`pct_52w_high_at_entr
 **still net positive but markedly weaker** than near-high breakouts (PF ~1.1–1.45 vs 1.5–1.8), and
 the move/volume structure **inverts** vs the near-high regime.
 
-⚠️ **Penny-stock caveat (load-bearing):** without a price floor this bucket is dominated by a sub-$1
-artifact — the <$1 band alone was PF **14.6 / +$26.5M** (≈75% of the bucket's nominal P&L), because
-fixed-$10k notional on a $0.30→$3 name books absurd P&L you could never actually deploy. **All
-numbers below apply the $5 price floor**; the far-from-high analysis is meaningless without it.
+⚠️ **Penny-stock caveat (load-bearing):** without a price floor this bucket is dominated by a sub-\$1
+artifact — the <\$1 band alone was PF **14.6 / +\$26.5M** (≈75% of the bucket's nominal P&L), because
+fixed-\$10k notional on a \$0.30→\$3 name books absurd P&L you could never actually deploy. **All
+numbers below apply the \$5 price floor**; the far-from-high analysis is meaningless without it.
 
-| pct_up ($5+, <−15% below high) | n | PF | | rvol | n | PF |
+| pct_up (\$5+, <−15% below high) | n | PF | | rvol | n | PF |
 | --- | ---: | ---: | --- | --- | ---: | ---: |
 | <2% | 11297 | 1.365 | | 3–5 | 23453 | 1.351 |
 | **2–5%** | 8415 | **1.458** | | 5–8 | 7102 | 1.127 |
@@ -8652,7 +8652,7 @@ numbers below apply the $5 price floor**; the far-from-high analysis is meaningl
 **The inversion:** near/at the high, explosive moves are premium; *far below* the high, the **modest
 movers (2–5%) are best** (PF 1.46) and bigger moves fade to ~1.1 — a big up-day far below the high is
 just a dead-cat bounce in a downtrend, no edge. By volume the edge is flat-positive 3–15 then the
-**extreme 30+ rvol bucket collapses to PF 0.40 (−$551k)** — the same "huge volume spike = blow-off
+**extreme 30+ rvol bucket collapses to PF 0.40 (−\$551k)** — the same "huge volume spike = blow-off
 loser" pattern as near the high, just at a higher rvol threshold (30+ here vs 8+ near the high).
 Position relative to the 52w high genuinely changes the breakout's character.
 
@@ -8661,20 +8661,20 @@ Position relative to the 52w high genuinely changes the breakout's character.
 production system where [6,20] is right. Within [5,20] the move profile is the same (2–5% best at
 1.54; the 5–20% bands go slightly negative). The rvol band is itself position-dependent.
 
-**By PRICE LEVEL the far-below-high edge is monotonic — lower is better** ($5+, rvol[5,20], <−15%):
+**By PRICE LEVEL the far-below-high edge is monotonic — lower is better** (\$5+, rvol[5,20], <−15%):
 
 | price | n | win% | PF | net |
 | --- | ---: | ---: | ---: | ---: |
-| $5–10 | 3481 | 30.2% | **1.379** | +630k |
-| $10–20 | 3381 | 35.1% | 1.268 | +356k |
-| $20–50 | 2542 | 30.3% | 1.305 | +335k |
-| $50–100 | 713 | 28.8% | **0.882** | −44k |
-| $100+ | 739 | 23.3% | **0.72** | −144k |
+| \$5–10 | 3481 | 30.2% | **1.379** | +630k |
+| \$10–20 | 3381 | 35.1% | 1.268 | +356k |
+| \$20–50 | 2542 | 30.3% | 1.305 | +335k |
+| \$50–100 | 713 | 28.8% | **0.882** | −44k |
+| \$100+ | 739 | 23.3% | **0.72** | −144k |
 
-The $5–50 range carries the whole edge (PF 1.27–1.38); **>$50 flips negative** (a $100+ large-cap 15%
-off its high doing a one-day volume breakout is mostly noise that fades, vs a $5–20 name where an
+The \$5–50 range carries the whole edge (PF 1.27–1.38); **>\$50 flips negative** (a \$100+ large-cap 15%
+off its high doing a one-day volume breakout is mostly noise that fades, vs a \$5–20 name where an
 oversold-bounce/turnaround can run hard in % terms). So the far-below regime's profile is the
-**opposite of near-high production**: lower price ($5–50), modest move (2–5%), lower-to-moderate
+**opposite of near-high production**: lower price (\$5–50), modest move (2–5%), lower-to-moderate
 volume (rvol 3–5) — vs near-high's higher-priced, big-move, high-volume winners.
 
 ### Loose-base breakouts are a strong negative edge — and LINEAR tightness separates the tail better
@@ -8734,7 +8734,7 @@ is the current (linear) default.
 
 The loose-base loss isn't unconditional — it's overextension **combined with a same-day volume or
 move spike**. Take *all* loose-base new-high breakouts (tightness > 7.5, new 52w close-high, every
-other filter OFF — no rvol/price/ATR/move gates, ADV≥$100k liquidity floor only; 15-day stop, **no
+other filter OFF — no rvol/price/ATR/move gates, ADV≥\$100k liquidity floor only; 15-day stop, **no
 entry-day stop**, breadth, 2005+) and break down by rvol and by the day's move:
 
 | rvol at entry | n | PF | net | | pct_up | n | win% | PF | net |
@@ -8750,7 +8750,7 @@ entry-day stop**, breadth, 2005+) and break down by rvol and by the day's move:
 **Both rvol and the daily move are monotonic killers, and the move is even cleaner.** A loose-base
 name drifting to a new high on quiet volume / a small move (<2% day, PF 1.34, 50% win) is **fine**;
 the *same* loose base ripping +35% on huge volume (rvol 15+, PF ~0.5) is the disaster — 19% win
-rate, −$695k. This is the exhaustion signature in its purest form: a loose base is only dangerous
+rate, −\$695k. This is the exhaustion signature in its purest form: a loose base is only dangerous
 when it's *also* a climax spike that day. (The high-rvol/high-move negative edge holds with the
 entry-day stop dropped too, so it is a real signal, not a stop artifact — though dropping the
 entry-day stop did lift the whole population's PF 1.028 → 1.079, since the wide-range loose breakouts
@@ -8796,10 +8796,10 @@ gates off, 52w-high kept, up≥5% rvol≥3, window-low stop, long, breadth, 2005
 
 | loose-base ENTRY | n | win% | PF | net | avg ret |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| all (loose-admitting) | 25477 | 40.0 | 1.052 | +$552k | +0.2% |
-| **loose (tight>7.5)** | 1121 | 29.6 | **0.536** | −$571k | **−5.1%** |
-| loose + rvol>3 + up≥5% | 1121 | 29.6 | 0.536 | −$571k | −5.1% |
-| **loose + up≥10% (rule B)** | 710 | 26.2 | **0.419** | −$603k | **−8.5%** |
+| all (loose-admitting) | 25477 | 40.0 | 1.052 | +\$552k | +0.2% |
+| **loose (tight>7.5)** | 1121 | 29.6 | **0.536** | −\$571k | **−5.1%** |
+| loose + rvol>3 + up≥5% | 1121 | 29.6 | 0.536 | −\$571k | −5.1% |
+| **loose + up≥10% (rule B)** | 710 | 26.2 | **0.419** | −\$603k | **−8.5%** |
 
 **The premise is confirmed: buying the loose-base spike is a strong −EV pattern (PF 0.54 / −5%; the
 up≥10% subset PF 0.42 / −8.5%).** (Rows 2 and 3 are identical — every tight>7.5 name in this run
@@ -8829,11 +8829,11 @@ from a drag to flat-positive on the BE 10% + 20d base:
 
 | BE 10% + 20d | PF | net |
 | --- | ---: | ---: |
-| exhaustion OFF | 1.400 | $1.889M |
-| + exhaustion, no gain cap | 1.393 | $1.845M |
-| + exhaustion, gain cap 5% | **1.405** | $1.906M |
-| + exhaustion, gain cap 10% | 1.404 | $1.897M |
-| + exhaustion, gain cap 20% | 1.405 | $1.900M |
+| exhaustion OFF | 1.400 | \$1.889M |
+| + exhaustion, no gain cap | 1.393 | \$1.845M |
+| + exhaustion, gain cap 5% | **1.405** | \$1.906M |
+| + exhaustion, gain cap 10% | 1.404 | \$1.897M |
+| + exhaustion, gain cap 20% | 1.405 | \$1.900M |
 
 **Corrected conclusion** (supersedes the earlier "cannot be repurposed as a held exit"): the
 exhaustion signal *can* be a held exit, but **only gated by extension** — it must fire on the
@@ -8852,7 +8852,7 @@ Sharpened the trigger as far as the thesis suggests — tightness > 8, rule B mo
 10% with rvol > 3 — on the **fixed-20% ratchet** base (loosened set), the system that rides winners
 hardest. Result: **still a wash.** No-cap 1.460 vs base 1.464; gain-capped 1.465 (cap 5/10/30% all
 +0.001). The unconditional sharp exit lifts **win% 40.9→41.0** while **PF 1.464→1.460 and P&L
-$5.14M→$5.07M** fall — the tell-tale mean-vs-median signature. The forward-20d-from-trigger study
+\$5.14M→\$5.07M** fall — the tell-tale mean-vs-median signature. The forward-20d-from-trigger study
 explains it definitively, split by gain-at-trigger:
 
 | sharp trigger, fwd-20d | n | avg | median | % up |
@@ -8878,20 +8878,20 @@ an entry filter; on the exit side, manage downside + holding period only and let
 ###### The condition is STRONGLY −EV universe-wide — it's an ENTRY signal we're already screening (2026-06-19)
 
 The held-exit only ever saw ~80 of these bars. How many are there in the *entire tradeable universe*,
-and what's their forward return? Scanned every (ticker, day) bar 2005+ (CS/ADRC, price≥$5, ADV≥$100k,
+and what's their forward return? Scanned every (ticker, day) bar 2005+ (CS/ADRC, price≥\$5, ADV≥\$100k,
 breadth lag1>0.5), reconstructing the same per-bar tightness / rvol / pct_up, and measured the 20-day
 forward return on bars meeting **tightness>8 AND ((rvol>3 AND move>10%) OR move>20%)**:
 
 | universe exhaustion bars | n | avg fwd-20d | median | % up |
 | --- | ---: | ---: | ---: | ---: |
-| all (ADV≥$100k) | 1127 | **−14.5%** | −19.1% | 28.3% |
-| ADV≥$1M, $5–10 | 230 | −15.7% | −21.3% | 23.9% |
-| ADV≥$1M, $10–20 | 210 | −14.7% | −18.8% | 30.0% |
-| ADV≥$1M, $20–50 | 206 | −13.3% | −13.7% | 31.1% |
-| ADV≥$1M, $50+ | 270 | −21.1% | −29.5% | 22.2% |
+| all (ADV≥\$100k) | 1127 | **−14.5%** | −19.1% | 28.3% |
+| ADV≥\$1M, \$5–10 | 230 | −15.7% | −21.3% | 23.9% |
+| ADV≥\$1M, \$10–20 | 210 | −14.7% | −18.8% | 30.0% |
+| ADV≥\$1M, \$20–50 | 206 | −13.3% | −13.7% | 31.1% |
+| ADV≥\$1M, \$50+ | 270 | −21.1% | −29.5% | 22.2% |
 
 **Universe-wide this is a powerful, robust negative-EV signal** — −14.5% avg / −19% median over 20
-days, only 28% higher, and negative across *every* price bucket (no penny-stock artifact; $50+ is the
+days, only 28% higher, and negative across *every* price bucket (no penny-stock artifact; \$50+ is the
 worst at −21%). So the user's instinct that the pattern is toxic is **completely correct** — on the
 *mean*, not just the median, when measured over the whole universe.
 
@@ -8927,11 +8927,11 @@ firing the exit only when ATR% exceeds the floor removes the drag and finally ed
 
 | fixed 20% base | PF | net | 2005–14 PF | 2015–26 PF |
 | --- | ---: | ---: | ---: | ---: |
-| exhaustion OFF | 1.464 | $5.136M | 1.536 | 1.400 |
-| + sharp exh, no ATR gate | 1.460 | $5.071M | — | — |
-| + sharp exh, ATR%>0.15 | **1.465** | **$5.150M** | **1.538** | **1.402** |
+| exhaustion OFF | 1.464 | \$5.136M | 1.536 | 1.400 |
+| + sharp exh, no ATR gate | 1.460 | \$5.071M | — | — |
+| + sharp exh, ATR%>0.15 | **1.465** | **\$5.150M** | **1.538** | **1.402** |
 
-**But it is still only +0.001 PF / +$14k on $5.1M** — a rounding-error gain. ATR% *correctly* isolates
+**But it is still only +0.001 PF / +\$14k on \$5.1M** — a rounding-error gain. ATR% *correctly* isolates
 the cratering subset (genuinely useful), but on the **held** population there are simply too few of
 these bars (the entry gate already excludes nearly all of them — see the 1,127-bar universe scan
 above). **So the conclusion stands and is now triple-confirmed (gain-cap, ATR%-floor, universe scan):
@@ -9007,14 +9007,14 @@ The reason exhaustion never helped the stopped systems is that the **stop alread
 before exhaustion can fire** (they overlap). So strip the stop entirely (`StopMode.NoStop`, CLI
 `--no-stop`; equivalently `--fixed-stop 1` → stop at 0, never reached — confirmed identical) and let
 exhaustion be the *sole* exit. (Caveat: no-stop is not a usable strategy — these are 20-year holds at
-fixed $10k notional, PF ~5.5 is the degenerate buy-and-hold-survivors scale. Only the *relative* effect
+fixed \$10k notional, PF ~5.5 is the degenerate buy-and-hold-survivors scale. Only the *relative* effect
 matters.) Loosened set:
 
 | no-stop (loosened) | win% | PF | net | avg hold |
 | --- | ---: | ---: | ---: | ---: |
-| no exit (MTM only) | 53.6 | 5.553 | $146.1M | 1881 |
-| **+ exhaustion (t8, atr16, mv5+rv3 / mv20)** | 53.5 | **5.642** | $147.0M | 1833 |
-| + exhaustion (t8, atr12, mv5+rv3 / mv10) | 53.1 | 5.511 | $142.0M | 1766 |
+| no exit (MTM only) | 53.6 | 5.553 | \$146.1M | 1881 |
+| **+ exhaustion (t8, atr16, mv5+rv3 / mv20)** | 53.5 | **5.642** | \$147.0M | 1833 |
+| + exhaustion (t8, atr12, mv5+rv3 / mv10) | 53.1 | 5.511 | \$142.0M | 1766 |
 
 **With no stop underneath, the SHARP exhaustion exit (loose + ATR>16 + spike) beats pure hold on both
 PF and P&L** (5.642 vs 5.553) while exiting ~48 bars earlier — the first time exhaustion *adds* value,
@@ -9026,12 +9026,12 @@ it monotonically destroys the edge:
 
 | no-stop, exit when ATR% > x | win% | PF | net | avg hold |
 | --- | ---: | ---: | ---: | ---: |
-| 0.08 | 44.8 | 1.567 | $12.7M | 515 |
-| 0.12 | 44.8 | 2.738 | $55.9M | 1027 |
-| 0.16 | 48.7 | 4.221 | $109.7M | 1442 |
-| 0.20 | 51.3 | 5.031 | $134.3M | 1649 |
-| 0.30 | 53.3 | 5.577 | $144.5M | 1817 |
-| (no exit) | 53.6 | 5.553 | $146.1M | 1881 |
+| 0.08 | 44.8 | 1.567 | \$12.7M | 515 |
+| 0.12 | 44.8 | 2.738 | \$55.9M | 1027 |
+| 0.16 | 48.7 | 4.221 | \$109.7M | 1442 |
+| 0.20 | 51.3 | 5.031 | \$134.3M | 1649 |
+| 0.30 | 53.3 | 5.577 | \$144.5M | 1817 |
+| (no exit) | 53.6 | 5.553 | \$146.1M | 1881 |
 
 The tighter the ATR threshold, the worse — exiting on ATR%>8% (PF 1.57) guts the system; it only
 converges back to pure-hold near ATR%>0.30 (where it barely exits). **High ATR% ALONE is not toxic — a
@@ -9063,9 +9063,9 @@ Is there a long-side mirror: buy the *down*-blowoff (loose base making a new 52w
 *avoid* the up-blowoff? Extended the engine with 252d **low** channels (min-close and min-intraday-low,
 mirroring the high channels) and emitted `pct_52w_low_close_at_entry` / `pct_52w_low_at_entry`. Took
 loose-base (tightness>7.5) names at/below the prior 252d closing low, **down days admitted**
-(`--up-threshold -1`), rvol≥3, $5 floor, long-only, 15-day stop:
+(`--up-threshold -1`), rvol≥3, \$5 floor, long-only, 15-day stop:
 
-**Total: 1,797 trips, PF 0.833, −$154k — a net loser.** Breakdown:
+**Total: 1,797 trips, PF 0.833, −\$154k — a net loser.** Breakdown:
 
 | pct_up (capitulation severity) | n | PF | | rvol | n | PF |
 | --- | ---: | ---: | --- | --- | ---: | ---: |
@@ -9092,7 +9092,7 @@ If buying the new-low loses, does *shorting* it win (trail the stop along the pr
 cover on a break up — the mirror system)? Added a `Side = Long | Short` mode (`--side short`): Short
 trails the 15-day high and flips the P&L sign. On the same loose-base new-low population:
 
-**SHORT total: 1,797 trips, PF 0.914, −$115k — also a loser.** So it's *not* a simple stop-trip
+**SHORT total: 1,797 trips, PF 0.914, −\$115k — also a loser.** So it's *not* a simple stop-trip
 artifact (if it were, the short would profit). Both sides losing means these names **chop / mean-
 revert** — you get stopped out long on the bounces AND stopped out short on them. A no-trend regime.
 
@@ -9165,7 +9165,7 @@ regimes.)
 The above was all *loose*-base. Mirror thesis: a **tight** consolidation (tightness<4, ATR%<0.11 —
 the production quality filters) breaking DOWN to a new 52w low on volume should be a clean
 distribution short, the mirror of the winning long breakout. **It isn't.** Short, quality filters ON,
-new 52w close-low, down days, rvol≥3, $5, 15-day stop — every rvol×era cell is < 1.0:
+new 52w close-low, down days, rvol≥3, \$5, 15-day stop — every rvol×era cell is < 1.0:
 
 | rvol | SHORT 2005–14 | SHORT 2015–26 |
 | --- | ---: | ---: |
@@ -9219,8 +9219,8 @@ failure:
    `range = rangeHigh − max(rangeLow, entryPrice)`). This *does* fire on multi-bar run-ups (273
    exits at thr=4), fixing attempt 2's blind spot. But it **only ever truncates winners**: the
    floored range can only be large when the stock is far ABOVE entry, so the exit never touches a
-   loser. Counterfactual on the 273 fired trades: booked +$744k, would have made **+$811k** if
-   held — it left **$67k on the table**. By construction it fights the edge ("let winners run").
+   loser. Counterfactual on the 273 fired trades: booked +\$744k, would have made **+\$811k** if
+   held — it left **\$67k on the table**. By construction it fights the edge ("let winners run").
 
 **Conclusion:** this momentum edge is "hold to the trailing stop." Anything that exits *because* a
 name is up a lot is selling the right tail, where these names keep running more often than they
@@ -9243,7 +9243,7 @@ set (more samples) with both the Qulla day-low stop and the trailing prior-windo
 | tightness mode | Linear |
 | up-threshold | **0.05** (loosened from prod 0.10) |
 | rvol band | **[3, ∞)** (loosened from prod [6,20]) |
-| ADV / price / 52w-prox | ≥ $100k / ≥ $5 / ≥ 0.95 |
+| ADV / price / 52w-prox | ≥ \$100k / ≥ \$5 / ≥ 0.95 |
 | tightness / ATR% | < 4.0 / < 0.11 |
 | stop-low-window | **15** and **4** (two runs) |
 | trail N / exit cap / expansion | 1 / 0 (next-open exit) / off |
@@ -9306,31 +9306,31 @@ Follow-on to the above: for the **tight-stop bucket** (Qulla day-low < 2% below 
 trailing stop whipsaws), what if we'd **replaced the trailing stop with a 20-day time-stop** — hold
 exactly 20 trading bars and exit at that bar's open (MTM at last close if the ticker runs out of
 bars)? Post-hoc over the same loosened run; forward prices from `split_adjusted_prices` (same
-CS/ADRC universe + date range), per-trade fixed-$10k notional to match the engine.
+CS/ADRC universe + date range), per-trade fixed-\$10k notional to match the engine.
 
 **Parameters:** same run as the stop-distance analysis above (Long, at-close, Linear, up≥0.05,
-rvol[3,∞), ADV≥$100k, price≥$5, 52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth
+rvol[3,∞), ADV≥\$100k, price≥\$5, 52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth
 lag1>0.5, **stop-window 15** run — the Qulla day-low ref is window-independent). Bucket = Qulla
 `(entry−day_low)/entry < 0.02`. Time-stop exit = open of the 20th bar after entry.
 
 | tight-stop bucket (Qulla <2%) | n | win% | net | PF | avg/trade |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| actual trailing stop | 1048 | 39.2 | $15.8k | 1.089 | $15 |
-| **20-day time stop** | 1048 | **60.2** | **$163.9k** | **1.684** | **$156** |
+| actual trailing stop | 1048 | 39.2 | \$15.8k | 1.089 | \$15 |
+| **20-day time stop** | 1048 | **60.2** | **\$163.9k** | **1.684** | **\$156** |
 
 **A ~10× improvement, era-robust:** the trailing stop sits <2% away, so any normal pullback triggers
 it and turns would-be winners into small losers. Holding 20 days instead: win rate 39%→**60%**, P&L
-**$16k→$164k**, PF 1.09→**1.68**. Era split (only 14/1048 trades truncated <20 bars, so MTM isn't
+**\$16k→\$164k**, PF 1.09→**1.68**. Era split (only 14/1048 trades truncated <20 bars, so MTM isn't
 driving it):
 
 | era | n | trailing-stop net / PF | 20d time-stop net / PF |
 | --- | ---: | ---: | ---: |
-| 2005–14 | 489 | $4.3k / 1.045 | $84.3k / **1.726** |
-| 2015–26 | 559 | $11.5k / 1.14 | $79.6k / **1.645** |
+| 2005–14 | 489 | \$4.3k / 1.045 | \$84.3k / **1.726** |
+| 2015–26 | 559 | \$11.5k / 1.14 | \$79.6k / **1.645** |
 
 **Control — it is SPECIFIC to tight stops, not "time-stops beat trailing everywhere".** The same
-comparison on the **wide** bucket (13–20% stop distance) is a dead heat: trailing PF 1.405 / $320k vs
-time-stop 1.407 / $298k (trailing slightly ahead on P&L). So the time-stop rescue fires *only* where
+comparison on the **wide** bucket (13–20% stop distance) is a dead heat: trailing PF 1.405 / \$320k vs
+time-stop 1.407 / \$298k (trailing slightly ahead on P&L). So the time-stop rescue fires *only* where
 the trailing stop is too close to survive normal noise. Read: a tight initial stop is not merely
 "no better" — it is **actively harmful**, and the fix is to **stop trailing close and just hold**
 (time-stop) for those names, not to tighten further. (Trade construction lever for a future variant:
@@ -9347,18 +9347,18 @@ and entry-day-low geometry (no day-low floor — the ratchet starts from the ent
 Immutable Position carry of the ratchet level, no lookahead (the level checked on bar B is set from
 bars ≤ B-1, then updated from B's close for B+1).
 
-**Parameters:** loosened set — Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥$100k, price≥$5,
+**Parameters:** loosened set — Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥\$100k, price≥\$5,
 52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth lag1>0.5. Stop = ATR ratchet **only**
 (entry-day-low floor OFF, window-low OFF). Sweep k=1..5 vs the window-low(4) baseline:
 
 | stop | n | win% | PF | net |
 | --- | ---: | ---: | ---: | ---: |
-| window-low(4) baseline | 12266 | 42.5 | 1.352 | $1.29M |
-| atr-ratchet k=1 | 12266 | 45.5 | 1.309 | $1.10M |
-| atr-ratchet k=2 | 12266 | 43.2 | 1.349 | $1.87M |
-| atr-ratchet k=3 | 12266 | 42.3 | 1.387 | $2.81M |
-| **atr-ratchet k=4** | 12266 | 41.6 | **1.421** | $3.82M |
-| atr-ratchet k=5 | 12266 | 40.6 | 1.387 | $4.24M |
+| window-low(4) baseline | 12266 | 42.5 | 1.352 | \$1.29M |
+| atr-ratchet k=1 | 12266 | 45.5 | 1.309 | \$1.10M |
+| atr-ratchet k=2 | 12266 | 43.2 | 1.349 | \$1.87M |
+| atr-ratchet k=3 | 12266 | 42.3 | 1.387 | \$2.81M |
+| **atr-ratchet k=4** | 12266 | 41.6 | **1.421** | \$3.82M |
+| atr-ratchet k=5 | 12266 | 40.6 | 1.387 | \$4.24M |
 
 **The ATR ratchet beats the window-low stop at k≥3 on PF and massively on P&L** (a looser stop rides
 winners far longer; P&L grows monotonically with k while PF peaks at **k=4**, PF 1.421 vs 1.352
@@ -9368,8 +9368,8 @@ room. Era-robust (k=4 wins both halves):
 
 | era | window-low(4) PF / net | atr k=4 PF / net |
 | --- | ---: | ---: |
-| 2005–14 | 1.489 / $0.66M | **1.568 / $2.03M** |
-| 2015–26 | 1.272 / $0.63M | **1.325 / $1.79M** |
+| 2005–14 | 1.489 / \$0.66M | **1.568 / \$2.03M** |
+| 2015–26 | 1.272 / \$0.63M | **1.325 / \$1.79M** |
 
 So the ATR%-ratchet is a strictly better trailing mechanism than the legacy window-low here — higher
 PF, ~3× P&L, both eras. (Not yet swept on the *production* entry set; k=4 is the loosened-set sweet
@@ -9383,18 +9383,18 @@ entry); it varies trade-to-trade because ATR% does, even at fixed k. R = `(exit�
 
 | initial stop dist | n | win% | avg R | med R | PF | net |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| <4% | 47 | 44.7 | 0.95 | −0.09 | 1.62 | $13k |
-| 4–7% | 849 | 44.5 | 0.07 | −0.14 | **1.11** | $39k |
-| 7–10% | 2287 | 42.4 | 0.09 | −0.19 | **1.16** | $173k |
-| **10–14%** | 3313 | 42.0 | 0.27 | −0.20 | **1.57** | $1.04M |
-| **14–20%** | 2960 | 42.6 | 0.26 | −0.20 | **1.60** | $1.28M |
-| 20–30% | 2002 | 39.8 | 0.21 | −0.28 | 1.46 | $1.02M |
-| 30%+ | 808 | 35.4 | 0.09 | −0.37 | 1.18 | $0.26M |
+| <4% | 47 | 44.7 | 0.95 | −0.09 | 1.62 | \$13k |
+| 4–7% | 849 | 44.5 | 0.07 | −0.14 | **1.11** | \$39k |
+| 7–10% | 2287 | 42.4 | 0.09 | −0.19 | **1.16** | \$173k |
+| **10–14%** | 3313 | 42.0 | 0.27 | −0.20 | **1.57** | \$1.04M |
+| **14–20%** | 2960 | 42.6 | 0.26 | −0.20 | **1.60** | \$1.28M |
+| 20–30% | 2002 | 39.8 | 0.21 | −0.28 | 1.46 | \$1.02M |
+| 30%+ | 808 | 35.4 | 0.09 | −0.37 | 1.18 | \$0.26M |
 
 **Tight stops hurt — inverted-U, damage on both tails:** the tight **4–10%** buckets are the *worst*
 (PF 1.11–1.16) — low-ATR names where even 4×ATR lands close to entry and whipsaws out, the same trap
 as the window-low <2% bucket. The **10–20%** zone is the sweet spot (PF 1.57–1.60) and carries the
-bulk of the P&L ($2.3M of $3.8M). The wide **30%+** tail also fades (PF 1.18, median R −0.37 — too
+bulk of the P&L (\$2.3M of \$3.8M). The wide **30%+** tail also fades (PF 1.18, median R −0.37 — too
 loose to protect, gives a lot back). The `<4%` cell (n=47) is the same misleading high-avg-R /
 negative-median tail-artifact seen before — ignore it. So across *both* stop mechanisms the verdict is
 identical: **tight initial stops hurt.** The ATR ratchet's edge is that at k=4 it *naturally* parks
@@ -9442,23 +9442,23 @@ survivorship (a 30%+ ATR stop only arises on very high-ATR, intrinsically wilder
 Built the test the previous section called for: `StopMode = FixedPct p` (CLI `--fixed-stop p`) — the
 **same up-only ratchet machinery as the ATR stop** but with a *constant* fractional distance:
 `stop = max(prev_stop, close·(1−p))`. This isolates distance from mechanism — same trailing, distance
-set directly. Same loosened set (Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥$100k, price≥$5,
+set directly. Same loosened set (Long, at-close, Linear, up≥0.05, rvol[3,∞), ADV≥\$100k, price≥\$5,
 52w≥0.95, tight<4.0, ATR%<0.11, 2005-01-01→2026-05-13, breadth lag1>0.5):
 
 | stop | win% | PF | net | avg hold | % exit via stop |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| window-low(4) | 42.5 | 1.352 | $1.29M | — | — |
-| atr k=4 | 41.6 | 1.421 | $3.82M | — | — |
-| fixed p=0.08 | 42.7 | 1.233 | $1.26M | — | — |
-| fixed p=0.10 | 42.2 | 1.329 | $2.06M | — | — |
-| fixed p=0.12 | 41.8 | 1.325 | $2.36M | — | — |
-| fixed p=0.15 | 41.4 | 1.394 | $3.43M | 66 | 94.6% |
-| **fixed p=0.20** | 40.9 | **1.464** | $5.14M | — | — |
-| fixed p=0.25 | 40.4 | 1.525 | $7.12M | 161 | 91.0% |
-| fixed p=0.30 | 39.8 | 1.561 | $8.96M | — | — |
-| fixed p=0.35 | 39.5 | 1.689 | $12.6M | — | — |
-| fixed p=0.40 | 39.0 | 1.861 | $17.9M | — | — |
-| fixed p=0.50 | 38.4 | 2.084 | $27.8M | 512 | 76.4% |
+| window-low(4) | 42.5 | 1.352 | \$1.29M | — | — |
+| atr k=4 | 41.6 | 1.421 | \$3.82M | — | — |
+| fixed p=0.08 | 42.7 | 1.233 | \$1.26M | — | — |
+| fixed p=0.10 | 42.2 | 1.329 | \$2.06M | — | — |
+| fixed p=0.12 | 41.8 | 1.325 | \$2.36M | — | — |
+| fixed p=0.15 | 41.4 | 1.394 | \$3.43M | 66 | 94.6% |
+| **fixed p=0.20** | 40.9 | **1.464** | \$5.14M | — | — |
+| fixed p=0.25 | 40.4 | 1.525 | \$7.12M | 161 | 91.0% |
+| fixed p=0.30 | 39.8 | 1.561 | \$8.96M | — | — |
+| fixed p=0.35 | 39.5 | 1.689 | \$12.6M | — | — |
+| fixed p=0.40 | 39.0 | 1.861 | \$17.9M | — | — |
+| fixed p=0.50 | 38.4 | 2.084 | \$27.8M | 512 | 76.4% |
 
 **Two findings:**
 1. **In the tradeable range, fixed-% matches/beats the best ATR stop.** At p=0.20 PF 1.464 > ATR k=4's
@@ -9488,8 +9488,8 @@ If so, a **uniform fixed 10% stop** on both should erase the gap. Tested on the 
 
 | up=0 dead zone | window-low(4) PF / net | fixed 10% PF / net |
 | --- | ---: | ---: |
-| gap-over | 1.159 / $100k | 1.096 / $180k |
-| reclaim | 1.318 / $565k | **1.478 / $1.64M** |
+| gap-over | 1.159 / \$100k | 1.096 / \$180k |
+| reclaim | 1.318 / \$565k | **1.478 / \$1.64M** |
 | reclaim − gap-over (PF) | +0.16 | **+0.38** |
 
 **The hypothesis is refuted — the gap WIDENS under a fixed stop.** The fixed 10% helps *reclaims* a lot
@@ -9507,7 +9507,7 @@ distance does the opposite of closing the gap. Two reasons it isn't a stop artif
 So the gap-over deficit is a property of the **setup's continuation profile, not the stop.** It is
 exactly what an open / early-morning *entry* (not a different stop) would need to address — reinforcing
 the deferred intraday-entry test. Reclaims, separately, are the standout beneficiary of the wide
-fixed/ratchet stop (the single best dead-zone cell: up=0 reclaim + fixed 10% = PF 1.478 / $1.64M).
+fixed/ratchet stop (the single best dead-zone cell: up=0 reclaim + fixed 10% = PF 1.478 / \$1.64M).
 
 **Follow-up: does a 20-day TIME-STOP rescue gap-overs (like it did the tight-stop bucket)? No.**
 Applied the same time-stop method (hold 20 bars, exit at the 20th bar's open, MTM if the ticker runs
@@ -9515,9 +9515,9 @@ out) to the up=0 dead-zone **gap-over** universe (n=3665):
 
 | up=0 dead-zone gap-overs (n=3665) | win% | PF | net |
 | --- | ---: | ---: | ---: |
-| window-low(4) stop | 41.4 | **1.159** | $100k |
-| fixed 10% stop | 42.8 | 1.096 | $180k |
-| 20-day time stop | 53.8 | 1.125 | $156k |
+| window-low(4) stop | 41.4 | **1.159** | \$100k |
+| fixed 10% stop | 42.8 | 1.096 | \$180k |
+| 20-day time stop | 53.8 | 1.125 | \$156k |
 
 The time-stop lifts win rate hard (41%→54%, holding through noise instead of stopping out) and beats
 window-low on P&L, but **PF stays stuck ~1.12** — no better than the price stops, *below* window-low's
@@ -9539,15 +9539,15 @@ profit beyond BE (unlike the full ratchet), and don't hold past the point where 
 
 | loosened set | win% | PF | net |
 | --- | ---: | ---: | ---: |
-| window-low(4) | 42.5 | 1.352 | $1.29M |
-| atr k=4 (full ratchet) | 41.6 | 1.421 | $3.82M |
-| fixed p=0.10 (full ratchet) | 42.2 | 1.329 | $2.06M |
-| **BE p=0.10 + 20d time-stop** | 47.2 | **1.40** | $1.89M |
-| BE p=0.15 + 20d time-stop | 49.7 | 1.39 | $2.06M |
+| window-low(4) | 42.5 | 1.352 | \$1.29M |
+| atr k=4 (full ratchet) | 41.6 | 1.421 | \$3.82M |
+| fixed p=0.10 (full ratchet) | 42.2 | 1.329 | \$2.06M |
+| **BE p=0.10 + 20d time-stop** | 47.2 | **1.40** | \$1.89M |
+| BE p=0.15 + 20d time-stop | 49.7 | 1.39 | \$2.06M |
 
 The combo reaches **PF ~1.40 at p=0.10** — beating the equivalent full-ratchet fixed-% (1.329) and
 window-low (1.352), and ≈ the full-ratchet ATR k=4 (1.421) — but with a much **higher win rate**
-(47–50% vs 42%) and a **modest, honest P&L** ($1.9M, not the wide-ratchet $3.8M). The lower P&L is the
+(47–50% vs 42%) and a **modest, honest P&L** (\$1.9M, not the wide-ratchet \$3.8M). The lower P&L is the
 point: it's banking winners at 20 days, not riding the degenerate fat tail, so this PF doesn't depend
 on the "hold-forever" artifact that inflated the wide fixed-% sweep.
 
@@ -9578,14 +9578,14 @@ Swept 15/20/30/50% on the BE 10% + 20d base (loosened set):
 
 | BE 10% + 20d base | win% | PF | net |
 | --- | ---: | ---: | ---: |
-| no target | 47.2 | **1.40** | $1.89M |
-| + target 15% | 50.6 | 1.352 | $1.57M |
-| + target 20% | 49.2 | 1.380 | $1.73M |
-| + target 30% | 48.0 | 1.374 | $1.74M |
-| + target 50% | 47.5 | 1.390 | $1.83M |
+| no target | 47.2 | **1.40** | \$1.89M |
+| + target 15% | 50.6 | 1.352 | \$1.57M |
+| + target 20% | 49.2 | 1.380 | \$1.73M |
+| + target 30% | 48.0 | 1.374 | \$1.74M |
+| + target 50% | 47.5 | 1.390 | \$1.83M |
 
 **Every target level lowers both PF and P&L**, monotonically worse the tighter the target (15% →
-1.352 / $1.57M); as the target widens toward "off" (50%) it converges back up to the no-target
+1.352 / \$1.57M); as the target widens toward "off" (50%) it converges back up to the no-target
 baseline. Win rate rises (capping books more small wins) but that's the losing trade-off — **the
 target truncates the right tail that carries a momentum system.** Same lesson as the expansion exit,
 the gap-over time-stop, and the wide-stop PF degeneracy: any rule that caps the *upside* fights the
@@ -9705,8 +9705,8 @@ side = long   entry-day-stop = true   time-stop = off   profit/exhaustion = off
 
 | stop | book PF | book net | avg gain@exit | **stop-exit fwd-PF** | fwd-med |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| flat 10% | 1.377 | $3.41M | +1.4% | 1.141 | +0.47% |
-| **chandelier 20/10@10%** | **1.516** | **$8.18M** | **+3.3%** | **1.089** | +0.40% |
+| flat 10% | 1.377 | \$3.41M | +1.4% | 1.141 | +0.47% |
+| **chandelier 20/10@10%** | **1.516** | **\$8.18M** | **+3.3%** | **1.089** | +0.40% |
 
 The chandelier pushes the stop-exit forward-PF **below the 1.1 neutral line** (1.089) — we stop selling
 things that keep going — *while* lifting book PF and letting winners run further (+3.3% vs +1.4% avg gain
@@ -9718,8 +9718,8 @@ together.
 
 | stop | ALL PF | pre-2015 | post-2015 | ALL net |
 | --- | ---: | ---: | ---: | ---: |
-| flat 10% | 1.335 | 1.215 | 1.444 | $367k |
-| **chandelier 20/10@10%** | **1.419** | **1.391** | 1.445 | **$774k** |
+| flat 10% | 1.335 | 1.215 | 1.444 | \$367k |
+| **chandelier 20/10@10%** | **1.419** | **1.391** | 1.445 | **\$774k** |
 
 **+0.084 blended PF, 2.1× the P&L, and it RESCUES the weak pre-2015 era** (1.215 → 1.391), pulling the
 two eras to near-parity (1.391 / 1.445) vs the flat stop's lopsided split. Robustifies across regime
@@ -9744,9 +9744,9 @@ side = long   entry-day-stop = true   time/profit/exhaustion = off
 
 | stop | loose PF | loose net | prod PF | prod net |
 | --- | ---: | ---: | ---: | ---: |
-| chandelier 20/10 @10% | 1.516 | $8.18M | 1.554 | $1.60M |
-| chandelier 12/8 @10% | 1.394 | $3.96M | 1.526 | $0.98M |
-| ladder 8/10/12/15 | 1.421 | $4.95M | 1.479 | $1.02M |
+| chandelier 20/10 @10% | 1.516 | \$8.18M | 1.554 | \$1.60M |
+| chandelier 12/8 @10% | 1.394 | \$3.96M | 1.526 | \$0.98M |
+| ladder 8/10/12/15 | 1.421 | \$4.95M | 1.479 | \$1.02M |
 
 The narrower-base ladders (15% / 12%) sit below the 20%-base version on book PF — same "wider base leash →
 higher book PF" pattern (the wide leash lets winners run).
@@ -9803,12 +9803,12 @@ LOOSENED set: 18,310 trips
 
 | hold | PF | net | win% |
 | --- | ---: | ---: | ---: |
-| 5d | **1.346** | $1.68M | 51.0 |
-| 10d | 1.287 | $1.86M | 50.6 |
-| 15d | 1.310 | $2.37M | 51.8 |
-| 20d | 1.361 | $3.14M | 52.1 |
-| 25d | 1.353 | $3.42M | 52.6 |
-| 30d | 1.328 | $3.51M | 51.8 |
+| 5d | **1.346** | \$1.68M | 51.0 |
+| 10d | 1.287 | \$1.86M | 50.6 |
+| 15d | 1.310 | \$2.37M | 51.8 |
+| 20d | 1.361 | \$3.14M | 52.1 |
+| 25d | 1.353 | \$3.42M | 52.6 |
+| 30d | 1.328 | \$3.51M | 51.8 |
 
 PF peaks at the short (5d, 1.346) and the 20d hold (1.361); net P&L climbs monotonically with hold
 length (more trend captured per trade). No stop needed — the stop was mostly forcing rotation, which the
@@ -9976,21 +9976,21 @@ entry gates: up>=0.10  rvol[6,20]  adv>=100000  price>=5  52w>=0.95  tight<4.00 
 
 | hold | n | PF | net | win% |
 | --- | ---: | ---: | ---: | ---: |
-| **5d** | 2,233 | **1.859** | $501k | 53.2 |
-| 10d | 2,227 | 1.847 | $658k | 53.5 |
-| 15d | 2,224 | 1.668 | $626k | 53.9 |
-| 20d | 2,222 | 1.654 | $700k | 54.6 |
-| 25d | 2,216 | 1.596 | $713k | 53.7 |
-| 30d | 2,208 | 1.606 | $787k | 52.7 |
+| **5d** | 2,233 | **1.859** | \$501k | 53.2 |
+| 10d | 2,227 | 1.847 | \$658k | 53.5 |
+| 15d | 2,224 | 1.668 | \$626k | 53.9 |
+| 20d | 2,222 | 1.654 | \$700k | 54.6 |
+| 25d | 2,216 | 1.596 | \$713k | 53.7 |
+| 30d | 2,208 | 1.606 | \$787k | 52.7 |
 
 **Segment decomposition** — split each 30d-hold trade's P&L into its first-5-bar segment (entry → close
 at +5) vs the remainder (+5 → exit), PF each:
 
-| segment | n | net $ | PF | share of P&L |
+| segment | n | net \$ | PF | share of P&L |
 | --- | ---: | ---: | ---: | ---: |
-| **first 5 bars** | 2,208 | $477k | **1.827** | **61%** |
-| rest (+5 → exit) | 2,208 | $309k | 1.235 | 39% |
-| whole trade | 2,208 | $787k | 1.606 | 100% |
+| **first 5 bars** | 2,208 | \$477k | **1.827** | **61%** |
+| rest (+5 → exit) | 2,208 | \$309k | 1.235 | 39% |
+| whole trade | 2,208 | \$787k | 1.606 | 100% |
 
 **Confirmed — and the contrast with the loosened set is the whole point:**
 
@@ -10015,7 +10015,7 @@ capture-vs-efficiency tradeoff, now quantified on the population that matters).
 > **Superseded ceiling (2026-06-20):** the PF figures in this section (1.775 no-breadth; 1.859/1.881/1.848
 > filtered, 2,233 trips) are the **tight < 4.0** numbers, which was the default *when this was written*. The
 > tightness ceiling was later raised to **4.5** (the clean half of the capacity gain — see "The gate
-> matters" in the filter-ceiling sweep below): the current default is **2,780 trips, PF 1.795, +$580k**
+> matters" in the filter-ceiling sweep below): the current default is **2,780 trips, PF 1.795, +\$580k**
 > (pre 1.769 / post 1.808). The 5d-time-stop / no-price-stop / ATR% < 0.11 facts in this section all still
 > hold; only the tightness ceiling and the headline trip/PF numbers changed.
 
@@ -10025,14 +10025,14 @@ established above: moving stops around doesn't help; too-tight stops hurt; the e
 the first ~5 days; price stops only earn their keep at ATR% > ~8-10%. Simple, legible, and the best PF of
 anything tested.
 
-**New default (no flags), production gate:** stop = none, time-stop = 5d, **PF 1.775**, $738k, win 53.7%.
+**New default (no flags), production gate:** stop = none, time-stop = 5d, **PF 1.775**, \$738k, win 53.7%.
 **+ breadth (lag-1 pct_above_20 > 0.5), era-split:**
 
 | era | n | PF | net |
 | --- | ---: | ---: | ---: |
-| ALL | 2,233 | **1.859** | $501k |
-| pre-2015 | 991 | 1.881 | $172k |
-| post-2015 | 1,242 | 1.848 | $329k |
+| ALL | 2,233 | **1.859** | \$501k |
+| pre-2015 | 991 | 1.881 | \$172k |
+| post-2015 | 1,242 | 1.848 | \$329k |
 
 Near-identical across eras — no regime dependence, and well above every stop-based variant.
 
@@ -10081,7 +10081,7 @@ engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σ
 
 **ATR% marginal** — edge is *highest* at the bottom and decays monotonically; only the `14%+` tail is negative:
 
-| ATR% (log) | n | win% | mean $ | med $ | PF | total $ |
+| ATR% (log) | n | win% | mean \$ | med \$ | PF | total \$ |
 |---|--:|--:|--:|--:|--:|--:|
 | <4%    | 12,631 | 50.2 | 73 | 4 | **1.371** | +928k |
 | 4–6%   | 5,448 | 50.9 | 117 | 18 | **1.375** | +640k |
@@ -10095,7 +10095,7 @@ engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σ
 
 **Tightness marginal** — tighter is better, monotonically; edge dies above ~5.5 (looser = worse):
 
-| tightness (log) | n | win% | mean $ | med $ | PF | total $ |
+| tightness (log) | n | win% | mean \$ | med \$ | PF | total \$ |
 |---|--:|--:|--:|--:|--:|--:|
 | <2.5    | 1,123 | 46.9 | 22 | −31 | 1.087 | +24k |
 | 2.5–3.5 | 6,824 | 50.9 | 133 | 12 | **1.481** | +910k |
@@ -10118,7 +10118,7 @@ engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σ
 | **10–14** | 0.52* | 1.19 | 1.34 | 0.92 | 0.92 | 1.03 |
 | **14+**   | 0.24* | 1.70* | 0.93 | 0.93 | 0.63 | **0.38** |
 
-`*` = thin cell (n < 50); ignore. Cell **n** and **total $** below.
+`*` = thin cell (n < 50); ignore. Cell **n** and **total \$** below.
 
 **n grid:**
 
@@ -10131,7 +10131,7 @@ engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σ
 | **10–14** | 12 | 143 | 235 | 231 | 283 | 210 |
 | **14+**   | 5 | 40 | 82 | 138 | 185 | 334 |
 
-**total $ grid:**
+**total \$ grid:**
 
 | ATR% ↓ \ tight → | <2.5 | 2.5–3.5 | 3.5–4.5 | 4.5–5.5 | 5.5–7 | 7+ |
 |---|--:|--:|--:|--:|--:|--:|
@@ -10144,10 +10144,10 @@ engine's **log-space** values (ATR% median 0.038, tightness median 3.9). PF = Σ
 
 **Verdict:**
 - **The mass and the money live in the quiet/tight top-left quadrant** (ATR% < 6%, tightness 2.5–4.5):
-  `<4% × 2.5–3.5` (n=4308, PF 1.47, +$395k) and `<4% × 4.5–5.5` (PF 1.83, +$338k) are the two biggest
-  P&L cells; `4–6% × 3.5–4.5` (+$252k) and `6–8% × 3.5–4.5` (PF 1.68) round it out. This is precisely the
+  `<4% × 2.5–3.5` (n=4308, PF 1.47, +\$395k) and `<4% × 4.5–5.5` (PF 1.83, +\$338k) are the two biggest
+  P&L cells; `4–6% × 3.5–4.5` (+\$252k) and `6–8% × 3.5–4.5` (PF 1.68) round it out. This is precisely the
   region the trailing stops killed.
-- **The loss engine is the high-ATR% + loose-base corner.** The single `14%+ × 7+` cell is **−$442k / PF
+- **The loss engine is the high-ATR% + loose-base corner.** The single `14%+ × 7+` cell is **−\$442k / PF
   0.38** — essentially the entire system loss. The whole bottom row (ATR% 14+) and right column
   (tightness 7+) are where the cut belongs.
 - **Implication for the filters:** the current `MaxAtrPct = 0.11` cap is roughly right (it trims the
@@ -10177,11 +10177,11 @@ regime fluke.
 > Follow-up to the grid above: given that the quiet/tight corner is the book, *should we move the entry
 > ceilings?* Tested candidate ATR% and tightness ceilings on the **loose gate** (price% ≥ 0.05, rvol [3,20],
 > breadth on — same population as the grid). The answer is **no — the current ceilings are the optimum.**
-> Both axes were swept; mean-$/trade is the quality tell (PF can be lifted by a few fat-tail survivors).
+> Both axes were swept; mean-\$/trade is the quality tell (PF can be lifted by a few fat-tail survivors).
 
 **ATR% ceiling sweep (holding tight < 5.5)** — total P&L *peaks at 0.11* and declines on both sides:
 
-| ATR% ceiling | n | PF | total $ | mean $ |
+| ATR% ceiling | n | PF | total \$ | mean \$ |
 |---|--:|--:|--:|--:|
 | < 0.08 | 17,258 | 1.406 | +1.73M | 100 |
 | < 0.10 | 18,102 | 1.418 | +2.00M | 110 |
@@ -10191,13 +10191,13 @@ regime fluke.
 | < 0.14 | 18,723 | 1.386 | +2.06M | 110 |
 
 Below 0.11 you cut the productive 8–10% ATR band (P&L drops); above 0.11 you add net-negative 12–14% names
-(PF, total $ AND mean-$ all drop — going 0.11→0.12 adds 190 trips but *loses* $22k). **0.11 is a clean
-interior optimum on both sides.** Consistent with the grid: 10–14% is break-even, 14%+ is the −$442k loss
+(PF, total \$ AND mean-\$ all drop — going 0.11→0.12 adds 190 trips but *loses* \$22k). **0.11 is a clean
+interior optimum on both sides.** Consistent with the grid: 10–14% is break-even, 14%+ is the −\$442k loss
 engine.
 
 **Tightness ceiling sweep (holding ATR% < 0.11)** — *non-monotonic*, and that's the trap:
 
-| tight ceiling | n | PF | total $ | mean $ |
+| tight ceiling | n | PF | total \$ | mean \$ |
 |---|--:|--:|--:|--:|
 | **< 4.0 (current)** | 11,375 | **1.441** | +1.29M | 114 |
 | < 4.5 | 14,245 | 1.432 | +1.59M | 111 |
@@ -10205,11 +10205,11 @@ engine.
 | < 5.5 | 18,349 | 1.423 | +2.09M | 114 |
 | < 6.0 | 19,602 | 1.400 | +2.16M | 110 |
 
-The < 5.5 ceiling *looks* like a free +62% P&L at flat mean-$ (1.423 vs 1.441). But it's non-monotone — PF
+The < 5.5 ceiling *looks* like a free +62% P&L at flat mean-\$ (1.423 vs 1.441). But it's non-monotone — PF
 dips at 5.0 then recovers at 5.5 — which means a sub-band is carrying it. The **non-cumulative tightness
 bands** (ATR% < 0.11) expose the lump:
 
-| tightness band | n | PF | mean $ |
+| tightness band | n | PF | mean \$ |
 |---|--:|--:|--:|
 | < 4.0 | 11,375 | 1.441 | 114 |
 | 4.0–4.5 | 2,870 | 1.395 | 102 |
@@ -10218,7 +10218,7 @@ bands** (ATR% < 0.11) expose the lump:
 | 5.5–6.0 | 1,253 | 1.141 | 49 |
 | 6.0+ | 2,547 | 0.978 | −9 |
 
-The entire < 5.5 case rests on the **5.0–5.5 spike (PF 1.608, mean $194)** — sandwiched next to the *worst*
+The entire < 5.5 case rests on the **5.0–5.5 spike (PF 1.608, mean \$194)** — sandwiched next to the *worst*
 qualifying band (4.5–5.0). To reach the spike you must swallow the dip.
 
 **⛔ Era split kills the spike — it's a pre-2015 artifact:**
@@ -10232,7 +10232,7 @@ qualifying band (4.5–5.0). To reach the spike you must swallow the dip.
 | 5.5–6.0 | 554 | 1.363 | 106 | 699 | 1.012 | 5 |
 | 6.0+ | 1169 | 1.10 | 35 | 1378 | 0.908 | −47 |
 
-The 5.0–5.5 spike is **PF 2.205 / mean $336 pre-2015** but reverts to **PF 1.232 / mean $82 post-2015** —
+The 5.0–5.5 spike is **PF 2.205 / mean \$336 pre-2015** but reverts to **PF 1.232 / mean \$82 post-2015** —
 *below* the core < 4.0 band's post-2015 PF of 1.363. Cumulatively, loosening 4.0 → 5.5 leaves pre-2015 PF
 flat (1.564 → 1.568) but **degrades post-2015 PF (1.363 → 1.331)** — it makes the system worse in the only
 era that matters for live trading. Every loose band (4.5–5.0, 5.5–6.0, 6.0+) is sub-1.4 or negative
@@ -10245,7 +10245,7 @@ post-2015; there is **no robust loose-tightness edge in the modern era.**
 **The gate matters — on the PRODUCTION gate, tight < 5.5 holds out-of-sample (2026-06-20).** Re-ran the
 tightness decision on the real default gate (price% ≥ 0.10, rvol [6,20], ATR% < 0.11, breadth, ≥2005):
 
-| tightness | n | PF | total $ | mean $ | PF pre | PF post |
+| tightness | n | PF | total \$ | mean \$ | PF pre | PF post |
 |---|--:|--:|--:|--:|--:|--:|
 | **< 4.0** (old default) | 2,233 | **1.859** | +501k | 225 | 1.881 | **1.848** |
 | **< 4.5** (NEW default) | 2,780 | 1.795 | +580k | 209 | 1.769 | **1.808** |
@@ -10254,7 +10254,7 @@ tightness decision on the real default gate (price% ≥ 0.10, rvol [6,20], ATR% 
 Non-cumulative bands, **production gate**, with era split — the 5.0–5.5 band that reverted to junk on the
 loose gate stays *healthy* here:
 
-| tightness band | n | PF | mean $ | PF pre | PF post |
+| tightness band | n | PF | mean \$ | PF pre | PF post |
 |---|--:|--:|--:|--:|--:|
 | < 4.0 | 2,233 | 1.859 | 225 | 1.881 | 1.848 |
 | 4.0–4.5 | 547 | 1.538 | 143 | 1.355 | 1.643 |
@@ -10265,15 +10265,15 @@ loose gate stays *healthy* here:
 Compare the 5.0–5.5 band across gates: **loose gate** PF 2.205 pre → **1.232** post (reverts); **production
 gate** PF 2.106 pre → **1.454** post (holds). The move/rvol floor is what keeps the loose-tightness names
 clean. The 4.5–5.0 band is the soft spot (post 1.222) we swallow to reach the good 5.0–5.5 band, but the
-*aggregate* < 5.5 survives out-of-sample (post-2015 PF 1.678, mean $197).
+*aggregate* < 5.5 survives out-of-sample (post-2015 PF 1.678, mean \$197).
 
 **✅ DECISION (2026-06-20): RAISE the default tightness ceiling 4.0 → 4.5 — the clean half of the capacity
 gain.** The bands above show the increments aren't uniform: the **4.0–4.5 band is clean** (post-2015 PF
 1.808 ≈ the < 4.0 core's 1.848) but the **next band 4.5–5.0 is the soft spot** (post-2015 PF 1.222). So 4.5
-takes **+24% trips (2,233 → 2,780) and +$79k P&L for almost no quality loss** (PF 1.859 → 1.795, post-2015
-1.848 → **1.808**, mean $225 → $209) — and *stops before the drag*. `MaxTightness = 4.5` in `defaultConfig`
-(engine verified: 2,780 filtered trips / PF 1.795 / +$579,714).
-**Why not 5.5:** it adds more capacity (3,550 trips, +$701k) but pays for it — post-2015 PF 1.678, mean $197
+takes **+24% trips (2,233 → 2,780) and +\$79k P&L for almost no quality loss** (PF 1.859 → 1.795, post-2015
+1.848 → **1.808**, mean \$225 → \$209) — and *stops before the drag*. `MaxTightness = 4.5` in `defaultConfig`
+(engine verified: 2,780 filtered trips / PF 1.795 / +\$579,714).
+**Why not 5.5:** it adds more capacity (3,550 trips, +\$701k) but pays for it — post-2015 PF 1.678, mean \$197
 — by carrying the 4.5–5.0 soft band *plus* the spiky 5.0–5.5 one (PF 1.45 post, but pre 2.11 = mostly an
 early-era artifact even on the prod gate). 5.5 stays documented as the **max-capacity** alternative; **< 4.0**
 as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
@@ -10319,7 +10319,7 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 
 **All three sort the book monotonically — strongly. The verdict: yes, past runners run again.**
 
-| max ADR 6mo | n | win% | mean $ | PF |   | max ret 6mo | n | win% | mean $ | PF |
+| max ADR 6mo | n | win% | mean \$ | PF |   | max ret 6mo | n | win% | mean \$ | PF |
 |---|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
 | <4%    | 498 | 49.8 | −8 | **0.955** |   | <15%    | 417 | 52.3 | 77 | 1.428 |
 | 4–6%   | 796 | 52.6 | 76 | 1.345 |   | 15–30%  | 1100 | 53.4 | 106 | 1.481 |
@@ -10330,11 +10330,11 @@ as the **max-PF / min-drawdown** alternative (PF 1.859, post 1.848).
 
 (max ATR% 6mo is near-identical to ADR: PF 1.11 → 1.26 → 1.66 → 1.75 → 2.19 → **2.91**.)
 
-- The **bottom ADR/ATR bucket is dead** (PF 0.955 / mean −$8) — stocks with no volatile fortnight in the
-  prior 6 months are untradeable under our system. The top bucket is **PF 3.13 / $918 a trade**.
+- The **bottom ADR/ATR bucket is dead** (PF 0.955 / mean −\$8) — stocks with no volatile fortnight in the
+  prior 6 months are untradeable under our system. The top bucket is **PF 3.13 / \$918 a trade**.
 - **max ret (the slope) is the most interesting measure** — even its *bottom* bucket is profitable
   (PF 1.428: a clean directional run leaves edge even when the range was tame), and its top bucket is the
-  strongest of all (**PF 3.60 / $1,579**). It captures directional momentum personality specifically.
+  strongest of all (**PF 3.60 / \$1,579**). It captures directional momentum personality specifically.
 - **Fat-tail caveat:** the top buckets win on magnitude, not frequency — max-ret `130%+` has win% **41.9**
   but PF 3.60 (few winners, huge). Real edge, but lumpy/higher-variance to trade. n is also thin up top
   (86–253) — directional, not precise.
@@ -10364,7 +10364,7 @@ entry-ATR% strata:
 | max-ret > 80% | 60 | **1.701** |   | max-ret > 80% | 78 | **4.875** |
 
 The volatile-entry row is the punchline: **a volatile entry with NO prior run is break-even junk (PF 0.98,
-mean −$12); a volatile entry WITH a prior run is PF 4.88 ($2,025/trade).** Today's volatility only pays
+mean −\$12); a volatile entry WITH a prior run is PF 4.88 (\$2,025/trade).** Today's volatility only pays
 when the stock has a *history* of running — a momentary spike on an otherwise-boring name is a fakeout. The
 entry-ATR% filter and the past-runner signal stack.
 
@@ -10398,7 +10398,7 @@ to be designed and swept next; mind the thin top-decile n and the win%-vs-PF fat
 | D5 | 1.825 | 1.651 | | 1.825 | 1.668 |
 | D6 | 1.797 | 1.756 | | 2.047 | 1.995 |
 | D9 | 1.965 | 2.100 | | 1.989 | 2.328 |
-| **D10 (highest)** | **2.834** (mean $822) | **2.647** | | **2.697** (mean $749) | **2.676** |
+| **D10 (highest)** | **2.834** (mean \$822) | **2.647** | | **2.697** (mean \$749) | **2.676** |
 
 **LOOSE gate (caps on) — also monotone-up; top decile is the STRONGEST, NOT a loser:**
 
@@ -10408,7 +10408,7 @@ to be designed and swept next; mind the thin top-decile n and the win%-vs-PF fat
 | D5 | 1.219 | 0.995 | | 1.264 | 1.217 |
 | D6 | 2.111 | 1.261 | | 1.232 | 1.192 |
 | D9 | 1.538 | 1.497 | | 1.563 | 1.703 |
-| **D10 (highest)** | **1.874** (mean $380) | **1.777** | | **1.706** (mean $314) | **1.692** |
+| **D10 (highest)** | **1.874** (mean \$380) | **1.777** | | **1.706** (mean \$314) | **1.692** |
 
 **It's gate-AMPLIFIED, not gate-dependent.** With the caps on, the top decile is the best cell on *both*
 gates and never a loser — the production gate just sharpens it (D10 ~2.7–2.8 vs loose ~1.7–1.9). The earlier
@@ -10442,7 +10442,7 @@ couple of cells, PF ~2 driven *pre-2015* — a concentration; don't over-read si
 
 **Top-quintile (Q5) PF of the slope measure, across the four gates:**
 
-| gate | Q5 PF | Q5 post | Q5 mean $ |
+| gate | Q5 PF | Q5 post | Q5 mean \$ |
 |---|--:|--:|--:|
 | loose: move ≥ 5%, rvol [3,20] | 1.645 | 1.697 | +250 |
 | move-only: move ≥ 10%, rvol [3,20] | 1.882 | 1.854 | +373 |
@@ -10453,8 +10453,8 @@ couple of cells, PF ~2 driven *pre-2015* — a concentration; don't over-read si
 1. **Both floors help and they STACK cleanly.** Whole-system: 1.432 → move-only 1.681 / rvol-only 1.643 →
    prod 1.795. Slope Q5: 1.645 → 1.882 / 2.107 → **2.404**. Each tightening step raises PF; no inversion.
    The move and rvol floors contribute comparably (rvol a touch more at the top), and combine additively.
-2. **The top quintile is NEVER a loser with the caps on** — even on the loose gate it's PF 1.645 (+$250),
-   vs the broken caps-off run's −$125. The `ATR% < 0.11` cap is what removes the violent-history blow-off
+2. **The top quintile is NEVER a loser with the caps on** — even on the loose gate it's PF 1.645 (+\$250),
+   vs the broken caps-off run's −\$125. The `ATR% < 0.11` cap is what removes the violent-history blow-off
    cohort that made the top decile invert; once it's gone, "more past-runner is better" holds at the top.
 3. **The full PROD slope ladder is monotone and era-robust:** Q1 1.30 → Q3 1.94 → Q5 **2.40** (post-2015
    Q5 **2.55**). Under the real default, the past-runner edge is strongest at the extreme — opposite of the
@@ -10512,11 +10512,11 @@ on noise); rvol-only keeps them positive (1.12/1.10). rvol confirmation cleans t
 > keeps climbing, a floor is right.
 
 Each table = the top quintile (Q5) of that measure, re-split into 5 even sub-quantiles. `range` = the
-measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
+measure's lo–hi within the sub-bucket. mean \$ / PF / pre-2015 / post-2015.
 
 **LOOSE — within-Q5 of max ATR% (n≈570/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.095–0.105 | 172 | 1.491 | 1.952 | 1.315 |
 | 2 | 0.105–0.119 | 153 | 1.379 | 1.270 | 1.434 |
@@ -10526,7 +10526,7 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
 **LOOSE — within-Q5 of max slope (n≈570/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.442–0.497 | 264 | 1.925 | 1.538 | 2.196 |
 | 2 | 0.497–0.575 | 73 | 1.193 | 0.892 | 1.363 |
@@ -10536,7 +10536,7 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
 **MOVE-ONLY — within-Q5 of max ATR% (n≈261/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.111–0.123 | 236 | 1.521 | 1.292 | 1.610 |
 | 2 | 0.123–0.140 | 391 | 2.028 | 2.412 | 1.930 |
@@ -10546,7 +10546,7 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
 **MOVE-ONLY — within-Q5 of max slope (n≈261/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.538–0.604 | 189 | 1.580 | 1.687 | 1.540 |
 | 2 | 0.604–0.706 | 337 | 1.872 | 1.607 | 1.959 |
@@ -10556,7 +10556,7 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
 **RVOL-ONLY — within-Q5 of max ATR% (n≈168/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.097–0.107 | 165 | 1.458 | 1.442 | 1.465 |
 | 2 | 0.107–0.122 | 293 | 1.769 | 0.945 | 2.266 |
@@ -10566,7 +10566,7 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 
 **RVOL-ONLY — within-Q5 of max slope (n≈168/sub):**
 
-| sub-Q | range | mean $ | PF | pre | post |
+| sub-Q | range | mean \$ | PF | pre | post |
 |---|---|--:|--:|--:|--:|
 | 1 | 0.449–0.500 | 191 | 1.581 | 1.250 | 1.920 |
 | 2 | 0.501–0.575 | 179 | 1.557 | 0.870 | 1.960 |
@@ -10574,9 +10574,9 @@ measure's lo–hi within the sub-bucket. mean $ / PF / pre-2015 / post-2015.
 | 4 | 0.701–0.960 | 298 | 1.752 | 1.219 | 1.923 |
 | **5** | 0.962–656 | **1,051** | **3.003** | 4.720 | **2.693** |
 
-In all six, **sub-Q5 is the highest-PF and highest-mean-$ sub-bucket** — no saturation, no extreme
-reversion. Mean P&L roughly *doubles* sub-Q1 → sub-Q5 in the conviction-gated systems ($165 → $975 ATR%
-rvol-only; $191 → $1,051 slope rvol-only). **"More is better" holds into the top 4% → a FLOOR is the right
+In all six, **sub-Q5 is the highest-PF and highest-mean-\$ sub-bucket** — no saturation, no extreme
+reversion. Mean P&L roughly *doubles* sub-Q1 → sub-Q5 in the conviction-gated systems (\$165 → \$975 ATR%
+rvol-only; \$191 → \$1,051 slope rvol-only). **"More is better" holds into the top 4% → a FLOOR is the right
 structure, not a band/cap; the higher the floor, the better the per-trade quality (trading count for PF).**
 Caveats: the within-Q5 middle is lumpy (sub-Q2 sags in a few — sample noise at n~170–570); rvol-only sub-Q5
 is thin (n=167, ~100+ post-2015) so a real floor must be re-validated on a fresh full-history run, not this
@@ -10591,11 +10591,11 @@ engine as an entry floor and sweep the threshold (same count-vs-PF trade as the 
 
 > Does raising the entry-day move threshold (default 10%) help, and where does it stop? Swept the floor
 > post-hoc on the loose CSV holding everything else at default (ATR% < 0.11, tight < 4.5, breadth, ≥2005),
-> for **both rvol gates** (≥6 production, ≥3 loose). PF / mean-$ / pre / post-2015; watch n thinning.
+> for **both rvol gates** (≥6 production, ≥3 loose). PF / mean-\$ / pre / post-2015; watch n thinning.
 
 **Production rvol [6,20]:**
 
-| move floor | n | PF | mean $ | total $ | PF post |
+| move floor | n | PF | mean \$ | total \$ | PF post |
 |---|--:|--:|--:|--:|--:|
 | **0.10 (current)** | 2,780 | 1.795 | 209 | 580k | 1.808 |
 | 0.125 | 2,202 | 1.847 | 235 | 517k | 1.916 |
@@ -10609,7 +10609,7 @@ engine as an entry floor and sweep the threshold (same count-vs-PF trade as the 
 
 **Loose rvol [3,20]:**
 
-| move floor | n | PF | mean $ | total $ | PF post |
+| move floor | n | PF | mean \$ | total \$ | PF post |
 |---|--:|--:|--:|--:|--:|
 | 0.10 | 6,524 | 1.681 | 195 | 1.27M | 1.508 |
 | 0.15 | 3,061 | 1.676 | 218 | 666k | 1.625 |
@@ -10625,7 +10625,7 @@ happens *at* each move level. **Non-cumulative bands (below) are the honest read
 
 **Non-cumulative move bands (production gate, move ≥ 10% applied, bucketed WITHIN):**
 
-| band | n | PF | mean $ | pre | post |
+| band | n | PF | mean \$ | pre | post |
 |---|--:|--:|--:|--:|--:|
 | 10–15% | 1,082 | 1.595 | 127 | 1.904 | 1.387 |
 | 15–20% | 719 | 1.708 | 165 | 1.779 | 1.661 |
@@ -10637,7 +10637,7 @@ happens *at* each move level. **Non-cumulative bands (below) are the honest read
 
 **Same bands on the loose rvol [3,20] gate — the notch is NOT an artifact of the rvol ≥ 6 filter:**
 
-| band | n | PF | mean $ | pre | post |
+| band | n | PF | mean \$ | pre | post |
 |---|--:|--:|--:|--:|--:|
 | 10–15% | 3,463 | 1.687 | 175 | 2.287 | 1.358 |
 | 15–20% | 1,634 | 1.499 | 141 | 1.939 | 1.329 |
@@ -10652,12 +10652,12 @@ Identical shape: 25–30% is the peak (PF 2.481, post 2.751), 30–40% is the wo
 structure is a property of the move distribution itself, present on both gates.
 
 **Findings (corrected — the cliff is a NOTCH at 30%, not a smooth ramp):**
-1. **The 25–30% band is the single best cell in the whole move distribution — PF 3.342, mean $761,
+1. **The 25–30% band is the single best cell in the whole move distribution — PF 3.342, mean \$761,
    post-2015 4.206.** These are the highest-conviction clean breakouts. The cumulative sweep buried this
    (adding 30%+ junk on top dragged the running average down to 1.54 at the 0.30 floor).
-2. **The real cliff is a NOTCH at 30–40%: PF 1.230, mean $84, pre-2015 outright losing (0.929)** — the
+2. **The real cliff is a NOTCH at 30–40%: PF 1.230, mean \$84, pre-2015 outright losing (0.929)** — the
    worst non-trivial band in the sweep, sitting *directly above* the best one. The mean winner collapses
-   $761 → $84 across the 30% line: 30–40% single-day moves are exhaustion / blow-off gaps that revert.
+   \$761 → \$84 across the 30% line: 30–40% single-day moves are exhaustion / blow-off gaps that revert.
 3. **It is NOT monotone up to the notch.** 20–25% (1.642) is actually *weaker* than 15–20% (1.708); the
    edge is lumpy with a sharp spike specifically at **25–30%**. So "bigger is better" was wrong — there's a
    discrete sweet-spot band, not a ramp.
@@ -10678,13 +10678,13 @@ averages a +47% move). So a 30%-move cap **mends the rvol >15 bucket directly** 
 (mean −1.8%) to **PF 1.54** (mean +1.2%) once the ≥30% moves are removed. Head-to-head (rvol ≥ 5, breadth,
 ≥2005):
 
-| gate | n | PF | total $ | PF post |
+| gate | n | PF | total \$ | PF post |
 |---|--:|--:|--:|--:|
 | A: rvol [5,15], move uncapped (old) | 3,437 | 2.004 | 918k | 1.748 |
 | **B: rvol ≥ 5 uncapped, move < 30% (NEW DEFAULT)** | 3,713 | 1.991 | 917k | 1.716 |
 | C: both caps | 3,132 | 2.068 | 849k | 1.780 |
 
-A and B are **interchangeable** (PF ~identical, same $917k) — they remove the same blow-offs. B is chosen:
+A and B are **interchangeable** (PF ~identical, same \$917k) — they remove the same blow-offs. B is chosen:
 it keeps **+276 well-behaved high-rvol trades** the volume cap discarded (a 3% PF gain wasn't worth 20%
 fewer trades — option C), and it's the *more principled* rule: a 30% single-day move is what a blow-off
 **is**; high rvol merely correlates. Rationale also includes that the surviving high-rvol names are
@@ -10736,7 +10736,7 @@ So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol
 
 **Cumulative rvol floor (move ≥ 10%):**
 
-| floor | n | PF | total $ | post |
+| floor | n | PF | total \$ | post |
 |---|--:|--:|--:|--:|
 | ≥1 | 11,000 | 1.436 | 1.62M | 1.341 |
 | ≥3 | 7,397 | 1.516 | 1.19M | 1.349 |
@@ -10748,7 +10748,7 @@ So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol
 
 **rvol BAND gates (cap the tail):**
 
-| gate | n | total $ | PF | pre | post |
+| gate | n | total \$ | PF | pre | post |
 |---|--:|--:|--:|--:|--:|
 | **rvol [6,20] (CURRENT)** | 2,779 | 580k | 1.796 | 1.769 | 1.810 |
 | rvol [5,15] | 3,437 | 918k | 2.004 | 2.492 | 1.748 |
@@ -10756,7 +10756,7 @@ So a cap ~15 severs the dead top decile, and the real conviction lives in **rvol
 | rvol [3,15] | 6,247 | 1.22M | 1.681 | 2.066 | 1.513 |
 
 **Findings — rvol is NOT a monotone floor; it mirrors the move%-notch (healthy middle, toxic blow-off tail):**
-1. **The top decile (rvol 15.6+) is an outright LOSER: PF 0.923, mean −$34, post-2015 0.844** — the only
+1. **The top decile (rvol 15.6+) is an outright LOSER: PF 0.923, mean −\$34, post-2015 0.844** — the only
    losing decile. Extreme volume = climax/exhaustion, exactly like 30%+ single-day moves. This is the
    cleanest, most robust signal in the sweep.
 2. **The cumulative floor peaks at ~5 then DECLINES:** ≥5 (1.622) > ≥6 (1.426) > ≥8 (1.260) > ≥15 (0.934).
@@ -10821,7 +10821,7 @@ bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely 
 > that contamination is exactly what makes bucketed/decile views go non-monotonic. Clipping the upside to a
 > sensible ceiling (+50% is above p99 of qualifying trades — generous) makes PF reflect the *typical* trade in
 > a bucket, which is what a floor/ceiling filter decision actually rests on. **Total P&L is understated by
-> design** (the conservative read); when raw total-$ matters it is reported separately as `PF raw` / `tot`.
+> design** (the conservative read); when raw total-\$ matters it is reported separately as `PF raw` / `tot`.
 > Corollary discipline (re-confirmed 2026-06-21): **decide on CUMULATIVE views** (`X ≥ thr` / `X < thr`), which
 > are low-variance and monotone; use **non-cumulative bands only diagnostically** to locate where edge changes
 > — their edge-of-range cells are noisy and must not drive a threshold choice on their own.
@@ -10859,7 +10859,7 @@ bad on both extremes — but for rvol the *lower* bad zone is sub-1, not merely 
 
 #### Why rvol >15 is "neutral" — it's the 2020-21 pump cohort, NOT buyouts (2026-06-20)
 
-> Investigated the toxic rvol >15 tail (decile 10, median 0% / mean −$34 / PF 0.92). Hypothesis: deal-locked
+> Investigated the toxic rvol >15 tail (decile 10, median 0% / mean −\$34 / PF 0.92). Hypothesis: deal-locked
 > buyout/merger arbs (huge volume, price pinned → flat). **The data rejects buyouts and points to catalyst
 > blow-offs concentrated in the 2020-21 pump mania.**
 
@@ -10895,13 +10895,13 @@ the up-days — the blow-offs happen *into* strength.)
 >
 > **Reverse-engineered universe (the builder wasn't committed; recovered 2026-06-20 by matching the parquet's
 > `n` across dates):** `type IN ('CS','ADRC')` (common stock + ADRs — **NOT** ETF/ETN/funds; those are ~43%
-> of the raw price table, the main gap) **AND 30-calendar-day average dollar volume ≥ $1,000,000** (the
-> project-standard `avg_dollar_volume_4w` liquidity convention; **not** same-day, **not** $100k). Matched the
+> of the raw price table, the main gap) **AND 30-calendar-day average dollar volume ≥ \$1,000,000** (the
+> project-standard `avg_dollar_volume_4w` liquidity convention; **not** same-day, **not** \$100k). Matched the
 > parquet `n` to ~2-3% on 2010/2015/2020/2026 (2,593 vs 2,531; 3,112 vs 3,028; 3,364 vs 3,289; 3,934 vs
-> 3,859 — consistently a hair over, likely a point-in-time ticker-reference nuance). $100k overshoots 25-35%.
+> 3,859 — consistently a hair over, likely a point-in-time ticker-reference nuance). \$100k overshoots 25-35%.
 > `pct_above_N` = fraction of that daily universe with `close > N-day SMA of close`.
 
-| floor | n | median | win% | PF | total $ | PF post |
+| floor | n | median | win% | PF | total \$ | PF post |
 |---|--:|--:|--:|--:|--:|--:|
 | ≥0.0 (no gate) | 5,858 | +0.34% | 52.8 | 1.781 | 1.20M | 1.644 |
 | ≥0.4 | 4,677 | +0.32% | 52.8 | 1.899 | 1.06M | 1.690 |
@@ -10923,33 +10923,33 @@ the up-days — the blow-offs happen *into* strength.)
    especially post-2015; 15-day ≈ 20-day. The current 20-day window is confirmed; a shorter, more-reactive
    breadth just adds noise. (Caveat: this test built pct_above_10/15/20 on an *approximate* universe — before
    the universe was reverse-engineered, it omitted the CS/ADRC filter so ~43% ETFs leaked in. The relative
-   window ranking should hold, but re-confirm on the correct CS/ADRC + $1M-dv universe if it ever matters.)
+   window ranking should hold, but re-confirm on the correct CS/ADRC + \$1M-dv universe if it ever matters.)
 4. **Available upgrade:** raising the breadth gate 0.5 → 0.70 lifts PF 1.991 → 2.822 (post-2015 → 2.150) at
    the usual capacity cost (3,717 → 1,272 trips, −66%). A steep quality-vs-capacity dial, same family as the
    tightness/move levers; the *direction* (higher breadth = better, to 0.70) is clean and era-robust. Not
    adopted as default yet — the −66% capacity is a big ask; candidate for a sizing tilt rather than a hard gate.
 
-> **Universe:** the table above is the **standard $1M universe** (CS/ADRC + 30-cal-day ADV ≥ $1M, decided
+> **Universe:** the table above is the **standard \$1M universe** (CS/ADRC + 30-cal-day ADV ≥ \$1M, decided
 > 2026-06-20 for both filters); the build below reproduces the production `breadth.parquet` to ~1-2%.
 
-**Alternative — same sweep on a looser $100k universe** (CS/ADRC + 30-cal-ADV ≥ $100k), for reference only —
+**Alternative — same sweep on a looser \$100k universe** (CS/ADRC + 30-cal-ADV ≥ \$100k), for reference only —
 the optimum shifts down and the rollover is earlier/sharper (the looser universe is noisier at the extreme):
 
-| floor | n | PF | PF post | (vs $1M-standard PF) |
+| floor | n | PF | PF post | (vs \$1M-standard PF) |
 |---|--:|--:|--:|--:|
 | ≥0.5 | 3,542 | 2.044 | 1.759 | (1.991) |
 | ≥0.6 | 2,278 | 2.294 | 1.941 | (2.249) |
 | **≥0.65** | 1,630 | **2.484** | 2.002 | (2.385) |
 | ≥0.70 | 972 | 1.776 | 1.574 | (2.822) |
 
-On $100k the peak is ≥0.65 (then a sharp thin-n rollover at ≥0.70); on the standard **$1M the peak is ≥0.70
+On \$100k the peak is ≥0.65 (then a sharp thin-n rollover at ≥0.70); on the standard **\$1M the peak is ≥0.70
 (PF 2.822)**. The optimum is universe-dependent, but "higher breadth helps to a mid-high optimum then froths
-over" is robust to the definition. **We use $1M.**
+over" is robust to the definition. **We use \$1M.**
 
 > **Build script:** both the breadth and heat parquets are built by
 > **`scripts/equity/build_breadth_and_heat.sql`** (runnable DuckDB; writes `breadth_1m.parquet` —
 > reproducing the production `breadth.parquet` — and `heat.parquet`). It encodes the shared universe
-> (30-cal-day ADV ≥ **$1M**; CS/ADRC for breadth only) and the load-bearing +1000% heat clip — the canonical
+> (30-cal-day ADV ≥ **\$1M**; CS/ADRC for breadth only) and the load-bearing +1000% heat clip — the canonical
 > reference for how both regime filters are computed.
 
 #### ⭐ "Top-gainer HEAT" — froth timing measure; CHOSEN: skip entries when heat-10d ≥ 25% (Sykes-inspired) (2026-06-20)
@@ -10960,18 +10960,18 @@ over" is robust to the definition. **We use $1M.**
 > **How the heat filter is calculated (exact, reproducible — canonical builder:
 > `scripts/equity/build_breadth_and_heat.sql`; this section's breakdown SQL: `scripts/equity/heat_breakdown.sql`):**
 > 1. **Per-stock daily return** = `adj_close / prev_adj_close − 1`, from `split_adjusted_prices`.
-> 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ $1M** (the project-
->    standard `avg_dollar_volume_4w` window, $1M bar — NOT same-day dollar volume) AND a non-null return.
+> 2. **Qualifying universe each day:** **30-calendar-day average dollar volume ≥ \$1M** (the project-
+>    standard `avg_dollar_volume_4w` window, \$1M bar — NOT same-day dollar volume) AND a non-null return.
 > 3. **⚠️ CLIP each per-stock return at +1000% (×10) BEFORE aggregating.** `split_adjusted_prices` contains
 >    rare corrupted split/price rows that produce absurd returns; because heat is a mean of the *top* tail,
->    even one such row destroys that day's value. **The $1M + CS/ADRC constraints do NOT remove these** —
->    verified 2026-06-20: on the $1M universe, un-clipped, **2,390 rows still exceed +1000%** (max
+>    even one such row destroys that day's value. **The \$1M + CS/ADRC constraints do NOT remove these** —
+>    verified 2026-06-20: on the \$1M universe, un-clipped, **2,390 rows still exceed +1000%** (max
 >    **199,999,989,900%** = `ZXZZT` on 2014-10-22, price 0.0001→199,999.99). The culprits are mostly **NASDAQ
 >    test tickers** (`ZXZZT`, `ZWZZT`, `AAZST`, `TESTA`, `ZVV`, `CGZST`, a bare `Z`, …). **CORRECTION (2026-06-21):
 >    these have NO `ticker_reference` row at all** (verified — the ref-table query returns 0 rows for every test
 >    symbol; an earlier note here wrongly said they were "tagged `CS`"). They reach the HEAT universe only because
 >    heat uses a **LEFT** join and is intentionally not CS/ADRC-restricted, so a ref-less ticker survives with a
->    NULL type and its fake $1M+ volume clears the liquidity bar. The remainder are real micro-caps with genuine-but-extreme reverse-split moves that
+>    NULL type and its fake \$1M+ volume clears the liquidity bar. The remainder are real micro-caps with genuine-but-extreme reverse-split moves that
 >    *should* still be capped for a top-tail mean. **A 5-letter-ticker exclusion does NOT work either** (tested):
 >    only 1,747 of the 2,390 corrupt rows are 5-letter; **642 are shorter** — both more synthetic symbols
 >    (`ZVV`, a bare `Z`) *and* legitimate volatile micro-caps with real blowups (`TOPS`, `INPX`, `GBSN`,
@@ -10996,7 +10996,7 @@ over" is robust to the definition. **We use $1M.**
 >    **Polygon doesn't carry them in its reference master at all** (`type=OTHER` and a direct `?ticker=ZXZZT`
 >    query both return 0 rows, verified), a high-price rule false-positives on real reverse-split micro-caps,
 >    and a bare `name~"test"` hits Whitestone/inTEST. The list catches all 16 synthetic tickers found in the
->    data; the real ticker `Z` (Zillow, one corrupt $200k row) is deliberately *kept* and handled by the clip.
+>    data; the real ticker `Z` (Zillow, one corrupt \$200k row) is deliberately *kept* and handled by the clip.
 >    This cleans synthetic names out of breadth too (where they'd silently count as "stocks"). The clip stays
 >    as the backstop for residual real-ticker ratio-glitches (LU, EPIX).
 > 4. **Daily heat** = mean of the clipped returns of the **top 1% of the qualifying universe by return**
@@ -11005,12 +11005,12 @@ over" is robust to the definition. **We use $1M.**
 >    days**, `ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING` (the `1 PRECEDING` **lags it one day** → as-of the
 >    prior close, no lookahead). (5/10/15/20 were swept; h10 chosen.)
 > 6. **Gate:** at entry, exclude (or downsize) when **`h10 ≥ 0.25`** (the Q4/Q5 boundary = 80th percentile,
->    on the 30-cal-ADV ≥ $1M universe).
+>    on the 30-cal-ADV ≥ \$1M universe).
 >
 > Series ~5,700 days (2003-09→2026-05); daily heat median ~18% after clipping. (Robustness: the froth-cut
-> result barely moves across universe definitions — same-day-$100k gave threshold 27% / kept-PF 2.245;
-> 30-cal-$100k gave 24% / 2.243; **30-cal-$1M (chosen) gives 25% / kept-PF 2.268 / post-2015 1.955** — so the
-> signal does not depend on the liquidity-filter choice; we standardize on 30-cal-day ADV ≥ $1M.)
+> result barely moves across universe definitions — same-day-\$100k gave threshold 27% / kept-PF 2.245;
+> 30-cal-\$100k gave 24% / 2.243; **30-cal-\$1M (chosen) gives 25% / kept-PF 2.268 / post-2015 1.955** — so the
+> signal does not depend on the liquidity-filter choice; we standardize on 30-cal-day ADV ≥ \$1M.)
 
 **Heat quintiles — high heat is BAD for our breakouts (median return, every window):**
 
@@ -11022,8 +11022,8 @@ over" is robust to the definition. **We use $1M.**
 | Q4 | 0.00% | **+0.23%** | +0.11% | −0.08% |
 | **Q5 (hottest)** | −0.29% | **−0.47%** | −0.41% | −0.32% |
 
-*(This window-comparison table is on the original same-day-$100k universe; the chosen-window numbers were
-re-confirmed on the corrected 30-cal-ADV ≥ $100k universe — the conclusion and h10 choice are unchanged, the
+*(This window-comparison table is on the original same-day-\$100k universe; the chosen-window numbers were
+re-confirmed on the corrected 30-cal-ADV ≥ \$100k universe — the conclusion and h10 choice are unchanged, the
 exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, authoritative ones.)*
 
 **Findings:**
@@ -11034,7 +11034,7 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
 2. **Froth cut across all windows (exclude top quintile, keep Q1–4) — h10/h15 best on the kept book, h20
    best post-2015, h5 worst:**
 
-   | window | n keep | PF keep | total $ | PF keep post | Q5 median (cut) | Q5 PF |
+   | window | n keep | PF keep | total \$ | PF keep post | Q5 median (cut) | Q5 PF |
    |---|--:|--:|--:|--:|--:|--:|
    | h5 | 2,971 | 2.167 | 780k | 1.776 | −0.29% | 1.532 |
    | **h10 (CHOSEN)** | 2,971 | **2.245** | 810k | 1.885 | **−0.47%** | **1.388** |
@@ -11046,12 +11046,12 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
    timing signal should step aside sooner) and the sharpest bad-cohort separation; the window choice is a
    minor optimization (window-insensitivity 10→20 is itself evidence the signal is real, not fitted).
 3. **⭐ The h10 filter — exclude entries when trailing-10d heat ≥ ~24%** (Q4/Q5 boundary = 80th percentile,
-   on the 30-cal-ADV ≥ $1M universe). Concrete ladder (quintile boundaries): Q1 9.6–14.2% (calm) · Q2
+   on the 30-cal-ADV ≥ \$1M universe). Concrete ladder (quintile boundaries): Q1 9.6–14.2% (calm) · Q2
    14.2–16.6% · Q3 16.6–19.2% (typical, daily-heat median ≈18%) · Q4 19.2–25.6% (warming) · **Q5 25.6–49.2%
    (frothy — the cut)**. A 10-day *average* ≥25% means sustained two-week froth, not a single hot day.
    Filter effect:
 
-   | | n | PF | total $ | PF post |
+   | | n | PF | total \$ | PF post |
    |---|--:|--:|--:|--:|
    | baseline (all heat) | 3,713 | 1.991 | 917k | — |
    | keep heat-10d < 25% | 2,971 | **2.268** | 825k | **1.955** |
@@ -11067,7 +11067,7 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
    a post-hoc DuckDB build (`scripts/equity/heat_breakdown.sql`) — to go live it needs precomputing into a
    parquet like `breadth.parquet` (then gate `heat10 < 0.25` as-of the prior close).
 5. **The mirror measure "COLD" (bottom-1% losers) is the SAME regime axis as heat — redundant, don't wire
-   it.** Built cold identically (mean return of the *bottom* 1% by `PERCENT_RANK ≤ 0.01`, same $1M universe,
+   it.** Built cold identically (mean return of the *bottom* 1% by `PERCENT_RANK ≤ 0.01`, same \$1M universe,
    −100%/+1000% clip, trailing-10d lagged `c10`). Standalone quintile breakdown: the **coldest** quintile
    (c10 −24% to −15%, a tape whose laggards are in freefall) is the *worst* for our breakouts — median
    **−0.34%**, win 46.7%, PF 1.24 — i.e. **same direction as heat** (extremes are bad / risk-off), **not** a
@@ -11087,12 +11087,12 @@ exact medians shift ~0.1pt. The h10 ladder/threshold below are the corrected, au
 > "above *true* resistance" condition (price must clear the prior year's intraday spike, not just its closing
 > high). Hypothesis: cleaner resistance detection → better entries. **Result: it's worse on every metric.**
 
-| gate | n | PF | total $ | mean $ | PF pre | PF post |
+| gate | n | PF | total \$ | mean \$ | PF pre | PF post |
 |---|--:|--:|--:|--:|--:|--:|
 | **closing-high (DEFAULT)** | 2,780 | **1.795** | 580k | 209 | 1.769 | **1.808** |
 | intraday-high (`--use-52w-high`) | 2,555 | 1.511 | 343k | 134 | 1.752 | **1.384** |
 
-The intraday-high gate lowers PF (1.795 → 1.511), cuts P&L 41%, drops mean-$ (209 → 134), and **degrades
+The intraday-high gate lowers PF (1.795 → 1.511), cuts P&L 41%, drops mean-\$ (209 → 134), and **degrades
 post-2015 specifically** (1.808 → 1.384; pre-2015 is ~flat). The ~225 trips it removes were *better than
 average* (P&L falls more than proportionally). **Why:** the intraday-high condition is satisfied *later* in
 a breakout — by the time price closes above the prior year's intraday wick, the high-edge early part of the
@@ -11136,7 +11136,7 @@ the CLI overrides `--max-atr-pct`, `--max-tightness`, `--expansion-thr`, `--exit
 ## Data fix — split_adjusted_prices dividend adjustment (2026-06-18)
 
 While drilling the new-52w-low study, found stocks with impossible `pct_52w_low = −162%`, traced to a
-**negative adjusted close** (DOMH 2024-12-30: raw $0.8975 → adj −$0.0745). Root cause: the
+**negative adjusted close** (DOMH 2024-12-30: raw \$0.8975 → adj −\$0.0745). Root cause: the
 `split_adjusted_prices` materialization adjusted dividends **subtractively** (`adj = price − Σ
 dividend_dollars`), which on low-priced dividend payers drives the price ≤ 0. Confirmed it was
 dividends not splits (DOMH has zero splits; raw prices are clean; `raw − adj` was a constant dollar
@@ -11198,7 +11198,7 @@ the tight-consolidation breakout to new 52-week highs on a volume + move spike. 
 `TradingEdge.HighFlyer` (renamed 2026-06-28 from its legacy working name `TradingEdge.MomentumV2`).
 
 **Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,245 trips, PF raw
-1.960 / clip 1.600, +$1.08M. Honest next-open fills, 5-day time-stop.**
+1.960 / clip 1.600, +\$1.08M. Honest next-open fills, 5-day time-stop.**
 
 v3 is not a new engine or a new system — it is the **same `TradingEdge.HighFlyer` production system**,
 carried forward into a research methodology that computes every PF/return figure on **clipped per-trade
@@ -11225,7 +11225,7 @@ buyout pop or +800% runner can hand a bucket a gaudy PF that has nothing to do w
 that contamination is exactly what makes bucketed/decile views go non-monotonic. Clipping the upside to a
 sensible ceiling (+50% is above p99 of qualifying trades — generous) makes PF reflect the *typical* trade in
 a bucket, which is what a floor/ceiling filter decision actually rests on. **Total P&L is understated by
-design** (the conservative read); when raw total-$ matters it is reported separately as `PF raw` / `tot`.
+design** (the conservative read); when raw total-\$ matters it is reported separately as `PF raw` / `tot`.
 
 **2. Decide on CUMULATIVE views** (`X ≥ thr` / `X < thr`), which are low-variance and monotone; use
 **non-cumulative bands only diagnostically** to locate where edge changes — their edge-of-range cells are
@@ -11241,7 +11241,7 @@ under this standard (and where they changed, the v3 entry says so).
 ## The system in one screen (current production state)
 
 Long-only daily momentum on US common stocks / ADRs (`ticker_reference.type IN ('CS','ADRC')`),
-2005–2026. One position per breakout signal, fixed $10k notional, uncapped concurrency, no
+2005–2026. One position per breakout signal, fixed \$10k notional, uncapped concurrency, no
 compounding (so net P&L is a raw edge-and-breadth measure, not an achievable equity curve).
 
 **Entry** — on a daily bar, go long at the close when ALL hold (each indicator uses *prior* bars,
@@ -11256,8 +11256,8 @@ no lookahead):
 | **max log ATR** | **≥ 0.04** | the past-runner volatility-history FLOOR — 126-bar max of the 14-bar log-ATR (`MinMaxAtrLog`). Cuts the dead-quiet-base names (the robust, well-distributed *bottom* of the past-runner ladder; the *top* is lottery-tail, NOT floored). Wired into the engine 2026-06-21. Unfiltered-engine PF 1.851 → 1.922, −15% trips |
 | tightness (linear) | **< 4.5** | `(14d range) / ATR` — prior consolidation must be tight (linear scale; sharper loose-tail cut than log) |
 | 52-week proximity | **close ≥ 0.95 × hi_252** | near the 1-year closing high (closing-high channel beats the intraday-high channel) |
-| price floor | **≥ $1** | lowered 5 → 1 on 2026-06-21 (sub-$5 is real edge under the clip, not a lottery; $1–3 kept for the future past-runner floor to rescue) |
-| liquidity | **avg dollar volume ≥ $100k** | 28-day average |
+| price floor | **≥ \$1** | lowered 5 → 1 on 2026-06-21 (sub-\$5 is real edge under the clip, not a lottery; \$1–3 kept for the future past-runner floor to rescue) |
+| liquidity | **avg dollar volume ≥ \$100k** | 28-day average |
 | breadth (market-wide) | **`pct_above_20` lagged 1 day > 0.5** | applied post-hoc; risk-on regime only |
 | heat (market-wide) | **`h10 < 0.25`** | skip entries when the top-1%-gainer froth measure is hot (Sykes-inspired); applied post-hoc |
 
@@ -11274,10 +11274,10 @@ end are marked-to-market at the final close.
 | win rate | 52.7% |
 | profit factor (raw) | **1.960** |
 | profit factor (clip +50%) | **1.600** |
-| net P&L | +$1,078,992 |
+| net P&L | +\$1,078,992 |
 
-*(Unfiltered engine run at production defaults: 6,647 trips / PF 1.851 / +$1.56M. With heat<0.25 added:
-3,157 trips / PF raw 2.191 / clip 1.678 / post-2015 1.648 / +$879k.)*
+*(Unfiltered engine run at production defaults: 6,647 trips / PF 1.851 / +\$1.56M. With heat<0.25 added:
+3,157 trips / PF raw 2.191 / clip 1.678 / post-2015 1.648 / +\$879k.)*
 
 ---
 
@@ -11324,7 +11324,7 @@ concentrated in **0.06–0.10 (PF ~1.9–2.5)**, not the quiet `< 0.04` bulk (1.
 | < 0.11 (old) | 3,713 | 1.571 | 1.478 | | 0.10–0.11 | 35 | 0.984 | 0.633 ← dead |
 
 **✅ DECISION (2026-06-21): `MaxAtrPct` 0.11 → 0.10.** Engine-verified: raw PF **1.774 → 1.802**, P&L flat at
-**+$1.19M**, trips 5,883 → 5,827 (−56). The 0.10–0.11 band was net-neutral on $ but PF-dilutive.
+**+\$1.19M**, trips 5,883 → 5,827 (−56). The 0.10–0.11 band was net-neutral on \$ but PF-dilutive.
 
 ### 2D joint ceiling — the production corner IS the joint optimum
 
@@ -11356,28 +11356,28 @@ re-apply inside each run). Clip +50%, breadth on, ≥2005. Script:
 
 | window | n | PF clip | PF raw | clip post | net P&L | | window | n | PF clip | clip post | net P&L |
 |---|--:|--:|--:|--:|--:|---|---|--:|--:|--:|--:|
-| 10 | 5,356 | 1.428 | 1.695 | 1.381 | $1.07M | | 18 | 3,442 | 1.612 | 1.480 | $0.93M |
-| 11 | 5,079 | 1.481 | 1.772 | 1.440 | $1.09M | | 19 | 3,252 | 1.592 | 1.445 | $0.89M |
-| 12 | 4,793 | 1.497 | 1.805 | 1.477 | $1.07M | | 20 | 3,045 | 1.581 | 1.440 | $0.84M |
-| **13** | 4,540 | 1.569 | 1.906 | **1.521** | **$1.10M** | | 21 | 2,845 | 1.577 | 1.440 | $0.82M |
-| **14** | 4,314 | 1.575 | 1.923 | 1.509 | $1.07M | | 22 | 2,649 | 1.582 | 1.464 | $0.78M |
-| 15 | 4,084 | 1.560 | 1.933 | 1.501 | $1.01M | | 23 | 2,483 | 1.629 | 1.505 | $0.79M |
-| 16 | 3,855 | 1.564 | 1.943 | 1.486 | $0.97M | | 24 | 2,324 | 1.641 | 1.516 | $0.65M |
-| 17 | 3,622 | 1.581 | 1.983 | 1.496 | $0.95M | | 25 | 2,160 | 1.672 | 1.519 | $0.64M |
+| 10 | 5,356 | 1.428 | 1.695 | 1.381 | \$1.07M | | 18 | 3,442 | 1.612 | 1.480 | \$0.93M |
+| 11 | 5,079 | 1.481 | 1.772 | 1.440 | \$1.09M | | 19 | 3,252 | 1.592 | 1.445 | \$0.89M |
+| 12 | 4,793 | 1.497 | 1.805 | 1.477 | \$1.07M | | 20 | 3,045 | 1.581 | 1.440 | \$0.84M |
+| **13** | 4,540 | 1.569 | 1.906 | **1.521** | **\$1.10M** | | 21 | 2,845 | 1.577 | 1.440 | \$0.82M |
+| **14** | 4,314 | 1.575 | 1.923 | 1.509 | \$1.07M | | 22 | 2,649 | 1.582 | 1.464 | \$0.78M |
+| 15 | 4,084 | 1.560 | 1.933 | 1.501 | \$1.01M | | 23 | 2,483 | 1.629 | 1.505 | \$0.79M |
+| 16 | 3,855 | 1.564 | 1.943 | 1.486 | \$0.97M | | 24 | 2,324 | 1.641 | 1.516 | \$0.65M |
+| 17 | 3,622 | 1.581 | 1.983 | 1.496 | \$0.95M | | 25 | 2,160 | 1.672 | 1.519 | \$0.64M |
 
 **Findings:**
 1. **Short windows (10–12) are clearly worse** (clip 1.43–1.50) — a 10-bar base is too noisy to capture a real
    consolidation. Rules out anything below 13.
 2. **13–14 is a local optimum AND the post-2015 peak.** Clip PF jumps 1.497 (w12) → 1.569 (w13) → 1.575 (w14), and
    **post-2015 PF tops the entire range at w13 (1.521) / w14 (1.509)** while capacity is still healthy (~4,300–4,500
-   trips) and total P&L is at its max ($1.10M / $1.07M).
+   trips) and total P&L is at its max (\$1.10M / \$1.07M).
 3. **The long-end full-sample PF rise (23–25 → 1.63–1.67) is a thinning artifact, not a real edge.** Trips more than
-   halve (4,540 @ w13 → 2,160 @ w25) and **net P&L falls steadily** ($1.10M → $0.64M) even as PF climbs — the classic
+   halve (4,540 @ w13 → 2,160 @ w25) and **net P&L falls steadily** (\$1.10M → \$0.64M) even as PF climbs — the classic
    "stricter filter keeps only the easy trades" pattern. Post-2015 PF also *dips* through 19–21 (1.44) before the
    thin recovery, so it's not a clean monotone improvement.
 
 **Verdict: 14 is well-chosen — it sits at the front of the 13–18 plateau where post-2015 PF is best and capacity is
-full.** w=13 marginally edges it (post-2015 1.521 vs 1.509, +226 trips, +$33k), but the gap is within noise.
+full.** w=13 marginally edges it (post-2015 1.521 vs 1.509, +226 trips, +\$33k), but the gap is within noise.
 **✅ DECISION (2026-06-21): KEEP the window at 14** — the long-standing, well-understood default on the plateau;
 not worth re-tuning to a coin-flip edge. `AtrWindow = TightnessWindow = 14` unchanged. The `--vol-window` flag
 stays available for future sweeps.
@@ -11445,88 +11445,88 @@ upside to revisit *after* capital efficiency is modeled — at that point a high
 pull. The prior notch work (25–30% best, 30–40% worst, *which is why the 30% cap exists*) is consistent: within
 the [0,30] window the edge keeps rising toward the cap.
 
-### Sub-$5 stocks under the clip — the $5 floor was a raw-PF over-correction (2026-06-21)
+### Sub-\$5 stocks under the clip — the \$5 floor was a raw-PF over-correction (2026-06-21)
 
-The $5 price floor was set in the raw-PF era because the sub-$5 bucket showed a gaudy PF driven by a few lottery
+The \$5 price floor was set in the raw-PF era because the sub-\$5 bucket showed a gaudy PF driven by a few lottery
 winners. With the clip we can finally see the region honestly. Wide dump with the price floor dropped
 (`--min-price 0`, rest production); script [`scripts/equity/sub5_price_sweep.sql`](../scripts/equity/sub5_price_sweep.sql).
 
-**The whole sub-$5 region is NOT a lottery mirage** — its raw PF (1.592) is barely above its clipped PF (1.526),
+**The whole sub-\$5 region is NOT a lottery mirage** — its raw PF (1.592) is barely above its clipped PF (1.526),
 i.e. *under the production filters there is no fat tail to clip*.
 
-**Where did the original "PF ~6" sub-$5 lottery go? It was never in THIS population — and the cause was NOT the
+**Where did the original "PF ~6" sub-\$5 lottery go? It was never in THIS population — and the cause was NOT the
 return clip.** Tracing it back to `momentum_v0_results.md` (the deep-discount structure study), the old inflation
 had two compounding causes, both orthogonal to the +50% clip:
-1. **It was dollar-P&L-weighted, not return-weighted.** Old PF was computed on dollar `net_pnl`. At fixed $10k
-   notional a sub-$5 name buys a huge share count, so a split/adjustment glitch became a giant *dollar* number —
-   the v0 doc records **a single trade at +$25M (a ~2,500× return) that was 84.6% of its tier**. The v3 sweeps
+1. **It was dollar-P&L-weighted, not return-weighted.** Old PF was computed on dollar `net_pnl`. At fixed \$10k
+   notional a sub-\$5 name buys a huge share count, so a split/adjustment glitch became a giant *dollar* number —
+   the v0 doc records **a single trade at +\$25M (a ~2,500× return) that was 84.6% of its tier**. The v3 sweeps
    compute PF on per-trade **return** (`exit/entry−1`), which is structurally immune to the share-count explosion
    (a 2,500× glitch is `ret=2500`, not `+$25M`). *This* — return-weighting, not the +50% price-gain clip — is the
    real reason "PF 6" became "PF 1.59".
 2. **The lottery lived in a universe we now exclude.** Those glitch trades were **deep-discount, >50%-below-52w-high
-   weakness breakouts** (54% sub-$5, median $4.22 per the v0 doc). Production now requires `52w ≥ 0.95` — *near
+   weakness breakouts** (54% sub-\$5, median \$4.22 per the v0 doc). Production now requires `52w ≥ 0.95` — *near
    highs* — so we never enter the beaten-down penny names where the corrupted rows were.
 
-**Proof (verified 2026-06-21):** the single largest sub-$5 trade in the production population is **+161%** (a clean
-$3.34 → $8.71 move) — no monster glitch exists; and `pf_dollar == pf_return == 1.592` *identically* (they only
+**Proof (verified 2026-06-21):** the single largest sub-\$5 trade in the production population is **+161%** (a clean
+\$3.34 → \$8.71 move) — no monster glitch exists; and `pf_dollar == pf_return == 1.592` *identically* (they only
 diverge when a tail glitch is present). The v0 clean test even used a **+500% clip** (10× looser than ours) and
-*still* found deep-discount was a loser. So the 1.526 clipped sub-$5 PF is honest and propped up by nothing.
+*still* found deep-discount was a loser. So the 1.526 clipped sub-\$5 PF is honest and propped up by nothing.
 
 | region | n | PF clip | PF raw | clip post |
 |---|--:|--:|--:|--:|
-| sub-$5 [0,5) | 667 | 1.526 | 1.592 | 1.402 |
-| ≥ $5 [5,∞) | 3,678 | 1.590 | 2.021 | 1.520 |
+| sub-\$5 [0,5) | 667 | 1.526 | 1.592 | 1.402 |
+| ≥ \$5 [5,∞) | 3,678 | 1.590 | 2.021 | 1.520 |
 
-Sub-$5 is only **modestly** worse than ≥$5 — not the disaster the floor implied. The price BANDS show the edge is
+Sub-\$5 is only **modestly** worse than ≥\$5 — not the disaster the floor implied. The price BANDS show the edge is
 strongly **non-monotone in price**, and the floor is cutting good names:
 
 | price band | n | PF clip | PF raw | clip post |
 |---|--:|--:|--:|--:|
-| < $1 | 31 | 1.582 | 1.582 | 0.551 ← broken post-2015, thin |
-| $1–2 | 121 | 1.442 | 1.460 | 1.422 |
-| $2–3 | 173 | 1.296 | 1.316 | 1.452 |
-| **$3–5** | 342 | **1.698** | 1.820 | **1.501** ← better than $20+ |
-| **$5–10** | 677 | **2.246** | 2.316 | **2.488** ← best band in the book |
-| $10–20 | 920 | 1.780 | 2.854 | 1.608 |
-| $20+ | 2,081 | 1.236 | 1.491 | 1.151 ← *worst* band |
+| < \$1 | 31 | 1.582 | 1.582 | 0.551 ← broken post-2015, thin |
+| \$1–2 | 121 | 1.442 | 1.460 | 1.422 |
+| \$2–3 | 173 | 1.296 | 1.316 | 1.452 |
+| **\$3–5** | 342 | **1.698** | 1.820 | **1.501** ← better than \$20+ |
+| **\$5–10** | 677 | **2.246** | 2.316 | **2.488** ← best band in the book |
+| \$10–20 | 920 | 1.780 | 2.854 | 1.608 |
+| \$20+ | 2,081 | 1.236 | 1.491 | 1.151 ← *worst* band |
 
-Cumulative price FLOOR — **peaks at ~$3, not $5:**
+Cumulative price FLOOR — **peaks at ~\$3, not \$5:**
 
 | floor | n | PF clip | clip post |
 |---|--:|--:|--:|
-| ≥ $0 | 4,345 | 1.575 | 1.492 |
-| ≥ $1 | 4,314 | 1.575 | 1.509 |
-| ≥ $2 | 4,193 | 1.581 | 1.513 |
-| **≥ $3** | 4,020 | **1.604** ← peak | 1.517 |
-| ≥ $5 | 3,678 | 1.590 | 1.520 |
-| ≥ $10 | 3,001 | 1.417 | 1.297 |
+| ≥ \$0 | 4,345 | 1.575 | 1.492 |
+| ≥ \$1 | 4,314 | 1.575 | 1.509 |
+| ≥ \$2 | 4,193 | 1.581 | 1.513 |
+| **≥ \$3** | 4,020 | **1.604** ← peak | 1.517 |
+| ≥ \$5 | 3,678 | 1.590 | 1.520 |
+| ≥ \$10 | 3,001 | 1.417 | 1.297 |
 
 **Findings:**
 1. **The edge is low-priced-but-not-penny.** `$5–10` is the single best band in the entire system (clip 2.246,
    **post-2015 2.488**); `$3–5` (clip 1.698, post 1.501) is *better than the `$20+` band the system currently
    trades* (clip 1.236, post 1.151). High-priced large-caps are the WORST band — same "energetic middle beats the
    safe extreme" theme as tightness/ATR%.
-2. **The $5 floor is slightly too high.** The cumulative floor peaks at **≥$3** (clip 1.604 / post 1.517), which
+2. **The \$5 floor is slightly too high.** The cumulative floor peaks at **≥\$3** (clip 1.604 / post 1.517), which
    recovers the strong `$3–5` band while still excluding the weak `$1–3` zone and the broken-post-2015 penny band
-   (`<$1` post 0.551). Below $3 the $2–3 + penny bands drag PF down.
-3. **The aggregate gain is small but it is FREE trips in a GOOD band** (≥$3 vs ≥$5: clip 1.590 → 1.604, post 1.520
-   → 1.517 ≈ flat, +342 trips in the 1.70-PF $3–5 band). Not a PF play — a capacity play that doesn't cost quality.
+   (`<$1` post 0.551). Below \$3 the \$2–3 + penny bands drag PF down.
+3. **The aggregate gain is small but it is FREE trips in a GOOD band** (≥\$3 vs ≥\$5: clip 1.590 → 1.604, post 1.520
+   → 1.517 ≈ flat, +342 trips in the 1.70-PF \$3–5 band). Not a PF play — a capacity play that doesn't cost quality.
 
-**✅ DECISION (2026-06-21): drop `MinPrice` 5 → 1** (not 3). The cumulative-floor *optimum* is $3, but we
-deliberately keep the weak `$1–3` zone IN rather than floor at $3, because those low-priced names are the prime
+**✅ DECISION (2026-06-21): drop `MinPrice` 5 → 1** (not 3). The cumulative-floor *optimum* is \$3, but we
+deliberately keep the weak `$1–3` zone IN rather than floor at \$3, because those low-priced names are the prime
 candidates to be **rescued by the past-runner max-ADR% / max-slope FLOORS** (deferred, not yet in engine — see
-below). A flat $3 floor would throw them away before that filter gets a chance; a $1 floor keeps them while still
-excluding only the broken-post-2015 sub-$1 penny band (clip_post 0.551). Engine-verified end-to-end at $1:
+below). A flat \$3 floor would throw them away before that filter gets a chance; a \$1 floor keeps them while still
+excluding only the broken-post-2015 sub-\$1 penny band (clip_post 0.551). Engine-verified end-to-end at \$1:
 
 | filter | trips | PF raw | PF clip | net P&L |
 |---|--:|--:|--:|--:|
-| breadth, ≥2005 ($5 floor, prior) | 3,678 | 2.021 | 1.590 | +$915k |
-| **breadth, ≥2005 ($1 floor, NEW)** | **4,314** | 1.923 | **1.575** | **+$1.07M** |
-| breadth + heat<0.25 ($1 floor) | 3,195 | 2.164 | 1.662 | +$879k |
+| breadth, ≥2005 (\$5 floor, prior) | 3,678 | 2.021 | 1.590 | +\$915k |
+| **breadth, ≥2005 (\$1 floor, NEW)** | **4,314** | 1.923 | **1.575** | **+\$1.07M** |
+| breadth + heat<0.25 (\$1 floor) | 3,195 | 2.164 | 1.662 | +\$879k |
 
-Adding `$1–5` is **+636 breadth-filtered trips (+17%) / +$156k** at **flat clip PF** (1.590 → 1.575 — the honest
+Adding `$1–5` is **+636 breadth-filtered trips (+17%) / +\$156k** at **flat clip PF** (1.590 → 1.575 — the honest
 measure barely moves; raw dips 2.021 → 1.923 only because the `$1–3` names are weaker, exactly the band the
-past-runner floor should lift). Unfiltered engine run: 6,749 trips / PF 1.820 / +$1.55M. `MinPrice = 1.0` in
+past-runner floor should lift). Unfiltered engine run: 6,749 trips / PF 1.820 / +\$1.55M. `MinPrice = 1.0` in
 `defaultConfig`.
 
 ### Entry-day candle BODY shape — the "fat green candle" hypothesis is WRONG; it's a middle-body hump (2026-06-21)
@@ -11655,7 +11655,7 @@ dropping.
 toxic deep-fade tail of the red-candle band while keeping the near-baseline mild reds — the capacity-efficient choice
 over the full no-red rule (−69 trips vs −518 for nearly the same PF). **Engine-verified end-to-end** (matches the
 post-hoc projection exactly): breadth-filtered **4,314 → 4,245 trips, clip PF 1.575 → 1.600, post-2015 1.509 → 1.541,
-P&L +$1.07M → +$1.08M** (raw engine PF 1.820 → 1.851). With heat<0.25: clip 1.662 → **1.678**, post 1.572 → **1.648**.
+P&L +\$1.07M → +\$1.08M** (raw engine PF 1.820 → 1.851). With heat<0.25: clip 1.662 → **1.678**, post 1.572 → **1.648**.
 The earlier overlap concern (the 30% move cap already catches much of this cohort) is real but the deep-fade tail is
 the residual it *doesn't* catch — and it's nearly free (1.6% of trips), so it earns its place. `N = 0` (full no-red)
 remains available via the flag for a slightly higher PF at a much larger capacity cost.
@@ -11771,7 +11771,7 @@ question was whether that geometry was ever real or just a proxy for the intrada
 
 **First, the reproduction — which initially failed and is the key lesson.** The original split ONLY reproduces on the
 population it was actually run on: **"pure gainers" (`--up-threshold 0`, NO move floor)** on the v2-era defaults
-(rvol [6,20], tight < 4.0, ATR% < 0.11, price ≥ $5) + breadth. The small movers the up = 0 floor admits are most of the
+(rvol [6,20], tight < 4.0, ATR% < 0.11, price ≥ \$5) + breadth. The small movers the up = 0 floor admits are most of the
 2,244 trips and are *where the reclaim edge lives*. Restricting to the v3 production move band [10,30]% (or even
 [5,10]%) carves a different, reclaim-heavy population on which the split **inverts** — so an earlier write-up of this
 section that used the move-restricted tiers was reproducing the wrong population and is **superseded by this one**.
@@ -11782,14 +11782,14 @@ direction and ~2,256-trip count reproduce:
 
 | dead-zone split (up=0 pure gainers, v2-era filters, 5d stop) | n | win% | PF raw | net | pre-2015 | post-2015 |
 |---|---|---|---|---|---|---|
-| **reclaim (open < high → close > high)** | 1408 | 51.3 | **1.295** | +$97.5k | 1.426 | 1.207 |
-| gap-over (open ≥ high) | 848 | 49.8 | 1.172 | +$27.8k | 1.062 | 1.298 |
+| **reclaim (open < high → close > high)** | 1408 | 51.3 | **1.295** | +\$97.5k | 1.426 | 1.207 |
+| gap-over (open ≥ high) | 848 | 49.8 | 1.172 | +\$27.8k | 1.062 | 1.298 |
 
 Reclaim wins (1.295 vs 1.172) and carries ~78% of the dead-zone P&L — the original finding holds on its own population.
 
 **The 20-day time-stop (the v2-era exit) does NOT recover the exact original 1.43/1.09.** Re-running with
 `--max-hold-bars 20`: reclaim 1.303 / gap-over 1.348 raw PF (gap-over actually edges *ahead* on raw PF), but reclaim
-still carries **~2× the P&L** ($189.8k vs $91.5k on 1395/835 trips) and still wins the early era decisively (pre-2015
+still carries **~2× the P&L** (\$189.8k vs \$91.5k on 1395/835 trips) and still wins the early era decisively (pre-2015
 **1.68** vs 1.22). So the time-stop is not the lever; the residual gap to the original 1.09 is most likely the v2-era
 **entry-day stop** geometry (a gap-over's day-low stop sat tighter, penalizing it — the original doc flagged this as a
 "second-order effect" worth ~0.07 PF) plus minor 52w-window drift. The **direction and P&L-dominance reproduce under
@@ -11802,9 +11802,9 @@ hold the intraday sign fixed and compare:
 
 | intraday sign | split | n | PF raw | net |
 |---|---|---|---|---|
-| intraday UP | reclaim | 1408 | **1.295** | +$97.5k |
-| intraday UP | gap-over | 557 | 1.171 | +$18.7k |
-| intraday DOWN/flat | gap-over | 291 | 1.174 | +$9.1k |
+| intraday UP | reclaim | 1408 | **1.295** | +\$97.5k |
+| intraday UP | gap-over | 557 | 1.171 | +\$18.7k |
+| intraday DOWN/flat | gap-over | 291 | 1.174 | +\$9.1k |
 
 Among **intraday-up** names, reclaim (1.295) still beats gap-over-up (1.171) by **+0.12 PF** — a *residual* edge that
 does **not** vanish when you control for intraday return. So the reclaim rule is **not merely** the intraday signal in
@@ -12224,7 +12224,7 @@ bar's own range is excluded — no lookahead):
 - **max ret 6mo (the "slope")** = max over 126d of `adj_close_t / adj_close_{t−14} − 1` — a 14-day directional burst
   (NOT an OLS regression slope; "slope" here is the best trailing 14-day return).
 
-Population: v2-era production (move ≥ 10%, **rvol [6,20]**, ATR% < 0.11, tight < 4.5, price ≥ $5, 5d stop), breadth,
+Population: v2-era production (move ≥ 10%, **rvol [6,20]**, ATR% < 0.11, tight < 4.5, price ≥ \$5, 5d stop), breadth,
 ≥ 2005. **The reproduction matches the original to within rounding** (n = 2,619 vs the documented ~2,580):
 
 | bucket | max ADR 6mo (orig → repro) | max ret/slope (orig → repro) | max ATR% (orig → repro) |
@@ -12310,10 +12310,10 @@ watching the max-log-ATR buckets (v2 fixed edges: `<4 / 4-6 / 6-8 / 8-11 / 11-15
 
 | step | change applied | n | 6-8% | 11-15% | 15%+ | monotone? |
 |---|---|---|---|---|---|---|
-| S0 | **v2-exact** (rvol [6,20], no move cap, $5, ATR%<0.11, breadth-only) | 2619 | 1.60 | 2.08 | 2.99 | ✅ |
+| S0 | **v2-exact** (rvol [6,20], no move cap, \$5, ATR%<0.11, breadth-only) | 2619 | 1.60 | 2.08 | 2.99 | ✅ |
 | S1 | + 30% move cap | 2277 | 1.78 | 2.30 | 3.56 | ✅ |
 | **S2** | **rvol [6,20] → ≥ 5** | 3498 | **3.26** | 1.91 | 2.65 | ❌ |
-| S6 | + ATR%<0.10, price ≥ $1, intraday gate, **heat** (= full prod) | 2999 | 3.66 | **1.44** | 3.33 | ❌ |
+| S6 | + ATR%<0.10, price ≥ \$1, intraday gate, **heat** (= full prod) | 2999 | 3.66 | **1.44** | 3.33 | ❌ |
 
 **Two independent culprits, and the move cap is innocent.** S1 (the 30% move cap) keeps it monotone — *sharpens* it, even.
 S2 is where it breaks, and isolating the two halves of the rvol change shows it's the **floor**, not the cap: removing the
@@ -12324,11 +12324,11 @@ breaks it** (6-8% bucket → 3.36).
 
 | 6-8%-ATR cohort | n | win% | max ret | PF | net |
 |---|---|---|---|---|---|
-| rvol ≥ 6 (v2 had these) | 562 | 56.2 | +40% | 1.81 | $96k |
-| **rvol 5-6 (NEW)** | 183 | 53.0 | **+2,368%** | **7.6** | $263k |
+| rvol ≥ 6 (v2 had these) | 562 | 56.2 | +40% | 1.81 | \$96k |
+| **rvol 5-6 (NEW)** | 183 | 53.0 | **+2,368%** | **7.6** | \$263k |
 
 The new cohort's PF 7.6 is **one trade** — `SNS`, 2009-12-15, rvol 5.5, **+2,368%** (a post-crash recovery moonshot), worth
-$237k of the cohort's $263k. **Ex that single trade the cohort is PF 1.66** (ex top-3: 1.47) — fully in line with rvol ≥ 6.
+\$237k of the cohort's \$263k. **Ex that single trade the cohort is PF 1.66** (ex top-3: 1.47) — fully in line with rvol ≥ 6.
 So the "6-8% spike" that breaks the ladder is a **raw-PF concentration artifact** the rvol ≥ 6 floor happened to exclude —
 exactly the contamination the clip was built to catch.
 
@@ -12423,7 +12423,7 @@ snapshotted pre-push (no lookahead). Unfiltered-engine headline **PF 1.851 → 1
 
 ---
 
-#### ⭐ FLOAT breakdown — small dollar-float (< $300M at entry) is a clean +0.5 PF edge (2026-06-22)
+#### ⭐ FLOAT breakdown — small dollar-float (< \$300M at entry) is a clean +0.5 PF edge (2026-06-22)
 
 New structural feature: **public float**, from SEC `dei:EntityPublicFloat` (the 10-K cover-page USD
 market value of non-affiliate shares). Downloaded via SEC's bulk XBRL **frames API** (one CIK-keyed
@@ -12437,10 +12437,10 @@ to a CIK; see `scripts/equity/resolve_cik.py`, `download_float.py`).
 the issuer's 2nd-fiscal-quarter-end (`period_end`). A raw dollar float conflates company *size* with
 float-*tightness* and is anchored to a stale price. So we convert to a **share count** and re-anchor to
 the entry-day price: `float_usd_at_entry = float_usd × adj_close[entry] / adj_close[period_end]`. (A
-1M-share float is $1M behind a $1 stock but $100M behind a $100 stock — bucket on the entry-anchored
+1M-share float is \$1M behind a \$1 stock but \$100M behind a \$100 stock — bucket on the entry-anchored
 dollar value.) This is **split-safe in adjusted space** — the split adjustment factor cancels in the
 ratio (verified on SMCI across its 2024 10:1 split: raw-consistent and adj-consistent both give the
-same $54.2B entry float). No-lookahead via ASOF join on `known_date = period_end + 90d` (the 10-K
+same \$54.2B entry float). No-lookahead via ASOF join on `known_date = period_end + 90d` (the 10-K
 filing deadline) ≤ `entry_date`. Script: `scripts/equity/float_breakdown.sql`.
 
 Population: v3 production trips (PF 1.922) + breadth + heat + ≥2005, **+50% clip**. Coverage is 47.5%
@@ -12449,29 +12449,29 @@ covered, **2013+ is 1101/1465 = 75% covered**. The edge below is shown on both w
 
 Per-bucket PF by `float_usd_at_entry` (full sample, diagnostic):
 
-| float$ at entry | n | win% | PF (clip) | post-2015 |
+| float\$ at entry | n | win% | PF (clip) | post-2015 |
 | --------------- | --- | ---- | --------- | --------- |
-| < $50M          | 80  | 60.0 | 2.50      | 2.13      |
-| $50–150M        | 224 | 59.4 | 2.29      | 1.98      |
-| $150–300M       | 191 | 59.7 | 2.72      | 2.99      |
-| $300–750M       | 247 | 54.3 | 1.35      | 1.49      |
-| $750M–2B        | 263 | 52.1 | 1.27      | 1.09      |
-| > $2B           | 241 | 54.8 | 1.49      | 1.58      |
+| < \$50M          | 80  | 60.0 | 2.50      | 2.13      |
+| \$50–150M        | 224 | 59.4 | 2.29      | 1.98      |
+| \$150–300M       | 191 | 59.7 | 2.72      | 2.99      |
+| \$300–750M       | 247 | 54.3 | 1.35      | 1.49      |
+| \$750M–2B        | 263 | 52.1 | 1.27      | 1.09      |
+| > \$2B           | 241 | 54.8 | 1.49      | 1.58      |
 
 Cumulative CEILING (the decision lens) — keep float below N:
 
 | keep float < | trips | % covered | PF (clip) | post-2015 | 2013+ era |
 | ------------ | ----- | --------- | --------- | --------- | --------- |
-| < $150M      | 304   | 24.4      | 2.36      | 2.03      | 2.05      |
-| < $300M      | 495   | 39.7      | **2.47**  | 2.26      | **2.32**  |
-| < $750M      | 742   | 59.6      | 2.13      | 2.07      | 2.04      |
+| < \$150M      | 304   | 24.4      | 2.36      | 2.03      | 2.05      |
+| < \$300M      | 495   | 39.7      | **2.47**  | 2.26      | **2.32**  |
+| < \$750M      | 742   | 59.6      | 2.13      | 2.07      | 2.04      |
 | (all covered)| 1246  | 100       | 1.87      | —         | 1.81      |
-| float ≥ $750M| 504   | 40.4      | 1.37      | 1.30      | —         |
+| float ≥ \$750M| 504   | 40.4      | 1.37      | 1.30      | —         |
 
 **Read:** the edge is **monotone and sharp** — `float < $300M at entry → PF ~2.4–2.5` vs ~1.8 covered
-baseline, and **big float (≥ $750M) is the drag at PF ~1.37**. This is NOT the lottery-tail problem: it
+baseline, and **big float (≥ \$750M) is the drag at PF ~1.37**. This is NOT the lottery-tail problem: it
 survives the +50% clip, **win rate RISES** in the low buckets (57–60% vs 52% for big float), and it
-holds in the modern 2013+ window (PF 2.32 at < $300M). The `no-data` bucket is benign — 2013+ no-data
+holds in the modern 2013+ window (PF 2.32 at < \$300M). The `no-data` bucket is benign — 2013+ no-data
 is PF 1.88 / win 57%, i.e. average, so a float filter wouldn't be dumping a profitable cohort silently.
 
 **Status: NOT yet wired into the engine.** Float lives in a separate DB and needs an engine join +
@@ -12497,22 +12497,22 @@ These define the current entry/exit and remain in force. Full derivation and era
   era-robust, gate-amplified. "Higher is better" → use a FLOOR. *(v2: "Past-runner personality".)* **Now also the
   designated rescue for the weak `$1–3` price band** admitted by the 2026-06-21 floor drop (5 → 1): the hypothesis
   is that a low-priced name that has *recently been a runner* (high max-ADR%/slope) carries the breakout edge that
-  a generic $1–3 name lacks. First thing to test when this floor goes into the engine.
+  a generic \$1–3 name lacks. First thing to test when this floor goes into the engine.
 
 ### Regime filters (post-hoc, not yet in engine)
 
-- **HEAT** (Sykes-inspired, ⭐) — daily mean return of the **top 1% gainers** (**CS/ADRC** + 30-cal-day ADV ≥ $1M
+- **HEAT** (Sykes-inspired, ⭐) — daily mean return of the **top 1% gainers** (**CS/ADRC** + 30-cal-day ADV ≥ \$1M
   universe; **+1000% per-stock return clip is LOAD-BEARING**), trailing-10d lagged = `h10`. **Skip entries when
   h10 ≥ 0.25** (80th pctile). Froth is bad for breakouts. *(Heat universe unified to CS/ADRC on 2026-06-21 — see
   next subsection; under the clip the gate gives clip-PF 1.702 / post-2015 1.686 at h10<0.25 vs 1.590/1.520 ungated.)*
-- **BREADTH** — `pct_above_20` on CS/ADRC + 30-cal-day ADV ≥ $1M (reproduces the production `breadth.parquet`).
+- **BREADTH** — `pct_above_20` on CS/ADRC + 30-cal-day ADV ≥ \$1M (reproduces the production `breadth.parquet`).
   PF rises with breadth to a peak at ≥0.70, then rolls over; current gate 0.5.
 - **COLD** (bottom-1% losers) — same axis as heat (corr −0.65), redundant; not wired.
 - Both built by **`scripts/equity/build_breadth_and_heat.sql`**.
 
 #### Heat universe unified to CS/ADRC — drops non-frothy CEFs/preferreds, gates STRONGER, no blocklist (2026-06-21)
 
-Originally the heat universe read the **whole liquid tape** (any ticker ≥ $1M ADV) + a hardcoded `is_test_ticker`
+Originally the heat universe read the **whole liquid tape** (any ticker ≥ \$1M ADV) + a hardcoded `is_test_ticker`
 blocklist, on the rationale that top-gainer froth lives in names that lack a clean CS/ADRC ref row. **That
 rationale was wrong** (caught by inspection): a recent IPO *is* CS and a foreign listing *is* ADRC — both get ref
 rows. The ~16,400 ref-less tickers in the price table break down as ~5,600 genuine non-equity (warrants `…W`,
@@ -12537,10 +12537,10 @@ The new 80th pctile of h10 is **0.251 ≈ the old 0.25**, so the **gate threshol
 cleaner series (post-2015 1.686 vs 1.620 at h10<0.25). `build_breadth_and_heat.sql` heat block switched to
 `JOIN ticker_reference ... WHERE type IN ('CS','ADRC')`. The `is_test_ticker` blocklist is now **removed entirely**
 (2026-06-21): with the CS/ADRC filter on BOTH universes it never fired — *proven* no-op, 0 test-ticker rows survive
-CS/ADRC + $1M ADV on breadth — and a filter that can't fire only misleads a reader into thinking test tickers are a
+CS/ADRC + \$1M ADV on breadth — and a filter that can't fire only misleads a reader into thinking test tickers are a
 live threat. The **+1000% return clip stays** (still needed for residual real-CS/ADRC glitches like LU/EPIX).
 
-- **TEST-TICKER mechanics (verified 2026-06-21).** NASDAQ test symbols (ZXZZT etc.) have corrupt 0.0001→$200k
+- **TEST-TICKER mechanics (verified 2026-06-21).** NASDAQ test symbols (ZXZZT etc.) have corrupt 0.0001→\$200k
   prices but **NO `ticker_reference` row at all** (an earlier note wrongly called them "tagged CS" — corrected).
   Every CS/ADRC **inner join** therefore drops them for free: the engine (`Backtest.fs`), breadth, and now heat.
   Confirmed 0 test-ticker trips in every dump this session (the 3 `ZY*` names — ZYBT/ZYME/ZYXI — are *real* CS).
@@ -12612,7 +12612,7 @@ the tight-consolidation breakout to new 52-week highs on a volume + move spike. 
 v4 is **not a new engine or a new system** — it is the same `TradingEdge.HighFlyer` production system,
 carried forward into a new research thread centered on a structural feature that v3 lacked: **public
 float**. The v4 line opens because float turned out to be a clean, first-order edge axis (small
-dollar-float < $300M at entry → PF ~2.5), worth its own document and its own filter/sizing decisions.
+dollar-float < \$300M at entry → PF ~2.5), worth its own document and its own filter/sizing decisions.
 
 The full prior research record lives in [`momentum_v3_results.md`](momentum_v3_results.md) (clipped
 methodology, current production spec, past-runner studies, regime filters) and
@@ -12630,7 +12630,7 @@ pre/post-2015. Production population = v3 engine defaults + breadth (lag-1 `pct_
 (`h10` < 0.25) + ≥2005, unless a section explicitly relaxes a filter (and says so).
 
 **Current production spec (carried from v3, the engine `defaultConfig`):** entry move ∈ [10,30)%,
-rvol ≥ 5 (no cap), log-ATR < 0.10, tightness < 4.5, 52w-close ≥ 0.95, price ≥ $1, ADV ≥ $100k,
+rvol ≥ 5 (no cap), log-ATR < 0.10, tightness < 4.5, 52w-close ≥ 0.95, price ≥ \$1, ADV ≥ \$100k,
 close/open−1 ≥ −0.07, **max log ATR ≥ 0.04**; exit = 5-day time-stop, no price stop. Engine PF 1.922 /
 5,617 trips (pre breadth+heat); filtered ~2,625 trips.
 
@@ -12664,10 +12664,10 @@ stale price. So we convert to a share count and re-anchor to the **entry-day pri
 float_usd_at_entry = float_usd × adj_close[entry] / adj_close[period_end]
 ```
 
-A 1M-share float is $1M behind a $1 stock but $100M behind a $100 stock — so we bucket on
+A 1M-share float is \$1M behind a \$1 stock but \$100M behind a \$100 stock — so we bucket on
 `float_usd_at_entry`, not the reported dollar value. This is **split-SAFE in adjusted space**: the split
 adjustment factor cancels in the ratio (verified on SMCI across its 2024 10:1 split — raw-consistent and
-adj-consistent prices both yield the same $54.2B entry float). No-lookahead via an ASOF join on
+adj-consistent prices both yield the same \$54.2B entry float). No-lookahead via an ASOF join on
 `known_date = period_end + 90d` (the 10-K filing deadline) ≤ `entry_date`.
 
 > **Caveat for a real share count:** if you ever want the literal non-affiliate share *count* (for
@@ -12679,7 +12679,7 @@ Script: `scripts/equity/float_breakdown.sql`.
 
 ---
 
-## ⭐ FINDING — small dollar-float (< $300M at entry) is a clean +0.5 PF edge (2026-06-22)
+## ⭐ FINDING — small dollar-float (< \$300M at entry) is a clean +0.5 PF edge (2026-06-22)
 
 Population: v3 production trips (PF 1.922) + breadth + heat + ≥2005, **+50% clip**, **rvol ≥ 5** (the
 production floor), **max-log-ATR floor ≥ 0.04 ON** (it is baked into the engine defaults, so these trips
@@ -12688,33 +12688,33 @@ already passed it). Coverage 47.5% overall is a **pre-2010 XBRL artifact** (pre-
 
 Per-bucket PF by `float_usd_at_entry` (full sample, diagnostic):
 
-| float$ at entry | n | win% | PF (clip) | post-2015 |
+| float\$ at entry | n | win% | PF (clip) | post-2015 |
 | --------------- | --- | ---- | --------- | --------- |
-| < $50M          | 80  | 60.0 | 2.50      | 2.13      |
-| $50–150M        | 224 | 59.4 | 2.29      | 1.98      |
-| $150–300M       | 191 | 59.7 | 2.72      | 2.99      |
-| $300–750M       | 247 | 54.3 | 1.35      | 1.49      |
-| $750M–2B        | 263 | 52.1 | 1.27      | 1.09      |
-| > $2B           | 241 | 54.8 | 1.49      | 1.58      |
+| < \$50M          | 80  | 60.0 | 2.50      | 2.13      |
+| \$50–150M        | 224 | 59.4 | 2.29      | 1.98      |
+| \$150–300M       | 191 | 59.7 | 2.72      | 2.99      |
+| \$300–750M       | 247 | 54.3 | 1.35      | 1.49      |
+| \$750M–2B        | 263 | 52.1 | 1.27      | 1.09      |
+| > \$2B           | 241 | 54.8 | 1.49      | 1.58      |
 
 Cumulative CEILING (the decision lens) — keep float below N:
 
 | keep float < | trips | % covered | PF (clip) | post-2015 | 2013+ era |
 | ------------ | ----- | --------- | --------- | --------- | --------- |
-| < $150M      | 304   | 24.4      | 2.36      | 2.03      | 2.05      |
-| < $300M      | 495   | 39.7      | **2.47**  | 2.26      | **2.32**  |
-| < $750M      | 742   | 59.6      | 2.13      | 2.07      | 2.04      |
+| < \$150M      | 304   | 24.4      | 2.36      | 2.03      | 2.05      |
+| < \$300M      | 495   | 39.7      | **2.47**  | 2.26      | **2.32**  |
+| < \$750M      | 742   | 59.6      | 2.13      | 2.07      | 2.04      |
 | (all covered)| 1246  | 100       | 1.87      | —         | 1.81      |
-| float ≥ $750M| 504   | 40.4      | 1.37      | 1.30      | —         |
+| float ≥ \$750M| 504   | 40.4      | 1.37      | 1.30      | —         |
 
 **Read:** monotone and sharp — `float < $300M at entry → PF ~2.4–2.5` vs ~1.8 covered baseline; **big
-float (≥ $750M) is the drag at PF ~1.37**. NOT the lottery-tail problem: it survives the +50% clip, the
+float (≥ \$750M) is the drag at PF ~1.37**. NOT the lottery-tail problem: it survives the +50% clip, the
 **win rate RISES** in the low buckets (57–60% vs 52% for big float), and it holds in the modern 2013+
-window (PF 2.32 at < $300M). The `no-data` bucket is benign — 2013+ no-data is PF 1.88 / win 57%
+window (PF 2.32 at < \$300M). The `no-data` bucket is benign — 2013+ no-data is PF 1.88 / win 57%
 (average), so a float filter wouldn't silently dump a profitable cohort.
 
 **Status: NOT yet wired into the engine.** Strong candidate for a production filter (`float_usd_at_entry
-< ~$300M`) or a sizing tilt. Open questions: (a) how a LIVE filter treats pre-2013 / no-data names;
+< ~\$300M`) or a sizing tilt. Open questions: (a) how a LIVE filter treats pre-2013 / no-data names;
 (b) whether float subsumes the max-log-ATR floor (both proxy "small frothy name"); (c) float × rvol and
 float × move interactions.
 
@@ -12729,40 +12729,40 @@ no breadth/heat. Coverage 58.9% (no pre-2010 cliff because the population is muc
 
 Per-bucket PF by `float_usd_at_entry`:
 
-| float$ at entry | n | win% | PF (clip) | post-2015 |
+| float\$ at entry | n | win% | PF (clip) | post-2015 |
 | --------------- | ---- | ---- | --------- | --------- |
 | NO DATA         | 4217 | 51.9 | 1.47      | 1.58      |
-| < $50M          | 435  | 54.3 | 1.61      | 1.48      |
-| $50–150M        | 954  | 54.7 | 1.59      | 1.42      |
-| $150–300M       | 870  | 52.2 | 1.62      | 1.61      |
-| $300–750M       | 1234 | 48.5 | 1.20      | 1.15      |
-| $750M–2B        | 1118 | 49.0 | 1.17      | 1.15      |
-| > $2B           | 1426 | 52.2 | 1.21      | 1.23      |
+| < \$50M          | 435  | 54.3 | 1.61      | 1.48      |
+| \$50–150M        | 954  | 54.7 | 1.59      | 1.42      |
+| \$150–300M       | 870  | 52.2 | 1.62      | 1.61      |
+| \$300–750M       | 1234 | 48.5 | 1.20      | 1.15      |
+| \$750M–2B        | 1118 | 49.0 | 1.17      | 1.15      |
+| > \$2B           | 1426 | 52.2 | 1.21      | 1.23      |
 
 Cumulative keep float < N:
 
 | keep float < | trips | PF (clip) | post-2015 | 2013+ |
 | ------------ | ----- | --------- | --------- | ----- |
-| < $150M      | 1389  | 1.59      | 1.44      | 1.55  |
-| < $300M      | 2259  | **1.60**  | 1.49      | 1.59  |
-| < $750M      | 3493  | 1.48      | 1.39      | 1.48  |
+| < \$150M      | 1389  | 1.59      | 1.44      | 1.55  |
+| < \$300M      | 2259  | **1.60**  | 1.49      | 1.59  |
+| < \$750M      | 3493  | 1.48      | 1.39      | 1.48  |
 | (all covered)| 6037  | 1.38      | —         | —     |
 
 **Read — float is complementary/redundant, not orthogonal.** Side-by-side with the production run:
 
 | | rvol≥5 + breadth + heat (prod) | rvol≥3, NO breadth/heat |
 | --- | --- | --- |
-| float < $300M | PF **2.47** | PF **1.60** |
+| float < \$300M | PF **2.47** | PF **1.60** |
 | covered baseline | 1.81 | 1.38 |
-| **float-edge uplift** (< $300M − baseline) | **+0.66** | **+0.22** |
-| float ≥ $750M (drag) | 1.37 | ~1.19 |
+| **float-edge uplift** (< \$300M − baseline) | **+0.66** | **+0.22** |
+| float ≥ \$750M (drag) | 1.37 | ~1.19 |
 
 Two separate things happened. (1) Absolute PF fell everywhere — *expected, not about float*: rvol 5→3
 plus dropping breadth/heat admits weaker entries (baseline 1.81 → 1.38). (2) The float **uplift shrank
 from +0.66 to +0.22** — roughly a **third** of its production magnitude. The low-float ordering *survives*
-(< $300M at 1.60 still beats ≥ $750M at ~1.19), so float is a genuine signal — but most of its standalone
+(< \$300M at 1.60 still beats ≥ \$750M at ~1.19), so float is a genuine signal — but most of its standalone
 power in the production run was breadth + heat + rvol acting on the **same small-frothy-breakout names**.
-Strip those gates and float points the right way with far less force; the < $300M bucket (1.60) barely
+Strip those gates and float points the right way with far less force; the < \$300M bucket (1.60) barely
 clears the *full-production covered baseline* (1.81).
 
 **Implication:** float is **not a free +0.6 PF bolt-on** for a stripped-down system — it earns its keep
@@ -12776,7 +12776,7 @@ proxy "small, frothy, in-a-healthy-tape."
 
 ## ⭐ FINDING — low-float names do NOT earn a higher move cap; 30% is correct for them too (2026-06-22)
 
-Hypothesis (user): a 30% day on a $100M-float name is a normal day, not a blow-off, so maybe low-float
+Hypothesis (user): a 30% day on a \$100M-float name is a normal day, not a blow-off, so maybe low-float
 stocks reward (or at least tolerate) the 30%+ moves that the general population can't — i.e. the move cap
 should be float-dependent. Tested by lifting the engine's upper move cap (`--max-up-threshold 100`,
 band → [10%, ∞), 7,137 trips, engine PF 1.589) and crossing move band × `float_usd_at_entry`, full
@@ -12787,7 +12787,7 @@ The general population confirms the cap: PF falls off a cliff above 30% — 10�
 
 Move band × float (covered only):
 
-| move band | LOW < $300M | HIGH ≥ $300M |
+| move band | LOW < \$300M | HIGH ≥ \$300M |
 | --------- | ----------- | ------------ |
 | 10–30%    | PF **2.47** (win 60%) | 1.36 |
 | 30–50%    | PF 1.54 (win 54%)     | 0.66 (net loser) |
@@ -12866,7 +12866,7 @@ prints 0.49 or 0.52 on a given day. Script `scripts/equity/breadth_gate_smoothin
 # v5 — HighFlyer on CAUSAL data (2026-11-01, user: "we'll have to run it on data that is causal only")
 
 **Why.** The engine reads `split_adjusted_prices`, BACK-adjusted for every later split and dividend — the CLAUDE.md
-lookahead class (a $1 floor on it admits names that later reverse-split). It also makes the book unreproducible: the
+lookahead class (a \$1 floor on it admits names that later reverse-split). It also makes the book unreproducible: the
 documented June command (§ Reproduction) now gives **3,577 trips, PF raw 1.741 / clip 1.688** (breadth + ≥2005; was
 4,245 / 1.960 / 1.600; unfiltered 5,884 vs 6,647) with the engine and the view's SQL unchanged — the inputs were rebuilt
 (data v2, re-downloaded splits / dividends) and back-adjustment rewrote the history. (Pass `--db-path data/trading.db`:
@@ -12878,7 +12878,7 @@ ATRs skipping undefined TRs, the 126-value runner max, history = barsSeen > 21 c
 the close, exit at the open of bar i + 6). **Control: `--scale back` reproduces the engine's 5,884 trips exactly**
 (returns to 7e-15, every feature, the open flags). `--scale causal` runs on `daily_adjusted`: P·n for the channel /
 ATR / tightness / runner, the HOLDER's return for the move and the trade, volume in original shares (v / n) for rvol,
-raw P·v for the dollar volume, raw P for the $1 floor and the fade.
+raw P·v for the dollar volume, raw P for the \$1 floor and the fade.
 
 | breadth > 0.5 · ≥ 2005 | trips | win | PF raw | PF clip | mean | clip mean | median | post-2015 clip |
 |---|---|---|---|---|---|---|---|---|
@@ -12886,7 +12886,7 @@ raw P·v for the dollar volume, raw P for the $1 floor and the fade.
 | **causal** | **3,608** | 53.4 % | **1.731** | **1.678** | +2.00 % | +1.86 % | +0.46 % | **1.620** |
 
 - **HighFlyer passes the disproportion test:** 123 trips change (3.4 % of the book) and the PF moves −0.6 %. The 46
-  dropped include 14 whose RAW close was under $1 (the back-adjusted floor admitted them; PF 1.95 together); the 77
+  dropped include 14 whose RAW close was under \$1 (the back-adjusted floor admitted them; PF 1.95 together); the 77
   added make PF 1.52. 72 shared trips differ in return by a mean 0.07 % (dividends counted by the holder's return).
 - ⚠ Still on the old pipeline: the breadth gate (`data/equity/momentum_v0/breadth.parquet`). Market-wide and
   MA-ratio-based, so little exposed, but not yet rebuilt causally.

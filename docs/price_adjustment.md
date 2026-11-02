@@ -46,7 +46,7 @@ table. Three columns in `daily_adjusted`, all causal:
 **Both events land at the OPEN of day `t`;** the last pre-event trading is
 `t−1`'s close. AAPL closed 499.23 on 2020-08-28 and opened 127.58 on 2020-08-31
 (4:1), so `n(t)` *includes* the split dated `t`. VISN closed 19.53 on 2026-04-27
-and opened 9.64 on 2026-04-28 (−$10.00 special), so `C(t)` *includes* the
+and opened 9.64 on 2026-04-28 (−\$10.00 special), so `C(t)` *includes* the
 dividend dated `t`. This is exactly why the scheme is causal: by the time day `t`
 opens, both events have already happened and are readable off the tape.
 
@@ -57,7 +57,7 @@ point of use:
 
 | you want | expression |
 |---|---|
-| an absolute price floor ($1 / $2 / $5) | **`P(t)` — raw, directly** |
+| an absolute price floor (\$1 / \$2 / \$5) | **`P(t)` — raw, directly** |
 | to compare prices across time (channels, MAs, gap %) | `P(t)·n(t)` |
 | **the return of a position held t1 → t2** | `[ (P2·n2 − P1·n1) + (C2 − C1) ] / (P1·n1)` |
 | ⭐ the change from the previous close (LowFader's `chg_1d`, GapFader's gap; since 2026-10-31) | the same, t1 = D−1's close: `(P − div_m1) / close_m1 − 1` |
@@ -102,10 +102,10 @@ f = 1 - adj_div / close_on_the_LAST_DAY_BEFORE_ex   -- correct (cum-dividend)
 ```
 
 The denominator is short by exactly the dividend, so it explodes whenever a
-dividend exceeds ~half the price. **VISN** paid a **$10.00 special** on a **$19.53**
-close (ex 2026-04-28, opened $9.90): `f = 1 − 10/9.90 = −0.0101`, which hit the
+dividend exceeds ~half the price. **VISN** paid a **\$10.00 special** on a **\$19.53**
+close (ex 2026-04-28, opened \$9.90): `f = 1 − 10/9.90 = −0.0101`, which hit the
 `GREATEST(…, 1e-6)` clamp and multiplied VISN's entire prior history by 1e-6 —
-`adj_close = $0.000020` against a raw $19.53. **92,749 rows across 72 tickers.**
+`adj_close = $0.000020` against a raw \$19.53. **92,749 rows across 72 tickers.**
 The correct factor is `1 − 10/19.53 = 0.488`.
 
 ⚠ The clamp's own comment called `div ≥ price` *"an economic absurdity / bad
@@ -130,12 +130,12 @@ ret = [ (P2·n2 − P1·n1) + (C2 − C1) ] / (P1·n1)
 whereas the fused ratio `adj(t2)/adj(t1) − 1` has the **identical numerator** but
 divides by `P1·n1 + C1`. It charges the trade for cash it never invested.
 
-Worked example — a $100 stock that has paid $50 of dividends over 20 years, no
-splits. You buy at $100, it goes to $110, no dividend during your trade:
+Worked example — a \$100 stock that has paid \$50 of dividends over 20 years, no
+splits. You buy at \$100, it goes to \$110, no dividend during your trade:
 
 | | calculation | answer |
 |---|---|---|
-| truth | in $100, out $110 | **+10%** |
+| truth | in \$100, out \$110 | **+10%** |
 | fused | `(110+50)/(100+50) − 1` | **+6.7%** ❌ |
 | components | `(110 − 100 + 0)/100` | **+10%** ✅ |
 
@@ -161,8 +161,8 @@ the ex-date.** Entitlement is fixed at the `t−1` close, *before* any split dat
 This matters because `splits.execution_date = dividends.ex_dividend_date`
 collides on **3,171 rows across ~1,000 tickers** — scrip/stock dividends paid
 alongside a cash dividend, mostly foreign ADRs (ratios 1.005–1.05). Worked
-example, **SCCO 2026-08-11** (ratio 1.012 + $1.10 cash): 100 shares held at the
-08-10 close pay **$110 and become 101.2 shares**. Using `n(ex)` would understate
+example, **SCCO 2026-08-11** (ratio 1.012 + \$1.10 cash): 100 shares held at the
+08-10 close pay **\$110 and become 101.2 shares**. Using `n(ex)` would understate
 the cash.
 
 `n(ex−1) = n(ex)` whenever there is no collision, so this is **one uniform rule**,
@@ -210,13 +210,13 @@ kept one leg and were left with a naked ratio:
 | PMD | 2024-12-04 | `5000:1` + `1:5000` (net **1.0**) | `1:5000` | `n` ×5000 |
 | RELV, SFE, BTX, MDRR, STCN | — | pairs | one leg | same |
 
-TTSH is the clean illustration: price $6.43 with 223k shares and 2,304 trades —
-a normal, liquid stock whose whole history spans $2.77–$8.69. A real 1:3000 split
-would have put it near $19,000. Under **back**-adjustment the same defect divided
-TTSH's *entire prior history* down to **$0.002147**.
+TTSH is the clean illustration: price \$6.43 with 223k shares and 2,304 trades —
+a normal, liquid stock whose whole history spans \$2.77–\$8.69. A real 1:3000 split
+would have put it near \$19,000. Under **back**-adjustment the same defect divided
+TTSH's *entire prior history* down to **\$0.002147**.
 
 **Dividends.** One ex-date routinely carries several payments — a regular plus a
-special (the Dec-2012 tax-change wave; AAON paid two $0.12 distributions), or ADRs
+special (the Dec-2012 tax-change wave; AAON paid two \$0.12 distributions), or ADRs
 paying multiple components (ABEV 2025-12-22 = `[0.0145, 0.0833]`).
 
 **Fix: `PRIMARY KEY(id)` on Polygon's own stable record id**, with an index on
@@ -242,9 +242,9 @@ the S3 CSVs exactly and `splits` matches `/v3/reference/splits`. Established
 
 - **not** ours — ingest fidelity is exact;
 - **not** symbol reuse — 0 of 174 flagged tickers have multiple FIGIs;
-- **not** a low-price artifact — contradicted splits have **median price $16.20**
-  and 76% are $5+, while sub-10¢ splits are the *most* reliable (0.6% contradicted
-  vs 12.3% at $5–20);
+- **not** a low-price artifact — contradicted splits have **median price \$16.20**
+  and 76% are \$5+, while sub-10¢ splits are the *most* reliable (0.6% contradicted
+  vs 12.3% at \$5–20);
 - **not** a fund artifact — ETFs are under-represented (4.7% vs 34.7% baseline).
 
 A split ratio makes a **testable prediction**: the day's move should be explained
@@ -271,8 +271,8 @@ always re-derive.
 | *(no row)* | 172 | Ratio < 1.25× — **not errors**, see below. |
 
 **⭐ Exactness, not proximity, is the evidence.** The far-offset cases are the
-*most* exact, on large stable names: FLIC residual 0.0008, BMI 0.0027 ($66), HEI
-0.0030 ($94), HBI 0.0103 ($114), JEF 0.0121 — at offsets of 11–40 trading days. A
+*most* exact, on large stable names: FLIC residual 0.0008, BMI 0.0027 (\$66), HEI
+0.0030 (\$94), HBI 0.0103 (\$114), JEF 0.0121 — at offsets of 11–40 trading days. A
 2:1 landing on 0.5014 thirteen days out is not coincidence. The mechanism shows in
 the pattern — HEI recorded 2018-01-02, tape jump 2018-01-18; CGNX 2017-11-16 →
 2017-12-04 — **Polygon logged an announcement/declaration date instead of the
@@ -311,11 +311,11 @@ measured as how well each split explains its own day:
 
 | residual after applying | n | share | median price |
 |---|---:|---:|---:|
-| < 5% (clean) | 3,718 | 61.0% | $25.58 |
-| 5–20% | 1,765 | 28.9% | $0.45 |
-| 20–100% | 582 | 9.5% | $0.26 |
-| 1–7× off | 34 | 0.6% | $0.15 |
-| **> 7× off (reorg-class)** | **1** | 0.02% | $0.10 |
+| < 5% (clean) | 3,718 | 61.0% | \$25.58 |
+| 5–20% | 1,765 | 28.9% | \$0.45 |
+| 20–100% | 582 | 9.5% | \$0.26 |
+| 1–7× off | 34 | 0.6% | \$0.15 |
+| **> 7× off (reorg-class)** | **1** | 0.02% | \$0.10 |
 
 The residual is concentrated in **penny-stock reverse splits**, where a same-day
 squeeze on top of the split is ordinary rather than anomalous — note how the median
@@ -393,10 +393,10 @@ before a rename.
 
 | # | hole | measured | proposed fix |
 |---|---|---|---|
-| 1 | **Corporate actions filed under the company's CURRENT ticker.** The price tape is point-in-time: each ticker has its own history, cut at a rename (SYMC to 2019-11-04, NLOK to 2022-11-07, GEN = Gen Digital from 2022-11-08 and other companies before). The vendor's splits and dividends are inconsistent: for some renamed companies they stay under the old ticker (WMI, AMRK, EVTC); for others they are MOVED to the new one (SYMC/NLOK → GEN, ABC → COR, STD → SAN). | dividends: **191 companies, 4,748 dividends** missing from the old ticker's history; in **62 companies (1,071 dividends) the new ticker belonged to another company then**, which gets phantom dividends (Symantec's $4 2016-03-04 and NortonLifeLock's $12 2020-02-03 on Genesis Healthcare's GEN at $1.50–2). Splits: **112 on 95 companies**, 103 while the old ticker traded and only 23 also under it, so ~80 old histories miss a split (ABC's 2:1s of 2005-12-29 and 2009-06-16 sit under COR: ABC halves twice unexplained, and split_corrections REJECTs them on COR, whose tape did not move). | Re-file each action to the ticker the company traded under on its date, from the FIGI rename chains (`data/tickers/events.parquet`). Unambiguous when nobody else held the new ticker then (129 dividend companies, the splits); the 62 mixed companies need a tape check (whose price moved by the amount) or the record dropped from both. ⚠ CIK cannot be the key (one iShares Trust CIK = 353 ETFs; 1,903 of 9,880 securities have none); FIGI is per security, but the chains map only **52 % of tape ticker-days since 2016, 17 % before, 77.5 % of the universe** — delisted names mostly have none, so the fix covers part of the data. |
+| 1 | **Corporate actions filed under the company's CURRENT ticker.** The price tape is point-in-time: each ticker has its own history, cut at a rename (SYMC to 2019-11-04, NLOK to 2022-11-07, GEN = Gen Digital from 2022-11-08 and other companies before). The vendor's splits and dividends are inconsistent: for some renamed companies they stay under the old ticker (WMI, AMRK, EVTC); for others they are MOVED to the new one (SYMC/NLOK → GEN, ABC → COR, STD → SAN). | dividends: **191 companies, 4,748 dividends** missing from the old ticker's history; in **62 companies (1,071 dividends) the new ticker belonged to another company then**, which gets phantom dividends (Symantec's \$4 2016-03-04 and NortonLifeLock's \$12 2020-02-03 on Genesis Healthcare's GEN at \$1.50–2). Splits: **112 on 95 companies**, 103 while the old ticker traded and only 23 also under it, so ~80 old histories miss a split (ABC's 2:1s of 2005-12-29 and 2009-06-16 sit under COR: ABC halves twice unexplained, and split_corrections REJECTs them on COR, whose tape did not move). | Re-file each action to the ticker the company traded under on its date, from the FIGI rename chains (`data/tickers/events.parquet`). Unambiguous when nobody else held the new ticker then (129 dividend companies, the splits); the 62 mixed companies need a tape check (whose price moved by the amount) or the record dropped from both. ⚠ CIK cannot be the key (one iShares Trust CIK = 353 ETFs; 1,903 of 9,880 securities have none); FIGI is per security, but the chains map only **52 % of tape ticker-days since 2016, 17 % before, 77.5 % of the universe** — delisted names mostly have none, so the fix covers part of the data. |
 | 2 | **Histories missing entirely.** Healthpeak (HCP 2003–19 → PEAK 2019–24 → DOC): HCP has no dividends, PEAK 3 (2023); the dividends under DOC before 2024 are Physicians Realty's (the previous holder of DOC). | not measurable with these data | none from this vendor; another source |
 | 3 | **Dividend amounts are not checked against the tape** (the splits are, §6). | on tape tickers 2003-09 … 2026-10: 327 of 443,429 dividend dates exceed 25 % of the prior close; 6 exceed the price, 4 of those 6 show no drop at the open (GEN 2020-02-03 is one: #1) | a corroboration like `split_corrections`, for amounts large enough to show on the tape |
-| 4 | **The vendor's labels are not economics.** `dividend_type` (ELME's $14.67 liquidating distribution is `recurring`) and `currency` (TTE 0.90 EUR on 2026-09-30, 0.90 USD on 2026-12-31) are taken as given. | — | the tape check of #3 covers the large cases |
+| 4 | **The vendor's labels are not economics.** `dividend_type` (ELME's \$14.67 liquidating distribution is `recurring`) and `currency` (TTE 0.90 EUR on 2026-09-30, 0.90 USD on 2026-12-31) are taken as given. | — | the tape check of #3 covers the large cases |
 | 5 | **Dividends with no USD rate are left out** (§4b): a currency the ECB does not carry (TWD, ARS, PEN, LBP, …) or an ex-date before its ECB series starts (ILS before 2011). | 1,345 rows, 11 on tape tickers | a second FX source |
 | 6 | **The current-month guard keeps a genuine deletion** (`DividendDownload.carryOverDropped`): a current-month record the vendor really deleted, with no replacement, stays until its month is past. | — | accepted; a dropped page is the likelier cause (docs/massive_cli_gotchas.md) |
 | 7 | **The validator's split pins are stale**: `validate_daily_adjusted.py` expects SHIFT 29 / REJECT 138 and gets 27 / 134 (2026-10-20 VPS build: 27 / 133; one new REJECT, SLM 2003-12-03). The vendor's split records drifted. | — | look at which corrections dropped out, then re-pin |

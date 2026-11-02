@@ -18,18 +18,18 @@ window-invariant in the 200h–480h band.
 - **1-hour bars**, pre-aggregated from raw trades into per-symbol parquets
   (carrying buy/sell dollar volume per bar — the aggressor flag is the unlock
   vs Polygon).
-- **Single-symbol $1000 notional**; per-fill taker fee 4 bps.
+- **Single-symbol \$1000 notional**; per-fill taker fee 4 bps.
 - **Vol-based position sizing** with `--reference-vol-pct 1.0`: high-vol
   entries are downsized so the per-bar log-return std doesn't blow up the
   realized-loss tail. The vol estimate runs over a separate window
   (`--vol-window-days`) from the signal window.
 - **Funding accounting** on by default — Binance's 8-hour funding payments are
   applied across the holding window, signed by side.
-- **Per-side ADV gates**: longs require trailing-90d ADV ≥ $28.8M;
-  shorts ≥ $8M. Side-specific because the ADV-stratification revealed that
+- **Per-side ADV gates**: longs require trailing-90d ADV ≥ \$28.8M;
+  shorts ≥ \$8M. Side-specific because the ADV-stratification revealed that
   longs only carry edge in the upper deciles, while shorts work across the
   full liquidity range. Trailing-90d, not whole-window — leak-free.
-- **Per-bar quote-volume floor** of $5,000 (entries only) — added late after
+- **Per-bar quote-volume floor** of \$5,000 (entries only) — added late after
   diagnosing redenomination disasters. See "Lesson 4" below.
 - **Signal-consume rule**: the rolling-sum signal fires only on regime change
   (`target ≠ lastTarget`), not whenever the signal happens to disagree with
@@ -44,27 +44,27 @@ window-invariant in the 200h–480h band.
 
 | `--ma-hours` | Total PF | Trips | Long PF | Long Net P&L | Short PF | Short Net P&L | Largest Loser |
 | :---: | :---: | ---: | :---: | ---: | :---: | ---: | ---: |
-| 144 | 1.323 | 30,835 | 1.136 | $15,822 | 1.366 | $185,429 | $3,483 |
-| 168 | 1.384 | 25,243 | 1.217 | $21,066 | 1.421 | $187,517 | $3,637 |
-| 200 | 1.490 | 20,006 | 1.257 | $20,175 | 1.540 | $200,685 | $3,599 |
-| 240 | 1.520 | 16,336 | 1.162 | $11,200 | 1.598 | $191,544 | $4,474 |
-| 288 | 1.624 | 13,031 | 1.225 | $12,947 | 1.709 | $191,825 | $4,566 |
-| 360 | 1.786 | 9,681 | 1.171 | $7,864 | 1.916 | $199,918 | $4,766 |
-| 480 | 1.814 | 6,826 | 1.143 | $5,338 | 1.946 | $179,262 | $14,258 |
+| 144 | 1.323 | 30,835 | 1.136 | \$15,822 | 1.366 | \$185,429 | \$3,483 |
+| 168 | 1.384 | 25,243 | 1.217 | \$21,066 | 1.421 | \$187,517 | \$3,637 |
+| 200 | 1.490 | 20,006 | 1.257 | \$20,175 | 1.540 | \$200,685 | \$3,599 |
+| 240 | 1.520 | 16,336 | 1.162 | \$11,200 | 1.598 | \$191,544 | \$4,474 |
+| 288 | 1.624 | 13,031 | 1.225 | \$12,947 | 1.709 | \$191,825 | \$4,566 |
+| 360 | 1.786 | 9,681 | 1.171 | \$7,864 | 1.916 | \$199,918 | \$4,766 |
+| 480 | 1.814 | 6,826 | 1.143 | \$5,338 | 1.946 | \$179,262 | \$14,258 |
 
 The structure is clean:
 
 - **PF is monotonic** in window length across the entire range (1.31 → 1.83).
   Longer windows trade fewer but cleaner setups.
-- **Net dollars are flat** in the 200h–360h band ($202k–$204k combined). Either
-  end (144h, 480h) gives back ~$10–15k.
-- **Long P&L peaks at 168h–200h ($19k)** and decays at longer windows ($5k by
+- **Net dollars are flat** in the 200h–360h band (\$202k–\$204k combined). Either
+  end (144h, 480h) gives back ~\$10–15k.
+- **Long P&L peaks at 168h–200h (\$19k)** and decays at longer windows (\$5k by
   480h). The signal-window length that captures bullish edge is much shorter
   than the one that captures bearish edge.
-- **Short net P&L is near-flat** $182k–$202k. Shorts work at every window we
+- **Short net P&L is near-flat** \$182k–\$202k. Shorts work at every window we
   tried; the window length just changes how the same total is sliced across
   trade count.
-- **The 480h $14k loser is the only outlier.** Unrelated to data quality —
+- **The 480h \$14k loser is the only outlier.** Unrelated to data quality —
   this is PUMPBTCUSDT's real ~15× pump in late September 2025 against a short
   position held for 77 days.
 
@@ -99,10 +99,10 @@ filtering by it improves anything. It does, but only for longs:
 
 - **`--min-long-adv 28800000`** (cuts deciles 1–7 of longs by trailing-90d
   ADV at entry, leaving only deciles 8–10 where long PF is consistently > 1):
-  cell PF 1.258 → 1.371; long PF 1.077 → 1.205; long avg trade $1.38 → $2.77.
+  cell PF 1.258 → 1.371; long PF 1.077 → 1.205; long avg trade \$1.38 → \$2.77.
 - **`--min-short-adv 8000000`** (cuts the bottom three deciles of shorts):
-  cell PF 1.371 → 1.406; short PF 1.397 → 1.453; short avg trade $9.96 →
-  $12.46. Shorts work even at the bottom but the gate trims dilutive trips
+  cell PF 1.371 → 1.406; short PF 1.397 → 1.453; short avg trade \$9.96 →
+  \$12.46. Shorts work even at the bottom but the gate trims dilutive trips
   without losing the durable edge.
 
 Crucially, the gate logic depended on a separate fix: the engine previously
@@ -122,9 +122,9 @@ Vol-based sizing was originally using the same window length as the
 orderflow signal (200 bars at 1h MA200). Decoupling them and sweeping the
 vol window separately:
 
-- **200-bar vol** (matched MA): total PF 1.416, largest loser $20.5k.
-- **90-day vol**: total PF 1.287 (worse), largest loser **$67k**.
-- **7-day vol**: total PF 1.430, largest loser $18.7k.
+- **200-bar vol** (matched MA): total PF 1.416, largest loser \$20.5k.
+- **90-day vol**: total PF 1.287 (worse), largest loser **\$67k**.
+- **7-day vol**: total PF 1.430, largest loser \$18.7k.
 
 Vol wants to be *responsive*, not stable. It's a risk measurement; a 90-day
 window lags badly through regime shifts and the engine sizes up just before
@@ -137,9 +137,9 @@ The CLI flag is `--vol-window-days`; default 7d.
 ### Lesson 4 — Per-bar liquidity floor catches redenomination stubs
 
 The 288h cell came back with total PF 1.215 and a single trade losing
-**$109,057** — FLOWUSDT short, entered at $7.4e-06, exited at $0.05736 after a
+**\$109,057** — FLOWUSDT short, entered at \$7.4e-06, exited at \$0.05736 after a
 **~10,000× redenomination gap** at 2026-01-28 10:00 UTC. The pre-event tail
-traded $5–30/hour for days; the 90-day ADV gate didn't catch it because
+traded \$5–30/hour for days; the 90-day ADV gate didn't catch it because
 the trailing window integrated over old, normal trading.
 
 Crypto perps don't get split-adjusted historical prices the way equities do.
@@ -148,19 +148,19 @@ unmodeled price gap stitched into the same time series. The exchange's
 public archive emits the raw tape; our parquets carry it as-is.
 
 Adding a **per-bar absolute quote-volume floor** (`--min-bar-quote-volume`)
-defaults to 0 (off) but enabling it at $5k blocks any entry on a bar with
-< $5k of dollar volume. At 288h:
+defaults to 0 (off) but enabling it at \$5k blocks any entry on a bar with
+< \$5k of dollar volume. At 288h:
 
 - 1 trip blocked (the FLOW disaster).
-- Cell PF 1.215 → 1.617; largest loser $109k → $4.5k.
+- Cell PF 1.215 → 1.617; largest loser \$109k → \$4.5k.
 
-A symmetric pre-redenomination gap on CRVUSDT at 240h that *made* $18k
+A symmetric pre-redenomination gap on CRVUSDT at 240h that *made* \$18k
 windfall short was also blocked — correctly, because both the disaster and
 the windfall are unmodeled data artifacts, not strategy edge. The 5k floor
 is universal: it filters at every window length but only triggers on the
 genuinely-pathological bars.
 
-The 480h $14k loser (PUMPBTCUSDT) is *not* a stub-bar event — it's a real
+The 480h \$14k loser (PUMPBTCUSDT) is *not* a stub-bar event — it's a real
 news-driven 15× pump over 77 days. The bar floor doesn't catch it, and
 shouldn't.
 
@@ -213,7 +213,7 @@ because its median hold is only ~22 bars — the chance of a redenomination
 firing during a held trade is low. But the breakout sanity check
 (median hold ~400 bars) revealed how dangerous unprotected long holds
 are: a single GALAUSDT short held across a 1:96 redenomination took a
-$94,887 loss on $1000 notional — i.e. the strategy claimed to short and
+\$94,887 loss on \$1000 notional — i.e. the strategy claimed to short and
 ride the position through a 96× upward gap, and the backtest believed it.
 
 The fix has two parts:
@@ -244,12 +244,12 @@ The fix has two parts:
 
 Effect on the v0 orderflow sweep was small (median hold is short, so
 contamination was rare) — the 200h cell PF stayed at 1.490, and the only
-material change was that PUMPBTCUSDT's 480h $14k loss survived (real
+material change was that PUMPBTCUSDT's 480h \$14k loss survived (real
 ~15× pump over 77 days, not a redenomination — the bar-to-bar log return
 never breached 3.0). Effect on breakout was decisive: largest loser
-$94,887 → ~$1,300 across every window, total PF flipped from below 1.0
+\$94,887 → ~\$1,300 across every window, total PF flipped from below 1.0
 to above 1.0 everywhere. Effect on VWMA was modest in PF terms (1.083
-→ 1.087) but cleaned up the largest loser ($94,887 → $802) — VWMA's
+→ 1.087) but cleaned up the largest loser (\$94,887 → \$802) — VWMA's
 churn-and-pay-fees structure means redenomination was never its
 dominant problem.
 
@@ -341,11 +341,11 @@ Same 1h timeframe, 200h window, 643 covered symbols, gap detector ON
 | --- | ---: | ---: |
 | Total round trips | 20,006 | 140,511 (**7×**) |
 | Profit factor | **1.490** | 1.087 |
-| Long net P&L | $20,175 | **−$36,738** |
+| Long net P&L | \$20,175 | **−\$36,738** |
 | Long PF | **1.257** | **0.926** |
-| Short net P&L | $200,685 | $162,740 |
+| Short net P&L | \$200,685 | \$162,740 |
 | Short PF | **1.540** | **1.171** |
-| Largest loser | $3,599 | $802 |
+| Largest loser | \$3,599 | \$802 |
 | % cells PF > 1 | 72.5% | 58.3% |
 
 What this confirms:
@@ -363,7 +363,7 @@ What this confirms:
 - **Shorts still profitable on VWMA, but smaller.** Bearish-tape edge in
   USDT-perps is robust enough to show through almost any directional
   filter (PF 1.166 with no orderflow input), but orderflow extracts
-  meaningfully more of it ($202k vs $159k).
+  meaningfully more of it (\$202k vs \$159k).
 - **Trade-count blowup is the smoking gun.** 7× the trips for ~75% of
   the net P&L means the median trade contributes far less, and fees
   eat far more. Crossover-style signals on a slow underlying are
@@ -406,20 +406,20 @@ Sweep across the same window grid as orderflow:
 
 | `--ma-hours` | Trips | Total PF | Long PF | Long Net P&L | Short PF | Short Net P&L | Largest loser |
 | :---: | ---: | :---: | :---: | ---: | :---: | ---: | ---: |
-| 200 | 12,833 | 1.088 | 0.790 | −$62,283 | 1.299 | $125,528 | $1,301 |
-| 240 | 10,865 | 1.077 | 0.741 | −$71,268 | 1.316 | $121,983 | $1,301 |
-| 288 | 8,926 | 1.130 | 0.748 | −$60,857 | 1.390 | $138,141 | $1,301 |
-| 360 | 7,115 | 1.144 | 0.736 | −$56,207 | 1.412 | $133,898 | $1,301 |
-| 480 | 5,080 | 1.225 | 0.888 | −$18,616 | 1.421 | $120,701 | $1,438 |
+| 200 | 12,833 | 1.088 | 0.790 | −\$62,283 | 1.299 | \$125,528 | \$1,301 |
+| 240 | 10,865 | 1.077 | 0.741 | −\$71,268 | 1.316 | \$121,983 | \$1,301 |
+| 288 | 8,926 | 1.130 | 0.748 | −\$60,857 | 1.390 | \$138,141 | \$1,301 |
+| 360 | 7,115 | 1.144 | 0.736 | −\$56,207 | 1.412 | \$133,898 | \$1,301 |
+| 480 | 5,080 | 1.225 | 0.888 | −\$18,616 | 1.421 | \$120,701 | \$1,438 |
 
 What this confirms:
 
 - **Buying every new N-hour high is anti-edge.** Long PF is below 1.0
   at every window (0.74–0.89). Long net P&L is **negative at every
-  window** (−$18k to −$71k). The pattern "price prints above where it's
+  window** (−\$18k to −\$71k). The pattern "price prints above where it's
   been for the last 200 hours → buy" loses money systematically. The
   longer the window, the smaller the loss — at 480h the long side only
-  drops $18k vs $71k at 240h — but it never crosses into profit.
+  drops \$18k vs \$71k at 240h — but it never crosses into profit.
 - **Shorts on N-hour-low are real edge, just smaller than orderflow's.**
   Short PF 1.30–1.42 vs orderflow's 1.54–1.95 at the same windows. The
   bearish-tape signal in USDT-perps is robust enough to show through
@@ -430,10 +430,10 @@ What this confirms:
   story isn't unique to orderflow; it shows up in any signal that
   benefits from filtering out short-term noise.
 - **Without the gap detector, this whole sweep is contaminated.**
-  Pre-fix, every window had largest loser $94,887 (a single GALAUSDT
+  Pre-fix, every window had largest loser \$94,887 (a single GALAUSDT
   short held through a 1:96 redenomination), and total PF was below 1.0
   everywhere. With `--max-bar-price-ratio 3.0` the same trade still
-  fires but exits cleanly before the gap, capping loss at ~$1.3k. The
+  fires but exits cleanly before the gap, capping loss at ~\$1.3k. The
   4× change in headline numbers from this single fix is what made us
   add the detector to the production engine.
 
@@ -498,9 +498,9 @@ bucket  signedV_Bn         trades  win_rate  PF      sumPnl$
 4       ≥ $0                1024   0.417    1.501    +5180
 ```
 
-**Pattern: U-shape, with bucket 1 (-$10B to -$5B) the only true loser.**
-- Bucket 0 (deep net-selling, < -$10B) is surprisingly the best long bucket:
-  PF 1.85, +$8,096 over 710 trades. Likely the "max-pain mean-reversion"
+**Pattern: U-shape, with bucket 1 (-\$10B to -\$5B) the only true loser.**
+- Bucket 0 (deep net-selling, < -\$10B) is surprisingly the best long bucket:
+  PF 1.85, +\$8,096 over 710 trades. Likely the "max-pain mean-reversion"
   regime.
 - Bucket 1 is the dead zone: heavy-but-not-extreme net-selling, PF 0.98.
 - Buckets 2–4 trend up monotonically as the universe moves toward
@@ -520,27 +520,27 @@ bucket  signedV_Bn         trades  win_rate  PF      sumPnl$
 **Pattern: clean monotonic degradation as the universe shifts from
 net-selling to net-buying.**
 - Buckets 0–2 (any net-selling state): PF 1.6–1.94, contributes the bulk of
-  the +$181k short-side P&L.
+  the +\$181k short-side P&L.
 - Bucket 3 (near-neutral): PF 1.33 — still profitable but degrading.
-- **Bucket 4 (net-buying, ≥ $0): PF 0.89, −$8,650 over 2,476 trades.** Clear
+- **Bucket 4 (net-buying, ≥ \$0): PF 0.89, −\$8,650 over 2,476 trades.** Clear
   short dead zone. When the smoothed universe orderflow flips positive,
   shorts stop working.
 
 ### Verdict
 
-The earlier rank-decile view suggested a small ~$1k filter effect. The
+The earlier rank-decile view suggested a small ~\$1k filter effect. The
 **cutpoint view changes the picture** — the regime structure is much
 clearer when looked at by raw smoothed signed-volume, and there's a clean
 short-side dead zone:
 
-- **Short-side dead zone: skip shorts when smoothed universe flow ≥ $0
-  (regime "net buying").** Bucket 4: PF 0.89, **−$8,650 over 2,476 trades**.
+- **Short-side dead zone: skip shorts when smoothed universe flow ≥ \$0
+  (regime "net buying").** Bucket 4: PF 0.89, **−\$8,650 over 2,476 trades**.
   17.6% of all short trades, no edge.
 - **Long-side: cleanly graded — best when universe is at extremes (deep
   net-selling for mean-reversion longs, or rare net-buying for momentum
   longs); worst in the heavy-but-not-extreme bear regime (bucket 1, PF 0.98).**
 
-The ~$8.6k savings on shorts alone is **substantial vs the ~$200k baseline
+The ~\$8.6k savings on shorts alone is **substantial vs the ~\$200k baseline
 short P&L** — about 4% of short-side dollars. That's worth plumbing into a
 filter.
 
@@ -646,7 +646,7 @@ plateau at elevated funding.** PF rises 1.19 → 1.43 → 1.58 → 1.74 as
 funding climbs from strongly-negative (shorts paying longs) through
 sub-baseline into baseline, then settles around 1.6 across the elevated
 regime. The strongly-negative bucket is the weakest part of the
-per-ticker space for shorts — $5 of edge per trade vs $20 at baseline,
+per-ticker space for shorts — \$5 of edge per trade vs \$20 at baseline,
 about a 4× degradation — but still positive PF, not a true dead zone.
 
 ### Verdict
@@ -782,17 +782,17 @@ in deciles 3–4. Bucket 9 (rank > 0.95) holds only 21 long trades — anything
 that bucket says is noise. Bucket 6 short side holds 435 trades; that's
 real.
 
-**The standout: short side bucket 6 (PF 3.81, +$51,807).** That's $119/trade,
+**The standout: short side bucket 6 (PF 3.81, +\$51,807).** That's \$119/trade,
 ~5× the average short P&L. Initially looks like a strong regime signal.
 **But:** when broken out by month, **323 of those 435 trades came from May
-2024 alone, contributing $53k of the $52k bucket P&L.** The remaining
+2024 alone, contributing \$53k of the \$52k bucket P&L.** The remaining
 months contribute small amounts that mostly net to zero. So bucket 6 is
 "May 2024 was a great month for shorts when funding was elevated" — one
 specific event, not a generalisable pattern. Same caveat applies (less
-strongly) to bucket 7 (211 trades, $13k).
+strongly) to bucket 7 (211 trades, \$13k).
 
 **The actionable filter: short side bucket 0 (rank < 0.10): PF 0.85,
-−$4,756 over 1,282 trades.** That's a clean broad-market dead zone where
+−\$4,756 over 1,282 trades.** That's a clean broad-market dead zone where
 shorts collectively lose money. When the universe is paying longs heavily
 (very negative funding rank), the v0 short signal fires into the wrong
 positioning.
@@ -803,15 +803,15 @@ The cutpoint view of universe funding produces a **strong symmetric pair
 of effects**:
 
 - **Short-side: bucket 0 (universe-median funding < +0.5 bps) is a clean
-  dead zone**, PF 0.85 / −$4,832 over 1,260 trades. Buckets 2–3 (universe
-  long-leveraged): PF 2.2–3.4, +$90.8k pooled — these are the regimes
+  dead zone**, PF 0.85 / −\$4,832 over 1,260 trades. Buckets 2–3 (universe
+  long-leveraged): PF 2.2–3.4, +\$90.8k pooled — these are the regimes
   where shorts have something to feed on.
 - **Long-side: bucket 3 (universe-median ≥ +1.0 bps) is a clean dead
-  zone**, PF 0.59 / −$2,129 over 354 trades. Bucket 0 (sub-baseline) is
-  the best long bucket: PF 1.65, +$5,423.
+  zone**, PF 0.59 / −\$2,129 over 354 trades. Bucket 0 (sub-baseline) is
+  the best long bucket: PF 1.65, +\$5,423.
 
 In aggregate: drop the bottom-bucket shorts and the top-bucket longs,
-save ~$7k in losses, no opportunity cost on the winning side.
+save ~\$7k in losses, no opportunity cost on the winning side.
 
 **Comparison with per-symbol funding filter.** Similar cutpoints applied
 to the trade's own symbol's funding rate (see the per-trip section above)
@@ -829,7 +829,7 @@ funding hurts longs (broad-market top-sign). Different signals, both real.
 
 **Methodology lesson worth flagging.** An earlier 10-decile rank breakdown
 of this same data made bucket 6 (rank 0.60-0.70) look like a 3.81 PF
-goldmine for shorts (+$51,807). When time-distributed, **75% of those
+goldmine for shorts (+\$51,807). When time-distributed, **75% of those
 trades came from May 2024 alone** — the rank-decile cut had hidden a
 single-month artefact behind apparently broad numbers. Cutpoint
 bucketing on raw values doesn't avoid the issue automatically (you'd
@@ -905,16 +905,16 @@ allow-short, v0 ADV gates, gap detector at 3.0×, vol-tuned at 0.1019:
 | Trades | 20,006 | 10,526 |
 | Total PF | 1.490 | **1.565** |
 | Win rate | 41.8% | 46.9% |
-| Net P&L | +$221K | +$172K |
+| Net P&L | +\$221K | +\$172K |
 | Profitable cells | 72.5% | 73.3% |
 | Median Sharpe | 0.50 | 0.52 |
 | Long PF | 1.26 | 1.20 |
-| Long net P&L | +$20K | +$11K |
+| Long net P&L | +\$20K | +\$11K |
 | Short PF | 1.54 | 1.64 |
-| Short net P&L | +$201K | +$161K |
-| Largest single winner | $4,004 | $3,502 |
-| **Largest single loss** | **−$3,599** | **−$3,493** |
-| MAE ≤−50% bucket | −$72K | −$58K |
+| Short net P&L | +\$201K | +\$161K |
+| Largest single winner | \$4,004 | \$3,502 |
+| **Largest single loss** | **−\$3,599** | **−\$3,493** |
+| MAE ≤−50% bucket | −\$72K | −\$58K |
 | Median bars held | 7 (~7h) | 1,566 (~26h) |
 
 The 1m cumsum **matches v0 PF (1.57 vs 1.49) with a slightly cleaner risk
@@ -923,12 +923,12 @@ selective by construction (one fire per regime persistence cycle, vs v0's
 fire on every ratio-crossing).
 
 Net P&L is lower because the trade count is lower; per-trade expectancy
-is higher ($16.3 vs $11.0). Median Sharpe is essentially tied.
+is higher (\$16.3 vs \$11.0). Median Sharpe is essentially tied.
 
 The **vol-rescaling step** is what closes the catastrophic-loss tail.
-Without it, the largest single loss was −$13.2K (vs v0's −$3.6K) — the
+Without it, the largest single loss was −\$13.2K (vs v0's −\$3.6K) — the
 meme-coin tail was being traded at full notional during high-vol bursts.
-With `referenceVol = 0.1019`, the largest loss drops to −$3.5K (below
+With `referenceVol = 0.1019`, the largest loss drops to −\$3.5K (below
 v0's worst trade) and the MAE ≤−50% bucket roughly halves.
 
 ### Reproduce
@@ -982,7 +982,7 @@ persistence confirms the new direction, otherwise stay flat.
 | Long trades | 3,116 | 4,167 |
 | Short PF | 1.64 | 1.14 |
 | Short trades | 7,410 | 49,894 |
-| Largest single loss | −$3,493 | **−$1,092** |
+| Largest single loss | −\$3,493 | **−\$1,092** |
 
 Two findings:
 
@@ -994,7 +994,7 @@ Two findings:
    count went 7.4k → 49.9k (+6.7×). The cumsum saturates faster than
    I estimated; threshold = 10 is the wrong order of magnitude.
 
-Largest single loss dropped to −$1.1K (vs −$3.5K) — even with the over-
+Largest single loss dropped to −\$1.1K (vs −\$3.5K) — even with the over-
 firing on shorts, individual-trade risk is much tighter because the
 persistence gate prevents flips into unconfirmed regimes.
 
@@ -1002,28 +1002,28 @@ persistence gate prevents flips into unconfirmed regimes.
 
 | **th** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Largest loss** |
 |---|---|---|---|---|---|---|---|
-| 11 | 45,000 | 1.175 | 1.319 | $18,843 | 1.169 | $144,810 | −$1,696 |
-| 12 | 38,004 | 1.200 | 1.287 | $16,458 | 1.194 | $161,395 | −$1,777 |
-| 13 | 32,450 | 1.217 | 1.304 | $16,954 | 1.211 | $161,019 | −$1,976 |
-| 14 | 28,002 | 1.238 | 1.336 | $17,756 | 1.231 | $162,407 | −$1,900 |
-| 15 | 24,516 | 1.253 | 1.364 | $18,437 | 1.244 | $159,502 | −$2,033 |
-| **16** | 21,721 | 1.269 | **1.401** | **$20,017** | 1.259 | $158,580 | −$3,072 |
-| 17 | 19,209 | 1.280 | 1.369 | $17,968 | 1.273 | $156,802 | −$3,100 |
-| 18 | 17,289 | 1.280 | 1.331 | $15,944 | 1.276 | $150,808 | −$3,106 |
+| 11 | 45,000 | 1.175 | 1.319 | \$18,843 | 1.169 | \$144,810 | −\$1,696 |
+| 12 | 38,004 | 1.200 | 1.287 | \$16,458 | 1.194 | \$161,395 | −\$1,777 |
+| 13 | 32,450 | 1.217 | 1.304 | \$16,954 | 1.211 | \$161,019 | −\$1,976 |
+| 14 | 28,002 | 1.238 | 1.336 | \$17,756 | 1.231 | \$162,407 | −\$1,900 |
+| 15 | 24,516 | 1.253 | 1.364 | \$18,437 | 1.244 | \$159,502 | −\$2,033 |
+| **16** | 21,721 | 1.269 | **1.401** | **\$20,017** | 1.259 | \$158,580 | −\$3,072 |
+| 17 | 19,209 | 1.280 | 1.369 | \$17,968 | 1.273 | \$156,802 | −\$3,100 |
+| 18 | 17,289 | 1.280 | 1.331 | \$15,944 | 1.276 | \$150,808 | −\$3,106 |
 
 Clean monotonic patterns:
 
 - Total PF rises monotonically with threshold: **1.175 (th=11) → 1.280 (th=18)**.
   Higher selectivity = higher quality.
-- **Long PF peaks at th=16** (PF 1.401, net $20,017). This is the
-  strongest long-side number we've ever produced — beats v0 (1.26, $20,175)
-  on PF and matches it within $158 on net. This is the lift the
+- **Long PF peaks at th=16** (PF 1.401, net \$20,017). This is the
+  strongest long-side number we've ever produced — beats v0 (1.26, \$20,175)
+  on PF and matches it within \$158 on net. This is the lift the
   conviction-weighted vote was supposed to deliver.
 - Short PF rises monotonically too (1.169 → 1.276 across th=11→18) but
   plateaus by 17.
 - Largest single loss rises with threshold (longer holds when fires are
-  rarer): th=12 has the smallest tail (−$1.8K), th=18 the largest (−$3.1K).
-  Still well below cumsum-vol-tuned's −$3.5K.
+  rarer): th=12 has the smallest tail (−\$1.8K), th=18 the largest (−\$3.1K).
+  Still well below cumsum-vol-tuned's −\$3.5K.
 
 **The total PF still doesn't catch up to cumsum-vol-tuned (1.57).** The
 z-cumsum is **better on the long side** (1.40 vs 1.20) but **worse on
@@ -1049,11 +1049,11 @@ swing is noise.
 
 | **th** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Largest loss** |
 |---|---|---|---|---|---|---|---|
-| 14 | 6,500 | 1.666 | 1.311 | $15,584 | 1.747 | $165,781 | −$3,420 |
-| **15** | **6,215** | **1.690** | 1.317 | $15,441 | **1.777** | **$168,098** | −$3,427 |
-| 16 | 5,968 | 1.688 | 1.307 | $15,639 | 1.774 | $165,734 | −$3,433 |
-| 17 | 5,744 | 1.685 | 1.300 | $14,631 | 1.774 | $164,086 | −$3,444 |
-| 18 | 5,577 | 1.667 | 1.280 | $13,551 | 1.756 | $160,124 | −$3,450 |
+| 14 | 6,500 | 1.666 | 1.311 | \$15,584 | 1.747 | \$165,781 | −\$3,420 |
+| **15** | **6,215** | **1.690** | 1.317 | \$15,441 | **1.777** | **\$168,098** | −\$3,427 |
+| 16 | 5,968 | 1.688 | 1.307 | \$15,639 | 1.774 | \$165,734 | −\$3,433 |
+| 17 | 5,744 | 1.685 | 1.300 | \$14,631 | 1.774 | \$164,086 | −\$3,444 |
+| 18 | 5,577 | 1.667 | 1.280 | \$13,551 | 1.756 | \$160,124 | −\$3,450 |
 
 **Versus all systems we've measured:**
 
@@ -1063,13 +1063,13 @@ swing is noise.
 | Long PF | 1.26 | 1.20 | **1.40** | 1.32 |
 | Short PF | 1.54 | 1.64 | 1.26 | **1.78** |
 | Trades | 20,006 | 10,526 | 21,721 | 6,215 |
-| Net P&L | +$221K | +$172K | $178K (long+short) | **+$184K** |
-| Largest loss | −$3,599 | −$3,493 | −$3,072 | −$3,427 |
+| Net P&L | +\$221K | +\$172K | \$178K (long+short) | **+\$184K** |
+| Largest loss | −\$3,599 | −\$3,493 | −\$3,072 | −\$3,427 |
 
 **Persistence-exit is the strongest system on every aggregate metric.**
 Total PF 1.69 is the highest we've ever produced — well above v0's 1.49
 and the simple-vote cumsum's 1.57. Short PF 1.78 (vs v0 1.54). Largest
-single loss comparable to v0 (−$3.4K vs −$3.6K).
+single loss comparable to v0 (−\$3.4K vs −\$3.6K).
 
 Long PF is slightly lower than the cumsum-exit run (1.32 vs 1.40) — the
 persistence-only-exit is more conservative on long-side fires, exiting
@@ -1102,14 +1102,14 @@ notional via vol-sizing, not which trades fire.
 
 | **vw** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** |
 |---|---|---|---|---|---|---|
-| 1d | 1.693 | 1.288 | $12,809 | 1.775 | $170,086 | $182,895 |
-| 2d | 1.697 | 1.294 | $13,594 | 1.783 | $169,343 | $182,937 |
-| 3d | 1.696 | 1.307 | $14,497 | 1.781 | $169,074 | $183,571 |
-| 5d | 1.691 | **1.329** | **$15,967** | 1.771 | $167,927 | **$183,894** |
-| 7d | 1.690 | 1.311 | $15,441 | 1.777 | $168,098 | $183,538 |
+| 1d | 1.693 | 1.288 | \$12,809 | 1.775 | \$170,086 | \$182,895 |
+| 2d | 1.697 | 1.294 | \$13,594 | 1.783 | \$169,343 | \$182,937 |
+| 3d | 1.696 | 1.307 | \$14,497 | 1.781 | \$169,074 | \$183,571 |
+| 5d | 1.691 | **1.329** | **\$15,967** | 1.771 | \$167,927 | **\$183,894** |
+| 7d | 1.690 | 1.311 | \$15,441 | 1.777 | \$168,098 | \$183,538 |
 
-All windows fall within a tight band (PF 1.69–1.70, net $182.9K–$183.9K).
-5d marginally improves longs (PF 1.33 vs 1.31, +$526 net) — within noise.
+All windows fall within a tight band (PF 1.69–1.70, net \$182.9K–\$183.9K).
+5d marginally improves longs (PF 1.33 vs 1.31, +\$526 net) — within noise.
 **Verdict: keep 7d.** Vol-sizing window length is not where the edge lives.
 
 ### Stop-loss scan
@@ -1117,23 +1117,23 @@ All windows fall within a tight band (PF 1.69–1.70, net $182.9K–$183.9K).
 The earlier system's lesson — *stops hurt performance* — reproduces here,
 but with a twist when paired with **scale-up considerations**.
 
-The catastrophic-loss tail in the no-stop config (−$3,427 single trade,
-−$56K bucket from MAE ≤−50%) is a capital-efficiency problem: it limits
+The catastrophic-loss tail in the no-stop config (−\$3,427 single trade,
+−\$56K bucket from MAE ≤−50%) is a capital-efficiency problem: it limits
 the max safe notional. A counterfactual analysis confirmed that **no
 fixed-percentage stop beats no-stop on raw P&L** — even a 100% stop costs
-~$36K vs no-stop. But the bounded tail enables larger position sizing.
+~\$36K vs no-stop. But the bounded tail enables larger position sizing.
 
 Sweep at threshold=15 with `--require-persistence-for-exit`:
 
 | **Stop** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** | **Largest loss** |
 |---|---|---|---|---|---|---|---|---|
-| 25% | 8,106 | 1.310 | 1.285 | $15,008 | 1.314 | $98,899 | $113,907 | **−$279** |
-| 30% | 7,642 | 1.335 | 1.292 | $14,993 | 1.342 | $104,360 | $119,353 | −$339 |
-| 40% | 7,122 | 1.355 | 1.300 | $15,279 | 1.365 | $107,585 | $122,864 | −$422 |
-| 50% | 6,838 | 1.381 | 1.316 | $15,894 | 1.393 | $112,269 | $128,163 | −$517 |
-| 75% | 6,530 | 1.425 | 1.315 | $15,673 | 1.445 | $121,973 | $137,646 | −$767 |
-| 100% | 6,386 | 1.484 | 1.311 | $15,441 | 1.518 | $133,050 | $148,491 | −$1,018 |
-| **none** | **6,215** | **1.690** | 1.317 | $15,441 | **1.777** | **$168,098** | **$183,538** | −$3,427 |
+| 25% | 8,106 | 1.310 | 1.285 | \$15,008 | 1.314 | \$98,899 | \$113,907 | **−\$279** |
+| 30% | 7,642 | 1.335 | 1.292 | \$14,993 | 1.342 | \$104,360 | \$119,353 | −\$339 |
+| 40% | 7,122 | 1.355 | 1.300 | \$15,279 | 1.365 | \$107,585 | \$122,864 | −\$422 |
+| 50% | 6,838 | 1.381 | 1.316 | \$15,894 | 1.393 | \$112,269 | \$128,163 | −\$517 |
+| 75% | 6,530 | 1.425 | 1.315 | \$15,673 | 1.445 | \$121,973 | \$137,646 | −\$767 |
+| 100% | 6,386 | 1.484 | 1.311 | \$15,441 | 1.518 | \$133,050 | \$148,491 | −\$1,018 |
+| **none** | **6,215** | **1.690** | 1.317 | \$15,441 | **1.777** | **\$168,098** | **\$183,538** | −\$3,427 |
 
 **The damage is entirely on shorts.** Long PF holds at ~1.31 across every
 stop level — long entries never have catastrophic MAE because vol-sizing
@@ -1148,16 +1148,16 @@ each stop level — the bounded loss makes it safe):
 
 | **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Net @ 3×** | **Largest loss @ 3×** |
 |---|---|---|---|---|
-| 50% | $128K | −$517 | $385K | −$1,551 |
-| 100% | $148K | −$1,018 | $446K | −$3,054 |
-| none | $184K | −$3,427 | (would be −$10,281 — likely exceeds liquidity) |
+| 50% | \$128K | −\$517 | \$385K | −\$1,551 |
+| 100% | \$148K | −\$1,018 | \$446K | −\$3,054 |
+| none | \$184K | −\$3,427 | (would be −\$10,281 — likely exceeds liquidity) |
 
 **Decision: the 100% stop pareto-dominates for safe scale-up.** At 3× it
-nets $446K with −$3,054 worst-case (still smaller tail than v0's −$3,599),
-beating both v0 ($221K at 1×) and the no-stop baseline ($184K at 1×). At
-1× it sacrifices $36K of P&L (vs no-stop) for a 3.4× tighter tail.
+nets \$446K with −\$3,054 worst-case (still smaller tail than v0's −\$3,599),
+beating both v0 (\$221K at 1×) and the no-stop baseline (\$184K at 1×). At
+1× it sacrifices \$36K of P&L (vs no-stop) for a 3.4× tighter tail.
 
-The 50% stop is a more conservative choice — sacrifice $56K of P&L in
+The 50% stop is a more conservative choice — sacrifice \$56K of P&L in
 exchange for a 6.6× tighter tail. The right pick depends on the actual
 liquidity-constrained scale-up factor, which we haven't measured.
 
@@ -1193,25 +1193,25 @@ Sweep at threshold=15, persistence-exit on, `--vwap-stop-hours 200`:
 | Trades | 6,215 | 46,627 (×7.5) |
 | Total PF | 1.690 | 1.246 |
 | Long PF | 1.311 | **1.346** |
-| Long net | $15,441 | $17,667 |
+| Long net | \$15,441 | \$17,667 |
 | Long trades | 1,828 | 2,447 |
 | Short PF | 1.777 | 1.238 |
-| Short net | $168,098 | $160,938 |
+| Short net | \$168,098 | \$160,938 |
 | **Short trades** | **4,387** | **44,180** (×10) |
-| **Total net** | **$184K** | $178K |
-| **Largest loss** | −$3,427 | **−$695** |
-| Largest winner | $3,788 | $3,788 |
+| **Total net** | **\$184K** | \$178K |
+| **Largest loss** | −\$3,427 | **−\$695** |
+| Largest winner | \$3,788 | \$3,788 |
 
-**Net P&L is essentially preserved** ($178K vs $184K) but the largest
-single loss drops 4.9× (−$3,427 → −$695). Total PF degrades because
+**Net P&L is essentially preserved** (\$178K vs \$184K) but the largest
+single loss drops 4.9× (−\$3,427 → −\$695). Total PF degrades because
 trade count explodes — every short that breaches the 200h-VWAP-high gets
 closed, and the persistence-bear regime makes the cumsum refire shortly
 after on the next squeeze touch. Each individual short is much smaller
-(avg loser −$19 vs −$58 baseline) but the system recaptures the broader
+(avg loser −\$19 vs −\$58 baseline) but the system recaptures the broader
 short edge through repeated bites.
 
-The long side actually improved slightly (PF 1.31 → 1.35, net $15K →
-$17K) — long stops fire rarely (the 200h floor on liquid alts is well
+The long side actually improved slightly (PF 1.31 → 1.35, net \$15K →
+\$17K) — long stops fire rarely (the 200h floor on liquid alts is well
 below typical long-entry levels) and when they do, they catch genuine
 regime shifts.
 
@@ -1221,18 +1221,18 @@ with no stop):
 
 | **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Net @ 4×** | **Largest loss @ 4×** |
 |---|---|---|---|---|
-| 100% pct | $148K | −$1,018 | $592K | −$4,072 |
-| **VWAP 200h** | $178K | −$695 | **$712K** | **−$2,780** |
-| none | $184K | −$3,427 | (would be −$13.7K — exceeds liquidity) |
+| 100% pct | \$148K | −\$1,018 | \$592K | −\$4,072 |
+| **VWAP 200h** | \$178K | −\$695 | **\$712K** | **−\$2,780** |
+| none | \$184K | −\$3,427 | (would be −\$13.7K — exceeds liquidity) |
 
 **The VWAP-band stop pareto-dominates the percentage stops for safe scale-up.**
-At 4× notional it nets $712K with −$2.8K worst-case (still smaller tail
-than v0's −$3.6K). At 1× it sacrifices only $6K of P&L (vs no-stop) for
+At 4× notional it nets \$712K with −\$2.8K worst-case (still smaller tail
+than v0's −\$3.6K). At 1× it sacrifices only \$6K of P&L (vs no-stop) for
 a 4.9× tighter tail.
 
-Caveat: 46,627 trades × $0.80 round-trip fees = **~$37K of fees** at 1×
-notional (already netted in the $178K). Fees scale linearly with notional,
-so at 4× we pay ~$148K in fees. Pre-fee gross P&L is fine, but high trade
+Caveat: 46,627 trades × \$0.80 round-trip fees = **~\$37K of fees** at 1×
+notional (already netted in the \$178K). Fees scale linearly with notional,
+so at 4× we pay ~\$148K in fees. Pre-fee gross P&L is fine, but high trade
 count means the system needs to clear high taker fees first; at lower fee
 tiers (or maker rebates on limit-order entries) the system would benefit
 disproportionately.
@@ -1276,20 +1276,20 @@ Sweep at threshold=15, persistence-exit on:
 
 | **M** | **Trades** | **Total PF** | **Long PF** | **Long net** | **Short PF** | **Short net** | **Total net** | **Largest loss** |
 |---|---|---|---|---|---|---|---|---|
-| **50** | 11,998 | 1.282 | 1.312 | $16,691 | 1.277 | $93,050 | $109,740 | **−$160** |
-| **100** | 8,405 | 1.313 | 1.302 | $15,704 | 1.315 | $99,258 | $114,962 | **−$205** |
-| 200 | 6,879 | 1.366 | 1.314 | $15,829 | 1.375 | $107,674 | $123,503 | −$940 |
-| 400 | 6,378 | 1.488 | 1.315 | $15,614 | 1.522 | $132,954 | $148,568 | −$1,354 |
-| 600 | 6,283 | 1.553 | 1.311 | $15,442 | 1.603 | $145,067 | $160,509 | −$1,149 |
-| 1000 | 6,230 | 1.652 | 1.311 | $15,441 | 1.728 | $162,410 | $177,851 | −$2,106 |
-| no-stop | 6,215 | 1.690 | 1.311 | $15,441 | 1.777 | $168,098 | $184K | −$3,427 |
+| **50** | 11,998 | 1.282 | 1.312 | \$16,691 | 1.277 | \$93,050 | \$109,740 | **−\$160** |
+| **100** | 8,405 | 1.313 | 1.302 | \$15,704 | 1.315 | \$99,258 | \$114,962 | **−\$205** |
+| 200 | 6,879 | 1.366 | 1.314 | \$15,829 | 1.375 | \$107,674 | \$123,503 | −\$940 |
+| 400 | 6,378 | 1.488 | 1.315 | \$15,614 | 1.522 | \$132,954 | \$148,568 | −\$1,354 |
+| 600 | 6,283 | 1.553 | 1.311 | \$15,442 | 1.603 | \$145,067 | \$160,509 | −\$1,149 |
+| 1000 | 6,230 | 1.652 | 1.311 | \$15,441 | 1.728 | \$162,410 | \$177,851 | −\$2,106 |
+| no-stop | 6,215 | 1.690 | 1.311 | \$15,441 | 1.777 | \$168,098 | \$184K | −\$3,427 |
 
 **Trade-count blowup is gone.** M=1000 fires on 6,230 trades (vs 6,215
 baseline) — only the worst 15 trades hit the stop. Compare to the VWAP
 200h stop which fired ~40,000 extra trades. M=100 still only fires 35%
 more often despite capping losses 17× tighter.
 
-**Long side completely unaffected** at every M ≥ 200 (PF 1.31, $15.4K net).
+**Long side completely unaffected** at every M ≥ 200 (PF 1.31, \$15.4K net).
 The ADV-gate-filtered long entries don't reach a 200×-vol stop distance.
 
 **Short PF is the full degradation surface**: at M=1000 it's 1.73 (close
@@ -1301,24 +1301,24 @@ up. Pick the comfort level:
 
 | **Stop** | **Net @ 1×** | **Largest loss @ 1×** | **Comfortable scale** | **Net @ scale** | **Largest loss @ scale** |
 |---|---|---|---|---|---|
-| **Vol M=100** | $115K | −$205 | **17×** | **$1.95M** | **−$3,485** |
-| Vol M=600 | $161K | −$1,149 | 3× | $483K | −$3,447 |
-| Vol M=1000 | $178K | −$2,106 | 1.6× | $285K | −$3,370 |
-| VWAP 200h | $178K | −$695 | 5× | $890K | −$3,475 |
-| 100% pct | $148K | −$1,018 | 3.4× | $503K | −$3,461 |
-| no stop | $184K | −$3,427 | 1× | $184K | −$3,427 |
+| **Vol M=100** | \$115K | −\$205 | **17×** | **\$1.95M** | **−\$3,485** |
+| Vol M=600 | \$161K | −\$1,149 | 3× | \$483K | −\$3,447 |
+| Vol M=1000 | \$178K | −\$2,106 | 1.6× | \$285K | −\$3,370 |
+| VWAP 200h | \$178K | −\$695 | 5× | \$890K | −\$3,475 |
+| 100% pct | \$148K | −\$1,018 | 3.4× | \$503K | −\$3,461 |
+| no stop | \$184K | −\$3,427 | 1× | \$184K | −\$3,427 |
 
 **M=100 is the standout for aggressive scale-up.** Caps the worst
-single-trade loss at −$205 with only 35% more trades than baseline.
-Sized to match v0/baseline's tail (~−$3.5K), it deploys 17× the
-notional and produces a projected $1.95M net P&L — an order of
+single-trade loss at −\$205 with only 35% more trades than baseline.
+Sized to match v0/baseline's tail (~−\$3.5K), it deploys 17× the
+notional and produces a projected \$1.95M net P&L — an order of
 magnitude beyond any other configuration. The PF is only 1.31 (vs
 baseline 1.69), but at 17× scale that PF still produces 10×+ the
 absolute dollars.
 
 Caveat: the scale factors above are per-trade-tail comfort, not
 liquidity-constrained scale. Real scale-up is bounded by the universe's
-ADV — a $17K notional × 8K trades a year on a $28.8M ADV gate is
+ADV — a \$17K notional × 8K trades a year on a \$28.8M ADV gate is
 plausible, but slippage modeling would tighten the actual number.
 
 ```
@@ -1352,7 +1352,7 @@ Default `--cumsum-thresholds 10 --ma-hours 200`. Outputs land in
 ## Momentum stratification — 60d trailing reference price
 
 Once we had a stable backtested system (z-cumsum + persist, no stop —
-$184K net, PF 1.69, 6,215 trips), we asked: **does the 60d-trailing
+\$184K net, PF 1.69, 6,215 trips), we asked: **does the 60d-trailing
 momentum at entry predict trade outcome?** The hypothesis was that
 sharply-up coins would be losing longs (mean-reversion / blow-off
 tops) and good shorts (squeeze recovery), in line with equity-market
@@ -1397,7 +1397,7 @@ Standardizing by per-symbol 60d std normalizes BTC's ±5% range and WIF's
 
 **LONG side (1,828 trades, total PF 1.31):**
 
-| **z-bucket** | **trades** | **PF** | **net $** | **avg $** |
+| **z-bucket** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <-3 | 1 | (n/a) | −6 | −5.88 |
 | -3 to -2 | 19 | 1.30 | +151 | +7.96 |
@@ -1410,7 +1410,7 @@ Standardizing by per-symbol 60d std normalizes BTC's ±5% range and WIF's
 
 **SHORT side (4,387 trades, total PF 1.78):**
 
-| **z-bucket** | **trades** | **PF** | **net $** | **avg $** |
+| **z-bucket** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <-3 | 31 | 2.18 | +1,362 | +43.92 |
 | -3 to -2 | 93 | 1.31 | +1,655 | +17.80 |
@@ -1468,7 +1468,7 @@ Session anchors (UTC):
 
 ### LONG side by entry hour (1,828 trades, total PF 1.31)
 
-| **hour UTC** | **session** | **trades** | **PF** | **net $** | **avg $** |
+| **hour UTC** | **session** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|---|
 | 00:00 | **Asia open** | 84 | 2.08 | +1,901 | +23 |
 | 01:00 | | 81 | 1.46 | +1,037 | +13 |
@@ -1510,7 +1510,7 @@ Session anchors (UTC):
 
 ### SHORT side by entry hour (4,387 trades, total PF 1.78)
 
-| **hour UTC** | **session** | **trades** | **PF** | **net $** | **avg $** |
+| **hour UTC** | **session** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|---|
 | 00:00 | **Asia open** | 213 | 1.95 | +8,267 | +39 |
 | 01:00 | | 183 | 1.79 | +6,630 | +36 |
@@ -1542,7 +1542,7 @@ Session anchors (UTC):
 - **Every hour profitable** — no dead zones (lowest PF is 1.11 at
   19:00–20:00 UTC).
 - **Strongest hours**: 17:00 (PF 2.98, US afternoon) and 14:00
-  (PF 2.40, $17.5K — the single biggest hour for short net P&L).
+  (PF 2.40, \$17.5K — the single biggest hour for short net P&L).
 - The **session-open hours** (00:00, 08:00, 13:00, 14:00) are all
   profitable for shorts but the post-open hours (14:00–17:00)
   carry the highest PF and largest dollar amounts.
@@ -1562,10 +1562,10 @@ Session anchors (UTC):
 
 **Patterns**:
 
-- **Tuesday is the only unprofitable long-side day** (PF 0.90, −$813).
+- **Tuesday is the only unprofitable long-side day** (PF 0.90, −\$813).
 - **Sunday is the strongest long-side day** (PF 1.81) — light-volume
   weekend trading apparently favors mean-reversion longs.
-- **Thursday + Friday carry 51% of all short net P&L** ($85K of $168K).
+- **Thursday + Friday carry 51% of all short net P&L** (\$85K of \$168K).
   Short side performance is very weekday-skewed; weekends and early
   week are weaker.
 
@@ -1573,15 +1573,15 @@ Session anchors (UTC):
 
 - **Hour-of-day is a real but moderate signal.** Long-side has 4
   unprofitable hours (04:00, 11:00, 13:00, 14:00) accounting for
-  −$3,627 net across 313 trades — filtering them removes ~17% of
-  longs and recovers ~$3.6K. Modest improvement.
+  −\$3,627 net across 313 trades — filtering them removes ~17% of
+  longs and recovers ~\$3.6K. Modest improvement.
 - **Short-side has no dead hours** and a clean concentration in 14:00,
   17:00, 21:00 — these are the highest-edge windows but every hour
   works. Suggests a sizing modulator (boost shorts in high-PF hours)
   more than a filter.
 - **Day-of-week patterns are stronger** than hour-of-day in absolute
-  P&L terms. Cutting Tuesday longs entirely would cost $-813 (i.e.,
-  *gain* $813). Concentrating short exposure on Thu+Fri would lift
+  P&L terms. Cutting Tuesday longs entirely would cost \$-813 (i.e.,
+  *gain* \$813). Concentrating short exposure on Thu+Fri would lift
   per-trade-dollar P&L significantly.
 
 ```
@@ -1597,8 +1597,8 @@ correlation across the 700 trading days in the backtest.
 | **Metric** | **Long book** | **Short book** |
 |---|---|---|
 | n trading days | 700 | 700 |
-| Mean daily P&L | +$22.06 | +$240.14 |
-| Daily P&L std | $260.34 | $1,157.79 |
+| Mean daily P&L | +\$22.06 | +\$240.14 |
+| Daily P&L std | \$260.34 | \$1,157.79 |
 | Daily Sharpe (annualized, √252) | **1.35** | **3.29** |
 | Mean / std (per-day Sharpe) | 0.085 | 0.207 |
 
@@ -1671,7 +1671,7 @@ doesn't inflate the denominator.
 
 **LONG side (1,828 trades, total PF 1.31):**
 
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+| **ratio** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <0.5× | 354 | 1.04 | +458 | +1 |
 | **0.5 to 1×** | 527 | **1.94** | +9,651 | +18 |
@@ -1683,14 +1683,14 @@ doesn't inflate the denominator.
 | ≥10× | 163 | 1.27 | +1,534 | +9 |
 
 The long side zigzags. The **0.5 to 1× bucket** (coins trading *below*
-typical volume) is the strongest long PF (1.94, +$18 avg). The **1 to
+typical volume) is the strongest long PF (1.94, +\$18 avg). The **1 to
 1.5× bucket** (coins trading at modestly elevated volume) is the worst
-long PF (0.58, −$13 avg). No monotonic pattern beyond that. Consistent
+long PF (0.58, −\$13 avg). No monotonic pattern beyond that. Consistent
 with "longs work in calm continuation regimes, not in chaos."
 
 **SHORT side (4,386 trades, total PF 1.78):** monotone in volume.
 
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+| **ratio** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <0.5× | 888 | 1.14 | +7,506 | +8 |
 | 0.5 to 1× | 1,187 | 1.65 | +37,944 | +32 |
@@ -1707,8 +1707,8 @@ seen on any stratification anywhere on the system. The ≥10× bucket
 (extreme blowoff) dips slightly to PF 2.46 but stays strongly
 profitable.
 
-The 5–10× short bucket is **400 trades, 64.2% win rate, $40,697 net,
-+$101.74 avg** — a quarter of all short profit on 9% of trades. The
+The 5–10× short bucket is **400 trades, 64.2% win rate, \$40,697 net,
++\$101.74 avg** — a quarter of all short profit on 9% of trades. The
 hypothesis: when a long-tail token is trading 5×+ its typical volume,
 it's almost certainly in a squeeze or a blowoff and the short edge
 maximizes there.
@@ -1753,7 +1753,7 @@ windows; **1h is the cleanest**.
 
 ### 1h imbalance — long deciles (1,828 trades)
 
-| **D** | **imb range** | **trades** | **PF** | **net $** | **avg $** |
+| **D** | **imb range** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|---|
 | 1 | −19.23% to +2.95% | 183 | 1.30 | +1,786 | +10 |
 | 2 | +2.97 to +5.02 | 183 | **1.96** | +4,698 | +26 |
@@ -1767,12 +1767,12 @@ windows; **1h is the cleanest**.
 | 10 | +25.64 to +81.35 | 182 | 1.34 | +1,618 | +9 |
 
 **Three-decile sweet spot at +3% to +9% imbalance** (PF 1.94–1.96 across
-deciles 2–4, +$14,441 combined). This is "recent 1h has been
+deciles 2–4, +\$14,441 combined). This is "recent 1h has been
 moderately net-buying" — the regime is bullish *and* the short-term
 flow confirms.
 
 **Five-decile dead zone at +9% to +26% imbalance** (deciles 5–9,
-PF 0.77, 0.77, 1.09, 0.93, 0.93, 730 trades, combined net −$2,404).
+PF 0.77, 0.77, 1.09, 0.93, 0.93, 730 trades, combined net −\$2,404).
 Once recent 1h flow gets too one-sided, longs underperform —
 overcrowded continuation, blow-off proximity. Deciles 5–6 are flat-out
 unprofitable. Filtering this band removes ~40% of long trades while
@@ -1783,7 +1783,7 @@ is its own regime, distinct from the dead zone just below.
 
 ### 1h imbalance — short deciles (4,387 trades)
 
-| **D** | **imb range** | **trades** | **PF** | **net $** | **avg $** |
+| **D** | **imb range** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|---|
 | 1 | −76.25% to −30.18% | 439 | **1.10** | +2,514 | +6 |
 | 2 | −30.16 to −24.22 | 439 | 1.98 | +19,689 | +45 |
@@ -1811,7 +1811,7 @@ brief retracement.
 The two cleanest filter candidates from the 1h imbalance breakdown:
 
 1. **Long-side dead zone**: skip longs with 1h imbalance in `+9% to
-   +26%` (deciles 5–9). Removes ~40% of longs, saves ~$2.4K, lifts
+   +26%` (deciles 5–9). Removes ~40% of longs, saves ~\$2.4K, lifts
    long PF from 1.31 toward ~1.5+. The signal is consistent across
    five consecutive deciles — strongest "do not enter" signal we've
    found anywhere.
@@ -2051,11 +2051,11 @@ require-persistence-for-exit, ADV-gated, 7d vol window with
 
 | **mode** | **threshold** | **trips** | **pooled PF** | **long PF** | **short PF** | **largest loss** |
 |---|---:|---:|---:|---:|---:|---:|
-| Erf (ref) | 15 | 6,215 | 1.690 | ~1.31 | ~1.79 | −$3,427 |
-| Raw-z | 15 | 12,542 | 1.523 | 1.237 | 1.584 | −$3,577 |
-| Raw-z | 25 | 9,322 | 1.585 | 1.307 | 1.641 | −$3,577 |
-| Raw-z | 50 | 5,980 | 1.681 | 1.334 | 1.753 | −$3,380 |
-| **Raw-z** | **100** | **3,427** | **1.864** | **1.365** | **1.976** | **−$2,973** |
+| Erf (ref) | 15 | 6,215 | 1.690 | ~1.31 | ~1.79 | −\$3,427 |
+| Raw-z | 15 | 12,542 | 1.523 | 1.237 | 1.584 | −\$3,577 |
+| Raw-z | 25 | 9,322 | 1.585 | 1.307 | 1.641 | −\$3,577 |
+| Raw-z | 50 | 5,980 | 1.681 | 1.334 | 1.753 | −\$3,380 |
+| **Raw-z** | **100** | **3,427** | **1.864** | **1.365** | **1.976** | **−\$2,973** |
 
 PF rises monotonically with raw-z threshold; trip count drops
 from 12.5K → 3.4K. Raw-z 100 fires roughly half as often as the
@@ -2182,7 +2182,7 @@ mode: `Hard` always, `Conditional` only if not profitable.
 implementation of the chart-review sketch. Pooled across the full
 4×3 (rvolEntry × priceRise) grid: PF rises monotonically with
 both gates, peaking at PF 1.271 at rvol=15/pr=15% with 1,898
-trips. Largest single loss bounded at ~$480 (vs $3,427 for
+trips. Largest single loss bounded at ~\$480 (vs \$3,427 for
 cumsum-z), confirming the VWAP-snapshot stop does its job.
 Visual review of the canonical (rvol=10, pr=10%) cell showed
 many entries firing hours after the move had topped — the 8h
@@ -2193,7 +2193,7 @@ entry signal (1h-mean / 30d-mean rvol), much tighter stop
 (20-minute trailing max-High instead of 8h trailing max-VWAP).
 Trip count tripled at the canonical cell (3,767 → 10,212). PF
 fell from 1.171 to 1.052 — faster firing also catches more
-false starts. Largest loss tightened from −$469 to −$220.
+false starts. Largest loss tightened from −\$469 to −\$220.
 
 **v2 (VWAP-trigger fix on the high-stop).** Visual review caught
 LRCUSDT 2025-12-11 stopping out on a wick despite never closing
@@ -2202,9 +2202,9 @@ to `bar.VWAP >= stop` (volume-weighted, wick-resistant). Fill
 from `stopLevel` to `bar.Close` (a confirmed VWAP breach means
 we're filling at end-of-bar, not at the level). Trip count
 dropped slightly (9,127), PF fell to 1.036, worst loss widened
-to −$643. Net P&L cost: ~$1,400. The change is correct on
+to −\$643. Net P&L cost: ~\$1,400. The change is correct on
 principle (fewer wick-stops on trades that go on to work — see
-LRCUSDT 2024-11-18 turning −$8 → +$73), but the cap on tail
+LRCUSDT 2024-11-18 turning −\$8 → +\$73), but the cap on tail
 loss softens because we're filling at close after VWAP confirms.
 
 **v3 (1h cover instead of 8h).** Insight: the 8h cover gate was
@@ -2212,8 +2212,8 @@ holding losers way past the natural unwind point, since 8 hours
 of accumulated normal-volume bars are needed to drag the rolling
 mean below 2×. Switched the cover-rvol numerator to 1h, matching
 the entry frame. Trip count essentially unchanged (9,127 →
-9,203); PF rose 1.036 → 1.069; **net P&L jumped from $4,206
-to $7,560** at the canonical cell (+80%). Across the full grid,
+9,203); PF rose 1.036 → 1.069; **net P&L jumped from \$4,206
+to \$7,560** at the canonical cell (+80%). Across the full grid,
 PF improved on every cell. Median holding period at the
 canonical cell dropped from many hours to ~1.6h.
 
@@ -2259,7 +2259,7 @@ time-stop) and hard 90m:
 (12/12).** Trade count rises 12–15% per cell because the time-
 stop frees up capital to take new entries earlier; the closed
 loser is replaced by the next setup. Tail loss bounds tighten
-from the cumsum-z baseline's −$240/−$643 to about −$140/−$266.
+from the cumsum-z baseline's −\$240/−\$643 to about −\$140/−\$266.
 
 **Hard mode hurts at every cell.** Cutting profitable trades
 short loses more edge than it saves on the losers. The asymmetry
@@ -2273,19 +2273,19 @@ pr=10%):
 
 | **mode** | **timeStop** | **trips** | **netPnL** | **PF** | **worstLoss** | **medBars** |
 |---|---:|---:|---:|---:|---:|---:|
-| baseline | — | 9,203 | $7,560 | 1.069 | −$643 | 97 |
-| conditional | 30m | 12,207 | $5,885 | 1.074 | **−$116** | 30 |
-| conditional | 60m | 11,035 | $6,656 | 1.076 | −$140 | 60 |
-| **conditional** | **90m** | **10,512** | **$7,313** | **1.081** | **−$140** | **90** |
-| conditional | 120m | 10,207 | $7,371 | 1.079 | −$140 | 97 |
-| hard | 30m | 15,803 | $2,184 | 1.026 | −$116 | 30 |
-| hard | 60m | 13,800 | $5,337 | 1.056 | −$140 | 60 |
-| hard | 90m | 12,824 | $5,951 | 1.060 | −$140 | 90 |
-| hard | 120m | 12,151 | $7,190 | 1.072 | −$140 | 94 |
+| baseline | — | 9,203 | \$7,560 | 1.069 | −\$643 | 97 |
+| conditional | 30m | 12,207 | \$5,885 | 1.074 | **−\$116** | 30 |
+| conditional | 60m | 11,035 | \$6,656 | 1.076 | −\$140 | 60 |
+| **conditional** | **90m** | **10,512** | **\$7,313** | **1.081** | **−\$140** | **90** |
+| conditional | 120m | 10,207 | \$7,371 | 1.079 | −\$140 | 97 |
+| hard | 30m | 15,803 | \$2,184 | 1.026 | −\$116 | 30 |
+| hard | 60m | 13,800 | \$5,337 | 1.056 | −\$140 | 60 |
+| hard | 90m | 12,824 | \$5,951 | 1.060 | −\$140 | 90 |
+| hard | 120m | 12,151 | \$7,190 | 1.072 | −\$140 | 94 |
 
 Conditional 60m / 90m / 120m are all close on PF (1.076–1.081).
 **90m is the new engine default** — middle of the plateau, slightly
-edges the others. Worst-case loss collapses from −$643 to ~−$140
+edges the others. Worst-case loss collapses from −\$643 to ~−\$140
 (4.6× tighter) with any time-stop, since the time-stop catches
 the wandering trades that would otherwise drift to the worst
 end of the loss distribution.
@@ -2302,15 +2302,15 @@ were swept against the v4 baseline (no distance gate).
 
 | **ref** | **distance** | **trips** | **netPnL** | **PF** | **worstLoss** |
 |---|---:|---:|---:|---:|---:|
-| baseline | none | 10,512 | $7,313 | 1.081 | −$140 |
-| stop20m | 5% | 9,810 | $5,156 | 1.066 | **−$90** |
-| stop20m | 10% | 10,373 | $6,374 | 1.073 | −$90 |
-| stop20m | 15% | 10,470 | $6,961 | 1.078 | −$140 |
-| stop20m | 20% | 10,502 | $7,148 | 1.079 | −$140 |
-| high8h | 5% | 6,789 | $3,142 | 1.061 | −$90 |
-| high8h | 10% | 9,371 | $6,673 | 1.087 | −$90 |
-| high8h | 15% | 10,029 | $7,742 | 1.092 | −$140 |
-| **high8h** | **20%** | **10,260** | **$8,015** | **1.092** | −$140 |
+| baseline | none | 10,512 | \$7,313 | 1.081 | −\$140 |
+| stop20m | 5% | 9,810 | \$5,156 | 1.066 | **−\$90** |
+| stop20m | 10% | 10,373 | \$6,374 | 1.073 | −\$90 |
+| stop20m | 15% | 10,470 | \$6,961 | 1.078 | −\$140 |
+| stop20m | 20% | 10,502 | \$7,148 | 1.079 | −\$140 |
+| high8h | 5% | 6,789 | \$3,142 | 1.061 | −\$90 |
+| high8h | 10% | 9,371 | \$6,673 | 1.087 | −\$90 |
+| high8h | 15% | 10,029 | \$7,742 | 1.092 | −\$140 |
+| **high8h** | **20%** | **10,260** | **\$8,015** | **1.092** | −\$140 |
 
 **`Stop20m` hurts at every distance.** The 20m stop level is a
 risk-management surface, not a peak indicator — by the time it
@@ -2321,8 +2321,8 @@ distance tested.
 **`High8h` clearly wins, peaking at 15–20%.** The 8h max-High is
 a genuine peak detector, and a 20% threshold filters out only
 the truly-late entries (trip count drops just 2.4%, from 10,512
-to 10,260). PF rises from 1.081 → 1.092, net P&L from $7,313 →
-$8,015 (+9.6%) at the canonical cell.
+to 10,260). PF rises from 1.081 → 1.092, net P&L from \$7,313 →
+\$8,015 (+9.6%) at the canonical cell.
 
 **Grid-wide:** PF improves on **all 12 cells** under high8h@20%:
 
@@ -2350,7 +2350,7 @@ loss bound is identical.
 **Adopted as default**: `EntryDistanceMaxPct = 0.20`,
 `EntryDistanceRef = High8h`. Reproducibility verified — bare-
 default run reproduces the high8h@20% sweep cell byte-identically
-(10,260 trips, $8,015, PF 1.092, worst loss −$140).
+(10,260 trips, \$8,015, PF 1.092, worst loss −\$140).
 
 ### v4 vs cumsum-z baseline (high-rvol bucket)
 
@@ -2362,7 +2362,7 @@ Compared against the cumsum-z RawZ-100 short-side `>=10x` bucket
 | Engine | cumsum-z, raw-z magnitude, threshold 100 | dedicated blowoff fader |
 | Trips | 229 | 10,512 |
 | Pooled PF | 1.78 | 1.081 |
-| Largest loss | −$2,973 | **−$140** |
+| Largest loss | −\$2,973 | **−\$140** |
 
 Different shape entirely. RawZ-100 is a once-in-a-while
 strict-conviction signal; ExtremeRvol-v4 is a high-frequency,
@@ -2476,14 +2476,14 @@ prQ5  |   1.05     0.83     1.04     1.12     1.22
 
 | bin | 45m PF | 60m PF | 45m netPnL | 60m netPnL |
 |-----|--------|--------|------------|------------|
-| Q1  | 0.88   | 0.98   | −$2,763    | −$453      |
-| Q2  | 0.93   | 0.86   | −$1,627    | −$3,101    |
-| Q3  | 0.96   | 0.97   | −$1,199    | −$785      |
-| Q4  | 1.09   | 1.11   | +$2,663    | +$2,990    |
-| Q5  | 1.20   | 1.24   | +$7,860    | +$8,019    |
+| Q1  | 0.88   | 0.98   | −\$2,763    | −\$453      |
+| Q2  | 0.93   | 0.86   | −\$1,627    | −\$3,101    |
+| Q3  | 0.96   | 0.97   | −\$1,199    | −\$785      |
+| Q4  | 1.09   | 1.11   | +\$2,663    | +\$2,990    |
+| Q5  | 1.20   | 1.24   | +\$7,860    | +\$8,019    |
 
-Aggregate PF: 45m = 1.06, 60m = 1.10. Aggregate netPnL: 45m = +$4,934,
-60m = +$6,670 — and on **fewer trades**.
+Aggregate PF: 45m = 1.06, 60m = 1.10. Aggregate netPnL: 45m = +\$4,934,
+60m = +\$6,670 — and on **fewer trades**.
 
 #### Findings
 
@@ -2497,7 +2497,7 @@ Aggregate PF: 45m = 1.06, 60m = 1.10. Aggregate netPnL: 45m = +$4,934,
    default sits right inside it. The PF improvement from raising the
    default (yesterday's intuition) is robustly attributable to dropping
    these losing buckets, not to better selection within them.
-3. **The single best cell at 60m is (rvolQ5, prQ1) at PF 1.62 / $1,104
+3. **The single best cell at 60m is (rvolQ5, prQ1) at PF 1.62 / \$1,104
    on 284 trips.** Counter-intuitive: lowest pr quintile + highest rvol
    quintile. The blowoff prints 24×+ baseline volume but hasn't yet
    moved 10% off the lagged MA — those trades fade earliest in the
@@ -2534,17 +2534,17 @@ Same loose-gate sweep, four `ExitRvolMinutes` = `CvdMinutes` settings.
 |---------------------|---------|---------|---------|---------|
 | Trips               | 19,244  | 16,505  | 14,317  | 13,203  |
 | Aggregate PF        | 1.06    | 1.10    | 1.11    | 1.07    |
-| Aggregate netPnL    | $4,934  | $6,670  | $7,513  | $4,659  |
-| rvolQ5 netPnL       | $7,860  | $8,019  | $8,442  | $7,100  |
+| Aggregate netPnL    | \$4,934  | \$6,670  | \$7,513  | \$4,659  |
+| rvolQ5 netPnL       | \$7,860  | \$8,019  | \$8,442  | \$7,100  |
 | Best (rvolQ5,*) cell | 1.28 (Q1) | 1.62 (Q1) | 1.40 (Q3) | 1.33 (Q1) |
 
 **Findings from the window sweep:**
 
-- **75m is the sweet spot** on aggregate netPnL ($7,513), rvolQ5
-  marginal PF (1.28), and rvolQ5 netPnL ($8,442). Aggregate PF (1.11)
+- **75m is the sweet spot** on aggregate netPnL (\$7,513), rvolQ5
+  marginal PF (1.28), and rvolQ5 netPnL (\$8,442). Aggregate PF (1.11)
   ties with 60m for the best.
 - **PF curve flattens past 75m.** 90m loses on every aggregate metric
-  vs 75m: trips down to 13.2k, netPnL drops to $4,659, rvolQ4 PF slides
+  vs 75m: trips down to 13.2k, netPnL drops to \$4,659, rvolQ4 PF slides
   1.12 → 1.06. The cover MA fires too late — winning trades give back
   gains before vol normalises below 2× baseline.
 - **60m wins on a single-cell extreme** (rvolQ5,prQ1 at PF 1.62) but
@@ -2608,11 +2608,11 @@ Single (rvol_entry × price_rise) cell, varying the cooldown only:
 
 | cooldown | trips | PF    | avgPnL | netPnL  |
 |----------|-------|-------|--------|---------|
-|   0m     | 8,996 | 1.107 | $0.92  | $8,270  |
-|  15m     | 8,864 | 1.103 | $0.89  | $7,880  |
-|  30m     | 8,731 | 1.105 | $0.90  | $7,818  |
-|  60m     | 8,551 | 1.109 | $0.93  | $7,959  |
-| **120m** | **8,090** | **1.129** | **$1.10** | **$8,896** |
+|   0m     | 8,996 | 1.107 | \$0.92  | \$8,270  |
+|  15m     | 8,864 | 1.103 | \$0.89  | \$7,880  |
+|  30m     | 8,731 | 1.105 | \$0.90  | \$7,818  |
+|  60m     | 8,551 | 1.109 | \$0.93  | \$7,959  |
+| **120m** | **8,090** | **1.129** | **\$1.10** | **\$8,896** |
 
 **Findings:**
 
@@ -2664,16 +2664,16 @@ for label, f in [
 
 | cooldown | trips | PF    | avgPnL | netPnL  |
 |----------|-------|-------|--------|---------|
-|   0m     | 2,749 | 1.282 | $3.02  | $8,300  |
-|  15m     | 2,723 | 1.281 | $3.01  | $8,193  |
-|  30m     | 2,693 | 1.276 | $2.95  | $7,954  |
-|  60m     | 2,628 | 1.287 | $3.06  | $8,034  |
-| 120m     | 2,512 | 1.289 | $3.06  | $7,685  |
+|   0m     | 2,749 | 1.282 | \$3.02  | \$8,300  |
+|  15m     | 2,723 | 1.281 | \$3.01  | \$8,193  |
+|  30m     | 2,693 | 1.276 | \$2.95  | \$7,954  |
+|  60m     | 2,628 | 1.287 | \$3.06  | \$8,034  |
+| 120m     | 2,512 | 1.289 | \$3.06  | \$7,685  |
 
 **The 120m cooldown advantage disappears at Q5.** PF curve is flat
 (1.282 → 1.289 = noise inside one decimal); netPnL drops monotonically
-($8,300 → $7,685, −7.4%) as the cooldown removes good trades along
-with bad. avgPnL stays at ~$3.0/trade across all cooldowns.
+(\$8,300 → \$7,685, −7.4%) as the cooldown removes good trades along
+with bad. avgPnL stays at ~\$3.0/trade across all cooldowns.
 
 **Inverted finding:** The cooldown's PF improvement at v5 (1.107 →
 1.129) was filtering out post-time-stop *low-rvol* re-entries — the
@@ -2681,9 +2681,9 @@ same trades the rvol gate already filters at Q5. Once the rvol gate
 is high enough, no cooldown is needed.
 
 The bigger lever is the rvol gate itself: **avgPnL at Q5 is ~3.3× v5**
-($3.06 vs $0.93 at the same cooldown). Updating the default:
+(\$3.06 vs \$0.93 at the same cooldown). Updating the default:
 `RvolEntryThreshold` 10 → 24 (v8). Trade count drops ~70% but netPnL
-is essentially unchanged ($8,270 → $8,300) and PF jumps from 1.11 to
+is essentially unchanged (\$8,270 → \$8,300) and PF jumps from 1.11 to
 1.28. `ReentryTimeoutMinutes` stays at 0 — no benefit at the new gate.
 
 ```
@@ -2737,11 +2737,11 @@ decline 5.0% → 9.1% → 13.5% → 18.3% → 27.8% → 95.4%
 
 | bin | by rvol PF | rvol netPnL | by decline PF | decline netPnL |
 |-----|-----------|-------------|---------------|----------------|
-| Q1  | 1.22      | +$635       | 0.96          | −$106          |
-| Q2  | 1.29      | +$759       | 1.08          | +$247          |
-| Q3  | 0.84      | −$514       | 1.19          | +$585          |
-| Q4  | **1.45**  | **+$1,298** | **1.26**      | **+$837**      |
-| Q5  | 0.97      | −$98        | 1.15          | +$517          |
+| Q1  | 1.22      | +\$635       | 0.96          | −\$106          |
+| Q2  | 1.29      | +\$759       | 1.08          | +\$247          |
+| Q3  | 0.84      | −\$514       | 1.19          | +\$585          |
+| Q4  | **1.45**  | **+\$1,298** | **1.26**      | **+\$837**      |
+| Q5  | 0.97      | −\$98        | 1.15          | +\$517          |
 
 **Headline comparison:**
 
@@ -2749,8 +2749,8 @@ decline 5.0% → 9.1% → 13.5% → 18.3% → 27.8% → 95.4%
 |--------|--------------------------|------------|
 | Trips | 2,749 | 2,255 |
 | Aggregate PF | 1.28 | 1.13 |
-| Aggregate netPnL | $8,300 | $2,080 |
-| avgPnL/trade | $3.02 | $0.92 |
+| Aggregate netPnL | \$8,300 | \$2,080 |
+| avgPnL/trade | \$3.02 | \$0.92 |
 
 **Findings:**
 
@@ -2818,7 +2818,7 @@ New invariants this engine adds:
 
 71,697 trips, aggregate **PF 0.97** (losing). Decline-quintile
 breakdown showed only Q5 (>16.6% decline) was profitable: 14,340
-trips, PF 1.19, +$10.6k netPnL. Q1–Q4 lost a combined −$18.6k.
+trips, PF 1.19, +\$10.6k netPnL. Q1–Q4 lost a combined −\$18.6k.
 
 **Conclusion:** removing the rvol gate kills the strategy in
 aggregate. The vol-normalize cover wasn't useless — it was implicitly
@@ -2829,17 +2829,17 @@ filtering for the regime where the long-fade thesis holds. Setting
 
 | MA hours | trips | PF | avgPnL | netPnL | medBars |
 |---------:|------:|------:|-------:|-------:|--------:|
-| 4h | 13,386 | 0.87 | −$0.41 | −$5,484 | 15 |
-| 6h | 13,995 | 0.92 | −$0.26 | −$3,627 | 20 |
-| 8h | 14,126 | 0.94 | −$0.22 | −$3,043 | 24 |
-| 12h | 14,446 | 1.02 | $0.09 | $1,293 | 30 |
-| 16h | 14,678 | 1.11 | $0.40 | $5,906 | 35 |
-| 20h | 14,849 | 1.11 | $0.43 | $6,348 | 40 |
-| 24h | 14,835 | 1.17 | $0.67 | $9,920 | 42 |
-| 36h | 14,810 | 1.30 | $1.16 | $17,141 | 42 |
-| **48h** | 14,655 | **1.39** | $1.49 | **$21,772** | 41 |
-| **72h** | 14,096 | **1.40** | $1.54 | $21,755 | 40 |
-| 96h | 13,626 | 1.32 | $1.25 | $17,094 | 40 |
+| 4h | 13,386 | 0.87 | −\$0.41 | −\$5,484 | 15 |
+| 6h | 13,995 | 0.92 | −\$0.26 | −\$3,627 | 20 |
+| 8h | 14,126 | 0.94 | −\$0.22 | −\$3,043 | 24 |
+| 12h | 14,446 | 1.02 | \$0.09 | \$1,293 | 30 |
+| 16h | 14,678 | 1.11 | \$0.40 | \$5,906 | 35 |
+| 20h | 14,849 | 1.11 | \$0.43 | \$6,348 | 40 |
+| 24h | 14,835 | 1.17 | \$0.67 | \$9,920 | 42 |
+| 36h | 14,810 | 1.30 | \$1.16 | \$17,141 | 42 |
+| **48h** | 14,655 | **1.39** | \$1.49 | **\$21,772** | 41 |
+| **72h** | 14,096 | **1.40** | \$1.54 | \$21,755 | 40 |
+| 96h | 13,626 | 1.32 | \$1.25 | \$17,094 | 40 |
 
 **Findings:**
 
@@ -2871,7 +2871,7 @@ PF cells:
 | 72h | 1.33 | 1.10 | 1.24 | **1.66** | 1.62 | 1.40 |
 | 96h | 1.30 | 1.05 | 1.32 | 1.56 | 1.38 | 1.32 |
 
-netPnL cells (USDT, $1k notional):
+netPnL cells (USDT, \$1k notional):
 
 | MA | Q1 | Q2 | Q3 | Q4 | Q5 | Total |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -2890,8 +2890,8 @@ netPnL cells (USDT, $1k notional):
 **Findings:**
 
 - **Even the losing windows have profitable upper tails.** The 8h
-  cell (PF 0.94 overall) has Q5 at PF 1.16 / +$1,901; the 6h cell has
-  Q5 at PF 1.06 / +$699. Only the 4h cell has *no* profitable
+  cell (PF 0.94 overall) has Q5 at PF 1.16 / +\$1,901; the 6h cell has
+  Q5 at PF 1.06 / +\$699. Only the 4h cell has *no* profitable
   quintile.
 - **Q5 alone (>27% decline) is profitable at every window 6h+.** PF
   rises from 1.06 (6h) to 1.72 (48h), peaks 1.62–1.72 at 48–72h.
@@ -2924,9 +2924,9 @@ python /tmp/bin_long_fade_ma_all_quintiles.py
 
 Two viable defaults:
 - **48h cover, pd ≥ 0.22 (Q4 floor)** — captures the Q4+Q5 PF-peak
-  regime; ~5,600 trips, PF ~1.69, +$16.7k netPnL.
+  regime; ~5,600 trips, PF ~1.69, +\$16.7k netPnL.
 - **72h cover, pd ≥ 0.166 (loose floor)** — keeps the marginal Q1–Q3
-  trades for free trade-volume; 14,096 trips, PF 1.40, +$21.8k netPnL.
+  trades for free trade-volume; 14,096 trips, PF 1.40, +\$21.8k netPnL.
 
 Next thread: drop the stop entirely and exit only at the MA, since
 deeper declines benefit from longer covers and the 20m MinLow stop
@@ -2944,13 +2944,13 @@ the same 4..96h cover-MA range:
 
 | MA hours | trips | PF | netPnL |
 |---------:|------:|------:|-------:|
-| 24h | 3,861 | 1.83 | $32,343 |
-| 48h | 4,175 | 2.66 | $64,214 |
-| **72h** | 5,368 | **2.90** | **$78,961** |
-| 96h | 6,239 | 2.73 | $78,961 |
+| 24h | 3,861 | 1.83 | \$32,343 |
+| 48h | 4,175 | 2.66 | \$64,214 |
+| **72h** | 5,368 | **2.90** | **\$78,961** |
+| 96h | 6,239 | 2.73 | \$78,961 |
 
 vs v9 with the 20m MinLow stop on at the same 72h cover: PF 1.40,
-+$21,755. **Removing the stop nearly doubled PF.** The stop was cutting
++\$21,755. **Removing the stop nearly doubled PF.** The stop was cutting
 reversions short — many trades stopped out were ultimately winners if
 allowed to ride to the MA.
 
@@ -2977,17 +2977,17 @@ the very level the trade is targeting".
 
 | MA hours | trips | PF | avgPnL | netPnL | medBars | <1h% |
 |---------:|------:|------:|-------:|-------:|--------:|-----:|
-| 4h | 284 | 1.02 | $0.22 | $63 | 169 | 4.2% |
-| 6h | 430 | 1.12 | $1.77 | $759 | 260 | 1.9% |
-| 8h | 519 | 1.15 | $2.20 | $1,144 | 366 | 1.9% |
-| 12h | 723 | 1.38 | $5.58 | $4,034 | 538 | 1.0% |
-| 16h | 977 | 1.64 | $8.73 | $8,527 | 689 | 0.5% |
-| 20h | 1,230 | 1.87 | $11.06 | $13,599 | 800 | 0.6% |
-| 24h | 1,465 | 2.11 | $14.05 | $20,588 | 953 | 0.5% |
-| 36h | 2,133 | 2.47 | $16.49 | $35,177 | 1,394 | 0.5% |
-| 48h | 2,767 | 3.14 | $21.97 | $60,803 | 1,846 | 0.4% |
-| **72h** | **3,721** | **3.22** | **$25.08** | **$93,302** | 2,621 | 0.2% |
-| 96h | 4,332 | 2.64 | $22.10 | $95,756 | 3,702 | 0.2% |
+| 4h | 284 | 1.02 | \$0.22 | \$63 | 169 | 4.2% |
+| 6h | 430 | 1.12 | \$1.77 | \$759 | 260 | 1.9% |
+| 8h | 519 | 1.15 | \$2.20 | \$1,144 | 366 | 1.9% |
+| 12h | 723 | 1.38 | \$5.58 | \$4,034 | 538 | 1.0% |
+| 16h | 977 | 1.64 | \$8.73 | \$8,527 | 689 | 0.5% |
+| 20h | 1,230 | 1.87 | \$11.06 | \$13,599 | 800 | 0.6% |
+| 24h | 1,465 | 2.11 | \$14.05 | \$20,588 | 953 | 0.5% |
+| 36h | 2,133 | 2.47 | \$16.49 | \$35,177 | 1,394 | 0.5% |
+| 48h | 2,767 | 3.14 | \$21.97 | \$60,803 | 1,846 | 0.4% |
+| **72h** | **3,721** | **3.22** | **\$25.08** | **\$93,302** | 2,621 | 0.2% |
+| 96h | 4,332 | 2.64 | \$22.10 | \$95,756 | 3,702 | 0.2% |
 
 ### Quintile-by-decline grid (per cover-MA window)
 
@@ -3015,14 +3015,14 @@ PF cells:
   reference removes the 36% fee-burn spike (now 0.2% at 72h). Median
   hold at 72h is 2,621 bars (~44h), longer than 48h's 1,846 (~31h) —
   the natural ordering is restored.
-- **72h is now a clean winner: PF 3.22 / +$93,302 / 3,721 trips /
-  $25.08 avgPnL.** Up from PF 2.90 / +$78,961 with the lagged
+- **72h is now a clean winner: PF 3.22 / +\$93,302 / 3,721 trips /
+  \$25.08 avgPnL.** Up from PF 2.90 / +\$78,961 with the lagged
   reference.
-- **96h gets higher netPnL ($95,756) but lower PF (2.64).** The extra
+- **96h gets higher netPnL (\$95,756) but lower PF (2.64).** The extra
   trades are lower-quality. 72h is the cleaner choice.
 - **Quintile pattern is monotonic at 72h** — Q1 2.71 → Q4 4.43 (peak)
   → Q5 2.61. The Q4 sweet spot (decline 18.8–21.3%) yields PF 4.43 /
-  +$23,242 / 745 trips. Past 21.3% the trade is fighting trend.
+  +\$23,242 / 745 trips. Past 21.3% the trade is fighting trend.
 - **Trade count dropped 31% vs old reference** (3,721 vs 5,368 at 72h)
   — exactly the bars where the cover MA was already at/below entry.
   Those *should* be filtered.
@@ -3055,7 +3055,7 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- long-fade-ma-sweep
 
 ### v10b — pd × CVD-window joint sweep (cover 72h, no stops)
 
-After v10 shipped (PF 3.22, $93k netPnL at pd=16.6%, cvd=75m), a joint
+After v10 shipped (PF 3.22, \$93k netPnL at pd=16.6%, cvd=75m), a joint
 sweep over (pd, cvd) showed both axes have monotonic effects but they
 trade against each other on netPnL.
 
@@ -3099,25 +3099,25 @@ trade against each other on netPnL.
   slight valley on every row.
 - **Best PF: 16.6% × 240m = 3.72** (vs the current default at 3.22).
   +16% edge per trade for ~25% fewer trades. But netPnL drops to
-  $80,343 from $93,302 because the trade-count loss outweighs the PF
+  \$80,343 from \$93,302 because the trade-count loss outweighs the PF
   gain at this pd.
-- **Best netPnL: 14% × 60m = $104,649.** The capacity champ. PF 2.50
+- **Best netPnL: 14% × 60m = \$104,649.** The capacity champ. PF 2.50
   is much lower but trade count is 6,105 vs 2,774 at the PF champ.
 - **netPnL ridge is flat across CVD at low pd:** pd=12% goes from
-  $99,854 (60m) to $99,319 (240m), peaking at $102,869 (210m). CVD
+  \$99,854 (60m) to \$99,319 (240m), peaking at \$102,869 (210m). CVD
   trades capacity for selectivity without changing dollar output.
 - **CVD effect inverts on netPnL at high pd:** at pd=16.6%, the
-  longer CVD *hurts* netPnL ($94,946 at 60m → $80,343 at 240m). Trip
+  longer CVD *hurts* netPnL (\$94,946 at 60m → \$80,343 at 240m). Trip
   loss dominates per-trade gain when the entry is already strict.
 
 #### Pareto frontier (top by metric)
 
 | pd | cvd | PF | trips | netPnL | role |
 |---:|----:|---:|------:|-------:|------|
-| 16.6% | 240m | **3.72** | 2,774 | $80,343 | highest PF |
-| 14.0% | 60m | 2.50 | 6,105 | **$104,649** | highest netPnL |
+| 16.6% | 240m | **3.72** | 2,774 | \$80,343 | highest PF |
+| 14.0% | 60m | 2.50 | 6,105 | **\$104,649** | highest netPnL |
 
-The current default (16.6% × 75m, PF 3.22, $93,302) is *neither* of
+The current default (16.6% × 75m, PF 3.22, \$93,302) is *neither* of
 these. It's a balanced choice — moderate PF with moderate netPnL —
 but provably suboptimal on both axes.
 
@@ -3200,11 +3200,11 @@ Sweep extended to CVD ∈ {60m, 75m, 90m, 105m, 2h, 135m, 150m, 165m,
 
 | pd | cvd | PF | trips | netPnL |
 |---:|----:|---:|------:|-------:|
-| **15.0%** | **195m** | **3.21** | **4,041** | **$95,935** |
-| 14.0% | 4h | 3.14 | 4,563 | $99,602 |
-| 15.0% | 3h | 3.13 | 4,105 | $94,704 |
-| 15.0% | 165m | 3.06 | 4,175 | $94,649 |
-| 14.0% | 225m | 3.03 | 4,642 | $97,938 |
+| **15.0%** | **195m** | **3.21** | **4,041** | **\$95,935** |
+| 14.0% | 4h | 3.14 | 4,563 | \$99,602 |
+| 15.0% | 3h | 3.13 | 4,105 | \$94,704 |
+| 15.0% | 165m | 3.06 | 4,175 | \$94,649 |
+| 14.0% | 225m | 3.03 | 4,642 | \$97,938 |
 
 #### Reproducer
 
@@ -3239,24 +3239,24 @@ Added an observational rvol field to `OrderflowLongFadeMA`:
 
 | qtile | trips | PF | avgPnL | netPnL | rvolMed |
 |------:|------:|------:|-------:|-------:|--------:|
-| Q1 (rvol < 0.75) | 913 | 1.83 | $8.11 | $7,403 | 0.51 |
-| Q2 (0.75–1.24) | 912 | 2.74 | $15.35 | $13,997 | 0.99 |
-| Q3 (1.24–1.91) | 913 | 3.42 | $21.04 | $19,209 | 1.54 |
-| **Q4 (1.91–3.15)** | 912 | **4.09** | $27.77 | $25,330 | 2.37 |
-| Q5 (>3.15) | 913 | 3.53 | $36.87 | $33,664 | 4.72 |
+| Q1 (rvol < 0.75) | 913 | 1.83 | \$8.11 | \$7,403 | 0.51 |
+| Q2 (0.75–1.24) | 912 | 2.74 | \$15.35 | \$13,997 | 0.99 |
+| Q3 (1.24–1.91) | 913 | 3.42 | \$21.04 | \$19,209 | 1.54 |
+| **Q4 (1.91–3.15)** | 912 | **4.09** | \$27.77 | \$25,330 | 2.37 |
+| Q5 (>3.15) | 913 | 3.53 | \$36.87 | \$33,664 | 4.72 |
 
 **Findings:**
 
 - **Rvol IS monotonic up to Q4 (PF 4.09), then mildly regresses at Q5
   (PF 3.53).** Same shape as the short side's "Q5 sometimes weakens"
   pattern, but at a much higher PF baseline (4.09 vs 1.20).
-- **avgPnL is monotonic across all 5 quintiles** ($8.11 → $36.87) —
+- **avgPnL is monotonic across all 5 quintiles** (\$8.11 → \$36.87) —
   even Q5 makes more money per trade than Q4 because winners are
   larger; PF dips because losers also widen.
 - **The PF spread is 3-4× the short side's** (long Q1=1.83 → Q4=4.09;
   short Q1=0.88 → Q5=1.20).
 - **D9 of decile breakdown is the single best cell:** rvol 3.15-4.72,
-  PF 4.74, $37.56 avgPnL on 456 trades.
+  PF 4.74, \$37.56 avgPnL on 456 trades.
 
 The v8 conclusion was wrong because the v8 engine was structurally
 broken. With the lagged-decline reference and MinLow stop both gone,
@@ -3269,8 +3269,8 @@ metrics. Filtering it out:
 
 | config | trips | PF | avgPnL | netPnL |
 |--------|------:|------:|-------:|-------:|
-| ungated (v10c default) | 4,563 | 3.14 | $21.83 | $99,603 |
-| **rvol ≥ 0.75 (new v10d default)** | **3,914** | **3.44** | **$24.77** | **$96,964** |
+| ungated (v10c default) | 4,563 | 3.14 | \$21.83 | \$99,603 |
+| **rvol ≥ 0.75 (new v10d default)** | **3,914** | **3.44** | **\$24.77** | **\$96,964** |
 
 Strict improvement on PF (+9.5%), avgPnL (+13.5%), at -2.6% netPnL.
 Trip count drops 14% — still well above the 3,500-trip threshold for
@@ -3288,8 +3288,8 @@ viability.
     `MinRewardRiskRatio = 0.0` (all kept from v10)
   - `EntryDistanceMaxPct = 0.20`, `EntryDistanceRef = Low8h` (kept)
 
-Aggregate result at default config: PF 3.44, $25 avgPnL, 3,914 trips,
-$97k netPnL on the universe over the test window.
+Aggregate result at default config: PF 3.44, \$25 avgPnL, 3,914 trips,
+\$97k netPnL on the universe over the test window.
 
 #### Reproducer
 
@@ -3384,14 +3384,14 @@ catastrophically (PF 0.95) before this overlay was added.
 
 1. **Symmetric mirror failed.** At pr=14% / cvd=240m / 72h cover / no
    stops / rvol≥0.75 (direct mirror of LongFadeMA v10d), the short
-   engine produced PF **0.948**, n=6,846, netPnL **-$22,944**. Bumping
+   engine produced PF **0.948**, n=6,846, netPnL **-\$22,944**. Bumping
    pr to 50% made it slightly worse. Both rvol and pr quintile
    breakdowns were non-monotonic and dominated by a single
    catastrophic-loss bucket.
 2. **Dual-CVD overlay flipped the result.** Adding the 200h CVD as
    both an entry gate and the cover criterion (replacing the MA-touch
    cover entirely) produced PF **1.690**, n=3,476, netPnL
-   **+$218,514** on the same default flags. Hold time jumped from
+   **+\$218,514** on the same default flags. Hold time jumped from
    ~41h median to ~269h — the engine now holds to regime-flip rather
    than to MA-touch.
 3. **Hold-bucket pattern.** Same as the RawZ-100 short-only engine:
@@ -3401,7 +3401,7 @@ catastrophically (PF 0.95) before this overlay was added.
 4. **Flag-correctness incident.** The original 1.690-PF baseline was
    run **without** `--reference-vol-pct 0.1019`, **without**
    `--max-bar-price-ratio 3`, and **without** `--min-short-adv`.
-   Every single trade was sized at the full $1000 notional; the gap
+   Every single trade was sized at the full \$1000 notional; the gap
    detector was off entirely. PF was roughly notional-invariant so
    the qualitative conclusion held, but the dollar comparisons to the
    long side were systematically off. Fixed in the rebaseline below.
@@ -3427,12 +3427,12 @@ breakdown is comparable to the doc's earlier 30d/24h table.)
 
 | trips | PF | avgPnL | netPnL | fund | fees | medBars |
 |------:|---:|-------:|-------:|-----:|-----:|--------:|
-| 2,550 | **2.036** | $42.78 | **+$109,086** | -$2,990 | $992 | 21,776 (~15.1d) |
+| 2,550 | **2.036** | \$42.78 | **+\$109,086** | -\$2,990 | \$992 | 21,776 (~15.1d) |
 
 PF jumped from the un-vol-targeted 1.690 baseline to **2.036** — the
 ADV gate filtered out low-liquidity symbols whose pnl variance was
-dragging the aggregate. Median trade now $478 of effective notional
-(vol-target cap is $1000 on lowest-vol coins). Trip count dropped
+dragging the aggregate. Median trade now \$478 of effective notional
+(vol-target cap is \$1000 on lowest-vol coins). Trip count dropped
 from 3,476 to 2,550 (the ADV gate is doing real work).
 
 ### Post-hoc rvol breakdown (doc-table buckets)
@@ -3441,12 +3441,12 @@ from 3,476 to 2,550 (the ADV gate is doing real work).
 |--------|------:|------:|-------:|---------:|---------:|--------:|
 | <0.5 | 0 | – | – | – | – | – |
 | 0.5–1 | 0 | – | – | – | – | – |
-| 1–1.5 | 356 | 1.862 | $37.7 | +$13,427 | 372 | 36,437 |
-| 1.5–2 | 292 | 2.731 | $64.4 | +$18,795 | 444 | 35,547 |
-| 2–3 | 378 | **2.868** | $57.1 | +$21,570 | 467 | 27,964 |
-| 3–5 | 456 | 2.564 | $57.3 | **+$26,127** | 499 | 23,673 |
-| 5–10 | 461 | 1.645 | $34.7 | +$16,017 | 530 | 17,884 |
-| ≥10 | 607 | 1.510 | $21.7 | +$13,150 | 542 | 1,040 |
+| 1–1.5 | 356 | 1.862 | \$37.7 | +\$13,427 | 372 | 36,437 |
+| 1.5–2 | 292 | 2.731 | \$64.4 | +\$18,795 | 444 | 35,547 |
+| 2–3 | 378 | **2.868** | \$57.1 | +\$21,570 | 467 | 27,964 |
+| 3–5 | 456 | 2.564 | \$57.3 | **+\$26,127** | 499 | 23,673 |
+| 5–10 | 461 | 1.645 | \$34.7 | +\$16,017 | 530 | 17,884 |
+| ≥10 | 607 | 1.510 | \$21.7 | +\$13,150 | 542 | 1,040 |
 
 (<0.5 and 0.5–1 empty because the entry gate is rvol ≥ 1.0.)
 
@@ -3461,7 +3461,7 @@ entry net (rvol≥0.75 included Q1 noise that dragged the lower buckets).
 **Vol-targeting × bucket interaction**: avg notional climbs
 monotonically with rvol (372 in 1–1.5 → 542 in ≥10). High-rvol entries
 sit on coins whose 1m vol is closer to the 0.1019% reference, so notional
-caps near $1000; low-rvol entries skew to calmer-name regimes where
+caps near \$1000; low-rvol entries skew to calmer-name regimes where
 realized vol is higher and notional is cut. So the low-rvol PF buckets
 are doing more *per-dollar* than the raw netPnL column suggests.
 
@@ -3469,11 +3469,11 @@ are doing more *per-dollar* than the raw netPnL column suggests.
 
 | hold | trips | PF | avgPnL | netPnL |
 |------|------:|------:|-------:|---------:|
-| <1d | 824 | 0.100 | -$24.3 | -$20,058 |
-| 1–3d | 133 | 0.115 | -$77.8 | -$10,345 |
-| 3–10d | 199 | 0.329 | -$49.9 | -$9,938 |
-| 10–30d | 424 | 1.092 | +$5.3 | +$2,260 |
-| **>30d** | **970** | **5.625** | **+$151.7** | **+$147,168** |
+| <1d | 824 | 0.100 | -\$24.3 | -\$20,058 |
+| 1–3d | 133 | 0.115 | -\$77.8 | -\$10,345 |
+| 3–10d | 199 | 0.329 | -\$49.9 | -\$9,938 |
+| 10–30d | 424 | 1.092 | +\$5.3 | +\$2,260 |
+| **>30d** | **970** | **5.625** | **+\$151.7** | **+\$147,168** |
 
 Same hold-shape as RawZ-100 short-only and the un-vol-targeted dual-CVD
 run before it: short-hold buckets bleed, the >30d bucket carries
@@ -3542,9 +3542,9 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-swee
 
 | trips | PF | avgPnL | netPnL | fund | fees | medBars |
 |------:|---:|-------:|-------:|-----:|-----:|--------:|
-| 5,452 | **0.903** | -$2.79 | **-$15,200** | -$13,209 | $2,023 | 2,487 (~1.7d) |
+| 5,452 | **0.903** | -\$2.79 | **-\$15,200** | -\$13,209 | \$2,023 | 2,487 (~1.7d) |
 
-PF crashes from 2.036 → 0.903; netPnL flips from +$109k → -$15k. Trip
+PF crashes from 2.036 → 0.903; netPnL flips from +\$109k → -\$15k. Trip
 count more than doubles (2,550 → 5,452) because the MA-touch cover
 fires fast and frees the engine to re-enter; medBars collapses from
 ~15d to ~1.7d.
@@ -3553,12 +3553,12 @@ fires fast and frees the engine to re-enter; medBars collapses from
 
 | bucket | trips | PF | avgPnL | netPnL |
 |--------|------:|------:|-------:|---------:|
-| 1–1.5 | 974 | 0.745 | -$6.9 | -$6,703 |
-| 1.5–2 | 748 | 0.495 | -$21.1 | -$15,776 |
-| 2–3 | 978 | 1.130 | $2.6 | +$2,587 |
-| 3–5 | 1,052 | 1.064 | $1.6 | +$1,657 |
-| 5–10 | 879 | 0.916 | -$2.7 | -$2,362 |
-| ≥10 | 821 | 1.208 | $6.6 | +$5,398 |
+| 1–1.5 | 974 | 0.745 | -\$6.9 | -\$6,703 |
+| 1.5–2 | 748 | 0.495 | -\$21.1 | -\$15,776 |
+| 2–3 | 978 | 1.130 | \$2.6 | +\$2,587 |
+| 3–5 | 1,052 | 1.064 | \$1.6 | +\$1,657 |
+| 5–10 | 879 | 0.916 | -\$2.7 | -\$2,362 |
+| ≥10 | 821 | 1.208 | \$6.6 | +\$5,398 |
 
 Every bucket is below its dual-CVD counterpart. The hump shape is
 gone — flat near-breakeven across rvol with no clean peak.
@@ -3567,16 +3567,16 @@ gone — flat near-breakeven across rvol with no clean peak.
 
 | hold | trips | PF | avgPnL | netPnL |
 |------|------:|------:|-------:|---------:|
-| <1d | 1,200 | **579.2** | +$49.5 | +$59,341 |
-| 1–3d | 3,448 | 2.28 | +$13.3 | +$45,951 |
-| **3–10d** | **803** | **0.006** | **-$149.8** | **-$120,269** |
+| <1d | 1,200 | **579.2** | +\$49.5 | +\$59,341 |
+| 1–3d | 3,448 | 2.28 | +\$13.3 | +\$45,951 |
+| **3–10d** | **803** | **0.006** | **-\$149.8** | **-\$120,269** |
 | 10–30d | 1 | – | – | – |
 
 The <1d bucket has PF 579 — fast cover-touches at small profit, with
 no losers because shorts that didn't reach coverMa within 1 day are
 still open. The 1–3d bucket also looks great. Then 3–10d is a
 catastrophic cluster of "stuck short waiting for mean reversion that
-never came" trades that lose -$120k by themselves, more than wiping
+never came" trades that lose -\$120k by themselves, more than wiping
 out the easy wins.
 
 ### Findings — MA-touch cover is wrong for shorts
@@ -3637,8 +3637,8 @@ trip CSV's `ratio_at_entry` column.
 
 Trip set is identical across all 9 cells (changing the rvol windows
 doesn't affect entry decisions when nothing is bucket-gated): 2,501
-short trips at PF 1.976 / +$160,416 and 926 long trips at PF 1.365 /
-+$13,451. The rvol-window choice changes only how trips bucket, not
+short trips at PF 1.976 / +\$160,416 and 926 long trips at PF 1.365 /
++\$13,451. The rvol-window choice changes only how trips bucket, not
 which trips fire.
 
 ### SHORT-side PF by bucket — engine convention
@@ -3671,7 +3671,7 @@ which trips fire.
 
 ### Detailed: 30d/8h cell — SHORT
 
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+| **ratio** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <0.5× | 662 | 1.54 | +28,303 | +42.8 |
 | 0.5–1× | 660 | 2.28 | +55,706 | +84.4 |
@@ -3690,7 +3690,7 @@ chunk of "stratify-style 3–5×" symbol-young trades down into the
 
 ### Detailed: 30d/8h cell — LONG
 
-| **ratio** | **trades** | **PF** | **net $** | **avg $** |
+| **ratio** | **trades** | **PF** | **net \$** | **avg \$** |
 |---|---|---|---|---|
 | <0.5× | 53 | 0.91 | -222 | -4.2 |
 | 0.5–1× | 152 | 1.17 | +886 | +5.8 |
@@ -3749,7 +3749,7 @@ Then bucket each cell's `_trips_1m_th100_ls.csv` by `ratio_at_entry`.
 
 The earlier ShortFadeMA section established a single PF baseline at
 defaults (pr=0.14, rvol≥1.0, dual-CVD, vol-targeted, ADV-gated):
-PF 2.036 / 2,550 trips / +$109,086. Open question: how does the
+PF 2.036 / 2,550 trips / +\$109,086. Open question: how does the
 edge respond to varying both gates jointly?
 
 Single-sweep 7×7 grid: `--price-rise-thresholds 0.05,0.07,0.10,0.14,0.20,0.30,0.50`
@@ -3784,25 +3784,25 @@ flag set. 49 cells, 5.6 minutes wall.
 
 | **rvol \ pr** | 0.05 | 0.07 | 0.10 | 0.14 | 0.20 | 0.30 | 0.50 |
 |---|---|---|---|---|---|---|---|
-| **≥0.5** | $+149,425 | $+137,344 | $+119,643 | $+110,129 | $+82,814 | $+41,705 | $+12,359 |
-| **≥1** | $+148,462 | $+131,894 | $+120,072 | $+109,086 | $+82,826 | $+41,698 | $+12,272 |
-| **≥1.5** | $+143,672 | $+127,504 | **$+120,495** | $+110,005 | $+83,499 | $+42,011 | $+12,262 |
-| **≥2** | $+140,208 | $+127,809 | $+122,094 | $+111,399 | $+81,800 | $+40,947 | $+12,355 |
-| **≥3** | $+128,248 | $+120,271 | $+114,622 | $+104,649 | $+76,243 | $+40,600 | $+12,632 |
-| **≥5** | $+101,423 | $+97,318 | $+91,544 | $+79,559 | $+61,080 | $+35,445 | $+11,202 |
-| **≥10** | $+58,757 | $+58,029 | $+56,740 | $+47,458 | $+34,787 | $+23,452 | $+6,819 |
+| **≥0.5** | \$+149,425 | \$+137,344 | \$+119,643 | \$+110,129 | \$+82,814 | \$+41,705 | \$+12,359 |
+| **≥1** | \$+148,462 | \$+131,894 | \$+120,072 | \$+109,086 | \$+82,826 | \$+41,698 | \$+12,272 |
+| **≥1.5** | \$+143,672 | \$+127,504 | **\$+120,495** | \$+110,005 | \$+83,499 | \$+42,011 | \$+12,262 |
+| **≥2** | \$+140,208 | \$+127,809 | \$+122,094 | \$+111,399 | \$+81,800 | \$+40,947 | \$+12,355 |
+| **≥3** | \$+128,248 | \$+120,271 | \$+114,622 | \$+104,649 | \$+76,243 | \$+40,600 | \$+12,632 |
+| **≥5** | \$+101,423 | \$+97,318 | \$+91,544 | \$+79,559 | \$+61,080 | \$+35,445 | \$+11,202 |
+| **≥10** | \$+58,757 | \$+58,029 | \$+56,740 | \$+47,458 | \$+34,787 | \$+23,452 | \$+6,819 |
 
 ### Table 4 — pr-only effect at rvol ≥ 1.0 (fixed)
 
 | **pr** | trips | PF | netPnL | medBars |
 |---|---|---|---|---|
-| 0.05 | 5,271 | 1.816 | $+148,462 | 11,371 |
-| 0.07 | 4,500 | 1.794 | $+131,894 | 13,735 |
-| 0.10 | 3,479 | 1.873 | $+120,072 | 18,049 |
-| 0.14 | 2,550 | 2.036 | $+109,086 | 21,776 |
-| 0.20 | 1,684 | 2.183 | $+82,826 | 20,644 |
-| 0.30 | 831 | **2.208** | $+41,698 | 21,144 |
-| 0.50 | 238 | 2.111 | $+12,272 | 25,063 |
+| 0.05 | 5,271 | 1.816 | \$+148,462 | 11,371 |
+| 0.07 | 4,500 | 1.794 | \$+131,894 | 13,735 |
+| 0.10 | 3,479 | 1.873 | \$+120,072 | 18,049 |
+| 0.14 | 2,550 | 2.036 | \$+109,086 | 21,776 |
+| 0.20 | 1,684 | 2.183 | \$+82,826 | 20,644 |
+| 0.30 | 831 | **2.208** | \$+41,698 | 21,144 |
+| 0.50 | 238 | 2.111 | \$+12,272 | 25,063 |
 
 ### Findings
 
@@ -3817,9 +3817,9 @@ flag set. 49 cells, 5.6 minutes wall.
    rvol becomes the only differentiator. As pr tightens, rvol matters
    less.
 4. **Best per-trade PF: rvol≥3 / pr=0.30** at PF 2.34, 750 trips,
-   +$40,600. But trip count is small.
+   +\$40,600. But trip count is small.
 5. **netPnL champion: rvol≥1.5 / pr=0.10** at PF 1.93, 3,256 trips,
-   +$120,495. Loosest viable gate combination produces the most
+   +\$120,495. Loosest viable gate combination produces the most
    dollars; tighter gates trade dollars for per-trade PF.
 6. **rvol≥10 underperforms at high pr** (pr=0.50 row: rvol≥10 PF
    1.78 vs rvol≥3 PF 2.31). Extreme rvol AND extreme pr together
@@ -3851,14 +3851,14 @@ sorting by PF:
 
 | rvol | pr | trips | PF | netPnL |
 |---|---|---|---|---|
-| ≥3 | 0.05 | 3,306 | **1.98** | +$128,248 |
-| ≥1.5 | 0.10 | 3,256 | 1.93 | +$120,495 |
-| ≥2 | 0.07 | 3,652 | 1.89 | +$127,809 |
-| ≥1.5 | 0.07 | 4,073 | 1.82 | +$127,504 |
-| ≥1 | 0.05 | 5,271 | 1.82 | +$148,462 |
-| ≥0.5 | 0.07 | 4,910 | 1.79 | +$137,344 |
-| ≥1 | 0.07 | 4,500 | 1.79 | +$131,894 |
-| ≥0.5 | 0.05 | 5,929 | 1.77 | +$149,425 |
+| ≥3 | 0.05 | 3,306 | **1.98** | +\$128,248 |
+| ≥1.5 | 0.10 | 3,256 | 1.93 | +\$120,495 |
+| ≥2 | 0.07 | 3,652 | 1.89 | +\$127,809 |
+| ≥1.5 | 0.07 | 4,073 | 1.82 | +\$127,504 |
+| ≥1 | 0.05 | 5,271 | 1.82 | +\$148,462 |
+| ≥0.5 | 0.07 | 4,910 | 1.79 | +\$137,344 |
+| ≥1 | 0.07 | 4,500 | 1.79 | +\$131,894 |
+| ≥0.5 | 0.05 | 5,929 | 1.77 | +\$149,425 |
 
 Eight cells clear the 3k-trip floor, all clustering between PF 1.77
 and 1.98. The rvol≥3 / pr=0.05 cell is the highest-PF cell at this
@@ -3894,10 +3894,10 @@ dotnet run --project TradingEdge.CryptoBacktest -c Release -- short-fade-ma-swee
 
 | variant | trips | PF | netPnL | fund | medBars |
 |---|---|---|---|---|---|
-| Dual-CVD cover (baseline) | 3,306 | **1.981** | **+$128,248** | -$2,759 | 18,444 (~12.8d) |
-| Rvol cover (rvol < 1.0) | 7,828 | **0.969** | **-$4,036** | -$7,271 | 842 (~0.6d) |
+| Dual-CVD cover (baseline) | 3,306 | **1.981** | **+\$128,248** | -\$2,759 | 18,444 (~12.8d) |
+| Rvol cover (rvol < 1.0) | 7,828 | **0.969** | **-\$4,036** | -\$7,271 | 842 (~0.6d) |
 
-PF crashed from 1.98 → 0.97; netPnL flipped from +$128k → -$4k. Trip
+PF crashed from 1.98 → 0.97; netPnL flipped from +\$128k → -\$4k. Trip
 count more than doubled (3,306 → 7,828) because the rvol cover fires
 fast and frees the engine to re-enter; medBars collapsed from ~13d
 to ~0.6d.
@@ -3918,16 +3918,16 @@ than where the trade was caught.
 
 | hold | dual-CVD trips / PF / netPnL | rvol-cover trips / PF / netPnL |
 |---|---|---|
-| <1d | 1,070 / 0.10 / −$23k | 5,372 / 1.17 / +$9k |
-| 1–3d | 182 / 0.14 / −$10k | 2,192 / 1.14 / +$6k |
-| 3–10d | 307 / 0.43 / −$11k | 262 / 0.31 / −$16k |
-| 10–30d | 629 / 1.33 / +$11k | 2 / – / −$4k |
-| **>30d** | **1,118 / 4.86 / +$162k** | **0 / – / –** |
+| <1d | 1,070 / 0.10 / −\$23k | 5,372 / 1.17 / +\$9k |
+| 1–3d | 182 / 0.14 / −\$10k | 2,192 / 1.14 / +\$6k |
+| 3–10d | 307 / 0.43 / −\$11k | 262 / 0.31 / −\$16k |
+| 10–30d | 629 / 1.33 / +\$11k | 2 / – / −\$4k |
+| **>30d** | **1,118 / 4.86 / +\$162k** | **0 / – / –** |
 
 Same failure pattern as the MA-touch cover: a stream of small wins
 on fast covers (<1d/1–3d at PF ~1.15) collects pennies but loses the
 long-hold regime trades entirely. The >30d bucket — which carried
-+$162k of pnl under the dual-CVD cover — has **zero trades** under
++\$162k of pnl under the dual-CVD cover — has **zero trades** under
 the rvol cover.
 
 ### Findings — only dual-CVD works for shorts
@@ -3935,11 +3935,11 @@ the rvol cover.
 Three independent cover types now tested at the same entry conditions:
 
 1. **MA-touch cover** (`--long-cvd-minutes 0`): PF 0.903, netPnL
-   −$15,200, medBars 1.7d. Failed.
+   −\$15,200, medBars 1.7d. Failed.
 2. **Volume cover** (`--rvol-exit-threshold 1.0`): PF 0.969, netPnL
-   −$4,036, medBars 0.6d. Failed.
+   −\$4,036, medBars 0.6d. Failed.
 3. **Dual-CVD cover** (default, 200h-CVD positive flip): PF 1.981,
-   netPnL +$128,248, medBars 12.8d. Works.
+   netPnL +\$128,248, medBars 12.8d. Works.
 
 Both failing covers share the hold-bucket signature: rapid
 cover-touches collect small wins (<1d/1–3d profitable) but miss the
@@ -3968,17 +3968,17 @@ dual-CVD cover) by their actual rvol-at-entry and pr-at-entry:
 
 | rvol bucket | trips | PF | avgPnL | netPnL | medBars |
 |---|---|---|---|---|---|
-| 3–4 | **1,227** | **2.340** | $54.6 | **+$66,969** | 29,180 (~20d) |
-| 4–5 | 546 | 2.234 | $46.5 | +$25,375 | 19,467 |
-| 5–7 | 477 | 1.683 | $30.3 | +$14,471 | 19,881 |
-| 7–10 | 318 | 1.651 | $22.0 | +$6,990 | 7,357 |
-| 10–15 | 245 | 1.494 | $19.5 | +$4,772 | 2,687 |
-| 15–25 | 237 | 1.659 | $25.1 | +$5,952 | 4,963 |
-| ≥25 | 256 | 1.389 | $14.5 | +$3,719 | 274 (~5h) |
+| 3–4 | **1,227** | **2.340** | \$54.6 | **+\$66,969** | 29,180 (~20d) |
+| 4–5 | 546 | 2.234 | \$46.5 | +\$25,375 | 19,467 |
+| 5–7 | 477 | 1.683 | \$30.3 | +\$14,471 | 19,881 |
+| 7–10 | 318 | 1.651 | \$22.0 | +\$6,990 | 7,357 |
+| 10–15 | 245 | 1.494 | \$19.5 | +\$4,772 | 2,687 |
+| 15–25 | 237 | 1.659 | \$25.1 | +\$5,952 | 4,963 |
+| ≥25 | 256 | 1.389 | \$14.5 | +\$3,719 | 274 (~5h) |
 
 **PF declines monotonically with rvol above the 3.0 floor.** The
 3–4× bucket carries 37% of trips at PF 2.34, and over half of the
-netPnL (+$67k of the +$128k total). Above rvol 5×, edge tapers fast
+netPnL (+\$67k of the +\$128k total). Above rvol 5×, edge tapers fast
 — the engine still profits but per-trade quality drops. *Higher rvol
 does not mean higher edge in this engine* despite the rvol≥3 floor.
 The ≥25× bucket holds a median of just 5 hours at PF 1.39 — those
@@ -3989,13 +3989,13 @@ targets directly.
 
 | pr bucket | trips | PF | avgPnL | netPnL | medBars |
 |---|---|---|---|---|---|
-| 0.05–0.07 | 608 | 2.064 | $46.7 | +$28,364 | 25,056 |
-| 0.07–0.10 | 692 | 1.849 | $38.4 | +$26,547 | 21,108 |
-| **0.10–0.14** | **641** | **2.404** | $48.3 | **+$30,952** | 23,874 |
-| 0.14–0.20 | 545 | 1.767 | $33.1 | +$18,053 | 15,624 |
-| 0.20–0.30 | 464 | 1.911 | $30.0 | +$13,935 | 8,492 |
-| 0.30–0.50 | 256 | 1.911 | $28.3 | +$7,238 | 1,226 |
-| ≥0.50 | 100 | 1.802 | $31.6 | +$3,161 | 1,775 |
+| 0.05–0.07 | 608 | 2.064 | \$46.7 | +\$28,364 | 25,056 |
+| 0.07–0.10 | 692 | 1.849 | \$38.4 | +\$26,547 | 21,108 |
+| **0.10–0.14** | **641** | **2.404** | \$48.3 | **+\$30,952** | 23,874 |
+| 0.14–0.20 | 545 | 1.767 | \$33.1 | +\$18,053 | 15,624 |
+| 0.20–0.30 | 464 | 1.911 | \$30.0 | +\$13,935 | 8,492 |
+| 0.30–0.50 | 256 | 1.911 | \$28.3 | +\$7,238 | 1,226 |
+| ≥0.50 | 100 | 1.802 | \$31.6 | +\$3,161 | 1,775 |
 
 PR is non-monotone — 0.10–0.14 peaks at PF 2.40, with 0.05–0.07 a
 solid second at PF 2.06. The mid-range dip (pr 0.14–0.20) is real
@@ -4055,7 +4055,7 @@ detail; this is a one-page recap.
 stops, distance≤0.20× from 8h-low, vol-targeted, ADV-gated,
 gap-detector on`.
 
-**Headline at default config:** **PF 3.50, ~4,591 trips, +$120,118
+**Headline at default config:** **PF 3.50, ~4,591 trips, +\$120,118
 netPnL** over 2024-05 to 2026-04 (1m bars, full universe, the
 gap-detector-fixed re-run). The earlier published v10d ship was PF
 3.44 / 3,914 trips because the gap-detector reset wasn't yet wired
@@ -4079,7 +4079,7 @@ MA on crypto-fade timeframes. PF is monotone in entry rvol (Q1=1.83
 rvol≥3.0, no stops, distance≤0.20× from 8h-high, vol-targeted,
 ADV-gated, gap-detector on`.
 
-**Headline at default config:** **PF 1.98, 3,306 trips, +$128,248
+**Headline at default config:** **PF 1.98, 3,306 trips, +\$128,248
 netPnL** over 2024-05 to 2026-04. Selected as the highest-PF cell
 in the 7×7 (rvol × pr) grid that clears the 3,000-trip volume floor.
 
@@ -4108,7 +4108,7 @@ declines revert; shorts work as regime trades because rises persist.
 entry-distance≤0.20× from 8h-high, ADV-gated, vol-targeted, recent=8h
 / baseline=30d`.
 
-**Headline at default config:** **PF 1.282, 2,749 trips, +$8,300
+**Headline at default config:** **PF 1.282, 2,749 trips, +\$8,300
 netPnL** over the same window. Lower per-trade edge than the regime
 shorts but the trade horizon is completely different — medBars 90
 (~1.5 hours).
@@ -4198,7 +4198,7 @@ bucket  fr_bps             trades  PF      sumPnl$
 
 **Longs degrade monotonically as the universe gets more
 long-leveraged.** Bucket 3 (≥ +1.0 bps) is a clean dead zone — PF
-0.59 / −$2,129 over 354 trades. The mechanism is intuitive: when the
+0.59 / −\$2,129 over 354 trades. The mechanism is intuitive: when the
 whole universe is paying longs heavily, you're catching a top.
 
 ### Short-side dead zone
@@ -4214,15 +4214,15 @@ bucket  fr_bps             trades  PF      sumPnl$
 **Shorts get progressively better as the universe gets more
 long-leveraged**, mirroring the long-side degradation. Bucket 0
 (< +0.5 bps; universe shorts paying longs) is a clean dead zone — PF
-0.85 / −$4,832 over 1,260 trades. Buckets 2–3 (mildly to strongly
-long-leveraged) post PF 2.2–3.4 with +$90.8k pooled — the "longs
+0.85 / −\$4,832 over 1,260 trades. Buckets 2–3 (mildly to strongly
+long-leveraged) post PF 2.2–3.4 with +\$90.8k pooled — the "longs
 stretched but not yet capitulating" regime is exactly when short
 signals fire into oversupply of leveraged longs ripe for
 liquidation.
 
 ### Why this matters for the engines
 
-**Drop the bottom-bucket shorts and top-bucket longs**, save ~$7k
+**Drop the bottom-bucket shorts and top-bucket longs**, save ~\$7k
 in losses on the v0 trip set, no opportunity cost on the winning
 side. Symmetric pair of regime filters that should layer cleanly on
 top of any of the three shipped engines (LongFadeMA, ShortFadeMA
@@ -4239,7 +4239,7 @@ signal). Both signals are real and capture different things.
 ### Methodology lesson — equal-count NTILE bucketing was misleading
 
 The earlier 10-decile NTILE rank breakdown of the same data showed a
-"goldmine" — bucket 6 (rank 0.60–0.70) at PF 3.81 / +$51,807 for
+"goldmine" — bucket 6 (rank 0.60–0.70) at PF 3.81 / +\$51,807 for
 shorts. Time-distributing those trades revealed **75% came from May
 2024 alone**: a single-month artefact dressed up as a generalisable
 pattern. Cutpoint bucketing on raw values doesn't immediately make

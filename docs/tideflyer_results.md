@@ -45,7 +45,7 @@ change (895 trips / 50.8% win / PF 1.611 on 2024-01-01..2026-05-13, CSVs identic
 
 ## Run 1 — two-mode baseline (2×2: entry direction × exit model). THESIS CONFIRMED.
 
-Raw whole-universe signal (channel ON, EVERY momentum gate neutralized; only price≥$1 + ADV≥$100k
+Raw whole-universe signal (channel ON, EVERY momentum gate neutralized; only price≥\$1 + ADV≥\$100k
 liquidity floors). Full history 2005-01-01 → 2026-05-13. 2×2 = {buy 7d low, buy 7d high} × {5d
 time-stop, target-exit}.
 
@@ -80,7 +80,7 @@ the thesis. **NEXT = pick the base prune, then tune 1d-return / volume-fraction 
 
 **Base prune locked: require a real DOWN day into the 7d low** — `close/prevClose-1 < −5%`
 (`MaxUpThreshold = -0.05`, reusing the move-band ceiling; `--max-up-threshold` tunes it). Plus the
-kept liquidity floors (price ≥ $1, ADV ≥ $100k). Long-MR, 5d time-stop.
+kept liquidity floors (price ≥ \$1, ADV ≥ \$100k). Long-MR, 5d time-stop.
 
 - **4,335,517 → 642,671 trips** (6.7× cut, 190 MB — sliceable), **PF 1.144 / 50.5% win** vs raw
   1.149 / 52.2%. The prune removes marginal-drift "technically a new low" noise **without killing the
@@ -299,7 +299,7 @@ once 3d≤−15% is on), the lever is the CONTINUOUS `(3d − 1d)` depth. **Defa
 1.61–1.75 core. Wired as an engine gate.
 
 **ENGINE default now = base + `3d ≤ −15%` + `(3d − 1d) ≤ −10%` → 35,339 trips / PF 1.635 / 54.8% win /
-+3.9% avg / $13.7M** (`/tmp/tide_prior2d.csv`). **Verified byte-parity vs SQL: 35,342 / PF 1.635**
++3.9% avg / \$13.7M** (`/tmp/tide_prior2d.csv`). **Verified byte-parity vs SQL: 35,342 / PF 1.635**
 (3-trip warmup edge, no lookahead). The prior-2d gate is the biggest PF jump since the 3d gate:
 **1.415 → 1.635** (77k → 35k trips).
 
@@ -329,7 +329,7 @@ the same signal — today being a real down-day is independent confirmation. **K
 **1d-depth is a SIZING lever, not a tighter gate (re-confirmed, knife now gone).** Cumulative ceiling
 sweep — every retained band is a WINNER (no knife anywhere in [−40,−5), even −40..−30 is PF 2.8):
 
-| ceiling (floor −40) | n | PF | avg% | net $M |
+| ceiling (floor −40) | n | PF | avg% | net \$M |
 |---|---:|---:|---:|---:|
 | **≤−5% (default)** | 35.3k | 1.635 | +3.9 | 13.69 |
 | ≤−8% | 18.8k | 1.758 | +5.1 | 9.70 |
@@ -338,7 +338,7 @@ sweep — every retained band is a WINNER (no knife anywhere in [−40,−5), ev
 | ≤−15% | 4.5k | 2.125 | +9.5 | 4.26 |
 | ≤−18% | 2.6k | 2.339 | +11.8 | 3.08 |
 
-Tightening −5%→−10% ~doubles avg% (+3.9→+6.3) and lifts PF +0.22 but HALVES net P&L ($13.7M→$7.6M) — a
+Tightening −5%→−10% ~doubles avg% (+3.9→+6.3) and lifts PF +0.22 but HALVES net P&L (\$13.7M→\$7.6M) — a
 pure capacity-vs-quality dial, no free lunch. For a daily-swing MR book breadth compounds better than
 per-trade PF, so **the default stays −5% (throughput) and depth is captured by SIZING** (avg% is the
 size signal: a −18% name returns 3× a −5% name), NOT by a tighter gate. −10% is the natural "concentrated
@@ -393,13 +393,13 @@ read post-push so close3d = {t−3,t−2,t−1,t}) at the SAME −10% ceiling.**
 proxy −10% (it's ≈ proxy −11%), so it recovers ~20% more trips for a ~4% PF give-back — a good trade for a
 capacity-hungry swing book (user: "worth increasing the trips by 20% for a 4% reduction in PF"):
 
-| prior-2d metric (+ 3d≤−15% only) | n | PF | net $M |
+| prior-2d metric (+ 3d≤−15% only) | n | PF | net \$M |
 |---|---:|---:|---:|
 | PROXY (3d−1d) ≤ −10% | 35.3k | 1.635 | ~13.7 |
 | **TRUE c1/c3−1 ≤ −10%** | 42.7k | 1.597 | 15.5 |
 
 **NEW PRODUCTION DEFAULT (base + 3d≤−15% + TRUE-prior2d≤−10% + 60d≤−40%): 19,587 trips / PF 1.924 /
-57.2% win / +6.3% avg / $12.3M.** The true-metric switch gave MORE net ($12.3M vs the proxy book's $10.9M)
+57.2% win / +6.3% avg / \$12.3M.** The true-metric switch gave MORE net (\$12.3M vs the proxy book's \$10.9M)
 AND more trips (19.6k vs 16.7k) at ~equal PF (1.924 vs 1.957) — looser as intended. **Verified byte-parity
 vs SQL: 19,603 / PF 1.923** (16-trip warmup edge, no lookahead). Book progression now: 1.415 (3d) → 1.622
 (true-prior2d) → **1.924 (60d washout)**. NEXT = rvol, exit-model A/B, sizing-on-depth, the pullback book.
@@ -413,7 +413,7 @@ RAW PF. Coverage 49% (the no-data half sits at PF 1.939 ≈ book avg — not sys
 
 **The low-float lever RUNS BACKWARDS vs every other system** — cleanly monotone, but BIG float wins:
 
-| float$ at entry | n | win% | PF | avg% |
+| float\$ at entry | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
 | **<50M** | 3,569 | 47.1 | **1.249** | +2.3 |
 | 50–150M | 1,938 | 55.3 | 1.832 | +4.8 |
@@ -422,22 +422,22 @@ RAW PF. Coverage 49% (the no-data half sits at PF 1.939 ≈ book avg — not sys
 | 750M–2B | 946 | 69.7 | 3.540 | +11.8 |
 | **>2B** | 941 | 71.0 | **3.708** | +12.0 |
 
-Cumulative: keep **<$300M → PF 1.515** (BELOW the 1.924 book avg — a DRAG); keep **≥$300M → PF 3.228**
-(3,010 trips, 68% win); keep **≥$750M → PF 3.622**. The usual winning <$300M cut is a *loser* here.
+Cumulative: keep **<\$300M → PF 1.515** (BELOW the 1.924 book avg — a DRAG); keep **≥\$300M → PF 3.228**
+(3,010 trips, 68% win); keep **≥\$750M → PF 3.622**. The usual winning <\$300M cut is a *loser* here.
 
 **Why it inverts (mechanically coherent):** LONG-momentum/squeeze books (HighFlyer/LowFlyer) want TIGHT
 float — a small float rips UP on a catalyst (the squeeze accelerant they buy). TideFlyer buys a name in a
 deep 60-day washout (−40%+) that's ALREADY been sliding — and a low-float microcap in that state is a
 FALLING KNIFE that keeps dying (delisting/dilution/fraud, no institutional support to catch it: 47% win /
-PF 1.25 on <$50M). A BIG-float name in a −40% washout is the REAL mean-reversion setup: a large liquid
+PF 1.25 on <\$50M). A BIG-float name in a −40% washout is the REAL mean-reversion setup: a large liquid
 company oversold on macro/sector fear that SNAPS BACK because there's a deep buyer base (PF 3.71 / 71% on
->$2B). **The low-float lever is NOT universal — it's a function of strategy DIRECTION: squeeze books want
+>\$2B). **The low-float lever is NOT universal — it's a function of strategy DIRECTION: squeeze books want
 tight floats, deep-washout MR books want BIG floats.** A durable, generalizable insight.
 
 **Kept as a DOCUMENTED signal, NOT wired** (user's call): the SEC float data is spotty (49% coverage) and
-the big-float winners are thin (≥$750M ≈ 95 trips/yr). Present-day float is far easier to source than
-historical, and this experiment settles WHICH DIRECTION to source for (favor ≥$300M, avoid <$150M) before
-going live. Use as a SIZING/selection tilt (size up ≥$300M, down/skip <$150M), no-data names at baseline.
+the big-float winners are thin (≥\$750M ≈ 95 trips/yr). Present-day float is far easier to source than
+historical, and this experiment settles WHICH DIRECTION to source for (favor ≥\$300M, avoid <\$150M) before
+going live. Use as a SIZING/selection tilt (size up ≥\$300M, down/skip <\$150M), no-data names at baseline.
 
 ## Run 14 — ATR% & tightness: ATR% INVERTS again (chaos wins) → band [0.08,0.25] + tight<9 LOCKED
 
@@ -463,7 +463,7 @@ FLOOR — inverts HighFlyer — + `MaxAtrPct=0.25` ceiling; kept 0.08 not 0.10 f
 217 trips: a name TRENDING hard, range≫ATR, isn't an MR setup). **LOCKED: `tight < 9`** — a loose sanity cap.
 
 **NEW PRODUCTION DEFAULT (+ atr[0.08,0.25) + tight<9): 14,645 trips / PF 2.105 / 58.2% win / +6.5% avg /
-$11.0M** — kept $11.0M of the $12.3M net at 75% of trips. **Byte-parity vs SQL: 14,645 / PF 2.105** (exact,
+\$11.0M** — kept \$11.0M of the \$12.3M net at 75% of trips. **Byte-parity vs SQL: 14,645 / PF 2.105** (exact,
 the slice runs on the already-warm book). Book progression: 1.924 (60d) → **2.105 (ATR band + tight cap)**.
 
 **⭐ KEY INTERACTION — depth is NOT orthogonal to ATR% (`tideflyer_lowatr_depth.sql`).** Asked whether the
@@ -563,10 +563,10 @@ Run 1 tested target-exit on the RAW whole-universe book and found it ≈ time-st
 **"expect the exit to matter more once entries are gated to higher-quality dips."** Now, on the fully-gated
 PF 2.237 book, re-ran the A/B (`--target-exit` = sell at the opposite 7d extreme, 5d time-stop fallback):
 
-| exit model | PF | win% | net $M | (same 13,122 entries) |
+| exit model | PF | win% | net \$M | (same 13,122 entries) |
 |---|---:|---:|---:|---|
 | 5d time-stop (old default) | 2.237 | 59.4 | 10.49 | |
-| **target-exit (7d high, ON)** | **2.295** | 59.5 | **10.96** | +0.058 PF / +$0.46M, ZERO capacity cost |
+| **target-exit (7d high, ON)** | **2.295** | 59.5 | **10.96** | +0.058 PF / +\$0.46M, ZERO capacity cost |
 
 **Mechanism:** 21.9% of trips (2,874) HIT the target — the name round-tripped washout→recovery to a fresh
 7d high within the hold (99.9% win, +42.8% avg on those). The other 77.7% still hit the 5d time-stop
@@ -580,7 +580,7 @@ helps MOST in the recent weaker years (2024: 1.83 vs 1.52; 2023: 1.14 vs 1.00; 2
 
 **LOCKED target-exit ON** (`ExitMode`, default `NextOpenClose 1.0`). Modest but FREE (same entries, no
 capacity cost) and confirms Run 1's gated-exit prediction. **FINAL production book: 13,122 / PF 2.295 /
-59.5% win / $11.0M.** Full arc: 1.415(3d)→1.635→1.622(true prior2d)→1.924(60d)→2.105(ATR band)
+59.5% win / \$11.0M.** Full arc: 1.415(3d)→1.635→1.622(true prior2d)→1.924(60d)→2.105(ATR band)
 →2.237(rvol<3)→**2.295(target-exit)**. NEXT = exit fill-model A/B (Run 18), sizing-on-depth, pullback book.
 
 ## Run 18 — exit FILL-MODEL & halfway-target A/B: the Run-17 default (next-open @ full) wins all 6
@@ -632,7 +632,7 @@ LIFT PF (a dip in a healthy tape reverts). The data INVERTS it — WEAK breadth 
 Cumulative: **<0.10 → PF 5.307** (4,820 trips, 74.6% win); <0.20 → 4.005; **≥0.5 → 1.302** (a DRAG). The
 strong-tape hypothesis is BACKWARDS. Fine sweep: the elbow is SHARP at **<0.10** (the <0.05/0.05–0.10 zone
 is PF 4.9–5.7 @ ~75% win, clearly distinct; two noisy small-bucket notches at 0.10–0.15 & 0.25–0.30). Net
-P&L is ~flat $8.3–9.4M across <0.10..<0.30, so staying TIGHT buys ~same dollars at far higher PF.
+P&L is ~flat \$8.3–9.4M across <0.10..<0.30, so staying TIGHT buys ~same dollars at far higher PF.
 
 **Why it inverts (the FOURTH factor to flip vs HighFlyer — completes the picture): TideFlyer is a
 CAPITULATION buyer.** A deep 60-day washout WHEN THE BROAD TAPE IS ALSO PUKING (<10% above 20d MA) is a
@@ -647,7 +647,7 @@ WORSE the tape the better.** Polar opposite of momentum (which needs a healthy t
 float; user: "quality over quantity", picked <0.10 over <0.20 for the PF gap). **Byte-parity: engine 4,820
 / PF 5.307 == SQL slice exactly; --breadth-max 100 reproduces the 13,122/2.295 book.** ⚠ Caveat: at <0.10
 trips CLUSTER in deep-puke regimes (2008, Mar-2020, 2022) — high time-concentration, P&L comes in bursts.
-**FINAL production book: 4,820 / PF 5.307 / 74.6% win / $8.3M.** Full arc: …2.237(rvol)→2.295(exit)→
+**FINAL production book: 4,820 / PF 5.307 / 74.6% win / \$8.3M.** Full arc: …2.237(rvol)→2.295(exit)→
 **5.307(breadth<0.10)**. NEXT = close-sequence monotonicity, sizing-on-depth, pullback book, HighFlyer-volfrac.
 
 ## Run 20 — close-sequence: a STRICT monotone descent (d3>d2>d1>d0) beats a fought-over one
@@ -674,7 +674,7 @@ refinement that costs 27% of an already-thin book (a SIZING signal, not a gate).
 **⚠⚠ FREQUENCY REALITY CHECK (the aggregate PF hides this):** the breadth<0.10 book trades **74 days in 17
 years** (~4/yr), **21 active months / 207** (dormant 90% of the time), **7 years with ZERO trades**
 (incl. 2023/24). **Top 5 months = 94% of trips & 96% of P&L; GFC (Oct-Nov 2008) + COVID (Mar 2020) = ~89%
-of ALL P&L.** The $8.3M is essentially "buy the bottom in 2008 & 2020." **breadth<0.10 is NOT a standalone
+of ALL P&L.** The \$8.3M is essentially "buy the bottom in 2008 & 2020." **breadth<0.10 is NOT a standalone
 daily system — it's a CRASH-CAPITULATION overlay** that mostly sleeps. Out-of-sample outside the 2 crashes
 is ~625 trips / 17 yrs (barely measured — tail-event overfit risk). OPEN DECISION: keep <0.10 as a crash
 overlay, or back off to <0.20/<0.30 for real frequency + OOS robustness (the "system vs crash-timer" fork).
@@ -682,28 +682,28 @@ overlay, or back off to <0.20/<0.30 for real frequency + OOS robustness (the "sy
 ## Run 21 — FLOAT × breadth: big-float edge HOLDS & sharpens in the crash; small-float REHABILITATED
 
 Re-ran the float breakdown ON the breadth<0.10 book (`tide_float_breadth.sql`, coverage 38%). **Big float
-still wins, more cleanly:** <50M PF 3.91 → >2B PF 8.29 (monotone). Cumulative <$300M → 3.75 (a drag vs the
-4.99 covered avg); ≥$300M → 6.49; ≥$750M → 7.45 (82% win, +22% avg). **Same direction as Run 13, sharper.**
+still wins, more cleanly:** <50M PF 3.91 → >2B PF 8.29 (monotone). Cumulative <\$300M → 3.75 (a drag vs the
+4.99 covered avg); ≥\$300M → 6.49; ≥\$750M → 7.45 (82% win, +22% avg). **Same direction as Run 13, sharper.**
 
-**The twist — small float is REHABILITATED by the breadth gate:** the <$50M bucket went from PF 1.25 (47%
+**The twist — small float is REHABILITATED by the breadth gate:** the <\$50M bucket went from PF 1.25 (47%
 win) on the pre-breadth book to **3.91 (73% win)** here. Conditional on a BROAD crash, even low-float names
 are getting dragged down SYSTEMICALLY (not dying idiosyncratically), so they revert too — the breadth gate
 filters out the fraud/dilution blowups that made small float a knife before. **But big float STILL wins
-(8.29 vs 3.91)** — a $2B+ name only falls 40%/60d in a crash by being swept out with the tide, so it snaps
+(8.29 vs 3.91)** — a \$2B+ name only falls 40%/60d in a crash by being swept out with the tide, so it snaps
 back hardest = the purest "baby thrown out with the bathwater". The whole factor stack now tells ONE story:
 **TideFlyer buys QUALITY getting flushed in a PANIC** (breadth=crash, float=big, ATR%=violent,
 volume=moderate/non-catalyst all select "good name, systemic flush, not idiosyncratic death").
-Documented/not-wired (38% coverage, crash-clustered); favor ≥$300M, source present-day float before live.
+Documented/not-wired (38% coverage, crash-clustered); favor ≥\$300M, source present-day float before live.
 NEXT = make the system work in the breadth>0.2 (non-crash) regime + a float breakdown there.
 
 ---
 
-# The NON-CRASH regime rebuild (breadth≥0.4 · float≥$2B) — establishing the honest baseline
+# The NON-CRASH regime rebuild (breadth≥0.4 · float≥\$2B) — establishing the honest baseline
 
 **Strategic pivot (user).** The breadth<0.10 book is a crash overlay (~4 trades/yr, 89% of P&L from GFC+
 COVID — see the Run-20 frequency check). To build a real *daily* system, the user chose to REBUILD FROM
 SCRATCH in the regime the engine spends most of its time in: **breadth≥0.4 (moderate-to-healthy tape) &
-float≥$2B (large float)**. Rationale: (1) these patterns work best on LARGER float (Run 13/21 — big-float
+float≥\$2B (large float)**. Rationale: (1) these patterns work best on LARGER float (Run 13/21 — big-float
 wins every regime); (2) breadth≥0.4 is a REGIME SELECTOR, deliberately excluding the crash windfalls so we
 measure the pattern in NORMAL conditions — NOT a PF-lifter (it isn't, and isn't meant to be). Method: set
 the two regime filters, DISABLE all others except 1d & 3d, get the honest baseline, then re-add levers one
@@ -762,8 +762,8 @@ call)** — volfrac carries it. **Current honest non-crash base: breadth≥0.4 �
 
 The rvol<0.5 bucket showed a surprisingly high PF (3.73 no-volfrac / 7.15 within-volfrac on 13 trips).
 Probed it — **it's ~3 float-misjoined squeeze outliers, NOT a real lever.** Top trip = **GME 2021-02-18
-+316.7% / $31.7k** (the meme squeeze — GME's float is mismeasured, landing a squeeze microcap in the
-"≥$2B" bucket); the rest are MICT/OPGN/SINT/DISCB — low-priced squeeze names with volfrac 0.02–0.11, the
++316.7% / \$31.7k** (the meme squeeze — GME's float is mismeasured, landing a squeeze microcap in the
+"≥\$2B" bucket); the rest are MICT/OPGN/SINT/DISCB — low-priced squeeze names with volfrac 0.02–0.11, the
 OPPOSITE of the big-float-quality thesis. Drop-top-3 → PF 3.73→2.19; by-year it's incoherent (huge in
 2018/19/21 on n=4/7/17, LOSING in 2022/23/25). **A tiny bucket inflated by float-join errors on squeeze
 names — reinforces the float-data-quality caveat; the volfrac≥0.5 floor already excludes most of it.**
@@ -850,7 +850,7 @@ d3>d2: 1.906, d2>d1: 1.872). **A GOOD trade here:** only cuts 21% of the book (v
 because prior-2d≤−5 already selects "already sliding" names that are mostly monotone — so it mainly trims
 the weakest 290 non-monotone names (PF 1.48) for a +0.12 PF lift. Best lever after volfrac for this regime,
 regime-universal (not a fit), already wired (`--require-monotone`). **Non-crash base now: breadth≥0.4 ·
-float≥$2B · volfrac[0.5,1.5] · prior-2d≤−5 · monotone → PF 1.957 / 1,074 trips / 60% win.** (60d filter
+float≥\$2B · volfrac[0.5,1.5] · prior-2d≤−5 · monotone → PF 1.957 / 1,074 trips / 60% win.** (60d filter
 LEFT OUT — regime-dependent, fragile, and the book is thin.) NEXT = 1d/3d depth; yearly stability.
 
 ## Run 28 — 1d & 3d depth in the non-crash regime: deeper=better (no knife), current thresholds kept LOOSE

@@ -9,7 +9,7 @@ Multi-hour mean-reversion, **long-only** on Binance USDT-perps:
 - **Cover**: trailing 72h MA cross from below
 - **Median hold**: 42.4 hours (p95 = 109h ≈ 4.5 days, max ~16 days)
 - **Default config (production champion)**: `pd=14% cvd=4h cover=72h no-stops rvol≥0.75`
-- **Engine baseline metrics**: 3,914 trips, PF 3.44, win 74.7%, $24.77/trade, $96,964 net P&L over 2024-05 to 2026-04
+- **Engine baseline metrics**: 3,914 trips, PF 3.44, win 74.7%, \$24.77/trade, \$96,964 net P&L over 2024-05 to 2026-04
 
 ## Engine baseline — 2-year performance
 
@@ -29,7 +29,7 @@ Same audit shape that exposed DonchianScalp's regime dependence. **FlowSwing pas
 | metric | full | ex-Oct 2025 | Oct 2025 only |
 |---|---:|---:|---:|
 | trips | 3,914 | 3,551 | 363 |
-| net P&L | $96,964 | $85,911 | $11,053 |
+| net P&L | \$96,964 | \$85,911 | \$11,053 |
 | PF | 3.44 | **3.33** | 4.90 |
 | Oct % of total | — | — | **11.4%** |
 
@@ -39,17 +39,17 @@ Same audit shape that exposed DonchianScalp's regime dependence. **FlowSwing pas
 
 | month | trips | net P&L | % of total |
 |---|---:|---:|---:|
-| 2024-12 | 407 | $14,980 | 15.4% |
-| 2024-08 | 229 | $14,533 | 15.0% |
-| 2024-07 | 204 | $14,341 | 14.8% |
-| 2025-10 | 363 | $11,053 | 11.4% |
-| 2025-02 | 475 | $9,840 | 10.1% |
+| 2024-12 | 407 | \$14,980 | 15.4% |
+| 2024-08 | 229 | \$14,533 | 15.0% |
+| 2024-07 | 204 | \$14,341 | 14.8% |
+| 2025-10 | 363 | \$11,053 | 11.4% |
+| 2025-02 | 475 | \$9,840 | 10.1% |
 
 Five months each contribute 10-15% of P&L. Spread across 2024 and 2025 with no single month dominating.
 
 ### Profitable months: 23 of 24
 
-Every month from 2024-05 through 2026-04 fires 50+ trips except some low-activity periods. Only one losing month: **2025-09 at PF 0.79 / -$429**. Even the weakest profitable months sit at PF 1.05+ (above break-even after fees).
+Every month from 2024-05 through 2026-04 fires 50+ trips except some low-activity periods. Only one losing month: **2025-09 at PF 0.79 / -\$429**. Even the weakest profitable months sit at PF 1.05+ (above break-even after fees).
 
 ### 2025-09 drill — known acceptable failure mode
 
@@ -57,10 +57,10 @@ Worst trips that month are **failed-revert capitulation buys**: symbols that fel
 
 | symbol | net | pr_at_entry | bars_held |
 |---|---:|---:|---:|
-| FORMUSDT | -$432 | -17.7% | 21,153 |
-| UXLINKUSDT | -$191 | -60.9% | 4,496 |
-| BAKEUSDT | -$118 | -23.7% | 4,366 |
-| HIFIUSDT | -$117 | -23.3% | 3,997 |
+| FORMUSDT | -\$432 | -17.7% | 21,153 |
+| UXLINKUSDT | -\$191 | -60.9% | 4,496 |
+| BAKEUSDT | -\$118 | -23.7% | 4,366 |
+| HIFIUSDT | -\$117 | -23.3% | 3,997 |
 
 This is the **engineered failure mode** of capitulation-fade-to-MA: when a capitulation drop is the start of a real downtrend rather than a flush, the strategy sits in losing positions for weeks. No stops by design (per `project_long_fade_ma_session_2026-05-08.md`). The 23/24-month win rate confirms this failure mode is rare and acceptable.
 
@@ -80,18 +80,18 @@ This is the **engineered failure mode** of capitulation-fade-to-MA: when a capit
 
 ### Top 15 P&L symbols (with October attribution per-symbol)
 
-| symbol | trips | net | Oct $ | Oct % |
+| symbol | trips | net | Oct \$ | Oct % |
 |---|---:|---:|---:|---:|
-| FARTCOINUSDT | 32 | $812 | $86 | 10.6% |
-| AGLDUSDT | 6 | $734 | $0 | 0% |
-| ZECUSDT | 13 | $723 | $160 | 22.1% |
-| TURBOUSDT | 20 | $710 | $50 | 7.0% |
-| INJUSDT | 16 | $667 | $23 | 3.5% |
-| SUIUSDT | 9 | $639 | $41 | 6.4% |
-| ADAUSDT | 8 | $615 | $31 | 5.1% |
-| THETAUSDT | 8 | $610 | $78 | 12.8% |
-| 1000BONKUSDT | 14 | $606 | $34 | 5.5% |
-| JUPUSDT | 14 | $604 | $55 | 9.1% |
+| FARTCOINUSDT | 32 | \$812 | \$86 | 10.6% |
+| AGLDUSDT | 6 | \$734 | \$0 | 0% |
+| ZECUSDT | 13 | \$723 | \$160 | 22.1% |
+| TURBOUSDT | 20 | \$710 | \$50 | 7.0% |
+| INJUSDT | 16 | \$667 | \$23 | 3.5% |
+| SUIUSDT | 9 | \$639 | \$41 | 6.4% |
+| ADAUSDT | 8 | \$615 | \$31 | 5.1% |
+| THETAUSDT | 8 | \$610 | \$78 | 12.8% |
+| 1000BONKUSDT | 14 | \$606 | \$34 | 5.5% |
+| JUPUSDT | 14 | \$604 | \$55 | 9.1% |
 
 Even the strongest contributors aren't October-dependent (most under 15% Oct attribution per-symbol). Edge is structural, not regime-driven.
 
@@ -120,8 +120,8 @@ Near-perfect fill quality. The multi-hour holds and broad symbol diversity mean 
 | metric | engine | limit |
 |---|---:|---:|
 | trips | 3,914 | 3,914 |
-| net P&L | $96,964 | $138,264 |
-| avg/trade | $24.77 | $35.33 |
+| net P&L | \$96,964 | \$138,264 |
+| avg/trade | \$24.77 | \$35.33 |
 | PF | 3.44 | **4.32** |
 | retention | — | **142.6%** |
 
@@ -131,9 +131,9 @@ The 42% boost is the headline — but it's **not real**. Three trips contain bad
 
 | date | symbol | engine entry_px | engine exit_px | limit exit_px | exit/engine ratio | engine net | limit net |
 |---|---|---:|---:|---:|---:|---:|---:|
-| 2026-04-16 | DYDXUSDT | 0.000107 | 0.000106 | 0.0988 | **932×** | -$0.51 | **+$43,388** |
-| 2025-03-25 | LINAUSDT | 7.8e-5 | 8.1e-5 | 0.00078 | 9.6× | $5.12 | +$1,224 |
-| 2025-03-21 | LINAUSDT | 0.00132 | 0.00075 | 7.5e-5 | 0.1× | -$138 | -$299 |
+| 2026-04-16 | DYDXUSDT | 0.000107 | 0.000106 | 0.0988 | **932×** | -\$0.51 | **+\$43,388** |
+| 2025-03-25 | LINAUSDT | 7.8e-5 | 8.1e-5 | 0.00078 | 9.6× | \$5.12 | +\$1,224 |
+| 2025-03-21 | LINAUSDT | 0.00132 | 0.00075 | 7.5e-5 | 0.1× | -\$138 | -\$299 |
 
 These are token-rebasing events (DYDXUSDT → 1000DYDXUSDT, etc.) where the contract spec changes price by a power of 10/1000. The engine's `MaxBarPriceRatio = 3.0` gap-detector should catch these but missed them when the redenom-day prices straddled the gap boundary. The engine's recorded entry/exit prices are at the *old* scale; the limit-fill simulator places limits at those bogus levels and gets matched against trades at the *new* scale, producing impossible profits.
 
@@ -144,8 +144,8 @@ These are token-rebasing events (DYDXUSDT → 1000DYDXUSDT, etc.) where the cont
 | metric | engine | limit |
 |---|---:|---:|
 | trips | 3,911 | 3,911 |
-| net P&L | $97,098 | **$93,952** |
-| avg/trade | $24.83 | $24.02 |
+| net P&L | \$97,098 | **\$93,952** |
+| avg/trade | \$24.83 | \$24.02 |
 | PF | 3.44 | **3.27** |
 | retention | — | **96.8%** |
 
@@ -155,17 +155,17 @@ These are token-rebasing events (DYDXUSDT → 1000DYDXUSDT, etc.) where the cont
 
 Three structural reasons:
 
-1. **Multi-hour holds dilute the moment-of-fill effect.** A long held 42 hours doesn't care whether the entry filled at $0.500 or $0.502 — the exit is at $0.55 either way. DonchianScalp's 10-bar median holds amplified single-fill slippage.
-2. **Per-trade payoff is large** ($24.77 engine, $35 limit before redenom-fix). Round-trip maker fees on $1k notional × 4 bp = $0.40, trail-slippage ~$0.20, rejection cost amortizes to maybe $1-2. All small relative to the $24+ payoff.
+1. **Multi-hour holds dilute the moment-of-fill effect.** A long held 42 hours doesn't care whether the entry filled at \$0.500 or \$0.502 — the exit is at \$0.55 either way. DonchianScalp's 10-bar median holds amplified single-fill slippage.
+2. **Per-trade payoff is large** (\$24.77 engine, \$35 limit before redenom-fix). Round-trip maker fees on \$1k notional × 4 bp = \$0.40, trail-slippage ~\$0.20, rejection cost amortizes to maybe \$1-2. All small relative to the \$24+ payoff.
 3. **No adverse selection.** Limits at the engine's recorded EntryPrice on a price-decline-driven entry don't get adversely selected the way DonchianScalp's channel-break entries did. The CVD+price-decline trigger fires in market-wide capitulation moments where there's plenty of liquidity for a passive maker.
 
 ### Cleaned ex-October check (regime independence under limit fill)
 
 | slice | trips | engine | limit | lim PF | retention |
 |---|---:|---:|---:|---:|---:|
-| all clean | 3,911 | $97,098 | $93,952 | 3.27 | 96.8% |
-| **clean ex-Oct** | **3,548** | **$86,044** | **$83,155** | **3.16** | **96.6%** |
-| Oct only | 363 | $11,053 | $10,797 | 4.77 | 97.7% |
+| all clean | 3,911 | \$97,098 | \$93,952 | 3.27 | 96.8% |
+| **clean ex-Oct** | **3,548** | **\$86,044** | **\$83,155** | **3.16** | **96.6%** |
+| Oct only | 363 | \$11,053 | \$10,797 | 4.77 | 97.7% |
 
 **PF 3.16 ex-October at limit fills.** No regime dependence. Compare to DonchianScalp's PF 0.83 ex-October at limit fills — that's the order of magnitude of difference between a regime-dependent flush-fader and a regime-independent capitulation-fader.
 
@@ -177,7 +177,7 @@ Three structural reasons:
 | Engine PF | 1.57 | 3.44 |
 | **Limit PF (clean)** | **1.25** | **3.27** |
 | **Limit PF ex-Oct (clean)** | **0.83** | **3.16** |
-| avg/trade limit | $0.37 | $24.02 |
+| avg/trade limit | \$0.37 | \$24.02 |
 | Oct 2025 % of P&L | **82%** | **11.4%** |
 | top-5 sym share | 25.5% (at dv≥1M) | 3.8% |
 | profitable months | 23/24 with regime caveat | 23/24 |
@@ -186,7 +186,7 @@ Three structural reasons:
 
 ## Production status
 
-**FlowSwing is the deployable strategy.** 23/24 profitable months, edge spread evenly across 24 months and 592 symbols, no October dependence (PF 3.16 ex-Oct under limit fills, 96.6% retention). The 42-hour median hold and $24/trade payoff give massive headroom for execution drag — limit-fill maker execution at 2 bp + 30% rejection costs essentially nothing in P&L terms.
+**FlowSwing is the deployable strategy.** 23/24 profitable months, edge spread evenly across 24 months and 592 symbols, no October dependence (PF 3.16 ex-Oct under limit fills, 96.6% retention). The 42-hour median hold and \$24/trade payoff give massive headroom for execution drag — limit-fill maker execution at 2 bp + 30% rejection costs essentially nothing in P&L terms.
 
 The decision to drop ShortFadeMA from production was correct (per `project_short_fade_ma_session_2026-05-08.md`). Long-only is structural — the strategy fades capitulation, and capitulations are more reliably long-favorable on this universe than rallies are short-favorable.
 
@@ -247,7 +247,7 @@ price_decline  0.75-1.0  1.0-1.5  1.5-2.5  2.5-4.0  4.0-7.0  7.0+
 35+             1.43      0.03     2.40     0.98     2.06    1.07
 ```
 
-### Avg P&L per trade matrix ($, $1k notional)
+### Avg P&L per trade matrix (\$, \$1k notional)
 
 ```
                   ratio_at_entry
@@ -279,7 +279,7 @@ Same shape as the DonchianScalp recommendation:
 - **PF 3.0-6.0**: scale up. Most of the 17-25% / 1.5-4.0 rvol cells.
 - **PF > 6.0**: scale up further. The 4.0-7.0 rvol column at 17-25% decline.
 
-Per-trade payoff in the goldmine cells is **$45-65/trade** vs the engine baseline $24.77 — sizing into those cells preferentially could double the per-trade payoff.
+Per-trade payoff in the goldmine cells is **\$45-65/trade** vs the engine baseline \$24.77 — sizing into those cells preferentially could double the per-trade payoff.
 
 ### Caveats
 
@@ -301,28 +301,28 @@ The no-lookahead taker-fill simulator ([TakerFillSim.fs](../TradingEdge.CryptoBa
 
 | Cell | Trips | Total | PF |
 |---|---:|---:|---:|
-| Engine market-fill | 3,914 | +$96,964 | 3.50 |
-| Limit-fill (96.8% retention vs engine) | 3,914 | +$93,852 | 3.27 |
-| **Taker-fill, raw** | 3,884 / 99.2% filled | +$145,608 | **4.58** |
-| **Taker-fill, ex-redenom artifacts** | 3,881 | **+$94,602** | **3.34** |
-| Taker-fill, ex-redenom AND ex top-3 flush days | 3,685 | +$87,599 | 3.24 |
+| Engine market-fill | 3,914 | +\$96,964 | 3.50 |
+| Limit-fill (96.8% retention vs engine) | 3,914 | +\$93,852 | 3.27 |
+| **Taker-fill, raw** | 3,884 / 99.2% filled | +\$145,608 | **4.58** |
+| **Taker-fill, ex-redenom artifacts** | 3,881 | **+\$94,602** | **3.34** |
+| Taker-fill, ex-redenom AND ex top-3 flush days | 3,685 | +\$87,599 | 3.24 |
 
-The raw taker headline appears to *beat* the engine (+$145k vs +$97k). Three trips contaminated by the DYDXUSDT → 1000DYDXUSDT and similar redenominations contributed ~$51k of phantom P&L — same engine-side gap-detector bug flagged in [feedback_engine_gap_detector_redenom_bug.md](../memory/feedback_engine_gap_detector_redenom_bug.md). The post-hoc 20% drift filter (`ABS(exit_fill_price / exit_price - 1) > 0.20`) excludes those. After filtering: **taker-fill PF 3.34 / +$94,602**, essentially matching the limit-fill audit's PF 3.27.
+The raw taker headline appears to *beat* the engine (+\$145k vs +\$97k). Three trips contaminated by the DYDXUSDT → 1000DYDXUSDT and similar redenominations contributed ~\$51k of phantom P&L — same engine-side gap-detector bug flagged in [feedback_engine_gap_detector_redenom_bug.md](../memory/feedback_engine_gap_detector_redenom_bug.md). The post-hoc 20% drift filter (`ABS(exit_fill_price / exit_price - 1) > 0.20`) excludes those. After filtering: **taker-fill PF 3.34 / +\$94,602**, essentially matching the limit-fill audit's PF 3.27.
 
 ### Regime independence: full pass
 
 | Cell | Trips | Total | PF |
 |---|---:|---:|---:|
-| Ex-Oct-10 | 3,874 (of 3,884 raw) | +$145,384 | 4.61 |
-| **Ex top-3 flush days (Oct-10-2025, Dec-09-2024, Feb-03-2025)** | **3,688** | **+$138,605** | **4.52** |
-| October 2025 only | 359 | +$10,648 | 4.72 |
+| Ex-Oct-10 | 3,874 (of 3,884 raw) | +\$145,384 | 4.61 |
+| **Ex top-3 flush days (Oct-10-2025, Dec-09-2024, Feb-03-2025)** | **3,688** | **+\$138,605** | **4.52** |
+| October 2025 only | 359 | +\$10,648 | 4.72 |
 
 The three flush days that carried 100%+ of DonchianScalp's P&L contribute roughly proportionate amounts to FlowSwing (~5% of P&L for ~5% of trips). Removing them barely moves the PF.
 
 ### Why taker fill matches/exceeds limit fill on FlowSwing
 
 The same factors that made limit-fill cheap on FlowSwing apply to taker-fill:
-- **42-hour median holds** dilute per-trade execution cost. The 5 bp × 2 taker fee plus typical 3-5 bp slippage is a ~13 bp round-trip — invisible against an average $24-37/trade payoff.
+- **42-hour median holds** dilute per-trade execution cost. The 5 bp × 2 taker fee plus typical 3-5 bp slippage is a ~13 bp round-trip — invisible against an average \$24-37/trade payoff.
 - **High win rate (74.6%) and asymmetric per-trade payoff** mean fills don't need to be precise.
 - **The 60s same-side flow window almost always contains plenty of same-direction taker activity** (99.2% of FlowSwing trips fill cleanly under cum-volume mode), because the entry condition (price has just declined sharply on positive CVD turn) is by construction a moment of high directional flow.
 
@@ -355,7 +355,7 @@ After backfilling the full Binance USDT-perps trade archive back to 2020-01 (1.8
 | Metric | In-sample (2024-05 → 2026-04) | OOS (2020-01 → 2026-05) | OOS ex-2022 |
 |---|---:|---:|---:|
 | Trips | 4,591 | **7,302** | 6,451 |
-| Net P&L | $120,118 | **$128,339** | $145,571 |
+| Net P&L | \$120,118 | **\$128,339** | \$145,571 |
 | Profit factor | 3.50 | **2.25** | — |
 | Win rate | ~73% | 70.6% | — |
 | Symbols traded | 614 | 646 | — |
@@ -366,13 +366,13 @@ The strategy lights up across the wider universe — 2,711 additional trips earn
 
 | Year | Trips | Net P&L | PF | Win% |
 |---|---:|---:|---:|---:|
-| 2020 | 238 | +$2.4k | 1.57 | 69.3 |
-| 2021 | 952 | +$16.5k | 2.96 | 74.6 |
-| **2022** | **851** | **-$17.2k** | **0.49** | **44.8** |
-| 2023 | 283 | +$5.9k | 3.90 | 79.5 |
-| 2024 | 1,541 | +$55.1k | 5.28 | 76.8 |
-| 2025 | 2,623 | +$48.1k | 2.73 | 73.0 |
-| 2026 | 814 | +$17.6k | 2.29 | 70.5 |
+| 2020 | 238 | +\$2.4k | 1.57 | 69.3 |
+| 2021 | 952 | +\$16.5k | 2.96 | 74.6 |
+| **2022** | **851** | **-\$17.2k** | **0.49** | **44.8** |
+| 2023 | 283 | +\$5.9k | 3.90 | 79.5 |
+| 2024 | 1,541 | +\$55.1k | 5.28 | 76.8 |
+| 2025 | 2,623 | +\$48.1k | 2.73 | 73.0 |
+| 2026 | 814 | +\$17.6k | 2.29 | 70.5 |
 
 Six of seven years run PF ≥ 1.57. The genuine new-OOS years (2020-2021, pre-LUNA) work fine. 2022 alone is PF 0.49 / win rate 44.8% — every other year is healthy.
 
@@ -380,11 +380,11 @@ Six of seven years run PF ≥ 1.57. The genuine new-OOS years (2020-2021, pre-LU
 
 | Month | P&L | Catalyst |
 |---|---:|---|
-| 2022-05 | **-$9,886** | LUNA/UST collapse (May 7-12, $40B wipeout) |
-| 2022-01 | -$5,108 | Broad BTC drop $46k→$36k |
-| 2022-11 | -$4,086 | FTX collapse (Nov 8-11) |
+| 2022-05 | **-\$9,886** | LUNA/UST collapse (May 7-12, \$40B wipeout) |
+| 2022-01 | -\$5,108 | Broad BTC drop \$46k→\$36k |
+| 2022-11 | -\$4,086 | FTX collapse (Nov 8-11) |
 
-Outside those three months, 2022 is roughly flat. Top losers in May 2022 cap at -$629 (LUNAUSDT, 4-day hold) — the `--reference-vol-pct 0.1019` sizing keeps per-trip damage bounded. The hit comes from **breadth**: 15th-worst trip is still -$202, similar magnitude. Many simultaneous correlated losers, not a single blown-up position.
+Outside those three months, 2022 is roughly flat. Top losers in May 2022 cap at -\$629 (LUNAUSDT, 4-day hold) — the `--reference-vol-pct 0.1019` sizing keeps per-trip damage bounded. The hit comes from **breadth**: 15th-worst trip is still -\$202, similar magnitude. Many simultaneous correlated losers, not a single blown-up position.
 
 ### Interpretation
 
@@ -407,7 +407,7 @@ None of these are tested yet. Deferred to a future session — current OOS resul
 
 ### Production status post-OOS
 
-Still ship. PF 2.25 / +$128k / 6-of-7-years-positive across 2020-2026 is a real edge by any measurement, especially given the in-sample-was-already-in-low-IS-bias style of the original audits. The 2022 loss does **not** invalidate the strategy — it identifies a known regime where the thesis is invalid, which is the kind of finding live trading needs to manage explicitly (size-down or pause during systemic-credit episodes), not the kind that retires a strategy.
+Still ship. PF 2.25 / +\$128k / 6-of-7-years-positive across 2020-2026 is a real edge by any measurement, especially given the in-sample-was-already-in-low-IS-bias style of the original audits. The 2022 loss does **not** invalidate the strategy — it identifies a known regime where the thesis is invalid, which is the kind of finding live trading needs to manage explicitly (size-down or pause during systemic-credit episodes), not the kind that retires a strategy.
 
 The asymmetry of evidence is the right shape: when conditions match the thesis (5 of 7 years post-2020-bear and post-LUNA/FTX), PF runs 2.3-5.3. When conditions don't match (one specific year, three specific months), PF runs 0.49.
 

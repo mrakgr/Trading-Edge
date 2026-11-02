@@ -994,7 +994,7 @@ entry_px > 1  AND  gap_60 < 4  AND  eff_open > 0.70      -- always
 volat_20m ∈ [0.004, 0.008)                                -- the focus band; varied elsewhere
 ```
 
-Price above $1 (sub-$1 is fee-dead on every EU-accessible route), dense tape, and a smoothly
+Price above \$1 (sub-\$1 is fee-dead on every EU-accessible route), dense tape, and a smoothly
 trending open. Study file: `data/longhiker_study_v2.parquet` (28 GB, same 342.9M clean rows, adds
 the **full** `secs_since_hi/lo` ladder — v1 carried only the 60 and 1200 rungs and could not answer
 this question at all).
@@ -2303,7 +2303,7 @@ play" — was correct, and S26 confirmed density is monotone. This section remov
 ## S27a — The dense population is large; `k20` really was the constraint
 
 `gap_60 < 4` + new 20m high: **847,227 trips / 27,469 ticker-days (3,924/yr)**, median `dv_60`
-**$8.2M**, median price **$52.55**. Genuinely in-play names. ⭐ Median volatility there is **18 bp** —
+**\$8.2M**, median price **\$52.55**. Genuinely in-play names. ⭐ Median volatility there is **18 bp** —
 dense *and* volatile is rare.
 
 ## 💀 S27b — But `eff_ewma` and `vr` both fail on it
@@ -3005,7 +3005,7 @@ Same magnitude verdict as S31.
 4. `EwmaVarMa`, the tightness measure, side-signed sampler, and the trailing-stop mark machinery
    — all reusable, all oracle-tested.
 
-## ⭐ S38 — the SMB "in play" filter, quantified: `rvol_0945` (morning $ / prior-20d avg day $)
+## ⭐ S38 — the SMB "in play" filter, quantified: `rvol_0945` (morning \$ / prior-20d avg day \$)
 
 > USER: *"Since you mentioned that they are looking for catalysts, we could introduce the relative
 > volume as a feature — premarket + first 15m volume divided by the daily average."*
@@ -3300,7 +3300,7 @@ Trade-weighted PF on the mc=1 replayed book (one open position per tkd), gross o
 | 5+ | 121 | +43.4 | +20.3 | 57.4 | 5/7 | +3.1 | 1.65 | 55.9 |
 | all | 1,383 | +28.8 | +10.9 | 56.3 | 7/7 | +1.6 | 1.54 | 54.0 |
 
-### vol_ratio (1m/20m $ rate) bands, ts60
+### vol_ratio (1m/20m \$ rate) bands, ts60
 | band | tkd/yr | eqw | med | up% | yrs | trim-top5 | PF | win% |
 |---|---|---|---|---|---|---|---|---|
 | <0.5 | 12 | -5.0 | +1.4 | 50.0 | 2/7 | -11.3 | 0.77 | 50.0 |
@@ -3592,7 +3592,7 @@ ratio's "coil" are different axes, and the good cell is the intersection.
 
 `data/longhiker_consol_trendcell.log`. ts30, mc=1 inside each band:
 
-| consol_5m_lag1m | LONG tkd/yr | LONG eqw | med | yrs | SHORT eqw | med | yrs | LONG $50+ eqw (med, up%) |
+| consol_5m_lag1m | LONG tkd/yr | LONG eqw | med | yrs | SHORT eqw | med | yrs | LONG \$50+ eqw (med, up%) |
 |---|---|---|---|---|---|---|---|---|
 | <.02 (a straight line) | 579 | +0.03 | +1.73 | 4/7 | −0.20 | +0.56 | 4/7 | **+4.23** (+3.89, 55.7%) |
 | .02-.04 | 6,716 | −2.84 | +0.00 | 1/7 | −3.37 | −1.17 | 0/7 | −1.22 |
@@ -3601,7 +3601,7 @@ ratio's "coil" are different axes, and the good cell is the intersection.
 | .08-.10 | 10,667 | +0.12 | +0.53 | 3/7 | −0.54 | −0.26 | 3/7 | +0.94 |
 
 The fade edge peaks at .02-.06 (~3 bp both sides) and the PERFECT line (<.02) does not revert — on
-$50+ names it CONTINUES (SurgeRider's ignition reading: the pure line is a different animal from
+\$50+ names it CONTINUES (SurgeRider's ignition reading: the pure line is a different animal from
 the merely efficient move). ⚠ Reading caveat for every wide cell in this program: the sub-bands
 average ≈ −1.4, not the whole cell's −4.1 — the mc=1 replay inside a WIDE gate admits the first
 trip of each burst (the worst), finer gates admit later trips of the same bursts
@@ -3625,16 +3625,16 @@ scales with tick/price; a real edge is flat in price. ts30, mc=1:
 
 | price | LONG trend cell (<.10) | SHORT trend cell | LONG coil (unlagged ≥.45) yrs / trim |
 |---|---|---|---|
-| $2-5 | −7.53 | −6.45 | +1.03 6/7 / −14.9 |
-| $5-10 | −5.78 | −5.26 | +1.00 5/7 / −13.9 |
-| $10-20 | −4.70 | −3.98 | +0.84 3/7 / −9.7 |
-| $20-50 | −3.21 | −3.76 | +3.77 6/7 / −3.6 |
-| $50-100 | −2.64 | −3.16 | +5.29 6/7 / −1.7 |
-| $100+ | −2.30 | −3.16 | +4.74 7/7 / −0.6 |
+| \$2-5 | −7.53 | −6.45 | +1.03 6/7 / −14.9 |
+| \$5-10 | −5.78 | −5.26 | +1.00 5/7 / −13.9 |
+| \$10-20 | −4.70 | −3.98 | +0.84 3/7 / −9.7 |
+| \$20-50 | −3.21 | −3.76 | +3.77 6/7 / −3.6 |
+| \$50-100 | −2.64 | −3.16 | +5.29 6/7 / −1.7 |
+| \$100+ | −2.30 | −3.16 | +4.74 7/7 / −0.6 |
 
-Tick/price falls 40× across the table, the fade edge only to a third: **above $50 the −2.5 to −3 bp
-is genuine mean reversion on both sides**; below $10 roughly half the number is spread. The coil
-edge runs the OTHER way (strongest and trim-cleanest on $100+) — the opposite of bounce.
+Tick/price falls 40× across the table, the fade edge only to a third: **above \$50 the −2.5 to −3 bp
+is genuine mean reversion on both sides**; below \$10 roughly half the number is spread. The coil
+edge runs the OTHER way (strongest and trim-cleanest on \$100+) — the opposite of bounce.
 
 ## §2 The effective spread on the FRAME universe (`scripts/equity/longhiker_spread_study.py`)
 
@@ -3644,37 +3644,37 @@ estimator + tick-rule reversal rate. ⭐ **First spread measurement on this univ
 
 | price | tkd | med px | tick bp | Roll bp med | Roll bp mean | rev rate | mean abs dp bp | prints/tkd |
 |---|---|---|---|---|---|---|---|---|
-| $2-5 | 134 | 3.5 | 28.63 | 7.27 | 8.52 | 0.859 | 17.53 | 19,600 |
-| $5-10 | 194 | 7.4 | 13.45 | 3.64 | 4.97 | 0.815 | 9.01 | 24,762 |
-| $10-20 | 238 | 14.8 | 6.74 | 2.17 | 3.07 | 0.770 | 5.39 | 33,638 |
-| $20-50 | 255 | 30.2 | 3.31 | 2.05 | 2.72 | 0.699 | 4.04 | 31,527 |
-| $50-100 | 125 | 67.2 | 1.49 | 1.97 | 2.17 | 0.646 | 2.80 | 34,811 |
-| $100+ | 126 | 181.9 | 0.55 | 2.27 | 2.64 | 0.605 | 2.25 | 25,476 |
+| \$2-5 | 134 | 3.5 | 28.63 | 7.27 | 8.52 | 0.859 | 17.53 | 19,600 |
+| \$5-10 | 194 | 7.4 | 13.45 | 3.64 | 4.97 | 0.815 | 9.01 | 24,762 |
+| \$10-20 | 238 | 14.8 | 6.74 | 2.17 | 3.07 | 0.770 | 5.39 | 33,638 |
+| \$20-50 | 255 | 30.2 | 3.31 | 2.05 | 2.72 | 0.699 | 4.04 | 31,527 |
+| \$50-100 | 125 | 67.2 | 1.49 | 1.97 | 2.17 | 0.646 | 2.80 | 34,811 |
+| \$100+ | 126 | 181.9 | 0.55 | 2.27 | 2.64 | 0.605 | 2.25 | 25,476 |
 
-⚠ **Roll caveat**: under $20 the Roll estimate is BELOW one tick, which cannot be the quoted
-spread (≥ 1 tick = 28.6 bp on a $3.50 stock). Roll measures the EFFECTIVE spread of the prints
+⚠ **Roll caveat**: under \$20 the Roll estimate is BELOW one tick, which cannot be the quoted
+spread (≥ 1 tick = 28.6 bp on a \$3.50 stock). Roll measures the EFFECTIVE spread of the prints
 that happen — sub-penny midpoint executions on lit venues and trending prints (positive
 autocorrelation cancels the bounce covariance) both pull it down. Read Roll as a floor on the
-effective spread and one tick as the floor on the quoted one; the reversal rate (0.86 at $2-5 vs
-0.61 at $100+, 0.5 = random walk) shows the bounce is very much there.
+effective spread and one tick as the floor on the quoted one; the reversal rate (0.86 at \$2-5 vs
+0.61 at \$100+, 0.5 = random walk) shows the bounce is very much there.
 
 ## §3 Economics per round trip (bp) — three execution models
 
-Measured edges are vwap-to-vwap at ts30. Rebate $0.002/sh and take fee $0.003/sh are GENERIC
+Measured edges are vwap-to-vwap at ts30. Rebate \$0.002/sh and take fee \$0.003/sh are GENERIC
 ECN assumptions (no broker schedule in hand; Cobra is out, Lightspeed likely — the user).
 `e` = fade edge, `spr` = Roll median.
 
 | price | fade edge | spread | quoted floor (1 tick) | rebate/fill | fee/fill | FADE taker in+out: e−spr−2fee | FADE passive in, timestop out: e+reb−fee | FADE passive in+out (if filled): e+spr+2reb | COIL taker in+out |
 |---|---|---|---|---|---|---|---|---|---|
-| $2-5 | +6.99 | 7.27 | 28.6 | 5.71 | 8.57 | -17.42 | **+4.13** | +25.69 | -23.38 |
-| $5-10 | +5.52 | 3.64 | 13.4 | 2.70 | 4.05 | -6.23 | **+4.17** | +14.57 | -10.75 |
-| $10-20 | +4.34 | 2.17 | 6.7 | 1.35 | 2.03 | -1.88 | **+3.66** | +9.21 | -5.38 |
-| $20-50 | +3.48 | 2.05 | 3.3 | 0.66 | 0.99 | -0.56 | **+3.15** | +6.85 | -0.27 |
-| $50-100 | +2.90 | 1.97 | 1.5 | 0.30 | 0.45 | +0.04 | **+2.75** | +5.47 | +2.43 |
-| $100+ | +2.73 | 2.27 | 0.6 | 0.11 | 0.16 | +0.13 | **+2.68** | +5.22 | +2.14 |
+| \$2-5 | +6.99 | 7.27 | 28.6 | 5.71 | 8.57 | -17.42 | **+4.13** | +25.69 | -23.38 |
+| \$5-10 | +5.52 | 3.64 | 13.4 | 2.70 | 4.05 | -6.23 | **+4.17** | +14.57 | -10.75 |
+| \$10-20 | +4.34 | 2.17 | 6.7 | 1.35 | 2.03 | -1.88 | **+3.66** | +9.21 | -5.38 |
+| \$20-50 | +3.48 | 2.05 | 3.3 | 0.66 | 0.99 | -0.56 | **+3.15** | +6.85 | -0.27 |
+| \$50-100 | +2.90 | 1.97 | 1.5 | 0.30 | 0.45 | +0.04 | **+2.75** | +5.47 | +2.43 |
+| \$100+ | +2.73 | 2.27 | 0.6 | 0.11 | 0.16 | +0.13 | **+2.68** | +5.22 | +2.14 |
 
 **Read:**
-1. 💀 **Taker on both legs is dead below $50** and ~zero above it, for the fade AND the coil: the
+1. 💀 **Taker on both legs is dead below \$50** and ~zero above it, for the fade AND the coil: the
    signal edge is the spread. This is the number every S31-S40 cell was implicitly quoting.
 2. **Passive entry + timestop exit is +2.7 to +4.2 bp everywhere** — the edge survives because the
    rebate on the entry fill roughly cancels the fee on the exit, and the fade is NATURALLY passive
@@ -3682,27 +3682,27 @@ ECN assumptions (no broker schedule in hand; Cobra is out, Lightspeed likely —
    Statistically real (48% win rate, ~30 bp per-trade std, per-trade Sharpe ~0.1, ~2×18k
    ticker-days/yr to feed it) — a pure volume game, and every number is CONDITIONAL on the fill,
    which is the adverse-selection question no trades-only backtest can answer.
-3. ⭐ **Passive on both legs: below $10 the REBATE is 2-4× the signal.** $0.002/sh is 5.7 bp per
-   fill on a $3.50 stock — 11.4 bp per round trip before any edge. That is the "rebate farming"
+3. ⭐ **Passive on both legs: below \$10 the REBATE is 2-4× the signal.** \$0.002/sh is 5.7 bp per
+   fill on a \$3.50 stock — 11.4 bp per round trip before any edge. That is the "rebate farming"
    business the user suspects prop traders live on, and it is structural, not a signal. It needs
    queue position: at a 1-tick spread on a low-priced stock the queue is long and the fill is the
    whole game. ⚠ The "+25.7" small-cap line double-counts: the measured small-cap edge already
-   contains part of the bounce (§1), so the true passive-both-legs number there is the $50+
+   contains part of the bounce (§1), so the true passive-both-legs number there is the \$50+
    residual (~2.7) + spread + 2 rebates ≈ +21, still rebate-dominated.
-4. The coil break as a taker survives only on $50+ names (+2.1 to +2.4 net) — a 1-2 min hold at
+4. The coil break as a taker survives only on \$50+ names (+2.1 to +2.4 net) — a 1-2 min hold at
    ~600 ticker-days/yr; on small caps it is −5 to −23.
 
 ## §4 Verdict (research framing — not tradeable for us now, the user's premise)
 
 - **Possible in principle, as a MAKER business with a directional skew, not as a signal system.**
-  The fade edge is real above $50 (~2.5-3 bp at 30 s, both sides); with passive entries it is
-  +2.7-4 bp per round trip on every bucket; with passive exits the rebate dominates on sub-$10.
+  The fade edge is real above \$50 (~2.5-3 bp at 30 s, both sides); with passive entries it is
+  +2.7-4 bp per round trip on every bucket; with passive exits the rebate dominates on sub-\$10.
 - **What it needs that we do not have**: NBBO quotes (at least) for the fill/queue model —
   `TakerFillSim` exists, a MakerFillSim cannot be built honestly from trades alone; a per-share
   fee/rebate schedule (Lightspeed); and the answer to adverse selection, which is the whole
   difference between "+4 bp if filled" and money.
 - ⭐ The niche is where the colocated makers are thin: the sparse / just-woke-up tape (S39's best
-  PF) and the sub-$10 tick-constrained names where the rebate is the edge. On $100+ names the
+  PF) and the sub-\$10 tick-constrained names where the rebate is the edge. On \$100+ names the
   queue is owned by Virtu/Citadel-class quoting; a retail limit sits at the back.
 - ⏭ If revisited: (a) one month of NBBO from Massive on the FRAME universe → quoted spread by
   bucket (replaces the Roll floor) and a queue-position fill model; (b) restate §3 with

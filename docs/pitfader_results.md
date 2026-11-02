@@ -2082,3 +2082,36 @@ holdout years, with the fit flat — which is why a fit-only search mostly passe
 | dimb_120 | 1.92 → **14.81** (18) | 2.12 → **12.00** (27) | 2.87 → **15.15** (28) | 1.21 → **5.84** (26) | 2.35 → **2.11** (28) |
 | dimb_180 | 2.09 → **20.74** (18) | 1.38 → **8.84** (21) | 1.86 → **8.20** (32) | 2.53 → **9.00** (30) | 2.39 → **2.02** (28) |
 | dimb_300 | 1.89 → **15.80** (12) | 2.94 → **9.93** (22) | 2.40 → **12.37** (27) | 1.18 → **2.40** (28) | 1.79 → **3.38** (20) |
+
+## PIT-15 — what historical CME order-book data would cost for these episodes (user 2026-11-02)
+
+Malcolm asked whether to pay ~\$50 a month for Rithmic's CME market-by-order feed so we could test order-book imbalance
+features. Rithmic's history service replays only ticks, tick bars, time bars and minute volume profiles: its protocol has
+live depth-by-order messages and a snapshot, but no depth replay. A Rithmic subscription is therefore a LIVE feed that
+would have to be recorded for months before a test. Databento's GLBX.MDP3 has the history:
+
+- **MBP-10** (the top 10 levels after every book event, self-contained) and **MBP-1** (top of book with sizes) from 2010-06,
+  so the whole 2015–26 sample is covered.
+- **MBO** (every order event) from 2017-05-21 only; the book is rebuilt from Databento's 00:00 UTC weekday snapshot, so an
+  MBO window must be bought from midnight.
+
+`scripts/futures/pitfader_obi_cost.py` priced it with Databento's free `metadata.get_cost` (nothing bought). The episodes are
+each group's core (as PIT-14: k300 + the per-root floor), one window per mc = 0 episode, [the first signal − 20 min, the last
+exit], merged per contract-day. 300 windows were priced exactly (≤ 5 per group-year) and scaled by the stratum's window
+count. One ES regular session for scale: MBO \$1.47 (0.87 GB), MBP-10 \$2.16 (4.6 GB), MBP-1 \$1.38.
+
+| group | episodes | windows | MBP-10 \$ | MBP-1 \$ | MBO \$ (2017-05-22 on, from midnight) |
+|---|---|---|---|---|---|
+| equity (ES, MES, NQ) | 3,971 | 3,861 | 673 | 370 | 2,709 |
+| bonds (ZB, ZN, ZT) | 1,438 | 1,411 | 72 | 41 | 213 |
+| FX (6A 6B 6C 6E 6J 6N) | 2,065 | 2,052 | 51 | 31 | 250 |
+| metals (HG, MGC) | 1,113 | 1,103 | 27 | 14 | 247 |
+| NG | 380 | 380 | 11 | 4 | 38 |
+| **all** | **8,967** | **8,807** | **834** | **460** | **3,457** |
+
+- The windows average 44 minutes; equity is 80 % of the MBP-10 cost (ES and NQ books are the busiest, 2022 the busiest year:
+  \$200 of the \$834).
+- ⚠ NG's 2025–26 strata failed to price (9 windows): newer NG contracts take a two-digit-year raw symbol (`NGN25`) and
+  the script sent `NGN5`. NG's total is low by roughly its 2025–26 share (a few dollars).
+- **Without equity, the financial and commodity groups' whole 2015–26 history is about \$160 of MBP-10.** Databento's
+  \$125 free credit nearly covers that.

@@ -95,10 +95,10 @@ FRAME = `dv20_prior >= $5M ∧ prev_close_raw >= $2` (543,925 ticker-days/yr).
 ### T7 — liquidity tiers (spring, decline <= -5%, broke 7d low)
 | cell | n/yr | r_open1: mean bp / PF | r1: mean bp / PF | r3: mean bp / PF | r5: mean bp / PF | r10: mean bp / PF | win5 | yrs5 | med mae5 |
 |---|---|---|---|---|---|---|---|---|---|
-| dv20 $5-20M | 560 | +3 / 1.03 | -13 / 0.95 | -5 / 0.99 | -2 / 1.00 | +1 / 1.00 | 49% | 12/22 | -655 |
-| dv20 $20-100M | 427 | -1 / 0.99 | -40 / 0.85 | -10 / 0.97 | -2 / 1.00 | +8 / 1.01 | 51% | 12/22 | -665 |
-| dv20 $100M-1B | 184 | +35 / 1.30 | -42 / 0.84 | +29 / 1.08 | +8 / 1.02 | -48 / 0.92 | 52% | 14/22 | -697 |
-| dv20 $1B+ | 14 | +78 / 1.79 | -10 / 0.96 | +135 / 1.47 | +39 / 1.10 | -55 / 0.90 | 53% | 10/18 | -653 |
+| dv20 \$5-20M | 560 | +3 / 1.03 | -13 / 0.95 | -5 / 0.99 | -2 / 1.00 | +1 / 1.00 | 49% | 12/22 | -655 |
+| dv20 \$20-100M | 427 | -1 / 0.99 | -40 / 0.85 | -10 / 0.97 | -2 / 1.00 | +8 / 1.01 | 51% | 12/22 | -665 |
+| dv20 \$100M-1B | 184 | +35 / 1.30 | -42 / 0.84 | +29 / 1.08 | +8 / 1.02 | -48 / 0.92 | 52% | 14/22 | -697 |
+| dv20 \$1B+ | 14 | +78 / 1.79 | -10 / 0.96 | +135 / 1.47 | +39 / 1.10 | -55 / 0.90 | 53% | 10/18 | -653 |
 
 ### T8 — year table, headline cell = spring (decl<=-5%, close>prev) x broke the 7d low
 decl_prev < -0.05 AND rev_prev > 0 AND below7 < 0
@@ -154,7 +154,7 @@ decl_prev < -0.05 AND rev_prev > 0 AND below7 < 0
 "large decline → close" is the same edge every MR system here already trades — buy the flush,
 sell the recovery — and a close-above-reference filter selects the days where the recovery has
 already happened. The Wyckoff spring as a CLOSE-of-day entry does not exist in this universe at
-$5M+/day; if it exists at all it is an intraday entry (buy the reclaim as it happens, sell the
+\$5M+/day; if it exists at all it is an intraday entry (buy the reclaim as it happens, sell the
 strong close), which is the LongHiker S39 shape with a longer hold, or a next-day pattern (the
 spring's follow-through after a weak open — untested).
 
@@ -235,9 +235,9 @@ FRAME as S1.
 | rvol 1-2 | 344 | +35 / 1.20 | +63 / 1.19 | +151 / 1.30 | +163 / 1.27 | +138 / 1.19 | 54% | 17/22 | +858 | +4365 |
 | rvol 2-4 | 152 | -27 / 0.87 | +7 / 1.02 | -1 / 1.00 | +58 / 1.09 | +129 / 1.17 | 54% | 11/22 | +796 | +5323 |
 | rvol 4+ | 86 | +9 / 1.03 | +148 / 1.32 | +246 / 1.40 | +331 / 1.47 | +517 / 1.67 | 60% | 17/22 | +700 | +6289 |
-| dv20 $5-20M | 428 | +26 / 1.17 | +41 / 1.12 | +98 / 1.19 | +140 / 1.23 | +145 / 1.18 | 56% | 18/22 | +805 | +4840 |
-| dv20 $20-100M | 294 | +23 / 1.11 | +50 / 1.13 | +125 / 1.22 | +149 / 1.21 | +139 / 1.16 | 56% | 18/22 | +891 | +5421 |
-| dv20 $100M+ | 124 | -8 / 0.97 | +58 / 1.15 | +169 / 1.30 | +213 / 1.33 | +250 / 1.32 | 56% | 15/22 | +946 | +5082 |
+| dv20 \$5-20M | 428 | +26 / 1.17 | +41 / 1.12 | +98 / 1.19 | +140 / 1.23 | +145 / 1.18 | 56% | 18/22 | +805 | +4840 |
+| dv20 \$20-100M | 294 | +23 / 1.11 | +50 / 1.13 | +125 / 1.22 | +149 / 1.21 | +139 / 1.16 | 56% | 18/22 | +891 | +5421 |
+| dv20 \$100M+ | 124 | -8 / 0.97 | +58 / 1.15 | +169 / 1.30 | +213 / 1.33 | +250 / 1.32 | 56% | 15/22 | +946 | +5082 |
 
 ### T7 — year table, SHORT, cell = decline from open <= -10% AND close > open
 decl_open < -0.10 AND rev_open > 0
@@ -302,10 +302,10 @@ decl_open < -0.10 AND rev_open > 0
   r5 +4,231 / PF 5.81 and **everything else reads −60 / 0.93 (win 43%)**; excluding 2008 and
   2020 entirely: r5 −96 / PF 0.89, 9/20 years, r10 −306 / 0.75.
 - **Outliers**: median r5 is **−157 bp**. The #1 trade is a DATA ARTIFACT — `WB 2008-09-29`
-  (Wachovia) carries a raw close of **$0.01** (low 0.01, next open 2.30): r5 = +5,770,000 bp on
+  (Wachovia) carries a raw close of **\$0.01** (low 0.01, next open 2.30): r5 = +5,770,000 bp on
   one row. Drop that ONE trade: mean +671 → +120 / PF 1.13; drop the top 5: +90 / 1.10; top 20:
   +47 / 1.05; top 100 of 10,479: **−66 / 0.93**. The top 20 trades are 40% of all positive P&L.
-- ⚠ **Daily-tape hazard, new**: a `$0.01` close on a $10 stock passed every gate here (the raw
+- ⚠ **Daily-tape hazard, new**: a `$0.01` close on a \$10 stock passed every gate here (the raw
   floor is on D−1). Any daily-bar study on this table needs a bad-print guard on the SIGNAL day
   (e.g. `close / prev_close > 0.05` or a cross-check against the next open) — noted for the
   price-adjustment doc, not yet applied anywhere.
@@ -315,10 +315,10 @@ reading "the failed reversal is the buy" stands only in its shallower bands (−
 16-18/22 years, +28..+36 bp — the ordinary MR drift), not as a deep-flush cell.
 
 > **The WB 2008-09-29 row, verified against the minute bars** (`data/minute_aggs/2008-09-29.parquet`,
-> 442 WB bars): the crash was real — the stock printed ~$1 in the pre-market from 08:34 (the
-> Citigroup rescue) and the regular session closed $1.84 — but the tape's minimum print is $0.15
+> 442 WB bars): the crash was real — the stock printed ~\$1 in the pre-market from 08:34 (the
+> Citigroup rescue) and the regular session closed \$1.84 — but the tape's minimum print is \$0.15
 > (one 14:33 bar, 39.6M shares, range 0.15-5.00, the delayed open) and the last post-market bars
-> are $2.04-2.05. **No $0.01 trade exists in the minute data.** The `daily_adjusted` row's
+> are \$2.04-2.05. **No \$0.01 trade exists in the minute data.** The `daily_adjusted` row's
 > low = close = 0.01 is a defect of the vendor's DAILY flat file, not of the tape — the daily and
 > minute files disagree. A bad-print guard on the signal day (or a daily-vs-minute close
 > cross-check) is the fix; the minute files exist back to 2003-09 so the check is cheap.
@@ -401,9 +401,9 @@ FRAME plus a minimal signal-day guard `close > 0.1 × prev_close` (the WB class)
 | rvol 1-2 | 313 | +66 / 1.50 | +59 / 1.17 | +122 / 1.22 | +91 / 1.13 | +67 / 1.08 | 48% | 10/22 | -43 | -1010 |
 | rvol 2-4 | 165 | +72 / 1.47 | +14 / 1.04 | +35 / 1.06 | +6 / 1.01 | -157 / 0.84 | 45% | 9/22 | -157 | -937 |
 | rvol 4+ | 103 | -30 / 0.89 | -107 / 0.80 | -114 / 0.85 | -242 / 0.74 | -357 / 0.69 | 41% | 6/22 | -313 | -1123 |
-| dv20 $5-20M | 476 | +32 / 1.23 | -7 / 0.98 | +6 / 1.01 | -36 / 0.95 | -121 / 0.88 | 45% | 10/22 | -159 | -1030 |
-| dv20 $20-100M | 325 | +43 / 1.26 | -11 / 0.97 | -34 / 0.95 | -89 / 0.90 | -211 / 0.81 | 43% | 8/22 | -280 | -1190 |
-| dv20 $100M+ | 147 | +89 / 1.47 | +41 / 1.10 | +64 / 1.09 | -29 / 0.97 | -200 / 0.83 | 44% | 12/22 | -231 | -1213 |
+| dv20 \$5-20M | 476 | +32 / 1.23 | -7 / 0.98 | +6 / 1.01 | -36 / 0.95 | -121 / 0.88 | 45% | 10/22 | -159 | -1030 |
+| dv20 \$20-100M | 325 | +43 / 1.26 | -11 / 0.97 | -34 / 0.95 | -89 / 0.90 | -211 / 0.81 | 43% | 8/22 | -280 | -1190 |
+| dv20 \$100M+ | 147 | +89 / 1.47 | +41 / 1.10 | +64 / 1.09 | -29 / 0.97 | -200 / 0.83 | 44% | 12/22 | -231 | -1213 |
 
 ### T6 — year table, LONG, cell = rise from open >= +10% AND close < open
 (high/open - 1) >= 0.10 AND rev_open < 0
@@ -562,14 +562,14 @@ more than 50% above the entry.
 | rvol 5-10 | 434 | -10 / 0.95 | +46 / 1.14 | +82 / 1.17 | +117 / 1.21 | +176 / 1.26 | 56% | 17/22 | +167 | +4681 | 4.5% |
 | rvol 10-25 | 161 | -13 / 0.95 | +82 / 1.20 | +184 / 1.35 | +227 / 1.37 | +306 / 1.42 | 57% | 18/22 | +228 | +5223 | 5.5% |
 | rvol 25+ | 32 | -43 / 0.90 | +58 / 1.09 | +38 / 1.05 | +79 / 1.09 | +313 / 1.34 | 56% | 12/22 | +319 | +8590 | 10.5% |
-| prev close $2-5 | 1,562 | -48 / 0.80 | +5 / 1.01 | +3 / 1.00 | +36 / 1.04 | +98 / 1.09 | 58% | 11/22 | +385 | +7257 | 9.4% |
-| prev close $5-10 | 1,417 | -25 / 0.87 | -7 / 0.98 | -14 / 0.98 | -11 / 0.99 | +57 / 1.06 | 55% | 14/22 | +214 | +5965 | 7.1% |
-| prev close $10-25 | 1,825 | -23 / 0.87 | -6 / 0.98 | -2 / 1.00 | +9 / 1.01 | +98 / 1.12 | 53% | 15/22 | +96 | +4674 | 4.2% |
-| prev close $25+ | 1,394 | -15 / 0.90 | +3 / 1.01 | +16 / 1.03 | -8 / 0.99 | +33 / 1.05 | 52% | 14/22 | +51 | +3671 | 2.3% |
-| dv20 $5-20M | 3,103 | -20 / 0.88 | -1 / 1.00 | +5 / 1.01 | +13 / 1.02 | +76 / 1.09 | 54% | 15/22 | +158 | +5241 | 5.5% |
-| dv20 $20-100M | 2,162 | -28 / 0.86 | +2 / 1.01 | +1 / 1.00 | -0 / 1.00 | +53 / 1.06 | 55% | 12/22 | +178 | +5500 | 6.0% |
-| dv20 $100M-1B | 854 | -50 / 0.80 | -13 / 0.97 | -9 / 0.99 | +15 / 1.02 | +127 / 1.14 | 55% | 13/22 | +181 | +5471 | 6.0% |
-| dv20 $1B+ | 78 | -78 / 0.74 | -42 / 0.90 | -90 / 0.88 | -70 / 0.92 | +13 / 1.01 | 51% | 7/20 | +67 | +5355 | 6.0% |
+| prev close \$2-5 | 1,562 | -48 / 0.80 | +5 / 1.01 | +3 / 1.00 | +36 / 1.04 | +98 / 1.09 | 58% | 11/22 | +385 | +7257 | 9.4% |
+| prev close \$5-10 | 1,417 | -25 / 0.87 | -7 / 0.98 | -14 / 0.98 | -11 / 0.99 | +57 / 1.06 | 55% | 14/22 | +214 | +5965 | 7.1% |
+| prev close \$10-25 | 1,825 | -23 / 0.87 | -6 / 0.98 | -2 / 1.00 | +9 / 1.01 | +98 / 1.12 | 53% | 15/22 | +96 | +4674 | 4.2% |
+| prev close \$25+ | 1,394 | -15 / 0.90 | +3 / 1.01 | +16 / 1.03 | -8 / 0.99 | +33 / 1.05 | 52% | 14/22 | +51 | +3671 | 2.3% |
+| dv20 \$5-20M | 3,103 | -20 / 0.88 | -1 / 1.00 | +5 / 1.01 | +13 / 1.02 | +76 / 1.09 | 54% | 15/22 | +158 | +5241 | 5.5% |
+| dv20 \$20-100M | 2,162 | -28 / 0.86 | +2 / 1.01 | +1 / 1.00 | -0 / 1.00 | +53 / 1.06 | 55% | 12/22 | +178 | +5500 | 6.0% |
+| dv20 \$100M-1B | 854 | -50 / 0.80 | -13 / 0.97 | -9 / 0.99 | +15 / 1.02 | +127 / 1.14 | 55% | 13/22 | +181 | +5471 | 6.0% |
+| dv20 \$1B+ | 78 | -78 / 0.74 | -42 / 0.90 | -90 / 0.88 | -70 / 0.92 | +13 / 1.01 | 51% | 7/20 | +67 | +5355 | 6.0% |
 
 ### T5 — year table, SHORT, rng >= 15%
 
@@ -649,8 +649,8 @@ more than 50% above the entry.
 - **T4 — the runner**: `chg20 +150%+`: r5 +469 / 1.44, **r10 +932 / 1.82, 67% win, 21/22**, 435/yr
   (tail 15%); `gap +10..30%`: +274 / 1.37, 21/22; `gap +30%+`: +642 / 1.74; `rvol 10-25`: +227 /
   1.37, 18/22. **The crushed name (`chg20 < −30%`) is a LOSING short: −365 / 0.67, 5/22** — its
-  big-range day is the capitulation bounce, the MR cell. Price: $2-5 carries it, $25+ has none;
-  $1B+/day liquidity has none.
+  big-range day is the capitulation bounce, the MR cell. Price: \$2-5 carries it, \$25+ has none;
+  \$1B+/day liquidity has none.
 - **T5 — era**: 2005-2016 mixed to negative (2008-2011 all negative at r5 — crash bounces);
   **2017-2026 positive at r5 in 9 of 10 years** (2020 the exception, −244), 2022-2023 at PF 1.19-1.35
   ungated.
@@ -882,9 +882,9 @@ the whole run back; `prev_run_maxday`; `up_streak_d`. SHORT at D's close, AND at
 | chg20 <50% | 113 | +16 / 1.12 | +73 / 1.25 | +203 / 1.48 | +289 / 1.55 | +155 / 1.20 | +274 / 1.52 | +134 / 1.17 | 60% | 13/22 | +4547 | 29% |
 | chg20 50-150% | 114 | +17 / 1.10 | +2 / 1.01 | +30 / 1.05 | +56 / 1.08 | +161 / 1.18 | +34 / 1.05 | +146 / 1.16 | 58% | 15/22 | +6058 | 6% |
 | chg20 150%+ | 46 | +87 / 1.31 | +162 / 1.28 | +250 / 1.29 | +483 / 1.52 | +886 / 1.80 | +365 / 1.38 | +781 / 1.70 | 65% | 15/22 | +10442 | 1% |
-| prev close $2-5 | 70 | +15 / 1.06 | +59 / 1.13 | +167 / 1.25 | +270 / 1.34 | +396 / 1.38 | +244 / 1.31 | +376 / 1.36 | 64% | 17/22 | +8004 | 6% |
-| prev close $5-15 | 107 | +42 / 1.25 | +69 / 1.19 | +178 / 1.31 | +277 / 1.41 | +343 / 1.39 | +227 / 1.33 | +294 / 1.33 | 61% | 19/22 | +6002 | 14% |
-| prev close $15+ | 95 | +24 / 1.18 | +47 / 1.15 | +76 / 1.15 | +134 / 1.23 | +125 / 1.16 | +108 / 1.18 | +102 / 1.13 | 56% | 14/22 | +4699 | 13% |
+| prev close \$2-5 | 70 | +15 / 1.06 | +59 / 1.13 | +167 / 1.25 | +270 / 1.34 | +396 / 1.38 | +244 / 1.31 | +376 / 1.36 | 64% | 17/22 | +8004 | 6% |
+| prev close \$5-15 | 107 | +42 / 1.25 | +69 / 1.19 | +178 / 1.31 | +277 / 1.41 | +343 / 1.39 | +227 / 1.33 | +294 / 1.33 | 61% | 19/22 | +6002 | 14% |
+| prev close \$15+ | 95 | +24 / 1.18 | +47 / 1.15 | +76 / 1.15 | +134 / 1.23 | +125 / 1.16 | +108 / 1.18 | +102 / 1.13 | 56% | 14/22 | +4699 | 13% |
 
 ### T5 — year table, SHORT, first red: prev_streak >= 3 AND prev_run_gain >= 0.5 AND rev_prev < 0 AND retrace < 0.5
 | year | n | r1 | r5 | r10 | r5 @open | win5 | p95 mfe5 |
@@ -931,7 +931,7 @@ the whole run back; `prev_run_maxday`; `up_streak_d`. SHORT at D's close, AND at
 - **T4**: inside the first-red cell, D's range 15%+ (r10 +431..+752), the gap-down that was bought
   back above its open (+397 / 1.64), QUIET volume on D (rvol < 1: +294 / 1.44 — the buyers are
   gone, not fighting), the run's biggest day ≥ 60% (r10 +850 / 1.99) and `chg20 ≥ 150%` (r10 +886
-  / 1.80) all lift it; $15+ names carry the least.
+  / 1.80) all lift it; \$15+ names carry the least.
 - **T5 / clustering**: 2005, 2013, 2016, 2019 negative at r5; 2020 is 1,062 of ~6,000 trips (the
   mania year, +510 / 2.07) but the cell is 22% on 10+-signal days and the run ≥ 100% cells are 4% —
   idiosyncratic, like S4's runner. Tail p95 mfe5 +47..+100% as everywhere on this side.
@@ -1248,7 +1248,7 @@ r10 3.26, median +1,071, 18/21 — the same consistency at 3.6× the frequency.*
 
 **SPEC v2 (SpringFlyer, SHORT, daily bars)**: at day D's close, `er10 > 0.9 ∧ er20 > 0.6 ∧
 close ≥ max close of the prior 20 sessions ∧ (max close / min close over the last 20 sessions incl.
-D) − 1 > 2.0`, universe CS/ADRC with prior-20-day dollar volume ≥ $5M and a raw $2 floor on D−1's
+D) − 1 > 2.0`, universe CS/ADRC with prior-20-day dollar volume ≥ \$5M and a raw \$2 floor on D−1's
 close. Short at D's close; cover at the close 5-10 sessions later. Every input is a value of D's
 close (the 15:59 convention); the efficiency ratios are Kaufman's on share-consistent closes.
 
@@ -1334,13 +1334,13 @@ ticker       date  prev_close_raw  chg20  rvol_d  r_open1      r1      r5    mfe
   reading (the extreme close mean-reverts one night) says the first-morning gap is where the
   squeeze declares itself — `r_open1` on the ten worst is +2,440 / +1,211 / +631 for the three
   biggest. Borrow on these names is the other half of the question.
-- **What the names are**: median prior close $7.9 (p10 $2.5), median dollar volume $28M/day
-  (p10 $7M), median rvol 3.6 on the signal day, median 20-day change +290% (p10 +190%): the
+- **What the names are**: median prior close \$7.9 (p10 \$2.5), median dollar volume \$28M/day
+  (p10 \$7M), median rvol 3.6 on the signal day, median 20-day change +290% (p10 +190%): the
   low-priced mania runner, MaxFlyerV2's population, at a 20-day frequency instead of intraday.
 
 ⏭ **Open before it is tradeable**: (1) a tail rule — hard stop at the next open / +X% / the
 ShortSnoozer gap × volatility disqualifier, measured on this book; (2) the NBG/MRIN/AGFY worst
-trades tape-checked; (3) borrow/locate reality on 20-70 names a year at $2-10 (the
+trades tape-checked; (3) borrow/locate reality on 20-70 names a year at \$2-10 (the
 `lowflyer_short_productionization_research.md` question); (4) the exact-session mc=1 (this one
 approximates the hold in calendar days); (5) the intraday version when Massive is back.
 
@@ -1391,7 +1391,7 @@ it has to be on the ADVERSE side (a stop), not on the profit side.
 - **Exit = the 10-day timestop** (PF 3.17, 74% win, median +2,107, 17/21). The 10-day-low exit is
   a take-profit variant, not adopted.
 - **Borrow is the known blocker**: *"These are the exact patterns that I couldn't get borrows for at
-  IBKR back in 2013-2014."* Short availability for this population ($2-10, mania runners) to be
+  IBKR back in 2013-2014."* Short availability for this population (\$2-10, mania runners) to be
   evaluated at **TradeZero, Lightspeed and IBKR** before anything goes live
   (`docs/lowflyer_short_productionization_research.md` is the prior work on locates).
 - The tail rule (an adverse-side stop) remains open. User: *"I like this system a lot."*

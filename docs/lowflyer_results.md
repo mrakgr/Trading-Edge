@@ -10,7 +10,7 @@ selection funnel should multiply the sample count and let the edge be found by
 slicing **recorded features post-hoc** rather than pre-gating on them.
 
 **The hypothesis holds.** Across 2003–2026 the raw setup is +EV market-wide (PF
-1.22 MOC, +$5.3M, ~20/23 years positive over 247,900 trips), and the post-hoc
+1.22 MOC, +\$5.3M, ~20/23 years positive over 247,900 trips), and the post-hoc
 slices reveal a sharp, interpretable, tradeable core: **fade the intraday flush of
 a liquid, recently-strong name — not a falling knife.**
 
@@ -27,7 +27,7 @@ SQL, materialized once into the `mr_candidate` table
 (`scripts/equity/build_mr_candidate.fsx`):
 
 - **Universe / price**: common stock + ADRs (`ticker_reference type IN ('CS','ADRC')`),
-  day-D adjusted close ≥ $1, warmed up (>21 bars in the current gap-episode).
+  day-D adjusted close ≥ \$1, warmed up (>21 bars in the current gap-episode).
 - **Liquidity gate**: the **median of the 09:30–09:45 ET 1m-bar volumes ≥ 10,000
   AND ≥ 10 of the (max 15) bars present**. A robust "the opening 15 minutes are
   liquid" floor that a couple of spike bars can't fake, known by 09:45 (no lookahead).
@@ -49,7 +49,7 @@ entry, %-change-since-open, close-1d, close-3d, and forward closes at D+1/D+3/D+
 (base = day-D close). See §"rvol definitions" below — the recorded `rvol` differs
 from the fixed-checkpoint `rvol_0945` used in the winning slices.
 
-Window: 2003-09-10 → 2026-06-25. Notional $10k/trip. P&L is gross (no fees/slippage —
+Window: 2003-09-10 → 2026-06-25. Notional \$10k/trip. P&L is gross (no fees/slippage —
 a viability + feature-discovery test, not an execution model). PF is the
 **+50%-winner-clip** standard: `Σ min(ret,0.5) over wins / −Σ ret over losses`.
 
@@ -64,11 +64,11 @@ dotnet run --project TradingEdge.LowFlyer -c Release -- \
 
 | candidates | trips | win% | net P&L | PF (MOC) |
 |---:|---:|---:|---:|---:|
-| 1,900,632 | 247,900 | 51.9% | +$5,315,892 | **1.221** |
+| 1,900,632 | 247,900 | 51.9% | +\$5,315,892 | **1.221** |
 
 A positive raw edge across the entire market with zero feature selection, over a
 quarter-million trips. The `mr_candidate` liquidity gate keeps 7.3% of CS/ADRC
-price≥$1 ticker-days (1.9M of 26M). ~20/23 years positive (the misses — 2003, 2017 —
+price≥\$1 ticker-days (1.9M of 26M). ~20/23 years positive (the misses — 2003, 2017 —
 are marginal / thin-data early years). This is the population to slice.
 
 ---
@@ -161,27 +161,27 @@ conclusions; the entry-time change above is the tradeable version.
 
 Added a 20-day average-dollar-volume floor (`adv20 = avgvol20 × day_close`). On the
 **unconditioned** book a plain ADV floor slightly *hurts* (PF 1.206 no-floor →
-1.177 at ≥$100M) — the edge has a small-cap tilt (thinner names overshoot more, so
+1.177 at ≥\$100M) — the edge has a small-cap tilt (thinner names overshoot more, so
 revert more). But within cells it splits:
 
 - **Moderate-flush cell (−8..−15% @ entry): ADV HURTS.** PF 1.78 (no floor) → 1.64
-  ($10M) → 0.96 ($100M). A −8..−15% drop on a big-ADV name is often real bad news
+  (\$10M) → 0.96 (\$100M). A −8..−15% drop on a big-ADV name is often real bad news
   that keeps bleeding; on a smaller name it's an overreaction that snaps back.
 - **Deep-flush cell (<−15% @ entry): ADV HELPS.** PF 1.17 (no floor) → **1.57
-  ($10M)** → 1.26 ($100M). A −15%+ drop on a *thin* name is often a genuine collapse
+  (\$10M)** → 1.26 (\$100M). A −15%+ drop on a *thin* name is often a genuine collapse
   (going to zero); on a *liquid* name it's a violent overreaction with real buyers
   underneath. ADV separates a survivable flush from a death spiral.
 
-**Verdict:** ADV is a **tradeability floor, not a PF booster.** A **light $500k floor**
+**Verdict:** ADV is a **tradeability floor, not a PF booster.** A **light \$500k floor**
 drops the untradeable microcaps without touching the small-cap overshoot that is the
-core edge; $10M+ starts eroding the moderate-flush cell; $100M is wrong (destroys it).
-The production floor is **ADV ≥ $500k**.
+core edge; \$10M+ starts eroding the moderate-flush cell; \$100M is wrong (destroys it).
+The production floor is **ADV ≥ \$500k**.
 
 ---
 
 ## Run 6 — the 3-day change: the REAL setup is a pullback in an uptrend
 
-Base filter: rvol_0945 > 1, ADV ≥ $500k (~28.4k trips). 3-day change to entry =
+Base filter: rvol_0945 > 1, ADV ≥ \$500k (~28.4k trips). 3-day change to entry =
 `entry_price / close_3d − 1` (tradeable). Overall, the standout 3-day bucket is
 **up 5–15% (PF 1.91)**, and the multi-day *decliners* are the weakest:
 
@@ -218,7 +218,7 @@ The **tight** cell (1d −8..−15 AND 3d +5..+15) is **over-fit** — most year
 sample exists (2020–25 all PF 2–7) but not tradeable standalone.
 
 The **broad, robust** condition is **1d flush ≥ 8% AND 3-day change ≥ −8% (not a
-multi-day decliner)**, rvol_0945 > 1, ADV ≥ $500k:
+multi-day decliner)**, rvol_0945 > 1, ADV ≥ \$500k:
 
 | era | behavior |
 |---|---|
@@ -241,7 +241,7 @@ names — a data-coverage artifact, not a strategy failure. Still **volatility-t
 ## Run 8 — entry-timing: how fast is the flush? (an ACUTE flush is better)
 
 Two entry-timing cuts, both tradeable (known at the entry bar). Base filter
-rvol_0945 > 1, ADV ≥ $500k.
+rvol_0945 > 1, ADV ≥ \$500k.
 
 **(a) % change from the 09:30 OPEN to entry** (`entry_price / day_open − 1`, the
 recorded `pct_chg_since_open`) is the *messier* of the two: most entries fire close
@@ -265,7 +265,7 @@ PF climbs smoothly from 0.98 (barely down since 9:45) to ~1.5+ (down 6%+). The
 deepest (<−10%) has a slightly lower *clipped* PF (1.21) but the highest raw avg
 (+1.30% — the +50% clip caps its bigger, more variable bounces).
 
-**Stacked on the core setup** (rvol_0945 > 1, ADV ≥ $500k, down ≥8% @ entry, 3d ≥
+**Stacked on the core setup** (rvol_0945 > 1, ADV ≥ \$500k, down ≥8% @ entry, 3d ≥
 −8%; baseline PF 1.83 / 2,783 trips), the acute-flush gradient still adds:
 
 | 9:45 → entry move | n | win% | PF | avg% |
@@ -287,7 +287,7 @@ overshoots snap back hardest.
 
 Added three engine-exact columns (`entry_bar_open`, `intraday_atr_pct_at_entry`,
 `intraday_tightness_at_entry` — the breakout bar's open and the 1m log-ATR /
-tightness snapshot at the breakout). Base filter rvol_0945 > 1, ADV ≥ $500k.
+tightness snapshot at the breakout). Base filter rvol_0945 > 1, ADV ≥ \$500k.
 
 **(a) The 1m entry-bar body** = `entry_price / entry_bar_open − 1` (the breakout
 minute's own candle). Cleanly monotonic — a hard flush candle beats a tiny poke
@@ -327,7 +327,7 @@ to apply cleanly.
 ## Run 10 — the rvol_0945 floor is over-gating: within a real flush it's the CEILING
 
 Bucketing the FULL rvol_0945 spectrum (incl. sub-1), the earlier `> 1` floor
-(Runs 4+) is revealed as too aggressive. RAW (ADV ≥ $500k, no flush filter), sub-1 is
+(Runs 4+) is revealed as too aggressive. RAW (ADV ≥ \$500k, no flush filter), sub-1 is
 mediocre-but-alive (PF 1.15–1.31) and > 1 is genuinely better (PF 1.4–1.5), so the
 floor trades quantity for quality — defensible on the raw book. **But conditioned on
 a real flush (down ≥8% @ entry, 3d ≥ −8%), it flips:**
@@ -360,7 +360,7 @@ Motivated by the DAILY-side finding that mean-reversion prefers STRETCHED names
 so the trades' tightness is whatever the flush naturally produces. Distribution: p10
 3.0, **median 5.2**, p90 8.3 — the flush entries already skew well above MaxFlyer's
 old `< 4.5`, i.e. we were never trading tight consolidations here. Base filter
-rvol_0945 > 1, ADV ≥ $500k:
+rvol_0945 > 1, ADV ≥ \$500k:
 
 | intraday tightness @ entry | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
@@ -394,8 +394,8 @@ range:
 
 | reference | trips | win% | net P&L | PF (MOC) |
 |---|---:|---:|---:|---:|
-| min-LOW | 247,900 | 51.9% | +$5.32M | 1.221 |
-| **min-CLOSE** | 318,740 | 51.3% | +$5.94M | 1.200 |
+| min-LOW | 247,900 | 51.9% | +\$5.32M | 1.221 |
+| **min-CLOSE** | 318,740 | 51.3% | +\$5.94M | 1.200 |
 
 Counterintuitively min-close fires MORE (+29%), not fewer: the min-close boundary is
 HIGHER than min-low (lowest close ≥ lowest low), so it's EASIER to break — it admits
@@ -427,7 +427,7 @@ Added an engine-computed `chg_20m` = the 20-minute %-change into entry, via a ne
 generic `LagMa<'T>(20)` close-delay line (`RollingMa.fs`) read post-fold at the
 breakout — NO post-hoc minute re-scan. (Entries in the first ~5 min after the 09:30
 warmup, i.e. 09:45–09:49, have < 21 bars so `chg_20m` is `nan` — inherent, ~12% of
-trips; excluded below.) Base filter rvol_0945 > 0.5, ADV ≥ $500k:
+trips; excluded below.) Base filter rvol_0945 > 0.5, ADV ≥ \$500k:
 
 | 20m change into entry | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
@@ -456,7 +456,7 @@ Consolidated the settled defaults: SessionStartMin = **08:30** (all indicators +
 
 | baseline | candidates | trips | win% | net P&L | PF (MOC) |
 |---|---:|---:|---:|---:|---:|
-| new defaults | 850,107 | 110,479 | 52.8% | +$3.86M | **1.268** |
+| new defaults | 850,107 | 110,479 | 52.8% | +\$3.86M | **1.268** |
 
 The 08:30 warmup cut the `chg_20m` nan rate from ~12% → **2.69%** (the residual are
 days with too few premarket bars — genuinely unmeasurable). min-close gives 110k trips
@@ -470,18 +470,18 @@ slices): `--min-bar-flush -0.007` (entry-bar `close/prevClose ≤ −0.7%`) and
 
 | config | trips | win% | net P&L | PF (MOC) |
 |---|---:|---:|---:|---:|
-| ungated baseline | 110,479 | 52.8% | +$3.86M | 1.268 |
-| **gated (flush + ATR)** | 46,290 | **56.0%** | +$3.12M | **1.420** |
+| ungated baseline | 110,479 | 52.8% | +\$3.86M | 1.268 |
+| **gated (flush + ATR)** | 46,290 | **56.0%** | +\$3.12M | **1.420** |
 
 **PF 1.27 → 1.42, win% 52.8 → 56.0** — cutting 58% of trips while keeping **81% of the
 net P&L.** The removed 64k trips were low-value volume, not edge. Decomposition:
 
 | gate | trips | win% | PF | net |
 |---|---:|---:|---:|---:|
-| ungated | 110,479 | 52.8 | 1.24 | $3.86M |
-| **flush ≤ −0.7% only** | 49,185 | 55.8 | 1.34 | $3.39M |
-| log-ATR < 0.02 only | 107,388 | 52.9 | 1.28 | $3.60M |
-| both | 46,290 | 56.0 | 1.41 | $3.12M |
+| ungated | 110,479 | 52.8 | 1.24 | \$3.86M |
+| **flush ≤ −0.7% only** | 49,185 | 55.8 | 1.34 | \$3.39M |
+| log-ATR < 0.02 only | 107,388 | 52.9 | 1.28 | \$3.60M |
+| both | 46,290 | 56.0 | 1.41 | \$3.12M |
 
 **The flush gate is the heavy lifter** — alone it takes PF 1.24 → 1.34 and cuts 55% of
 trips while keeping 88% of net (removing the one-tick-poke breakouts of Run 9). **The
@@ -492,12 +492,12 @@ edge-sharpener, ATR the tail-clip. **PF 1.42 is the best full-book number to dat
 ## Run 17 — everything stacked: gated book + the selection core
 
 The gated book (flush + ATR gates, Run 16) AND the selection core (down ≥8% @ entry,
-3d ≥ −8%, ADV ≥ $500k, rvol_0945 ≥ 0.1):
+3d ≥ −8%, ADV ≥ \$500k, rvol_0945 ≥ 0.1):
 
 | stage | n | win% | PF | avg% | net |
 |---|---:|---:|---:|---:|---:|
-| gated book alone | 46,290 | 56.0 | 1.41 | +0.67% | $3.12M |
-| **+ selection core** | 4,869 | **62.1** | **1.92** | +1.63% | $794k |
+| gated book alone | 46,290 | 56.0 | 1.41 | +0.67% | \$3.12M |
+| **+ selection core** | 4,869 | **62.1** | **1.92** | +1.63% | \$794k |
 
 **PF 1.92, 62% win, +1.63%/trade over 4,869 trips — and now broad across the years:**
 
@@ -521,7 +521,7 @@ declines, so: is conditioning on both redundant? **They are correlated but NOT
 redundant.** ρ(1d, 20m) = **0.576** (so ~2/3 of the variance is independent), and on
 down-days the 20m window captures a **median of only ~40%** of the 1d move (IQR
 23–65%) — the rest happened earlier in the session or overnight. The 2D PF grid
-(rvol_0945 ≥ 0.1, ADV ≥ $500k) proves each adds PF holding the other fixed:
+(rvol_0945 ≥ 0.1, ADV ≥ \$500k) proves each adds PF holding the other fixed:
 
 ```
 PF          20m:<-6  -6..-3  -3..-1  -1..0
@@ -565,7 +565,7 @@ tail (1d < −12% has high avg return) and the good 20m wings. **Operative thres
 the ATR gate + 3d filter, not a 1d ceiling); 20m just needs to be NEGATIVE (velocity
 present), not boxed.** More knobs ≠ better here.
 
-## Run 20 — LOW-FLOAT: the intraday flush-fade is a low-float overreaction (< $300M)
+## Run 20 — LOW-FLOAT: the intraday flush-fade is a low-float overreaction (< \$300M)
 
 Joined dollar-float (SEC public-float revalued to the trade-day price, polygon-shares
 fallback — the `live_scan.py` pattern; 62% trip coverage). Within the core (gated +
@@ -573,22 +573,22 @@ fallback — the `live_scan.py` pattern; 62% trip coverage). Within the core (ga
 
 | dollar-float | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
-| < $50M | 1,284 | 65.3 | 2.23 | +2.16 |
-| $50–150M | 562 | 63.2 | 2.23 | +2.12 |
-| **$150–300M** | 355 | 62.0 | **2.45** | +1.97 |
-| $300M–1B | 490 | 56.5 | 1.59 | +1.00 |
-| ≥ $1B | 471 | 60.5 | 1.55 | +0.90 |
+| < \$50M | 1,284 | 65.3 | 2.23 | +2.16 |
+| \$50–150M | 562 | 63.2 | 2.23 | +2.12 |
+| **\$150–300M** | 355 | 62.0 | **2.45** | +1.97 |
+| \$300M–1B | 490 | 56.5 | 1.59 | +1.00 |
+| ≥ \$1B | 471 | 60.5 | 1.55 | +0.90 |
 
-**Clean break at ~$300M** — the < $300M band runs PF 2.23–2.45 vs 1.55–1.59 for large
-caps (> $300M). The flush-fade is fundamentally a **low-float overreaction** (a
+**Clean break at ~\$300M** — the < \$300M band runs PF 2.23–2.45 vs 1.55–1.59 for large
+caps (> \$300M). The flush-fade is fundamentally a **low-float overreaction** (a
 squeeze-prone name overshoots on a flush and snaps back; a mega-cap doesn't) — the SAME
-<$300M threshold that drives the HighFlyer daily edge, now on the intraday side. Below
-$300M the three sub-bands are all strong (2.23–2.45) — the < $50M "smaller is worse"
+<\$300M threshold that drives the HighFlyer daily edge, now on the intraday side. Below
+\$300M the three sub-bands are all strong (2.23–2.45) — the < \$50M "smaller is worse"
 tilt of the earlier (fan-out-contaminated) read does NOT survive the correction; it's
-just "< $300M." Stacked: core + low-float < $300M → **PF 1.92 → 2.26, avg +1.63% → +2.12%.**
+just "< \$300M." Stacked: core + low-float < \$300M → **PF 1.92 → 2.26, avg +1.63% → +2.12%.**
 
 **Caveat:** low-float is strong in the modern era (2017+: 2019 PF 3.13, 2021 2.76, 2024–26
-1.6–1.9) but the sub-$300M sample is thin/erratic pre-2017 (float data coverage) — treat
+1.6–1.9) but the sub-\$300M sample is thin/erratic pre-2017 (float data coverage) — treat
 it as a modern-era filter, not a full-history one.
 
 ## Run 21 — a 20m FLOOR (not a band) DOES help: require some velocity
@@ -599,19 +599,19 @@ monotonically. Sweep on the core (gated + 1d ≤ −8% + 3d ≥ −8% + ADV + rv
 
 | 20m floor | n | win% | PF | avg% | net |
 |---|---:|---:|---:|---:|---:|
-| none | 4,823 | 62.1 | 1.92 | +1.63% | $788k |
-| ≤ −1.5% | 4,606 | 62.2 | 1.94 | +1.69% | $779k |
-| ≤ −2% | 4,369 | 62.4 | 1.95 | +1.75% | $766k |
-| **≤ −3%** | 3,786 | 63.0 | 1.96 | +1.88% | $713k |
-| ≤ −4% | 3,152 | 64.2 | 2.05 | +2.14% | $674k |
-| ≤ −5% | 2,540 | 65.0 | 2.16 | +2.47% | $627k |
+| none | 4,823 | 62.1 | 1.92 | +1.63% | \$788k |
+| ≤ −1.5% | 4,606 | 62.2 | 1.94 | +1.69% | \$779k |
+| ≤ −2% | 4,369 | 62.4 | 1.95 | +1.75% | \$766k |
+| **≤ −3%** | 3,786 | 63.0 | 1.96 | +1.88% | \$713k |
+| ≤ −4% | 3,152 | 64.2 | 2.05 | +2.14% | \$674k |
+| ≤ −5% | 2,540 | 65.0 | 2.16 | +2.47% | \$627k |
 
 Monotonic PF/avg/win improvement, capacity the only cost. The difference from Run 19:
 a floor removes ONLY the flat/rising-20m trades (velocity absent); the band ALSO chopped
 the good deep-20m tail. **Chosen floor: 20m ≤ −3%** — the knee: PF 1.92→1.96, avg
 +1.63→+1.88%, win 62→63%, keeping ~78% of trips and ~90% of net. Past −3% keeps climbing
 (≤ −5% → PF 2.16) but pays real capacity. Stacks with low-float: core + 20m ≤ −3% +
-low-float < $300M → **PF 2.34, 65.2% win** (1,778 trips). So all three declines are
+low-float < \$300M → **PF 2.34, 65.2% win** (1,778 trips). So all three declines are
 FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%.
 
 > **⚠ Correction (fan-out bug):** the low-float / stacked figures in Runs 20–21 were
@@ -620,14 +620,14 @@ FLOORS: 1d ≤ −8%, 3d ≥ −8% (a ceiling on the *downtrend*), 20m ≤ −3%
 > FANNED OUT multi-entry days (k×k), deflating the aggregate PF. Fixed by computing
 > `dollar_float` as a 1:1 LATERAL column on the trip row. The corrected numbers above
 > are HIGHER (core+float PF 1.65→2.26, core+float+20m-floor 1.67→2.34); the *pattern*
-> (clean < $300M break, low-float is the edge) was unchanged, only the magnitudes.
+> (clean < \$300M break, low-float is the edge) was unchanged, only the magnitudes.
 > The no-float sweep numbers (Run 21, core = PF 1.96) were never affected — they used
 > the un-joined trip table.
 
 ## Run 22 — the 3d return has an inverted-U too: tighten to [−3%, +30%] (PRODUCTION)
 
 Ran the 3d breakdown on the full production system (gates + 1d ≤ −8% + 20m ≤ −3% +
-ADV + rvol + low-float < $300M), 3d filter REMOVED so the whole spectrum shows (1:1
+ADV + rvol + low-float < \$300M), 3d filter REMOVED so the whole spectrum shows (1:1
 float join, fan-out-free):
 
 | 3d return | n | win% | PF | avg% |
@@ -647,7 +647,7 @@ float join, fan-out-free):
 flush: the purest *pullback in an uptrend* (multi-day strength intact → real buyers
 snap the panic back). Both tails are weak: < −25% (multi-day collapse) and ≥ +30% (a
 parabolic blow-off, too extended). 3d threshold sweep **(this table has low-float <
-$300M ALREADY in the base — it measures the 3d effect WITHIN the low-float book):**
+\$300M ALREADY in the base — it measures the 3d effect WITHIN the low-float book):**
 
 | 3d filter (× low-float) | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
@@ -665,7 +665,7 @@ caveat as low-float.
 
 **IMPORTANT — 3d and low-float are SEPARABLE (both required for PF 2.90):** with 3d ∈
 [−3, +30] but WITHOUT the low-float filter the system is only **PF 2.20** (2,278 trips);
-adding low-float < $300M takes it **2.20 → 2.90** (1,123 trips). So the 2.90 headline is
+adding low-float < \$300M takes it **2.20 → 2.90** (1,123 trips). So the 2.90 headline is
 NOT the 3d-tightening alone — it needs BOTH the tightened 3d band AND the low-float
 filter. Each does real, independent work.
 
@@ -673,21 +673,21 @@ filter. Each does real, independent work.
 |---|---:|---:|---:|---:|
 | no float filter | 2,278 | 65.2 | 2.20 | +2.19 |
 | float present | 1,474 | 65.7 | 2.44 | +2.42 |
-| **+ low-float < $300M** | 1,123 | 67.3 | **2.90** | +2.94 |
+| **+ low-float < \$300M** | 1,123 | 67.3 | **2.90** | +2.94 |
 
 **Low-float breakdown within the NEW production (3d ∈ [−3%, +30%]):**
 
 | dollar-float | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
-| < $50M | 681 | 67.3 | 2.76 | +2.84 |
-| $50–150M | 277 | 68.6 | 3.03 | +3.07 |
-| **$150–300M** | 165 | 65.5 | **3.33** | +3.14 |
-| $300M–1B | 191 | 59.7 | 1.44 | +0.89 |
-| $1–5B | 81 | 60.5 | 1.26 | +0.58 |
-| ≥ $5B | 79 | 62.0 | 1.28 | +0.63 |
+| < \$50M | 681 | 67.3 | 2.76 | +2.84 |
+| \$50–150M | 277 | 68.6 | 3.03 | +3.07 |
+| **\$150–300M** | 165 | 65.5 | **3.33** | +3.14 |
+| \$300M–1B | 191 | 59.7 | 1.44 | +0.89 |
+| \$1–5B | 81 | 60.5 | 1.26 | +0.58 |
+| ≥ \$5B | 79 | 62.0 | 1.28 | +0.63 |
 
-The < $300M break is now even sharper — all three sub-bands PF **2.76–3.33** vs
-1.26–1.44 for large caps (>2× gap). Within sub-$300M, PF RISES toward the $150–300M
+The < \$300M break is now even sharper — all three sub-bands PF **2.76–3.33** vs
+1.26–1.44 for large caps (>2× gap). Within sub-\$300M, PF RISES toward the \$150–300M
 band (2.76 → 3.03 → 3.33) — the "small-but-real" names fade most cleanly once 3d
 strength is already required; the micro-floats aren't the best here.
 
@@ -696,7 +696,7 @@ strength is already required; the micro-floats aren't the best here.
 Joined the market-wide 20d breadth (`pct_above_20`, the HighFlyer measure —
 `data/equity/momentum_v0/breadth.parquet`), using **D-1 breadth** (prior-day close-based,
 no lookahead — the intraday trade fires on day D). Breakdown on the production system
-(gates + 1d + 20m + 3d[−3,+30] + float < $300M + ADV/rvol):
+(gates + 1d + 20m + 3d[−3,+30] + float < \$300M + ADV/rvol):
 
 | breadth (D-1) | n | win% | PF | avg% |
 |---|---:|---:|---:|---:|
@@ -727,25 +727,25 @@ The production system per year (flat = 1× every trip; sized = **3× when D-1 br
 
 | year | n | n_up | flat PF | sized PF | flat avg% | sized avg% | sized net |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| 2011 | 8 | 4 | 1.58 | 3.42 | +0.78 | +1.63 | $2.6k |
-| 2012 | 8 | 5 | 0.37 | 0.37 | −3.05 | −1.92 | −$3.5k |
-| 2013 | 9 | 3 | 19.1 | 33.2 | +2.98 | +3.18 | $4.8k |
-| 2014 | 14 | 7 | 5.95 | 3.99 | +4.33 | +3.12 | $8.7k |
-| 2015 | 22 | 2 | 1.97 | 2.03 | +1.11 | +1.03 | $2.7k |
-| 2016 | 27 | 13 | 1.28 | 1.03 | +0.60 | +0.09 | $0.5k |
-| 2017 | 32 | 8 | 3.94 | 4.61 | +3.54 | +3.79 | $18.2k |
-| 2018 | 31 | 11 | 3.81 | 2.65 | +2.96 | +2.35 | $12.5k |
-| 2019 | 45 | 19 | 2.82 | 2.26 | +2.62 | +1.81 | $15.1k |
-| **2020** | 170 | 91 | 3.82 | 4.50 | +3.52 | +3.89 | $136.8k |
-| **2021** | 198 | 100 | 4.96 | 6.41 | +4.10 | +4.88 | $194.4k |
-| **2022** | 108 | 37 | 2.37 | 3.82 | +2.80 | +4.21 | $76.7k |
-| 2023 | 116 | 56 | 1.63 | 1.82 | +1.61 | +1.96 | $44.6k |
-| 2024 | 136 | 30 | 3.04 | 3.36 | +3.56 | +3.69 | $72.4k |
-| 2025 | 162 | 34 | 2.71 | 2.95 | +2.48 | +2.76 | $63.5k |
-| 2026 | 34 | 15 | 2.14 | 2.58 | +1.62 | +1.85 | $11.9k |
-| **TOTAL** | **1,123** | — | **2.90** | **3.40** | **+2.94** | **+3.35** | **$668k** |
+| 2011 | 8 | 4 | 1.58 | 3.42 | +0.78 | +1.63 | \$2.6k |
+| 2012 | 8 | 5 | 0.37 | 0.37 | −3.05 | −1.92 | −\$3.5k |
+| 2013 | 9 | 3 | 19.1 | 33.2 | +2.98 | +3.18 | \$4.8k |
+| 2014 | 14 | 7 | 5.95 | 3.99 | +4.33 | +3.12 | \$8.7k |
+| 2015 | 22 | 2 | 1.97 | 2.03 | +1.11 | +1.03 | \$2.7k |
+| 2016 | 27 | 13 | 1.28 | 1.03 | +0.60 | +0.09 | \$0.5k |
+| 2017 | 32 | 8 | 3.94 | 4.61 | +3.54 | +3.79 | \$18.2k |
+| 2018 | 31 | 11 | 3.81 | 2.65 | +2.96 | +2.35 | \$12.5k |
+| 2019 | 45 | 19 | 2.82 | 2.26 | +2.62 | +1.81 | \$15.1k |
+| **2020** | 170 | 91 | 3.82 | 4.50 | +3.52 | +3.89 | \$136.8k |
+| **2021** | 198 | 100 | 4.96 | 6.41 | +4.10 | +4.88 | \$194.4k |
+| **2022** | 108 | 37 | 2.37 | 3.82 | +2.80 | +4.21 | \$76.7k |
+| 2023 | 116 | 56 | 1.63 | 1.82 | +1.61 | +1.96 | \$44.6k |
+| 2024 | 136 | 30 | 3.04 | 3.36 | +3.56 | +3.69 | \$72.4k |
+| 2025 | 162 | 34 | 2.71 | 2.95 | +2.48 | +2.76 | \$63.5k |
+| 2026 | 34 | 15 | 2.14 | 2.58 | +1.62 | +1.85 | \$11.9k |
+| **TOTAL** | **1,123** | — | **2.90** | **3.40** | **+2.94** | **+3.35** | **\$668k** |
 
-Flat: PF 2.90, +$330k. Breadth-sized 3×: **PF 3.40, +$668k (+102% net)** — same trips,
+Flat: PF 2.90, +\$330k. Breadth-sized 3×: **PF 3.40, +\$668k (+102% net)** — same trips,
 3× weight on the ~40% that fall on high-breadth days. Every large-sample modern year
 (2020–2025) improves (2021 4.96→6.41, 2022 2.37→3.82). The sized book has HIGHER
 VARIANCE (3× bets on 40% of trips), so sized PF isn't directly risk-comparable to flat —
@@ -761,7 +761,7 @@ is real (2017+, 30–200 trips/yr): positive every year, flat PF 1.6–5.0.
 Added `chg_7d` (7-trading-day return into entry = `entryPx / close_7d − 1`, `close_7d
 = LAG(adj_close,7)` episode-partitioned) as a first-class recorded column (candidate
 builder + Trip/CSV), symmetric with chg_1d/chg_3d. Sliced it on the production long
-(gates + 1d ≤ −8% + 20m ≤ −3% + 3d ∈ [−3,+30] + float < $300M + ADV, 1:1 float join).
+(gates + 1d ≤ −8% + 20m ≤ −3% + 3d ∈ [−3,+30] + float < \$300M + ADV, 1:1 float join).
 Baseline: 1,101 trips, PF 2.86, median chg_7d = **+14%** (production names are already
 mostly UP over 7 days — the low-float + 3d selection pre-loads a "runner pulling back").
 
@@ -1078,7 +1078,7 @@ the breakout-bar close, hold to MOC. **min-CLOSE breakout reference.**
 - **SELECTION** (post-hoc SQL on the gated CSV): 1d ≤ −8% (depth floor) · 20m ≤ −3% (velocity floor) ·
   **3d ∈ [−3%, +30%]** (trend band — flat-to-strong, not a decliner, not parabolic) ·
   **7d ≥ −5%** (7-day trend floor — not a dead-cat bounce in a weekly decline; Run 25) ·
-  dollar-float < $300M (low-float overreaction) · ADV ≥ $500k · rvol_0945 ≥ 0.1.
+  dollar-float < \$300M (low-float overreaction) · ADV ≥ \$500k · rvol_0945 ≥ 0.1.
 - **SIZING:** base size, **3× when D-1 breadth (`pct_above_20`) ≥ 0.65** (PF 4.23 vs
   2.33 — Run 23; 3× → PF 2.90→3.40, net +102% — Run 24). A size-up input, NOT a gate
   (keep trading weak-breadth days); the 3× book carries higher variance.
@@ -1141,9 +1141,9 @@ short doc: a blow-off reverses FAST regardless of clock, so it doesn't need the 
 > - **20m ≤ −3%** — dislocating acutely NOW (VELOCITY); a FLOOR (require some velocity),
 >   NOT a band (Run 21 — deeper is better, PF climbs to 2.16 at ≤ −5%; −3% is the
 >   capacity knee). Orthogonal to 1d (ρ 0.58, each adds PF — Run 18).
-> - **dollar-float < $300M** (sweet spot $50–300M) — the flush-fade is a LOW-FLOAT
->   overreaction; large caps (>$300M) barely work (Run 20). Modern-era filter.
-> - tradeable: ADV ≥ $500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
+> - **dollar-float < \$300M** (sweet spot \$50–300M) — the flush-fade is a LOW-FLOAT
+>   overreaction; large caps (>\$300M) barely work (Run 20). Modern-era filter.
+> - tradeable: ADV ≥ \$500k, rvol_0945 ≥ ~0.1 (NOT the old > 1 floor — Run 10).
 > Hold to MOC.
 >
 > → gated full-book **PF 1.42 / 56% win** (Run 16); the SELECTION core reaches
@@ -1204,7 +1204,7 @@ the shipped default) on a buy-the-flush-to-a-new-session-low trigger means every
 ANOTHER position: it averages down into the flush, with unbounded capital. Not tradable as-is.
 
 **A/B on the FULL PRODUCTION BOOK** (2020-26, honest ADV, all production gates: `chg_1d≤−8% & chg_20m≤−3%
-& chg_3d∈[−3,30]% & chg_7d≥−5% & ADV≥$500k & float<$300M & flush≥−12%`):
+& chg_3d∈[−3,30]% & chg_7d≥−5% & ADV≥\$500k & float<\$300M & flush≥−12%`):
 
 | book | n | win% | avg %/tr | **raw PF** | clip PF |
 |---|---|---|---|---|---|
@@ -1225,7 +1225,7 @@ where averaging down helps most.
 PF ~1.4 at +0.7%/trade on 27,629 trips — frequent, thin, cost-sensitive. Different animals.
 
 **Why 3.09 is believable where the dead systems' 3.0+ were not:** LowFlyer has now survived EVERY audit
-that killed them — the honest ADV (F14f: +0.014), the live-safe $1 price floor (F14e), the `brv20d`
+that killed them — the honest ADV (F14f: +0.014), the live-safe \$1 price floor (F14e), the `brv20d`
 denominator (it does not use it), and now the concurrency check. A genuine system is indifferent to having
 its crutches removed.
 
@@ -1274,15 +1274,15 @@ left-joined from `mr_candidate`). Run on **`mr_candidate_1s`** (clean: no price 
 own CAUSAL floors `dv_0945_tape ≥ $2M` ∧ `n_bars_1s ≥ 200`), 2016-08-08..2026-06-25, same engine gates
 (`lowflyer_run_clean.sh` → `data/lowflyer_long_clean.csv`; `lowflyer_universe_control.sql`).
 
-**Gated books, same window:** legacy 40,929 trips @ 1.471, **29.4% of entries under $1 RAW**; clean
-35,558 @ 1.182, 2.7% sub-$1. Only 15,577 trips are common.
+**Gated books, same window:** legacy 40,929 trips @ 1.471, **29.4% of entries under \$1 RAW**; clean
+35,558 @ 1.182, 2.7% sub-\$1. Only 15,577 trips are common.
 
 **Production spec × universe × ADV convention (2016-08..2026-06):**
 
-| ADV convention | legacy n | PF | clean n | PF | legacy sub-$1 | clean sub-$1 |
+| ADV convention | legacy n | PF | clean n | PF | legacy sub-\$1 | clean sub-\$1 |
 |---|---:|---:|---:|---:|---:|---:|
-| 1m book (`avgvol20×day_close` ≥ $500k ∧ rvol ≥ 0.1) | 1,022 | 3.50 | 313 | 3.50 | 37.1% | 13.4% |
-| causal (`avgvol20_prior × prev_close` ≥ $500k) | 478 | 3.27 | 305 | 3.22 | 10.0% | 10.8% |
+| 1m book (`avgvol20×day_close` ≥ \$500k ∧ rvol ≥ 0.1) | 1,022 | 3.50 | 313 | 3.50 | 37.1% | 13.4% |
+| causal (`avgvol20_prior × prev_close` ≥ \$500k) | 478 | 3.27 | 305 | 3.22 | 10.0% | 10.8% |
 | no ADV / rvol | 1,072 | 3.43 | 372 | 3.41 | 39.2% | 12.6% |
 
 **⭐ PF is indifferent to the universe (3.27 vs 3.22; 3.50 vs 3.50) — the control passes on PF.
@@ -1290,17 +1290,17 @@ The trip COUNT does not: the 1m book's ~1,100 is a 3× overstatement.** Two arti
 1. **The day-D ADV gate barely gates** (1,072 → 1,022) while the causal one halves the legacy book
    (→ 478): `avgvol20` includes day D, so an illiquid name passes on its own big day. Not a PF lever
    (the 1s port already found ADV inert) — a COUNT inflator.
-2. **The adjusted-$1 floor admits sub-$1 raw names that will reverse-split.** Legacy-only gated trips
-   (25,352): 98.1% have raw morning dollar volume < $2M (median $519k — that is why the clean table
-   lacks them), and the sub-$1 ones (11,448) are **99.5% `adj_ratio ≠ 1`, median adj_ratio 60** —
-   names admitted because their FUTURE-adjusted close cleared $1. The §S43v class, on the long side.
+2. **The adjusted-\$1 floor admits sub-\$1 raw names that will reverse-split.** Legacy-only gated trips
+   (25,352): 98.1% have raw morning dollar volume < \$2M (median \$519k — that is why the clean table
+   lacks them), and the sub-\$1 ones (11,448) are **99.5% `adj_ratio ≠ 1`, median adj_ratio 60** —
+   names admitted because their FUTURE-adjusted close cleared \$1. The §S43v class, on the long side.
 
 **Clean book by year (causal ADV):** 2017 7 @ 6.49 · 2018 6 @ 5.64 · 2019 10 @ 1.07 · 2020 46 @ 1.89 ·
 2021 103 @ 8.07 · 2022 24 @ 2.75 · 2023 13 @ 1.41 · 2024 13 @ 2.21 · 2025 60 @ 1.88 · 2026 21 @ 5.36.
 Positive every year, ~30/yr, worst −22.9%. Churn: the 253 legacy trips absent from the clean table
-read PF 3.20 (median raw px $1.82) — same PF as the 225 common ones (3.33); the 81 clean-only trips
-(no price floor) 3.01. Clean book by raw price: <$1 33 @ 11.0 · $1–2 67 @ 6.69 · $2–5 89 @ 1.97 ·
-$5–10 71 @ 3.07 · ≥$10 45 @ 1.64 — the cheap names carry the PF here too (⚠ sub-$1 is fee-dead).
+read PF 3.20 (median raw px \$1.82) — same PF as the 225 common ones (3.33); the 81 clean-only trips
+(no price floor) 3.01. Clean book by raw price: <\$1 33 @ 11.0 · \$1–2 67 @ 6.69 · \$2–5 89 @ 1.97 ·
+\$5–10 71 @ 3.07 · ≥\$10 45 @ 1.64 — the cheap names carry the PF here too (⚠ sub-\$1 is fee-dead).
 
 **Verdict:** LowFlyer's EDGE survives the clean universe; its SIZE was the lookahead. The reference
 book from here is the clean one (`--candidate-table mr_candidate_1s`, causal ADV): **~305 trips /

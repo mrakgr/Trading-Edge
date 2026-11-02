@@ -163,17 +163,17 @@ Float breakdown on the baseline 3d>50 & 1d>50 & 20m>10 & 1m≥2% & bar_rvol≥4 
 | float @ entry | n | win% | raw PF | avg% |
 |---|---:|---:|---:|---:|
 | NO DATA | 1,096 | 75.7 | 2.14 | +9.7 |
-| <$300M | 1,402 | 76.6 | 2.35 | +9.9 |
-| ≥$300M | 72 | 73.6 | 2.37 | +8.7 |
+| <\$300M | 1,402 | 76.6 | 2.35 | +9.9 |
+| ≥\$300M | 72 | 73.6 | 2.37 | +8.7 |
 
 **No float edge.** On the long, `<$300M` was decisive (PF 2.20→2.90, large caps ~1.3 — the
-flush-fade is a low-float overreaction). On the short, the ≥$300M cohort is JUST AS GOOD
-(2.37) as <$300M (2.35) — the extended-pop fade works across the float spectrum. The
-selection self-selects for low float anyway (57% coverage skews small-cap, ≥$300M is only
+flush-fade is a low-float overreaction). On the short, the ≥\$300M cohort is JUST AS GOOD
+(2.37) as <\$300M (2.35) — the extended-pop fade works across the float spectrum. The
+selection self-selects for low float anyway (57% coverage skews small-cap, ≥\$300M is only
 72 trips), so an explicit float filter is redundant AND costly: 43% of trips have no float
 data and are PF 2.14, so a `<$300M` filter would DISCARD ~40% of a good book (the no-data +
 large-cap cohorts) for no PF gain. **Leave float OUT of the short spec.** (One real soft
-spot in the detail: the $50–150M sub-bucket, PF 0.92 on 183 trips.)
+spot in the detail: the \$50–150M sub-bucket, PF 0.92 on 183 trips.)
 
 ---
 
@@ -645,17 +645,17 @@ ONLY with a strong spike, tiny sample.
 ## The rvol ≥ 40 "S bucket" standalone — PF 4.4, robust every modern year
 
 rvol≥40 across the WHOLE book (ATR≥0.03 only, NO 1d/1m/other filter): **533 trips, PF 4.37, 80%
-win, +15.2% avg, +$810k @ $10k/trade** (median 1d 75% — 40× spikes naturally coincide with big
+win, +15.2% avg, +\$810k @ \$10k/trade** (median 1d 75% — 40× spikes naturally coincide with big
 days, but no 1d floor applied). The rvol ladder is a clean monotone escalation with NO ceiling:
 
 | rvol ≥ | n | win% | PF | avg% | net@10k |
 |---|---:|---:|---:|---:|---:|
-| 4 | 5,767 | 74.9 | 2.04 | +7.5 | $4.33M |
-| **12 (A+)** | 2,260 | 77.9 | 3.05 | +11.2 | $2.52M |
-| 20 | 1,350 | 79.1 | 3.52 | +12.4 | $1.68M |
-| **40 (S)** | 533 | 79.9 | 4.37 | +15.2 | $810k |
-| 60 | 291 | 85.2 | 6.55 | +18.3 | $533k |
-| **100 (SS)** | 98 | 85.7 | 8.78 | +20.8 | $204k |
+| 4 | 5,767 | 74.9 | 2.04 | +7.5 | \$4.33M |
+| **12 (A+)** | 2,260 | 77.9 | 3.05 | +11.2 | \$2.52M |
+| 20 | 1,350 | 79.1 | 3.52 | +12.4 | \$1.68M |
+| **40 (S)** | 533 | 79.9 | 4.37 | +15.2 | \$810k |
+| 60 | 291 | 85.2 | 6.55 | +18.3 | \$533k |
+| **100 (SS)** | 98 | 85.7 | 8.78 | +20.8 | \$204k |
 
 **By-year: robust, NOT era-concentrated** — every year 2020–2026 is PF ≥ 3.6 (2023 7.58, 2021
 5.37, 2026 4.75), no losing year, and the sample is GROWING (2024: 123, 2025: 198). Modern-era-

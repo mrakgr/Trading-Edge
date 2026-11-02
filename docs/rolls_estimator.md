@@ -167,8 +167,8 @@ So the scale is:
 | → 0.5 | no bounce at all, pure random walk — Roll has nothing to measure |
 
 News and drift pull the observed value down from 1.0. **Measured on this
-book: median 0.77, rising to 0.875 in the $1.00-1.50 bucket and falling to
-0.606 for $10+.** Bounce is therefore strong and strongest exactly where
+book: median 0.77, rising to 0.875 in the \$1.00-1.50 bucket and falling to
+0.606 for \$10+.** Bounce is therefore strong and strongest exactly where
 the name is tick-constrained — which is what makes the *cheap* end of the
 book the most Roll-friendly, the opposite of the earlier expectation.
 
@@ -179,8 +179,8 @@ breakdown from one-sided flow did not occur. But the **downward bias did**,
 and `p_flat` shows the mechanism: **83% of consecutive trades print at the
 identical price**, which is exactly the serial correlation in `q` that
 §4 warns about (a large order being worked at one level, print after print).
-The result is `roll` ≈ 0.19-0.62 ticks on sub-$10 names — implausibly tight
-for a $1.24 stock.
+The result is `roll` ≈ 0.19-0.62 ticks on sub-\$10 names — implausibly tight
+for a \$1.24 stock.
 
 **Read the two estimators as a bracket, not as competitors:**
 

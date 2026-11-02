@@ -20,7 +20,7 @@ WHERE avgvol20 * day_close >= 30000000.0   -- "ADV >= $30M". Looks like plumbing
 
 Nobody audited it because it read as a liquidity floor, not a signal. It was in fact a **backdoor
 "today is a 12×-volume day" selector**: a volume spike on D inflates D's *own* 20-day average, pushing the
-name over the $30M floor — so the universe admitted it *because of what happened that day*.
+name over the \$30M floor — so the universe admitted it *because of what happened that day*.
 
 | | |
 |---|---|
@@ -31,9 +31,9 @@ name over the $30M floor — so the universe admitted it *because of what happen
 
 | system | trips | PF | net |
 |---|---|---|---|
-| VwapReclaimV3 | 16,788 → 15,567 | **1.501 → 0.964** | $1.48M → **−$92k** |
-| OpeningDriverV2 | 1,028 → **473** | **4.112 → 0.728** | $2.39M → **−$104k** |
-| DipRiderV4 | 1,608 → 717 | **2.876 → 1.158** | $1.39M → $53k |
+| VwapReclaimV3 | 16,788 → 15,567 | **1.501 → 0.964** | \$1.48M → **−\$92k** |
+| OpeningDriverV2 | 1,028 → **473** | **4.112 → 0.728** | \$2.39M → **−\$104k** |
+| DipRiderV4 | 1,608 → 717 | **2.876 → 1.158** | \$1.39M → \$53k |
 
 **The 10% of trips the lookahead admitted carried 99.3% of all P&L.** The other 15,134 printed PF 1.00.
 
@@ -82,10 +82,10 @@ That alignment is load-bearing. **Lower `EntryStartMin` below 09:45 and it silen
 
 | | universe change | PF impact | verdict |
 |---|---|---|---|
-| VwapReclaimV3 ADV @ **$30M** | 0.8% | **−26%** | 🚩 **impossible for a real floor** |
-| LowFlyer ADV @ **$500k** | 0.2% | +0.4% | ✅ plumbing, as advertised |
+| VwapReclaimV3 ADV @ **\$30M** | 0.8% | **−26%** | 🚩 **impossible for a real floor** |
+| LowFlyer ADV @ **\$500k** | 0.2% | +0.4% | ✅ plumbing, as advertised |
 
-**A 0.8% membership change carrying $1.17M is arithmetically absurd.** That single line, written down, was
+**A 0.8% membership change carrying \$1.17M is arithmetically absurd.** That single line, written down, was
 enough to diagnose this — no run required. **If a "plumbing" filter is load-bearing, it is not plumbing.**
 
 ### R5 — The threshold matters more than the formula
@@ -93,16 +93,16 @@ enough to diagnose this — no run required. **If a "plumbing" filter is load-be
 LowFlyer's production book uses the **exact same contaminated formula** (`avgvol20 * day_close`) and is
 **completely clean**: 2 trips of 1,122 change, PF +0.014.
 
-The difference is **where the threshold sits**. At **$500k** the floor is too loose for D-vs-D-1 to move
-membership. At **$30M** it sits exactly where volume-spike inflation flips names in and out. **A lookahead
+The difference is **where the threshold sits**. At **\$500k** the floor is too loose for D-vs-D-1 to move
+membership. At **\$30M** it sits exactly where volume-spike inflation flips names in and out. **A lookahead
 is only dangerous where it is doing selection work.** So: don't just grep for the formula — ask whether the
 threshold is near the contamination's magnitude.
 
 ### R6 — The control: a genuine system is INDIFFERENT to removing a lookahead
 
 Always audit a system you *believe* is clean, using the same method, as a control. Removing a lookahead:
-- **genuine system** → nothing happens, or it **improves** (MaxFlyerV3's $1 price floor: PF 3.767 →
-  **4.162**, because it was admitting sub-$1-on-D-1 names that had already squeezed — terrible shorts).
+- **genuine system** → nothing happens, or it **improves** (MaxFlyerV3's \$1 price floor: PF 3.767 →
+  **4.162**, because it was admitting sub-\$1-on-D-1 names that had already squeezed — terrible shorts).
 - **lookahead-dependent system** → **collapses**.
 
 Without a control you cannot distinguish "the system is fake" from "my audit is broken."
@@ -133,7 +133,7 @@ full 04:00→09:30 sweep showed a *hump*, and a 5-min neighbourhood sweep showed
 4. **Build the live-safe twin universe** and A/B it. Isolate each lookahead (fix one at a time): both of
    ours were *independently* load-bearing (fix-close-only → PF 1.107, fix-vol-only → 1.173, both → 0.964).
 5. **Split the trips** into "kept" vs "dropped by the fix" and PF each group. This is the money shot:
-   dropped = **PF 4.05 / +$1.47M**; kept = **PF 1.00 / +$10k**.
+   dropped = **PF 4.05 / +\$1.47M**; kept = **PF 1.00 / +\$10k**.
 6. **Run a control (R6).**
 
 ---
@@ -181,7 +181,7 @@ Not everything died. Legal, monotone, and worth keeping:
 | system | verdict |
 |---|---|
 | **LowFlyer** | ✅ **CLEAN** — production PF **3.329** honest (was 3.315); the only fully-cleared system |
-| **MaxFlyerV3** | ⚠️ **UNCONFIRMED** — survives the $1 floor (3.767 → **4.162**) but **NOT** the `brv20d` denominator (3.758 → 1.301, and no honest threshold recovers it across a 12× sweep) |
+| **MaxFlyerV3** | ⚠️ **UNCONFIRMED** — survives the \$1 floor (3.767 → **4.162**) but **NOT** the `brv20d` denominator (3.758 → 1.301, and no honest threshold recovers it across a 12× sweep) |
 | **VwapReclaimV3** | ❌ **DEAD** — 1.501 → 0.964 |
 | **OpeningDriverV2** | ❌ **DEAD** — 4.112 → 0.728 |
 | **DipRiderV4** | ❌ **DEAD** — 2.876 → 1.158 |

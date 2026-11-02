@@ -66,7 +66,7 @@ The A3 axes (gap_60, volat, rate600, the S tier) are the **baseline** every V2 m
 ## Method (carried over from V1)
 
 - Book = construction 3 (mc=1 greedy per ticker-day, replayed inside the filtered set); null resamples TICKER-DAYS.
-- Sizing measure = PF−1 net of the $0.001/sh/side credit (the 2026-09-09 ruling: this system sizes on PF−1, not
+- Sizing measure = PF−1 net of the \$0.001/sh/side credit (the 2026-09-09 ruling: this system sizes on PF−1, not
   trimPF−1); multiplier = fitted PF−1 / base, clip [0.25, 4].
 - Every claim gets the year table and the two year-block holdouts (fit ≤ 2023 → 2024–26, and the mirror), and a
   steepness control (a steeper A3 map) before a gain is credited to a feature.
@@ -85,7 +85,7 @@ starts post-hoc on the slice, the engine changes only if a feature the slice lac
 `scripts/equity/flushfaderv2_features.py` on `data/flushfaderv2/book_features.parquet` (the 37,254-trade broad
 reference book + every slice input, joined on symbol / trade_date / signal_sec: 37,254 of 37,254 matched, the shared
 columns identical). The book's membership is fixed, so the octile tables need no replay. Return = ret_exit + the
-$0.001/sh/side credit. Book PF−1 0.53. Full per-band tables (with the 2020–23 / 2024–26 halves):
+\$0.001/sh/side credit. Book PF−1 0.53. Full per-band tables (with the 2020–23 / 2024–26 halves):
 `data/flushfaderv2/features.md`.
 
 | feature | Spearman ρ (ret) | PF−1 low octile → high octile | min / max band | shape |
@@ -259,7 +259,7 @@ the zone; the passive-fill question stays open for whatever the gate removes.)
 
 `scripts/equity/flushfaderv2_dslo_gate.py` (`data/flushfaderv2/dslo_gate.log`). Gate variants are REPLAYED from the
 209,252 engine-level trips (`broad_reference_trips.parquet`, + dslo from the slice; the base replay reproduces the
-reference book's 37,254 exactly). Flat, net of the $0.001/sh/side credit.
+reference book's 37,254 exactly). Flat, net of the \$0.001/sh/side credit.
 
 **Fine bands below 3 % (base book, fixed membership):**
 
@@ -313,7 +313,7 @@ refit of the sizing model on the gated book.
 `scripts/equity/flushfaderv2_book.py` → `data/flushfaderv2/v2_book.parquet` (`v2_book.log`); the model scripts take
 it with `--book data/flushfaderv2/v2_book.parquet --tag v2` (`linear_v2.md`, `steep_v2.md`, `dslo_v2.log`).
 
-**The V2 book** = the 209,252 engine-level trips − dslo ∈ (0, 2 %], then the reference construction (raw px ≥ $1,
+**The V2 book** = the 209,252 engine-level trips − dslo ∈ (0, 2 %], then the reference construction (raw px ≥ \$1,
 mc=1 greedy per ticker-day): **35,612 trades, flat PF−1 0.583, net 20,925 %** (V1: 37,254 @ 0.536 / 20,347).
 
 **The gate's cutoffs, held out** (pick (lo, hi] on one year block by flat net, apply to the other; grid lo 0 … 1 %, hi
@@ -375,7 +375,7 @@ constants beside the betas (A3 needed only band edges).
 ## V2-8 — the CAPPED replay, V1 vs V2 (2026-10-12): +14 % net, −30 % max DD, worst day −296 → −199, 80 of 80 months
 
 `scripts/equity/flushfaderv2_capped_replay.py` (`data/flushfaderv2/capped_replay.md`). The §S49ag ruled replay: the
-168,632 engine-level trips with raw px ≥ $1, chronological, first come first served; one CONCURRENT position per
+168,632 engine-level trips with raw px ≥ \$1, chronological, first come first served; one CONCURRENT position per
 ticker-date (mc=1 re-entries allowed); at most 20 units open (the Oms's MaxUnits); a trip that would breach the cap is
 skipped. V1 = all trips, A3 sizes; V2 = − dslo ∈ (0, 2 %] (11,177 trips), A3 + dslo ≥ 4 % + s20 sizes. Sizes fitted on
 each system's uncapped book (which this script reproduces: 37,254 / 35,612); cross-fit = every year's sizes come from
@@ -437,7 +437,7 @@ ols_slope_1200), not the float32 slice. Outputs in `data/flushfaderv2/`: `flushf
 | set | base_v19 (full period) | base_10d |
 |---|---|---|
 | engine-level trips, broad → V2 | 209,252 → **195,764** (gate −13,488) | 1,180 → **1,112** (−68) |
-| book (raw px ≥ $1, mc=1) | **35,612** (= the slice study, identical keys) | **192** (V1: 201) |
+| book (raw px ≥ \$1, mc=1) | **35,612** (= the slice study, identical keys) | **192** (V1: 201) |
 | book PF net of credit, flat → sized | 1.583 → 1.798 | 1.676 → 2.027 |
 | multiplier mean / range / at 0.25 | 1.0021 / 0.25–4.00 / 5.0 % | 1.062 / 0.25–3.55 / 4.7 % |
 
@@ -459,7 +459,7 @@ ols_slope_1200) and book (+ dslo, dslo_flag, s20, s20_z, pf1_fitted).
 | 10d `--from-bars`, gate OFF, vs V1 `broad_reference_trips_10d` | 1,180 = 1,180, zero-diff; every signal column vs base_10d zero-diff incl. sess_low / ols_slope_1200 (`n`, a candidate column, 1 row) |
 | 10d `--from-bars`, gate ON, vs V2 reference | trips 1,112 = 1,112 · book 192 = 192 (multiplier Δ ≤ 4.4e-15) |
 | 10d trades tape `--gate --ms-precision` | trips 1,112 = 1,112 · book 192 = 192; the gate's universe = the table on all 10 days |
-| full period 2020-01-02 .. 2026-08-21 `--from-bars` | **book 35,612 = 35,612** (multiplier Δ ≤ 7.6e-15); trips 195,764 shared, zero-diff (one exit_px 2e-16), + 34 Oms-only trips = ONE ticker-day, PSNYW 2025-08-27 (a warrant at $0.55: in today's candidate table, absent from base_v19 built 09-08 — universe drift, not the engine; all below $1, so no book effect) |
+| full period 2020-01-02 .. 2026-08-21 `--from-bars` | **book 35,612 = 35,612** (multiplier Δ ≤ 7.6e-15); trips 195,764 shared, zero-diff (one exit_px 2e-16), + 34 Oms-only trips = ONE ticker-day, PSNYW 2025-08-27 (a warrant at \$0.55: in today's candidate table, absent from base_v19 built 09-08 — universe drift, not the engine; all below \$1, so no book effect) |
 | Oms tests | 100 / 100 (SizingTests: betas + constants digit for digit, 200 pins to 1e-9; FaderTests AXTI restated — V2's continuous s20 gives overlapping trips different pf1) |
 | controls | the session-low pushed AFTER the gate: sess_low differs on 589 / 1,112 (the trip set does NOT move — only the record would drift); s20 without the winsorising: 2 tests fail (pin 92 Δ 0.198) |
 
@@ -751,7 +751,7 @@ engine + Sizing, 66 min).
   closed-end funds; names from `ticker_reference`) applied to the book's 3,679 tickers: **8 trades on one ticker,
   VCX** (Fundrise Innovation Fund, a closed-end fund). That is 0.02 % of the book, with sized net +7.9 of 28,308. The
   reference and live trade the same universe to a rounding error. (PSNYW is excluded live too; it never reached the
-  book, being under $1.)
+  book, being under \$1.)
 
 ## V2-17 — how often are signal days THIN? (2026-10-21)
 
@@ -810,7 +810,7 @@ entry. User: how do the ≥ 90 % names behave?
 `scripts/equity/flushfaderv2_dd52.py` → `data/flushfaderv2/dd52.md` + `dd52_book.parquet` (log `logs/flushfaderv2_dd52.log`).
 dd = 1 − signal_vwap / hi365, hi365 = max(high·n) over D's EPISODE's rows in [D − 365 d, D), ÷ n(D) — causal, the
 book's prices being day D's raw prints (checked on split days). The book: the production reference (35,185 trades),
-r net of the $0.001 credit. Rows whose window spans < 300 days (17 %) are kept apart.
+r net of the \$0.001 credit. Rows whose window spans < 300 days (17 %) are kept apart.
 
 | dd from 1y high | n | share | PF flat | PF sized | mean r % | mean mult | p05 r % |
 |---|---|---|---|---|---|---|---|

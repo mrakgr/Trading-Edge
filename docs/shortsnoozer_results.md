@@ -115,7 +115,7 @@ every year 2018–2026 (+1.0% to +5.8%, win 62–78%).
 **Filters do NOT rescue it.** An upper bound on the last-hour move does nothing
 (+6..+10 PF 1.76, +10..+20 1.57, +20..+40 1.85, >+40 1.02) — the −235% and −245%
 losses are in the *bulk* buckets, not the extreme. A price floor runs backwards:
-`<$1` is the BEST slice (PF 2.10) and `>$20` the worst (1.46), and sub-$1 is
+`<$1` is the BEST slice (PF 2.10) and `>$20` the worst (1.46), and sub-\$1 is
 fee-dead and unborrowable anyway.
 
 **Clustering is the one piece of good news.** 227 losses >20% fall across 205
@@ -406,9 +406,9 @@ Method, normalisation, and the overlap analysis are written up once in
 |---|---:|---:|---:|---:|
 | no filter | 1.643 | +2.60 | +3.33 | −245 |
 | ⭐ RANDOM same-n | 1.613 | +2.63 | +3.57 | −155 |
-| **$ `dv_over_open15`** | **3.476** | **+5.63** | +6.00 | −152 |
-| $ `dv_over_open30` | 3.174 | +5.37 | +5.98 | −152 |
-| $ `dv_over_rest` | 2.580 | +5.12 | +6.12 | −152 |
+| **\$ `dv_over_open15`** | **3.476** | **+5.63** | +6.00 | −152 |
+| \$ `dv_over_open30` | 3.174 | +5.37 | +5.98 | −152 |
+| \$ `dv_over_rest` | 2.580 | +5.12 | +6.12 | −152 |
 | **BAR `bar_over_open5`** | 3.031 | +4.42 | +4.74 | **−123** |
 | **BAR `bar_over_open30`** | 3.025 | +4.40 | +4.94 | **−123** |
 | **BAR `bar_over_open15`** | 3.008 | +4.37 | +4.77 | **−123** |
@@ -1040,12 +1040,12 @@ Matched-n (200) substitutes inside the same `chg > +8%` gate:
 **Only volatility works, and BOTH volatility windows work** (opening 5.310 / last-hour
 5.061, worst −21% / −17%). Price and dollar volume are at the 2.8 and 1.6 percentiles
 with −98% worst trades. The quiet names ARE bigger and more liquid — median price
-**$17.16 vs $3.78**, last-hour dollars **$36.5M vs $6.1M** — but that correlation is not
+**\$17.16 vs \$3.78**, last-hour dollars **\$36.5M vs \$6.1M** — but that correlation is not
 the mechanism, and gating on it directly fails.
 
 ⭐ **The reading:** a low-volatility name that nonetheless ran +8% in the closing hour is
 a name doing something genuinely out of character, on a tape that does not squeeze. The
-ruinous shorts in this system have always been the sub-$5, high-volatility, thin names
+ruinous shorts in this system have always been the sub-\$5, high-volatility, thin names
 (GME, OCGN, HOLO, GNS — §S43bv). This filter removes exactly that population, and it
 does so by measuring the morning, hours before the entry.
 
@@ -1067,8 +1067,8 @@ be sized on its own; it is a high-quality satellite.
 
 ⚠ Still unmodelled, and all three cut the same way: borrow cost and availability, fees,
 and whether the 15:59 limit and the next open are attainable at size. These are less
-alarming here than for the wider book — median price $17.16 and $36.5M of closing-hour
-dollars is a very different borrow proposition from a $3.78 name on $6.1M — but they are
+alarming here than for the wider book — median price \$17.16 and \$36.5M of closing-hour
+dollars is a very different borrow proposition from a \$3.78 name on \$6.1M — but they are
 still unmodelled.
 
 ## The candidate spec (⚠ NOT ADOPTED — borrow unmodelled)
@@ -1096,11 +1096,11 @@ Script: `scripts/equity/snoozer_volat_quiet.py`.
 inside it?"*
 
 Cell = `gaps ≥ 1000 ∧ chg > +6% ∧ volat_open30 < 40bp` — n = 542, PF 3.248,
-worst −49%, median price $16.97, median closing-hour dollars $31.2M.
+worst −49%, median price \$16.97, median closing-hour dollars \$31.2M.
 
 ⚠ **Both directions were tested for every feature**, not the incumbent short-side sign
 only: the quiet cell is a different name population from the one those signs were fitted
-on ($16.97 vs $3.78 median price), and four features have already flipped between the
+on (\$16.97 vs \$3.78 median price), and four features have already flipped between the
 two Snoozer systems.
 
 ## §1 INTENSITY: nothing, in any window, in either direction
@@ -1594,7 +1594,7 @@ Script: `scripts/equity/snoozer_toxic_cell.py`.
 
 ---
 
-# ⭐⭐ S43cy (2026-08-16) — the `volat >= 100bp` region: tradeable, but the edge is SUB-$5 and therefore may not be borrowable
+# ⭐⭐ S43cy (2026-08-16) — the `volat >= 100bp` region: tradeable, but the edge is SUB-\$5 and therefore may not be borrowable
 
 ⭐ USER: *"Let's look at the volat >= 100bp region next."*
 
@@ -1657,20 +1657,20 @@ and it points the wrong way for tradeability:
     price <= median   n=142  PF 8.153  win 85%  worst5% -18.5%  ex-2020 7.176  pctile 99.9
     price >  median   n=142  PF 1.674  win 75%  worst5% -50.2%  ex-2020 1.789  pctile  0.1
 
-**Median entry price of the cell is $2.88.** Broken out:
+**Median entry price of the cell is \$2.88.** Broken out:
 
-| price | n | share | PF | mean% | win% | worst5% | WORST% | med last-hr $ | PF ex-2020 |
+| price | n | share | PF | mean% | win% | worst5% | WORST% | med last-hr \$ | PF ex-2020 |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 🛑 $0–1 | 38 | 13% | 4.420 | +8.71 | 79 | −38.1 | −38 | **$0.9M** | 4.598 |
-| 🛑 **$1–2** | 63 | 22% | **28.451** | +8.52 | **89** | **−5.1** | **−8** | **$0.9M** | 19.007 |
-| $2–5 | 92 | 32% | 3.406 | +5.29 | 79 | −29.2 | −64 | $1.4M | 3.338 |
-| $5–10 | 51 | 18% | 5.890 | +8.59 | 82 | −20.2 | −24 | $2.1M | 6.588 |
-| 🛑 $10–20 | 21 | 7% | **0.555** | −4.17 | 67 | −123.3 | **−123** | $2.9M | 0.525 |
-| 🛑 $20+ | 19 | 7% | **0.485** | −4.16 | 63 | −45.1 | −45 | $6.3M | 0.688 |
+| 🛑 \$0–1 | 38 | 13% | 4.420 | +8.71 | 79 | −38.1 | −38 | **\$0.9M** | 4.598 |
+| 🛑 **\$1–2** | 63 | 22% | **28.451** | +8.52 | **89** | **−5.1** | **−8** | **\$0.9M** | 19.007 |
+| \$2–5 | 92 | 32% | 3.406 | +5.29 | 79 | −29.2 | −64 | \$1.4M | 3.338 |
+| \$5–10 | 51 | 18% | 5.890 | +8.59 | 82 | −20.2 | −24 | \$2.1M | 6.588 |
+| 🛑 \$10–20 | 21 | 7% | **0.555** | −4.17 | 67 | −123.3 | **−123** | \$2.9M | 0.525 |
+| 🛑 \$20+ | 19 | 7% | **0.485** | −4.16 | 63 | −45.1 | −45 | \$6.3M | 0.688 |
 
-🛑🛑 **The PF 8.153 is almost entirely the $1–2 bucket at PF 28.451** — 63 trades on names
-doing **$0.9M** of closing-hour volume. The document header already records that *"sub-$1
-is fee-dead and unborrowable anyway"*, and $1–2 at $0.9M of daily closing liquidity is
+🛑🛑 **The PF 8.153 is almost entirely the \$1–2 bucket at PF 28.451** — 63 trades on names
+doing **\$0.9M** of closing-hour volume. The document header already records that *"sub-\$1
+is fee-dead and unborrowable anyway"*, and \$1–2 at \$0.9M of daily closing liquidity is
 the same problem one dollar up.
 
 Imposing a tradeable price floor:
@@ -1682,11 +1682,11 @@ Imposing a tradeable price floor:
 | `px ≥ $2` | 183 | **2.181** | +4.14 | −43.7 | −123 | 2 | 2.275 |
 | 🛑 `px ≥ $5` | 91 | **1.617** | +2.98 | −60.2 | −123 | 3 | 1.795 |
 
-**A $2 floor takes it from 3.144 to 2.181; a $5 floor to 1.617.** This region's quality is
+**A \$2 floor takes it from 3.144 to 2.181; a \$5 floor to 1.617.** This region's quality is
 substantially a low-price artefact of a kind we cannot trade.
 
-⭐ Contrast the S tier (§S43cw), whose quiet names had a **median price of $17.16 and
-$36.5M** of closing-hour dollars, and where price was at the **2.8th** percentile — it
+⭐ Contrast the S tier (§S43cw), whose quiet names had a **median price of \$17.16 and
+\$36.5M** of closing-hour dollars, and where price was at the **2.8th** percentile — it
 does not need cheap stock to work. **That is now the strongest argument for the S tier
 over the high-volatility tiers, and it is a borrow argument, not a statistical one.**
 
@@ -1700,7 +1700,7 @@ over the high-volatility tiers, and it is a borrow argument, not a statistical o
 of the three regions: the quiet tier is the only one whose edge survives a price floor.
 
 ⏭ Untested: whether `volat [150,240) ∧ gaps ≥ 2000` (PF 3.846, worst −48%, zero >100%
-losses) keeps its edge above $2 — it is the one high-volatility cell worth that check.
+losses) keeps its edge above \$2 — it is the one high-volatility cell worth that check.
 
 Script: `scripts/equity/snoozer_highvol.py`.
 
@@ -1711,7 +1711,7 @@ Script: `scripts/equity/snoozer_highvol.py`.
 > 🛑🛑 **THE CENTRAL CLAIM OF THIS SECTION IS WRONG.** §2 compared `gaps` at the
 > **median of each base** against `dollars` at the median, while §1 and the whole rest
 > of this document use the spec threshold **`gaps >= 2000`**. In `volat >= 100bp ∧
-> px >= $2` the median gap count is **1,587s**, so the median cut INCLUDES the
+> px >= \$2` the median gap count is **1,587s**, so the median cut INCLUDES the
 > `[1500,2000)` band that §S43cy had already shown is dead (PF 1.112). Gaps was
 > handicapped with a threshold this document had itself refuted. At `gaps >= 2000` it
 > does NOT fail the price floor. **Read §S43da instead; the tables below are kept only
@@ -1735,11 +1735,11 @@ Last-hour dollar quintiles (n = 1,100, PF 1.728):
 
 | quintile | n | PF | worst5% | >100% loss | med px | PF ex-2020 | pctile |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| ⭐ Q1 $0.05–2.02M | 220 | **4.379** | −33.2 | 1 | $1.75 | 4.264 | **100.0** |
-| ⭐ Q2 $2.02–5.74M | 220 | **4.000** | −28.8 | 1 | $2.20 | 3.981 | 99.9 |
-| Q3 $5.74–15.05M | 220 | 2.128 | −69.9 | 2 | $3.01 | 2.218 | 80.9 |
-| 🛑 Q4 $15.05–46.09M | 220 | 1.308 | −101.7 | 6 | $3.77 | 1.553 | 8.1 |
-| 🛑 Q5 $46.09M+ | 220 | 1.063 | −114.6 | 5 | $7.17 | 1.027 | 0.8 |
+| ⭐ Q1 \$0.05–2.02M | 220 | **4.379** | −33.2 | 1 | \$1.75 | 4.264 | **100.0** |
+| ⭐ Q2 \$2.02–5.74M | 220 | **4.000** | −28.8 | 1 | \$2.20 | 3.981 | 99.9 |
+| Q3 \$5.74–15.05M | 220 | 2.128 | −69.9 | 2 | \$3.01 | 2.218 | 80.9 |
+| 🛑 Q4 \$15.05–46.09M | 220 | 1.308 | −101.7 | 6 | \$3.77 | 1.553 | 8.1 |
+| 🛑 Q5 \$46.09M+ | 220 | 1.063 | −114.6 | 5 | \$7.17 | 1.027 | 0.8 |
 
 Cleanly monotone. Matched at n = 457 against the incumbent:
 
@@ -1748,19 +1748,19 @@ Cleanly monotone. Matched at n = 457 against the incumbent:
 
 ## ⭐⭐⭐ §2 THE DECISIVE DIFFERENCE — behaviour under a price floor
 
-§S43cy concluded this region dies above $2. **That was true of `gaps`, not of the region.**
+§S43cy concluded this region dies above \$2. **That was true of `gaps`, not of the region.**
 
 | region | price floor | base PF | `GAPS` high | pctile | `DOLLARS` low | pctile |
 |---|---|---:|---:|---:|---:|---:|
 | volat < 40bp | all | 2.514 | **6.061** | 100.0 | 3.743 | 98.2 |
-| volat < 40bp | ≥ $2 | 2.948 | **6.240** | 99.9 | 4.017 | 92.3 |
-| ⭐ volat < 40bp | ≥ $5 | 3.549 | 6.574 | 99.6 | **7.278** | **99.9** |
+| volat < 40bp | ≥ \$2 | 2.948 | **6.240** | 99.9 | 4.017 | 92.3 |
+| ⭐ volat < 40bp | ≥ \$5 | 3.549 | 6.574 | 99.6 | **7.278** | **99.9** |
 | volat [40,100) | all | 1.245 | **2.154** | 100.0 | 1.737 | 99.7 |
-| volat [40,100) | ≥ $2 | 1.274 | 1.983 | 99.6 | **2.100** | 100.0 |
-| ⭐ volat [40,100) | ≥ $5 | 1.269 | 2.073 | 98.9 | **2.613** | 100.0 |
+| volat [40,100) | ≥ \$2 | 1.274 | 1.983 | 99.6 | **2.100** | 100.0 |
+| ⭐ volat [40,100) | ≥ \$5 | 1.269 | 2.073 | 98.9 | **2.613** | 100.0 |
 | volat ≥ 100 | all | 1.728 | 2.528 | 99.9 | **3.361** | 100.0 |
-| 🛑 volat ≥ 100 | ≥ $2 | 1.422 | **1.528** | **70.7** | **2.081** | **99.6** |
-| 🛑 volat ≥ 100 | ≥ $5 | 1.402 | **1.597** | **76.3** | **2.214** | **98.7** |
+| 🛑 volat ≥ 100 | ≥ \$2 | 1.422 | **1.528** | **70.7** | **2.081** | **99.6** |
+| 🛑 volat ≥ 100 | ≥ \$5 | 1.402 | **1.597** | **76.3** | **2.214** | **98.7** |
 
 ⭐⭐⭐ **In the high-volatility region under a tradeable price floor, `gaps` FAILS THE
 NULL (70.7 and 76.3 percentile) while `dollars` clears it comfortably (99.6, 98.7).**
@@ -1779,9 +1779,9 @@ contact with a borrow desk.
     -> n = 124   PF 7.278   worst-5% -7.5%   WORST TRADE -9%
        zero >100% losses · zero losing years · ex-2020 PF 4.243 · median price $16.85
 
-**A −9% worst trade on $17 stock.** Every prior candidate either had a ruinous tail or
-lived below $2. This one has neither, and it is the same quiet-volatility cell as the S
-tier with `dollars` substituted for `gaps` and a $5 floor added.
+**A −9% worst trade on \$17 stock.** Every prior candidate either had a ruinous tail or
+lived below \$2. This one has neither, and it is the same quiet-volatility cell as the S
+tier with `dollars` substituted for `gaps` and a \$5 floor added.
 
 ⚠ n = 124 over 11 years ≈ **11 trades/yr**, and §S43cs already flagged that four years
 of the quiet cell have fewer than 5 trades. Frequency, not edge, is now the binding
@@ -1814,9 +1814,9 @@ this document had already measured as dead.
 | base | n | median `gaps` | share with `gaps ≥ 2000` |
 |---|---:|---:|---:|
 | volat ≥ 100bp, all prices | 1,100 | **1,665s** | 42% |
-| volat ≥ 100bp, px ≥ $2 | 707 | **1,587s** | 40% |
-| volat ≥ 100bp, px ≥ $5 | 369 | **1,477s** | 38% |
-| volat [40,100), px ≥ $5 | 495 | 1,620s | 38% |
+| volat ≥ 100bp, px ≥ \$2 | 707 | **1,587s** | 40% |
+| volat ≥ 100bp, px ≥ \$5 | 369 | **1,477s** | 38% |
+| volat [40,100), px ≥ \$5 | 495 | 1,620s | 38% |
 
 §S43cy §1 measured `gaps [1500,2000)` at **PF 1.112, 5.5 percentile** — a known dead
 band. A median cut at 1,477–1,665s sweeps it in; `gaps ≥ 2000` excludes it. The two
@@ -1828,25 +1828,25 @@ saying so.
 | region | price | base PF | `gaps ≥ 2000` | n | pctile | `dollars` matched-n | pctile |
 |---|---|---:|---:|---:|---:|---:|---:|
 | volat < 40bp | all | 2.514 | **6.316** | 81 | 99.2 | 5.842 | 99.0 |
-| volat < 40bp | ≥ $2 | 2.948 | **5.997** | 78 | 97.4 | 4.976 | 92.7 |
-| ⭐ volat < 40bp | ≥ $5 | 3.549 | 6.038 | 65 | 90.9 | **8.718** | **98.0** |
+| volat < 40bp | ≥ \$2 | 2.948 | **5.997** | 78 | 97.4 | 4.976 | 92.7 |
+| ⭐ volat < 40bp | ≥ \$5 | 3.549 | 6.038 | 65 | 90.9 | **8.718** | **98.0** |
 | volat [40,100) | all | 1.245 | **2.775** | 378 | 100.0 | 1.838 | 99.6 |
-| volat [40,100) | ≥ $2 | 1.274 | **2.377** | 298 | 100.0 | 1.947 | 99.1 |
-| volat [40,100) | ≥ $5 | 1.269 | **2.958** | 187 | 99.9 | 2.510 | 99.8 |
+| volat [40,100) | ≥ \$2 | 1.274 | **2.377** | 298 | 100.0 | 1.947 | 99.1 |
+| volat [40,100) | ≥ \$5 | 1.269 | **2.958** | 187 | 99.9 | 2.510 | 99.8 |
 | ⭐ volat ≥ 100bp | all | 1.728 | 3.419 | 457 | 100.0 | **4.372** | 100.0 |
-| volat ≥ 100bp | ≥ $2 | 1.422 | **2.524** | 286 | **100.0** | 2.277 | 99.5 |
-| volat ≥ 100bp | ≥ $5 | 1.402 | 2.472 | 141 | **98.7** | 2.580 | 98.6 |
+| volat ≥ 100bp | ≥ \$2 | 1.422 | **2.524** | 286 | **100.0** | 2.277 | 99.5 |
+| volat ≥ 100bp | ≥ \$5 | 1.402 | 2.472 | 141 | **98.7** | 2.580 | 98.6 |
 
 ## 🛑 What is retracted
 
 1. **"`gaps` FAILS THE NULL under a price floor (70.7 / 76.3 percentile)."** ❌ At
    `gaps ≥ 2000` those cells read **100.0** and **98.7**. The failure was entirely the
    median cut dragging in the dead `[1500,2000)` band.
-2. **"`dollars` beats `gaps` at px ≥ $5 in volat [40,100)" (2.613 vs 2.073).** ❌ At the
+2. **"`dollars` beats `gaps` at px ≥ \$5 in volat [40,100)" (2.613 vs 2.073).** ❌ At the
    spec threshold `gaps` wins **2.958 vs 2.510**.
 3. **"`gaps ≥ 2000` was working largely by selecting cheap stock."** ❌ It holds its
    percentile at every price floor. §S43cy's conclusion that the high-vol region weakens
-   above $2 stands (base PF 1.728 → 1.422 → 1.402), but that is the REGION thinning, not
+   above \$2 stands (base PF 1.728 → 1.422 → 1.402), but that is the REGION thinning, not
    the feature failing.
 
 ## ✅ What survives
@@ -1857,7 +1857,7 @@ saying so.
     volat <  40bp,  px >= $5       dollars 8.718 vs gaps 6.038   (ex-2020 5.662 vs 3.728)
 
 The second is still the best cell found in this study — **n=65, PF 8.718, worst-5%
-−7.4%, worst −9%, zero >100% losses, zero losing years, median price $16.58** — and it
+−7.4%, worst −9%, zero >100% losses, zero losing years, median price \$16.58** — and it
 does beat the `gaps` version of the same cell. ⚠ But n=65 is **6 trades/yr**, half what
 §S43cz reported for its median-cut version (n=124).
 
@@ -1896,8 +1896,8 @@ negative-expectancy half identified and excluded (§S43cx). The tail was the sol
 disqualifier at the start of the day.
 
 ⚠ **THE OPEN QUESTION IS LIQUIDITY, NOT EDGE.** Median closing-hour dollars by tier:
-S/quiet ≈ $31–36M at $17 median price, but the high-volatility tiers sit at $0.9–2.1M on
-$2–3 stock (§S43cy). Spreads and borrow are unmodelled everywhere.
+S/quiet ≈ \$31–36M at \$17 median price, but the high-volatility tiers sit at \$0.9–2.1M on
+\$2–3 stock (§S43cy). Spreads and borrow are unmodelled everywhere.
 
 ## ⏭ NEXT STEPS ON THIS SYSTEM (user, session close)
 
@@ -1911,7 +1911,7 @@ $2–3 stock (§S43cy). Spreads and borrow are unmodelled everywhere.
    trades through it, and `feedback_lookahead_in_fill_sim` applies — fill at the VWAP of
    available same-side flow, never assume a scratch.
 3. ⏭ Re-cut the §S43cw tier book with a price floor (never done).
-4. ⏭ Borrow availability on the $2–5 names, which decides whether tiers B and C exist.
+4. ⏭ Borrow availability on the \$2–5 names, which decides whether tiers B and C exist.
 
 ---
 
@@ -1996,17 +1996,17 @@ universe.
 
 ## §2 ⚠⚠ The DOLLAR floor did NOT do it. The GAP COUNT did.
 
-| date | close chg | `dv_0945` | vs $2M | `n_bars_1s` | vs 200 | in universe |
+| date | close chg | `dv_0945` | vs \$2M | `n_bars_1s` | vs 200 | in universe |
 |---|---|---|---|---|---|---|
-| 2023-12-15 | −17.6% | $0.06M | ❌ | 12 | ❌ | no |
-| **2023-12-18** | **+263.7%** | **$2.78M** | **✅ PASSES** | **83** | ❌ | **no** |
-| 2023-12-19 | +11.8% | $2.33M | **✅ PASSES** | 134 | ❌ | no |
-| 2023-12-22 | +94.4% | $3.06M | **✅ PASSES** | 156 | ❌ | no |
-| 2023-12-29 | +42.6% | $1.96M | ❌ (just) | 299 | ✅ | no |
-| 2024-01-02 | — | $2.14M | ✅ | 203 | ✅ | **YES** |
+| 2023-12-15 | −17.6% | \$0.06M | ❌ | 12 | ❌ | no |
+| **2023-12-18** | **+263.7%** | **\$2.78M** | **✅ PASSES** | **83** | ❌ | **no** |
+| 2023-12-19 | +11.8% | \$2.33M | **✅ PASSES** | 134 | ❌ | no |
+| 2023-12-22 | +94.4% | \$3.06M | **✅ PASSES** | 156 | ❌ | no |
+| 2023-12-29 | +42.6% | \$1.96M | ❌ (just) | 299 | ✅ | no |
+| 2024-01-02 | — | \$2.14M | ✅ | 203 | ✅ | **YES** |
 
-⭐⭐ **On all three dangerous days the $2M dollar floor was cleared.** A squeeze concentrates
-enormous dollars into a handful of seconds — $2.78M through **83 traded seconds** of the
+⭐⭐ **On all three dangerous days the \$2M dollar floor was cleared.** A squeeze concentrates
+enormous dollars into a handful of seconds — \$2.78M through **83 traded seconds** of the
 opening 900. The only gate that saw it was the **gap count**, which measures *how many
 seconds traded at all* and is by construction blind to how big the prints were.
 
@@ -2058,7 +2058,7 @@ Absent the universe filter, two December days clear `chg60k59 > +6%`:
 
 ⚠⚠ **The density filter is on the WRONG side of this episode.** ShortSnoozer wants thin tape,
 and ZJYL was maximally thin *precisely when it was most dangerous* — 3,599 gaps on the spike
-day itself. Shape agrees with density (last-hour $0.75M / open-15m $3.06M = 0.25, deep in the
+day itself. Shape agrees with density (last-hour \$0.75M / open-15m \$3.06M = 0.25, deep in the
 short-favouring low band). **Two of the three features would have bought the trade.**
 
 ⭐⭐ **`volat_open30 < 40bp` is the only feature that rules the whole episode out** — and it
@@ -2111,11 +2111,11 @@ blind by construction, the other two actively favour the trade.
 
 ⏭ **Open item:** a last-hour staleness / halt guard (`nb60k59` floor), which no spec carries.
 
-## §S49 (2026-09-08) — the $1 floor + the registry
+## §S49 (2026-09-08) — the \$1 floor + the registry
 
 `scripts/equity/snoozer_production_books.py` reproduces §S43cw exactly (S 142 @ 6.884, A 108 @ 3.244, B 378 @
-2.775). Registry: `docs/production_specs.md` §4. **$1 floor on p1559 is FREE here**: S 141 @ 6.848, A 103 @ 4.135
-(improves), B 357 @ 2.735; the sub-$1 slice is 27 @ 2.12. Volume at $10k/position: 6.7 trades/mo, ~28k shares/mo.
+2.775). Registry: `docs/production_specs.md` §4. **\$1 floor on p1559 is FREE here**: S 141 @ 6.848, A 103 @ 4.135
+(improves), B 357 @ 2.735; the sub-\$1 slice is 27 @ 2.12. Volume at \$10k/position: 6.7 trades/mo, ~28k shares/mo.
 
 ## §S50 — ShortSnoozer IN THE LIVE SCANNER (2026-09-10): re-baselined at 15:59, the staleness ceiling, ported and sealed
 
@@ -2146,9 +2146,9 @@ per-trade parquet `snoozer_liquidity.parquet`):
 - **last hour:** [15:00:00, 16:00:00);
 - both **exclude the 16:00:00 second**. The bars there are not the closing auction: they hold the cross (condition 8)
   and its official-close reports (condition 15, the same shares again), and they miss a cross stamped later (DAR
-  2026-08-31 printed $50.8M at 16:00:03).
+  2026-08-31 printed \$50.8M at 16:00:03).
 
-| book | n | $ last min p50 | $ last hour p50 | last min < $100k | last min < $250k | weighted PF |
+| book | n | \$ last min p50 | \$ last hour p50 | last min < \$100k | last min < \$250k | weighted PF |
 |---|---|---|---|---|---|---|
 | long (all cells) | 953 | 945k | 25.4M | 3% | 14% | 3.30 |
 | short (all cells) | 634 | 608k | 10.2M | 14% | 30% | 3.95 |
@@ -2184,4 +2184,4 @@ per-trade parquet `snoozer_liquidity.parquet`):
 
 Short book: holding the 15:59 limit until 16:10 fills 69.9 % → 83.6 % (trade-through model), filled PF 3.44 → 3.45,
 captured weighted return +23 %. The shorts the limit misses are the BEST ones (missed PF 5.04 → 7.99: a short limit
-needs the price to come up to it). After-hours capacity is thin: lit $ through the limit on late fills p25 1k / p50 16k.
+needs the price to come up to it). After-hours capacity is thin: lit \$ through the limit on late fills p25 1k / p50 16k.

@@ -109,7 +109,7 @@ done matters:
 
 - **Backward adjustment is a lookahead.** The textbook adjustment (scale history by every later split, `adj_close /
   raw_close`) uses information from after day D. That is harmless inside a ratio of two adjusted prices on the
-  same scale. But in a filter or gate (e.g. "price ≥ $1") it silently selects stocks that will reverse-split
+  same scale. But in a filter or gate (e.g. "price ≥ \$1") it silently selects stocks that will reverse-split
   later. This cost us a whole system's results once.
 - **Backward dividend adjustment can push prices negative.** Subtracting every later dividend from the past
   prices (the additive method) takes a long-paying stock's early history below zero once the cumulative

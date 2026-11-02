@@ -12,7 +12,7 @@ the close?**
 ## Engine / data
 
 - **Parity baseline** (full daily-close entry, the locked HighFlyer production
-  default): **5,558 trips · 53.5% win · $1.34M · PF 1.828** (2005-01-01 →
+  default): **5,558 trips · 53.5% win · \$1.34M · PF 1.828** (2005-01-01 →
   2026-05-13). Reproduced byte-for-byte from the original engine (sha256
   `c6380dfc…`). This is the comparison anchor.
 - **Partial candle** = `partial_candle_1000` table in `trading.db`, one row per
@@ -40,8 +40,8 @@ Defaults (`up[0.10,0.30)`, rvol≥5, …) but the move/rvol/fill read the 10:00 
 
 | Entry basis | trips | win% | net P&L | PF |
 |---|---|---|---|---|
-| Daily close (parity) | 5,558 | 53.5% | $1.34M | **1.828** |
-| **10:00 ET partial** | **910** | 54.2% | $234k | **1.675** |
+| Daily close (parity) | 5,558 | 53.5% | \$1.34M | **1.828** |
+| **10:00 ET partial** | **910** | 54.2% | \$234k | **1.675** |
 
 At face value the partial entry is **worse** (PF 1.675 < 1.828) and trades **6×
 fewer names**. But this is NOT an apples-to-apples "same trades, earlier fill" —
@@ -65,8 +65,8 @@ differs). This isolates entry *timing* from *selection*:
 
 | Entry basis | shared trips | win% | net P&L | PF |
 |---|---|---|---|---|
-| Daily close | 542 | 54.8% | $126.2k | 1.983 |
-| **10:00 ET partial** | 542 | **60.0%** | **$167.6k** | **2.292** |
+| Daily close | 542 | 54.8% | \$126.2k | 1.983 |
+| **10:00 ET partial** | 542 | **60.0%** | **\$167.6k** | **2.292** |
 
 **Holding selection fixed, entering at 10:00 ET beats the close: PF 2.29 vs 1.98,
 win-rate +5.2pts, +33% net P&L.** And the 10:00 fill is on average **0.57%
@@ -82,17 +82,17 @@ and 10% by 10:00 already excludes the names that *will* run to 10–30% by close
 Relax both on the partial-entry run, then break down to find the sweet spots.
 
 `--partial-entry --rvol-min 2.5 --up-threshold 0.05`:
-**3,314 trips · 54.3% win · $755k · PF 1.637** (aggregate — hides the structure).
+**3,314 trips · 54.3% win · \$755k · PF 1.637** (aggregate — hides the structure).
 
 ### Move-at-10:00 band (peaks in the middle)
 
-| move @ 10:00 | trips | win% | PF | net | avg $ |
+| move @ 10:00 | trips | win% | PF | net | avg \$ |
 |---|---|---|---|---|---|
-| 5–7.5% | 1069 | 52.0 | 1.385 | $163k | 152 |
-| 7.5–10% | 558 | 53.0 | 1.419 | $85k | 152 |
-| 10–15% | 696 | 55.5 | 1.774 | $183k | 263 |
-| **15–20%** | 441 | **59.9** | **2.37** | $176k | **398** |
-| 20–30% | 550 | 54.2 | 1.762 | $149k | 270 |
+| 5–7.5% | 1069 | 52.0 | 1.385 | \$163k | 152 |
+| 7.5–10% | 558 | 53.0 | 1.419 | \$85k | 152 |
+| 10–15% | 696 | 55.5 | 1.774 | \$183k | 263 |
+| **15–20%** | 441 | **59.9** | **2.37** | \$176k | **398** |
+| 20–30% | 550 | 54.2 | 1.762 | \$149k | 270 |
 
 The **5–10% bands are the drag** (PF 1.39–1.42) — lowering the floor to 5% bought
 capacity, not quality. The **15–20% band is the sweet spot** (PF 2.37); 20–30%
@@ -102,11 +102,11 @@ softens (blow-off region starting).
 
 | rvol @ 10:00 | trips | win% | PF | net |
 |---|---|---|---|---|
-| **2.5–3.5** | 803 | 57.0 | **2.173** | **$262k** |
-| 3.5–5 | 567 | 55.2 | 1.489 | $99k |
-| 5–8 | 530 | 49.8 | 1.287 | $59k |
-| 8–15 | 498 | 55.6 | 1.697 | $117k |
-| 15+ | 916 | 53.3 | 1.563 | $219k |
+| **2.5–3.5** | 803 | 57.0 | **2.173** | **\$262k** |
+| 3.5–5 | 567 | 55.2 | 1.489 | \$99k |
+| 5–8 | 530 | 49.8 | 1.287 | \$59k |
+| 8–15 | 498 | 55.6 | 1.697 | \$117k |
+| 15+ | 916 | 53.3 | 1.563 | \$219k |
 
 The **lowest band (2.5–3.5) is the BEST** (PF 2.17, most net P&L) — it wouldn't
 exist at the old rvol floor of 5. At the *close*, high rvol marked the big movers;
@@ -143,15 +143,15 @@ Cross-reference the 3,314 relaxed-partial trades against the production close-bo
 (the golden CSV) on (symbol, signal_date): would the close-engine also have taken
 this name?
 
-| bucket | trips | win% | PF | net | avg $ | median move@10:00 | median rvol@10:00 |
+| bucket | trips | win% | PF | net | avg \$ | median move@10:00 | median rvol@10:00 |
 |---|---|---|---|---|---|---|---|
-| **valid at close** | 1,273 (38.4%) | **64.3** | **3.24** | $558k | **$438** | 16.0% | 5.18 |
-| only at 10:00 | 2,041 (61.6%) | 48.1 | 1.211 | $197k | $97 | 7.6% | 7.04 |
+| **valid at close** | 1,273 (38.4%) | **64.3** | **3.24** | \$558k | **\$438** | 16.0% | 5.18 |
+| only at 10:00 | 2,041 (61.6%) | 48.1 | 1.211 | \$197k | \$97 | 7.6% | 7.04 |
 
 **Only 38% of the relaxed-10:00 trades would also be valid at the close** — the
 10:00 book is mostly a *different* book, not an early fill of the close book. And
 the edge is almost entirely in the trades that ALSO validate at close: **PF 3.24
-(64% win, $438 avg)** vs the "only at 10:00" drag at **PF 1.21 (48% win, $97 avg,
+(64% win, \$438 avg)** vs the "only at 10:00" drag at **PF 1.21 (48% win, \$97 avg,
 near breakeven)**.
 
 The relaxation (rvol→2.5, move→5%) mostly let in junk: the "only at 10:00" bucket
@@ -174,7 +174,7 @@ no fan-out.
 |---|---|---|
 | PF | **3.24** | 2.20 |
 | win% | 64.3 | 56.7 |
-| net | $558k | $341k |
+| net | \$558k | \$341k |
 
 **It's timing, not selection.** Entered at the *close*, these exact names run PF
 2.20 (a good subset — above the full close-book's 1.83 — but no more). Entered at
@@ -202,10 +202,10 @@ Compute the same-day-close counterfactual = `qty·(dayD_adj_close − entry_1000
 |---|---|---|
 | PF | **0.817** | **1.211** |
 | win% | 41.6 | 48.1 |
-| net | **−$88k** | **+$197k** |
+| net | **−\$88k** | **+\$197k** |
 
 **Hold the 5 days — do NOT sell at the close.** Same-day exit turns a
-marginal-but-positive book (1.21) into a money-loser (0.82, −$88k).
+marginal-but-positive book (1.21) into a money-loser (0.82, −\$88k).
 
 Mechanism: these names are up ~5–7% at 10:00 but **fade through the rest of the
 day** — that fade is *why* they fail to qualify at close (they slip back under
@@ -221,7 +221,7 @@ This completes a clean symmetry:
 
 ## Run 7 — does the low-float edge survive on the 10:00 entries?
 
-The <$300M dollar-float edge was established on the daily-close book (PF ~2.5 vs
+The <\$300M dollar-float edge was established on the daily-close book (PF ~2.5 vs
 ~1.4). Does it hold on the 10:00 partial book? Float metric = the **combined**
 source (SEC free-float first, Polygon `?date=` scso to fill — 95% trade-time
 coverage in 2013+; see the float memory), dollar-float taken **at the 10:00 entry
@@ -230,22 +230,22 @@ price** (`scso × entry_1000`, or SEC shares × entry_1000). Relaxed partial boo
 
 | float bucket (at 10:00) | trips | win% | PF clip | PF raw |
 |---|---|---|---|---|
-| **<$150M** | 625 | 58.1 | **2.135** | 2.262 |
-| $150–300M | 318 | 57.9 | 1.910 | 2.03 |
-| $300–750M | 416 | 58.9 | 1.364 | 1.448 |
-| ≥$750M | 1,095 | 53.5 | 1.472 | 1.50 |
+| **<\$150M** | 625 | 58.1 | **2.135** | 2.262 |
+| \$150–300M | 318 | 57.9 | 1.910 | 2.03 |
+| \$300–750M | 416 | 58.9 | 1.364 | 1.448 |
+| ≥\$750M | 1,095 | 53.5 | 1.472 | 1.50 |
 
 **The low-float edge holds cleanly on the 10:00 entries** — monotone in the low
-region, smallest float (<$150M) strongest at PF 2.14, break right at $300M (same as
-the daily book). The <$300M vs ≥$300M split, stable across eras:
+region, smallest float (<\$150M) strongest at PF 2.14, break right at \$300M (same as
+the daily book). The <\$300M vs ≥\$300M split, stable across eras:
 
-| 10:00 book | LOW <$300M | HIGH ≥$300M |
+| 10:00 book | LOW <\$300M | HIGH ≥\$300M |
 |---|---|---|
 | Full window | **2.066** (943, 58% win) | 1.441 (1,511) |
 | 2013+ | **2.051** (858, 58% win) | 1.432 (1,191) |
 
 **The two HighFlyerV2 edges stack independently:** timing (early entry, Run 5:
-~2.2→3.2 on the same names) × float (<$300M ~2.05 vs ~1.44). Early entry on
+~2.2→3.2 on the same names) × float (<\$300M ~2.05 vs ~1.44). Early entry on
 low-float names is the cell to push on. (Float source: this also validated the
 Polygon shares-outstanding pull — see [[project_float_feature_2026-06-22]] — over
 buying Sharadar.)
@@ -253,17 +253,17 @@ buying Sharadar.)
 ## Run 8 — do the two edges compound? (requalifier × float, 2×2)
 
 Split the 10:00 book by BOTH the timing axis (valid-at-close requalifier, where the
-early-entry edge lives — Run 5) AND the float axis (<$300M, Run 7). Combined float
+early-entry edge lives — Run 5) AND the float axis (<\$300M, Run 7). Combined float
 metric, dollar-float at the 10:00 entry price.
 
-| | LOW <$300M | HIGH ≥$300M |
+| | LOW <\$300M | HIGH ≥\$300M |
 |---|---|---|
 | **requalifier (valid at close)** | **PF 3.654 · 67.9% · 343** | PF 3.109 · 64.0% · 619 |
 | only at 10:00 (fades by close) | PF 1.553 · 52.3% · 600 | PF 1.044 · 48.8% · 892 |
 
 **The two edges compound — orthogonally.** Best cell = requalifier × low-float →
 **PF 3.65, 68% win**, above either edge alone (timing-only requalifiers 3.24;
-float-only <$300M ~2.05). Within requalifiers, low-float adds (3.65 vs 3.11);
+float-only <\$300M ~2.05). Within requalifiers, low-float adds (3.65 vs 3.11);
 within low-float, requalifying adds (3.65 vs 1.55). Neither cannibalizes the other
 (contrast: float×breadth/heat overlapped on the daily book).
 
@@ -286,7 +286,7 @@ push the move floor back 5%→10% (`--rvol-min 2.5 --up-threshold 0.10`).
 | trips | 3,314 | 1,687 |
 | **requalifier rate** | 38.4% | **63.9%** |
 | aggregate PF | 1.637 | **1.906** |
-| low-float (<$300M) PF | 2.066 | **2.378** |
+| low-float (<\$300M) PF | 2.066 | **2.378** |
 
 **The 10% floor IS a (partial) no-lookahead requalifier proxy:** 64% of move-10%
 trades requalify at close vs 38% at move-5%. Being up ≥10% by 10:00 (not just 5%)
@@ -295,7 +295,7 @@ needed. Overall PF 1.64→1.91; low-float 2.07→**2.38**.
 
 move-10% 2×2 (requalifier × float):
 
-| | LOW <$300M | HIGH ≥$300M |
+| | LOW <\$300M | HIGH ≥\$300M |
 |---|---|---|
 | requalifier | PF 3.07 (271) | 2.80 (561) |
 | fade-out | 1.89 (216) | 1.05 (253) |
@@ -317,7 +317,7 @@ add usable trades or just dilution?
 | trips | 1,687 | 2,062 (+375) |
 | aggregate PF | 1.906 | 1.900 |
 | requalifier rate | 63.9% | 65.6% |
-| low-float (<$300M) PF | 2.378 | 2.362 |
+| low-float (<\$300M) PF | 2.378 | 2.362 |
 
 The new **2.0–2.5 slice (375 trips)** is solid but a touch below the 2.5+ core:
 overall PF 1.738 vs 1.809; low-float 2.239 vs 2.378. So rvol 2.0 is a **near-wash —
@@ -337,9 +337,9 @@ current 5-day hold. Post-hoc, move-10% books.
 | | same-day close exit | 5-day hold |
 |---|---|---|
 | ALL | PF 1.223 (50.3% win) | **1.906** (56.2%) |
-| LOW <$300M | PF 1.304 (46.6%) | **2.578** (58.7%) |
+| LOW <\$300M | PF 1.304 (46.6%) | **2.578** (58.7%) |
 
-**rvol 2.0 + move 10%:** ALL 1.251 vs 1.900; LOW <$300M 1.378 vs **2.586**.
+**rvol 2.0 + move 10%:** ALL 1.251 vs 1.900; LOW <\$300M 1.378 vs **2.586**.
 
 **Keep the 5-day hold — it's decisively better across the WHOLE book**, not just the
 bottom half. Same-day-close roughly halves the low-float edge (2.58→1.30) and drops
@@ -617,28 +617,28 @@ Liquidity profile of the A+ cell (n=95; ignore the max column — adj-price glit
 
 | metric | q25 | median | q75 |
 |---|---|---|---|
-| price | $5.12 | $8.75 | $22.29 |
-| 4w avg $-volume | $0.33M | $0.76M | $1.79M |
+| price | \$5.12 | \$8.75 | \$22.29 |
+| 4w avg \$-volume | \$0.33M | \$0.76M | \$1.79M |
 | shares by 10:00 | 0.24M | 0.62M | 1.82M |
-| **$-volume by 10:00** | $2.16M | **$5.85M** | $34.6M |
+| **\$-volume by 10:00** | \$2.16M | **\$5.85M** | \$34.6M |
 
-Mostly sub-$10 small-caps (expected — low-float). The **4w-ADV looks thin (median
-$0.76M)** — the legitimate concern. BUT you trade these on their EXPLOSIVE day: by
-10:00 a median **$5.85M** has already traded (≈8× the baseline ADV — the rvol effect).
+Mostly sub-\$10 small-caps (expected — low-float). The **4w-ADV looks thin (median
+\$0.76M)** — the legitimate concern. BUT you trade these on their EXPLOSIVE day: by
+10:00 a median **\$5.85M** has already traded (≈8× the baseline ADV — the rvol effect).
 
 **Does the edge depend on the illiquid tail? No — it survives every gate (clip PF):**
 
 | gate | n | PF |
 |---|---|---|
 | all A+ | 93 | 4.99 |
-| price ≥ $5 | 70 | 4.92 |
-| $vol by 10:00 ≥ $5M | 48 | **5.97** |
-| ADV4w ≥ $1M | 36 | 14.81 (thin n) |
-| price ≥ $5 & $vol-by-10:00 ≥ $5M | 35 | **5.19** |
+| price ≥ \$5 | 70 | 4.92 |
+| \$vol by 10:00 ≥ \$5M | 48 | **5.97** |
+| ADV4w ≥ \$1M | 36 | 14.81 (thin n) |
+| price ≥ \$5 & \$vol-by-10:00 ≥ \$5M | 35 | **5.19** |
 
 Filtering to tradeable names KEEPS or improves the PF — the 5-PF is not an
-illiquidity mirage. Deployable liquid version = **price ≥ $5, ≥$5M traded by 10:00 →
-PF ~5.2 (35 trips)** — sizable without being the whole book. (The $14.8 ADV≥$1M cell
+illiquidity mirage. Deployable liquid version = **price ≥ \$5, ≥\$5M traded by 10:00 →
+PF ~5.2 (35 trips)** — sizable without being the whole book. (The \$14.8 ADV≥\$1M cell
 is sample-thin; trust direction, not magnitude.)
 
 **Tradeoff = frequency.** Gating to liquid names halves an already-thin cell (~35–48
@@ -672,7 +672,7 @@ the **>+10% strong-push tail is the worst green bucket** (1.49, 50% win, median 
 **<−6% deep-dip tail is the outright loser** (0.64), reconfirming the no-average-down
 −6% line on the full book, not just low-float.
 
-**Low-float (<$300M) — the shape INVERTS: the small dips are decisively best (A+):**
+**Low-float (<\$300M) — the shape INVERTS: the small dips are decisively best (A+):**
 
 | Move from open (10:00), low-float | trips | win% | avg | clip PF |
 |---|---|---|---|---|
@@ -838,7 +838,7 @@ just buy it at 3:30 rather than wait for the close. It's the sharper add-in trig
 | >15 (blowoff) | 521 | 1.74 | 1.93 |
 
 (The two PF columns are the SAME add-leg return on two populations: "full" = all
-10:00 names in the bucket; "low-float" = the <$300M subset of that same bucket. The
+10:00 names in the bucket; "low-float" = the <\$300M subset of that same bucket. The
 gap is the float double-duty stacking on top of the volume-spread edge — n drops
 accordingly, e.g. 394 → 82.) The **3:30 fill is slightly better than the close fill**
 tested first (e.g. 4–6 low-float 3.72→4.20, 9–15 full 2.98→3.21): buying at 3:30
@@ -918,7 +918,7 @@ the remaining hold turns negative. Mirror image of the entry rule (don't BUY the
 >+10%-off-open parabola; don't HOLD the >+20%-from-entry parabola).
 
 **Low-float slice — the +20% sell line RELAXES for low float (same pattern as Run 26).**
-Forward leg from 3:30, full vs low-float (<$300M dollar-float):
+Forward leg from 3:30, full vs low-float (<\$300M dollar-float):
 
 | up at 3:30 | n (full) | PF (full) | n (LF) | PF (LF) | avg fwd (LF) |
 |---|---|---|---|---|---|
@@ -1039,7 +1039,7 @@ Days 2–4, up +20–35% is fine to KEEP holding (trend); only +35%+ is a sell. 
 day: a +35% single-session spike → take it; a sharp single-day down move → hold, it's
 a shakeout.
 
-**Low-float slice (dollar-float <$300M at entry).** The same upside breakdown, full
+**Low-float slice (dollar-float <\$300M at entry).** The same upside breakdown, full
 vs low-float side by side (positive cumulative buckets, per hold-day; PF = forward leg
 day-k close → exit):
 
@@ -1060,7 +1060,7 @@ day-k close → exit):
 | **20–35%** | 4 | 118 | **1.54** | 59 | **2.11** |
 
 **Low float lifts every cell and sharpens the day-1 divide.** Reads:
-- **Low-float PF > full-book PF in every bucket** (usually by 0.3–1.2). The <$300M
+- **Low-float PF > full-book PF in every bucket** (usually by 0.3–1.2). The <\$300M
   float edge (Run 19 / A+ setup) compounds through the hold, not just at entry — a
   low-float name up modestly is a *scarcer* supply squeeze, so continuation is stronger.
 - **The day-1 vs days-2–4 flip at +20–35% survives — and is sharper.** Day-1 +20–35%
@@ -1085,7 +1085,7 @@ day-k close → exit):
   above +35%" rule). But on the **low-float core 35–60% is still a mild HOLD** (PF 1.46,
   **56% win**, avg +3.3%, median +0.9%; n=61, worst −34% / best +134%) — a right-skewed
   *continuation*, not a round-trip. The scarce-supply squeeze pushes the climax threshold
-  UP: for a <$300M name the top only truly breaks at **>60%** (PF 0.69, avg −3.8% —
+  UP: for a <\$300M name the top only truly breaks at **>60%** (PF 0.69, avg −3.8% —
   same cliff as the full book, just reached later). So the +35%+ take-profit is a
   **full-book rule; for low float, let winners run to ~+60% before taking.**
 
@@ -1141,7 +1141,7 @@ band. Exit early only when the position BREAKS out of it:
 
 Robustness check on the production 10:00 book (rvol≥1, move∈[10,30%], the A+ gates;
 3,906 trips, 2005-02 → 2026-05). Per-trip return = `exit_price/entry_price − 1`; PF is
-the standard +50%-clip. Low-float = dollar-float <$300M at entry.
+the standard +50%-clip. Low-float = dollar-float <\$300M at entry.
 
 **Yearly — FULL BOOK vs LOW-FLOAT:**
 
@@ -1218,12 +1218,12 @@ unit, and there it's 20/22 full / 22/22 low-float.
 First cut of the **real-time detection process** (`scripts/equity/live_scan.py`). It pulls
 Massive's full-market snapshot (`/v2/snapshot/locale/us/markets/stocks/tickers`, ~11k tickers
 in one call — the SAME vendor as the backtest data), joins the D-1 daily factor base computed
-in DuckDB, and applies the exact production `EntryConfig` gate + the <$300M low-float tag. The
+in DuckDB, and applies the exact production `EntryConfig` gate + the <\$300M low-float tag. The
 rvol floor is checkpoint-calibrated (intraday volume still accumulating): ~1.0 @ 10:00 → ~5.0
-@ close (1.25 default for ~11:00 ET). Feed decision: **Massive Advanced ($199/mo real-time) for
+@ close (1.25 default for ~11:00 ET). Feed decision: **Massive Advanced (\$199/mo real-time) for
 3 months**; IBKR = execution + optional Benzinga news; TradingView ruled out (no API / ToS).
 
-**Setup taxonomy (user, this session):** **A+** = low-float ($<300M) AND a dip in the first
+**Setup taxonomy (user, this session):** **A+** = low-float (\$<300M) AND a dip in the first
 30m off the open (the red-pullback entry); **A** = passes all gates incl. float, no early dip;
 **B** = passes all gates EXCEPT float (mid/large float) → tradeable at smaller size.
 
@@ -1248,7 +1248,7 @@ scan reproduces in SQL against the engine's own CSV columns:
 Investigating the pct_52w mismatches surfaced a real, if cosmetic, issue. Some tickers are
 **recycled**: e.g. `MRX` = an old company (2003→2012) whose ticker went dark for **4,154 days**,
 then relisted as **Marex Group plc** (CIK 1997464, IPO 2024-04). A naive "last 252 bars" 52w
-window reaches ACROSS the gap and prices the new company against the OLD company's high ($42.52
+window reaches ACROSS the gap and prices the new company against the OLD company's high (\$42.52
 from 2012) — garbage.
 
 - **Why the ENGINE mostly avoids it — by accident, not design.** The engine has NO gap logic.
@@ -1272,7 +1272,7 @@ Sever every rolling window at a >45-day gap. Pure SQL, no state machine, via the
 idiom: (1) `is_break = date − LAG(date) > 45`; (2) `episode = SUM(is_break) OVER (PARTITION BY
 ticker ORDER BY date)` — a running total that ticks up at each gap; (3) `PARTITION BY ticker,
 episode` on the 52w / ATR / tightness / maxAtrLog windows, so no window can span a gap. Verified:
-MRX splits into two episodes (hi $42.52 old / $66.51 new); the live scan uses the new one. This
+MRX splits into two episodes (hi \$42.52 old / \$66.51 new); the live scan uses the new one. This
 is the SQL equivalent of resetting the engine's rolling state on a detected gap — both yield the
 same result, so the episode logic doubles as the spec for the eventual engine reset.
 
@@ -1319,13 +1319,13 @@ Full 2005–2026, production defaults, only `--volume-days` varied:
 
 | volume-days | trips | win% | net P&L | clip-era PF |
 |---:|---:|---:|---:|---:|
-| 10 | 5746 | 53.1% | $1.27M | 1.741 |
-| 14 | 5729 | 53.4% | $1.36M | 1.807 |
-| **20** | 5596 | 53.5% | $1.34M | **1.812** |
-| 28 | 5528 | 53.5% | $1.31M | 1.811 |
-| 40 | 5384 | 53.3% | $1.00M | 1.617 |
-| 60 | 5382 | 53.7% | $1.00M | 1.613 |
-| 90 | 5512 | 53.7% | $1.03M | 1.607 |
+| 10 | 5746 | 53.1% | \$1.27M | 1.741 |
+| 14 | 5729 | 53.4% | \$1.36M | 1.807 |
+| **20** | 5596 | 53.5% | \$1.34M | **1.812** |
+| 28 | 5528 | 53.5% | \$1.31M | 1.811 |
+| 40 | 5384 | 53.3% | \$1.00M | 1.617 |
+| 60 | 5382 | 53.7% | \$1.00M | 1.613 |
+| 90 | 5512 | 53.7% | \$1.03M | 1.607 |
 
 **PF plateaus at 14–28 bars (~1.81), then falls off a cliff at 40+ (~1.61, −25% net P&L).**
 20 sits at the top of the plateau — the chosen default is well-placed; there is no free

@@ -35,7 +35,7 @@ The bid / ask is the quote **before** the trade. Every fill of one sweep carries
 
 | group | roots |
 |---|---|
-| equity index | MES (the MICRO E-mini S&P, $5 / pt: ES's price, a retail-heavier flow; no ES), NQ (the E-mini Nasdaq, $20 / pt) |
+| equity index | MES (the MICRO E-mini S&P, \$5 / pt: ES's price, a retail-heavier flow; no ES), NQ (the E-mini Nasdaq, \$20 / pt) |
 | FX | 6A 6B 6C 6E 6J 6N 6S 6Z |
 | energy | CL MCL NG RB |
 | metals | HG MHG MGC |
@@ -138,7 +138,7 @@ down on 2026-10-26):
 
 ⚠ **Negative prices are kept.** CLK20 traded down to −40.32 on 2020-04-20/21 (5,481 fills, 2,052 bars down to a vwap of
 −40.16). The first build's `trade_price > 0` filter dropped them silently; since the fix only a null price is dropped. The
-front by volume had rolled to CLM20 on 04-17 (CLM20's low: $6.58), so a front series never sees them.
+front by volume had rolled to CLM20 on 04-17 (CLM20's low: \$6.58), so a front series never sees them.
 
 | root | from | to |
 |---|---|---|
@@ -239,7 +239,7 @@ Bid/AskVolume, with NumTrades 1; everything else is dropped from the tape and co
   stray few later (ZNU20 2020-05-17 22:00, 5 fills; 6EM18 2). `bid` = `ask` = the price, `fill_pos` NULL.
 - **A file with no fills** (the 72 bar files) is left out of `ticks/`, and its parquet-derived output, made from bars,
   is deleted. The docs' "aggregates, not ticks" row above is these files.
-- **The export's rounding:** round(float64(f32) × 1e9) HALF AWAY FROM ZERO. Gold above $4,000 lands on exact halves
+- **The export's rounding:** round(float64(f32) × 1e9) HALF AWAY FROM ZERO. Gold above \$4,000 lands on exact halves
   (4640.2001953125 × 1e9), which is how MGC's export failed numpy's half-to-even round-trip.
 - ⚠ **The 1s bars from `level1_tick/` counted the post-2015 bar records as trades.** About 25,000 records in 30 files:
   NG's minute bars of 2015-05-04..08-27 (NGM15–NGV15, 25,020), backfill bursts on single days (2017-03-15 in nine roots,
@@ -273,7 +273,7 @@ to backtest later).** The first batch's 1,742 .scid files (280 GB) were download
 - **Empty exports:** three first-batch files are 4-byte empty exports (ZTU11, ZTZ11, ZTH12). They are left out, as is the
   truncated ZTU26 parquet, which comes from its complete .scid instead. Their .scid have data (ZTU26's arrived first).
 
-  cd research && python -u scripts/futures/build_ticks.py > logs/futures_build_ticks.log 2>&1; echo exit $?
+  cd research && python -u scripts/futures/build_ticks.py > logs/futures_build_ticks.log 2>&1; echo exit \$?
 
 `level1_tick/` stays as Malcolm's export.
 
@@ -330,14 +330,14 @@ energy settlement and 08:30; 1–2 lots, a median 1–15 bp from the quote. 3 ti
   (the flagged prints sit at a median 9.8σ, but 3σ alone flags 3–4 % of ALL VX fills: over 100 fills the price often
   sits on one or two levels, so a one-tick move is several σ), and a 10-tick threshold (it leaves the big 3–8 tick
   blocks in).
-- **Ground truth would cost $650** (Cboe DataShop "CFE Futures Trades", 2018-03 on: `off_order_book_type`,
+- **Ground truth would cost \$650** (Cboe DataShop "CFE Futures Trades", 2018-03 on: `off_order_book_type`,
   `buy/sell_order_num_legs`; not bought, user 2026-11-01).
 - **Unseen:** a whole-cent block priced near the quote (harmless to the bars). Before 2020-08 the millisecond test
   cannot be made, so those fills get the grid rule only. CME blocks are reported outside the Globex book, and the ES
   scan finds nothing like VX's; the other CME roots are scanned next (report only).
 - **Ground truth, if ever wanted (not bought, user 2026-10-29: too pricey):** Databento's XCBF.PITCH labels them exactly:
-  side None, publisher `XCBF.PITCH.XOFF`. Its daily statistics (block and ECRP volume per contract) cost $4.87 for
-  2020-09..2026-10; trades cost $3–40 a day. Massive's futures trades have no condition, block or aggressor field,
+  side None, publisher `XCBF.PITCH.XOFF`. Its daily statistics (block and ECRP volume per contract) cost \$4.87 for
+  2020-09..2026-10; trades cost \$3–40 a day. Massive's futures trades have no condition, block or aggressor field,
   and cover no CFE.
 - ⚠ The scan is numpy, one contract at a time (0.7 GB, 10 s for VX). A DuckDB window `quantile_disc` ignores
   `memory_limit`: three runs of it hit 13.5 GB and crashed the editor.

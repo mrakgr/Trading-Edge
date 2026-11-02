@@ -40,16 +40,16 @@ OpeningDriverV2 4.112→0.728, DipRiderV4 2.876→1.158). It survived a year bec
    `med_bar_vol_0945` = ✅ only because `EntryStartMin = 09:45` — **aligned to the minute; lower the entry
    window and it silently becomes a lookahead.**
 6. **Always run a control.** A genuine system is *indifferent* to removing a lookahead, or **improves**
-   (MaxFlyerV3's $1 floor: 3.767 → **4.162**). Without a control you cannot tell "the system is fake" from
+   (MaxFlyerV3's \$1 floor: 3.767 → **4.162**). Without a control you cannot tell "the system is fake" from
    "my audit is broken".
 7. **Post-hoc SQL counts.** LowFlyer's production book lives entirely in `scripts/equity/*.sql` — the
    contaminated formula was *there*, not in the engine. Audit the `.sql`, not just the `.fs`.
 
 **Status:** LowFlyer ⚠️ avgvol20-clean ONLY — its universe (`mr_candidate`) carried two MORE
-lookaheads found 2026-07-31 (day D's ADJUSTED close ≥ $1 + future-episode-length warmup; see
+lookaheads found 2026-07-31 (day D's ADJUSTED close ≥ \$1 + future-episode-length warmup; see
 `docs/flushfader_results.md` §S39d) · MaxFlyerV3 ⚠️ unconfirmed (`brv20d` denominator fails) ·
 VwapReclaimV3 / OpeningDriverV2 / DipRiderV4 ❌ dead · SurgeRider/V2, DipRiderV6, PlungeRider,
-MaxRiderV1 🛑 invalid pending clean-table reruns (same §S39d bug; banners on their docs; sub-$1/$2
+MaxRiderV1 🛑 invalid pending clean-table reruns (same §S39d bug; banners on their docs; sub-\$1/\$2
 slices inflated — bounce-door PF 8.5 = outcome selection). `docs/systems_showcase.md` quotes dead
 numbers. Clean universe = `mr_candidate_1s_v2` (1s-tape-native, causal `daily_adjusted` scale, no price floor,
 NO warmup — `barnum` recorded; the fader engines' default). The legacy `mr_candidate_1s` (adj_ratio scale) is kept

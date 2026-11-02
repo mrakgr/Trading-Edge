@@ -52,8 +52,8 @@ LIVE keys need "an active live account with at least one platform bundle (ProBun
 and API Trading enabled" — that is the "fund your account first" wall. PAPER keys are made in the **Paper
 Portal** (same URL as live, select the paper account → "API Keys" / "Enable API Trading" → sign the API
 Trading agreements → API Key Management → Generate): "No platform bundle selection is required — paper
-accounts get every platform by default"; $1,000,000 paper dollars; the paper account lives **30 days
-("permanent if linked to a live account")**; after the free month a live account with ≥ $200 keeps it. The
+accounts get every platform by default"; \$1,000,000 paper dollars; the paper account lives **30 days
+("permanent if linked to a live account")**; after the free month a live account with ≥ \$200 keeps it. The
 base URL is "the same for paper and live; the key pair selects the environment". One active pair per
 account, full permissions; the secret is shown exactly once; "Regenerate Secret" rotates the secret only.
 
@@ -62,7 +62,7 @@ account, full permissions; the secret is shown exactly once; "Regenerate Secret"
 Setup: paper keys from the Paper Portal (separate registration at registration.tradezero.com/paper; the
 live-key path demands a funded account); credentials in `~/.config/tradezero/credentials` (mode 600).
 `GET /v1/api/accounts` → one account, `accountType "Paper"`, id in the **`account`** field (not `accountId`),
-$1,000,000, `leverage 1.0`, `bp` = `overnightBp` = 1,000,000, `marginType "M"`. Routes: `PAPER`
+\$1,000,000, `leverage 1.0`, `bp` = `overnightBp` = 1,000,000, `marginType "M"`. Routes: `PAPER`
 (Stock/Option; Market/Limit/Stop/StopLimit/RangeOrder; Day/GTC/GoodTillCrossing) and `PAPERM` (multi-leg).
 
 | step | HTTP | round trip | what happened |
@@ -70,7 +70,7 @@ $1,000,000, `leverage 1.0`, `bp` = `overnightBp` = 1,000,000, `marginType "M"`. 
 | BUY 1 LMT 336 (ask ~331) | 200, row `PendingNew` | 817 ms | `Filled` 1 @ **331.50** on the next poll, 300 ms after the POST; `text "TRAFIX_SIM"` — **pre-market fills work** |
 | BUY 1 LMT 300 (far) | 200 `PendingNew` | 247 ms | `New`, rests |
 | `DELETE .../order/{cid}` | **405** | | wrong path — the cancel path is PLURAL: `DELETE /v1/api/accounts/{id}/orders/{cid}` |
-| BUY 100,000 LMT 336 (~$33M vs $1M bp) | **200** `PendingNew` | 917 ms | `Rejected` 200 ms later, `text "R16: Your order exceeds the maximum Qty allowed"` — a size cap fired before any buying-power check |
+| BUY 100,000 LMT 336 (~\$33M vs \$1M bp) | **200** `PendingNew` | 917 ms | `Rejected` 200 ms later, `text "R16: Your order exceeds the maximum Qty allowed"` — a size cap fired before any buying-power check |
 | re-POST with the SAME clientOrderId as the filled buy | **200** | 238 ms | `Rejected`, `"R114: Invalid duplicate UserOrderId"` — ⚠ and the rejected row **REPLACED the filled order's row**: `GET /order/{cid}` and `/orders` now show the original as `Rejected, executed 0` |
 | SELL 1 MKT (flatten) | 200 `PendingNew` | 250 ms | `Rejected`, `"R78: Market orders are not allowed at this time"` (pre-market) |
 | SELL 1 LMT 326 | 200 | | `Filled` 1 @ **331.45** within 700 ms |
@@ -86,7 +86,7 @@ Codes seen: **R16** max quantity, **R78** market orders not allowed now, **R114*
 (a closed position lingers with `shares 0.0`). No per-execution records on paper (no order history).
 The 331.50 / 331.45 fills sit on the real pre-market NBBO (IBKR's delayed AAPL was 330.10/330.65 at
 09:33 UTC) — paper fills at the real market, like IBKR's. Account totals did NOT update within 3 s of the
-round trip (`realized 0.0`, `sharesTraded 0`, `totalCommissions 0.0` after a −$0.05 round trip) — treat the
+round trip (`realized 0.0`, `sharesTraded 0`, `totalCommissions 0.0` after a −\$0.05 round trip) — treat the
 account object as lagging, the order rows as truth.
 
 **Rules for the broker adapter:** never reuse a `clientOrderId` (a duplicate does not just fail, it
@@ -105,19 +105,19 @@ from order responses"; `maxDisplayQuantity` "reserved"). `timeInForce "Day_Plus"
 hours 04:00–20:00 ET; `GTC_Plus` likewise). ZeroPro the platform lists `Pegged` in its order-type menu
 (manual §37) — the API does not expose it.
 
-**What exists instead: the ROUTE carries the passivity.** From the fee schedule (Select Routes, $25,000
-minimum balance; direct routing $25,000 too):
+**What exists instead: the ROUTE carries the passivity.** From the fee schedule (Select Routes, \$25,000
+minimum balance; direct routing \$25,000 too):
 
 | route | commission | behaviour | hours ET |
 |---|---|---|---|
-| ARCA / BATS / EDGX / NSDQ (direct) | add **−$0.0005** rebate, remove $0.0045, route-out $0.0049 | plain limit at the venue; no rebate under $1 or 04:00–07:00 ET ($0.005 applies instead) | 04:00–20:00 |
-| BATY / IEX / NQBX / EDGA (inverted) | add $0.0045, **remove −$0.0005** | taker-rebate venues | |
+| ARCA / BATS / EDGX / NSDQ (direct) | add **−\$0.0005** rebate, remove \$0.0045, route-out \$0.0049 | plain limit at the venue; no rebate under \$1 or 04:00–07:00 ET (\$0.005 applies instead) | 04:00–20:00 |
+| BATY / IEX / NQBX / EDGA (inverted) | add \$0.0045, **remove −\$0.0005** | taker-rebate venues | |
 | **SPOST** | **free** | "A passive strategy that floats on best bid or best offer. Orders are pegged to the best bid or best offer and spread out over many major exchanges. Will not exceed limit price." | 09:30–16:00 |
-| MID | $0.005 | midpoint of the spread or better, never beyond the limit | 04:00–20:00 |
-| FAN-A/-N/-P | $0.005 | smart router, aggressive / neutral / passive | 07:00–20:00 |
-| SPDRX / DAGR | $0.005 | sweep & post lit / dark | 09:30–16:00 |
-| SDUSK | $0.005 | sweep midpoint then post at the lit exchange with most liquidity | 04:00–20:00 |
-| CATCH / POV-10/20/30 | $0.005 | arrival-price and participation algos | 09:30–16:00 |
+| MID | \$0.005 | midpoint of the spread or better, never beyond the limit | 04:00–20:00 |
+| FAN-A/-N/-P | \$0.005 | smart router, aggressive / neutral / passive | 07:00–20:00 |
+| SPDRX / DAGR | \$0.005 | sweep & post lit / dark | 09:30–16:00 |
+| SDUSK | \$0.005 | sweep midpoint then post at the lit exchange with most liquidity | 04:00–20:00 |
+| CATCH / POV-10/20/30 | \$0.005 | arrival-price and participation algos | 09:30–16:00 |
 
 So the "never cross the spread" tool is **`route: "SPOST"` on a Limit** — a broker-side peg to the
 near touch, capped by the limit, free of commission — and the rebate tool is a direct `ARCA`/`EDGX`/`NSDQ`

@@ -69,7 +69,7 @@ account allows; whether the demo lists Pro or Lite routes.
 04:00 but every logon got close 1013 until 05:59; production validated keys the whole time. Treat 06:00 ET
 as the paper open until proven otherwise. The demo account: `Account <demo account id>`, `ClientID LIGHTSPEED`
 (both from the platform's API Console dropdowns; a wrong `Account "X"` + `ClientID "LSCO"` was ALSO
-accepted on an `AccountUpdate` — the server substitutes). Paper balance: $100,000 credit,
+accepted on an `AccountUpdate` — the server substitutes). Paper balance: \$100,000 credit,
 `stockBuyingPower` 100,000, `dayTradeBuyingPower` 400,000 (4×), `creditMultiplier` 1.
 
 **Logon sequence as measured:** `AccountBalanceStatus` and `PositionStatus` arrived BEFORE the `Logon`
@@ -93,7 +93,7 @@ accept them in either order.
   555–903 ms. Lightspeed's server round trip is the smallest of the three (AWS us-east-1 NLB, no
   gateway process).
 - **From a datacenter VPS in New York state, the round trip is ~10× shorter** (2026-09-29, the median of 10 paper
-  orders: a 1-share limit BUY at $1, which cannot fill, then its cancel):
+  orders: a 1-share limit BUY at \$1, which cannot fill, then its cancel):
 
   | | home PC (WSL) | VPS |
   |---|---|---|
@@ -106,7 +106,7 @@ accept them in either order.
 
   Almost all of the home figure is the network path; the VPS is also steadier.
 - **Fills at the real pre-market market:** bought 330.87, sold 330.64 → the round trip cost exactly the
-  spread (−$2.30 on 10 sh); the quotes match AAPL's live pre-market. No commission on paper.
+  spread (−\$2.30 on 10 sh); the quotes match AAPL's live pre-market. No commission on paper.
 - **Fill ordering gotcha:** `OrderSingleUpdate FILLED` arrives 1 ms BEFORE the `ExecutionReport`. Book fills
   from `ExecutionReport` (the one with `ExecID`), treat the status message as the state flag — same
   division as IBKR's `execDetails` vs `orderStatus`.

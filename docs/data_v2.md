@@ -106,26 +106,26 @@ The unmatched markers are almost all ≤ 100 shares.
   dv_0945_tape is 0.879× the old (median; p10 0.768, p90 0.998).
 
 **Iso-trip study, 2016-08 … 2026-10-22.**
-- OLD = today's code on the old corpus at $2M (`TradingEdge.Parity`, `out/volfix/old`, private repo).
-- NEW = the marker-free corpus, the candidate table at $1M (`data/v3_candidates`), FlushFader's own floor lowered to
+- OLD = today's code on the old corpus at \$2M (`TradingEdge.Parity`, `out/volfix/old`, private repo).
+- NEW = the marker-free corpus, the candidate table at \$1M (`data/v3_candidates`), FlushFader's own floor lowered to
   match (`parity --min-dv0945-tape`), each book cut at dv_0945_tape ≥ X.
 - Script: `out/volfix/iso.py` (private repo).
 
-"vs old" = trips at the floor ÷ trips on the old corpus at $2M; PF is equal-weight (sized in parentheses).
+"vs old" = trips at the floor ÷ trips on the old corpus at \$2M; PF is equal-weight (sized in parentheses).
 
 | floor | universe vs old | FlushFader vs old (reproduced), PF (sized) | SpikeFader vs old, PF | Snoozer vs old, PF | LowFader vs old, PF |
 |---|---|---|---|---|---|
-| old $2M | 1,482,156 ticker-days | 39,117, 1.525 (1.739) | 3,424, 2.254 | 1,596, 2.904 | 322, 3.273 |
-| $1.50M | 1.021 | 1.023 (99.6 %), 1.534 (1.744) | 1.047, 2.291 | 1.121, 2.613 | 1.075, 2.939 |
-| $1.75M | **1.001** | 1.005 (99.5 %), 1.529 (1.740) | 1.013, 2.275 | 1.033, 2.778 | 1.065, 2.953 |
-| **$1.80M** | 0.998 | **1.002 (99.4 %)**, 1.530 (1.745) | 1.007, 2.273 | 1.016, 2.801 | 1.062, 2.950 |
-| $1.85M | 0.994 | 0.998 (99.3 %), 1.528 (1.744) | **1.001**, 2.267 | **1.003**, 2.821 | 1.059, 2.956 |
-| $2.00M | 0.982 | 0.987 (98.5 %), 1.534 (1.751) | 0.982, 2.253 | 0.954, 2.895 | 1.056, 2.996 |
+| old \$2M | 1,482,156 ticker-days | 39,117, 1.525 (1.739) | 3,424, 2.254 | 1,596, 2.904 | 322, 3.273 |
+| \$1.50M | 1.021 | 1.023 (99.6 %), 1.534 (1.744) | 1.047, 2.291 | 1.121, 2.613 | 1.075, 2.939 |
+| \$1.75M | **1.001** | 1.005 (99.5 %), 1.529 (1.740) | 1.013, 2.275 | 1.033, 2.778 | 1.065, 2.953 |
+| **\$1.80M** | 0.998 | **1.002 (99.4 %)**, 1.530 (1.745) | 1.007, 2.273 | 1.016, 2.801 | 1.062, 2.950 |
+| \$1.85M | 0.994 | 0.998 (99.3 %), 1.528 (1.744) | **1.001**, 2.267 | **1.003**, 2.821 | 1.059, 2.956 |
+| \$2.00M | 0.982 | 0.987 (98.5 %), 1.534 (1.751) | 0.982, 2.253 | 0.954, 2.895 | 1.056, 2.996 |
 
-- **FlushFader is indifferent to the fix:** 99.4 % of trips identical at $1.80M, PF 1.525 → 1.530. SpikeFader is
+- **FlushFader is indifferent to the fix:** 99.4 % of trips identical at \$1.80M, PF 1.525 → 1.530. SpikeFader is
   slightly better.
-- The Snoozer is at the old level at $1.85M. A looser floor adds weaker names: at $1.50M +12 % trips, PF 2.90 → 2.61.
-- **Recommendation: the floor $2M → $1.80M**, the FlushFader iso point (the universe's is $1.75M). It lives in three
+- The Snoozer is at the old level at \$1.85M. A looser floor adds weaker names: at \$1.50M +12 % trips, PF 2.90 → 2.61.
+- **Recommendation: the floor \$2M → \$1.80M**, the FlushFader iso point (the universe's is \$1.75M). It lives in three
   places, which must change together:
   - the candidate table (`--min-dv`);
   - FlushFader's `MinDv0945Tape`;
@@ -133,5 +133,5 @@ The unmatched markers are almost all ≤ 100 shares.
 - ⚠ **LowFader moves at EVERY floor** (+40 trips at mean +2.28 %, PF 2.29; −15 at +3.70 %, PF 8.21): its own volume
   features changed, not the floor. `rr = vol_60 / (vol_0945_tape / 15)` divides by the 09:30–09:45 volume, which held
   the duplicated opening cross, so rr rises and more signals pass `rr >= 2` (A grade `rr >= 5`). Also, 6 of the 40
-  are names now under its $20M upper cap (`OrdMaxDv0945Tape`). Iso would scale these: rr ≈ /0.88 (2 → ~2.3, 5 → ~5.7),
-  the cap $20M → ~$17.6M. A LowFader re-tune, for the user.
+  are names now under its \$20M upper cap (`OrdMaxDv0945Tape`). Iso would scale these: rr ≈ /0.88 (2 → ~2.3, 5 → ~5.7),
+  the cap \$20M → ~\$17.6M. A LowFader re-tune, for the user.

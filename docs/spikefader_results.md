@@ -180,7 +180,7 @@ discount halts. Side effect: **every volume feature lost its time denominator.**
 is supposed to measure ACCELERATION — rate now vs rate baseline — but on the bar clock the
 numerator and denominator skip empty seconds identically, so the arrival rate **cancels
 algebraically** and the ratio degenerates to trade-size intensity (dollars per BAR). A quiet
-stretch where true $/s collapses reads relvol ≈ 1; a burst of many small prints reads as no
+stretch where true \$/s collapses reads relvol ≈ 1; a burst of many small prints reads as no
 change. Quiet periods stretch their windows over more wall time until the same bar count
 accumulates — the halt-discounting doing the wrong job on ordinary sparsity.
 
@@ -303,7 +303,7 @@ baked in ahead of that port.
 **Construction**: `TimeLagMaxMa(W)` — session running max of the W-sec time-sum over windows
 ending **>= W tradeable secs ago** (fully non-overlapping, the analog of distinct W-sec bars;
 an unlagged max would compare a rising window to itself). Recorded at every volume rung
-(`vol_{5,10,15,30,60,300,600,1200}_prior_max`), the $ twin at 1m (`dollar_vol_60_prior_max`),
+(`vol_{5,10,15,30,60,300,600,1200}_prior_max`), the \$ twin at 1m (`dollar_vol_60_prior_max`),
 and the EWMA-rate version (`vol_ew_60` = DecaySumMa hl-60 Mean now, `vol_ew_60_prior_max` =
 its prior max). `volHIGH_W := vol_W > vol_W_prior_max` in SQL; the price leg is `dshi`/`sess_high`.
 Oracle test 8 (brute-force lagged max, 0 mismatches); smoke: additive (20,231 trips, PF 2.156
@@ -1437,14 +1437,14 @@ MaxRider's 2-3× quiet dominance.**
 ## The structural differences (in decreasing order of suspicion)
 
 1. 🛑 **The benchmark itself is suspect.** MaxRiderV1 runs on `diprider_v6_candidate`,
-   which carries the S39d lookahead pair (day-D ADJUSTED $1 floor = future-reverse-split
+   which carries the S39d lookahead pair (day-D ADJUSTED \$1 floor = future-reverse-split
    detector + episode-length warmup = outcome selection); the system is stamped INVALID
    pending a clean-table rerun, and F22/F23 were deliberately run on the dirty table
    (user: replicate first, clean later). The inflation concentrates in exactly the thin,
    quiet, split-prone slices where the 5.90 cell lives. The honest MaxRider quiet number
    is UNKNOWN and likely smaller.
 2. **Different universe.** diprider_v6_candidate = 1m-gated, rvol/dollar-floored,
-   IN-PLAY names. mr_candidate_1s_v2 = every tape with $2M by 09:45, no price floor, no
+   IN-PLAY names. mr_candidate_1s_v2 = every tape with \$2M by 09:45, no price floor, no
    warmup — full of microcaps where "quiet" is the resting state, not a signal.
 3. **Different signal event.** MaxRider fires on 1m-bar SESSION highs (rare, a few per
    day); the SpikeFader base samples every 1s 20m-channel high (dense). A dense
@@ -1457,7 +1457,7 @@ quiet×continuous voice, S21-S22); MaxRider's decisive version was measured on a
 invalid universe with a rarer event and a different exit.**
 
 **✅ RESOLVED same day (MaxRider F24): the clean-table rerun happened.** Honest deep-quiet
-= rr<0.2 → **2.816** (entry ≥ $1: 3.163) vs dirty 5.902 — the contamination was ~half the
+= rr<0.2 → **2.816** (entry ≥ \$1: 3.163) vs dirty 5.902 — the contamination was ~half the
 lever, concentrated exactly in the quiet band (5,631 dirty trips → 1,124 clean). The two
 systems AGREE once both are honest: quiet ≈ 2.5-3.2 on both.
 
@@ -1624,7 +1624,7 @@ pair S13, eff family S14, K family S16-S19, halt gates S23):
 2. z20 (20m vw-sigma z > 1.5) — TESTED BELOW
 3. ssf pair (slope_since_flow ∈ [25,375) bp/min) · 4. dlv (dist above leg vwap > 3%) ·
 5. rflow (r_since_flow ≤ 0.95) · 6. accel1020 ≤ 80 · 7. slope20 > 10 · 8. slope5 ≤ 400 ·
-9. eff_9ema_10m ≥ −0.10 · 10. vol10rate ≥ 0.75 · 11. dv_0945_tape ≥ $3M
+9. eff_9ema_10m ≥ −0.10 · 10. vol10rate ≥ 0.75 · 11. dv_0945_tape ≥ \$3M
 
 ## Campaign 1: rngfront — DEAD, and the cliff cell INVERTED
 
@@ -1740,8 +1740,8 @@ the same adjacent-band curio FlushFader saw (PF 8.06 there). No gate.
 band is weak (1.399 @ 391) but tiny; 0.4-4 is flat 1.73-1.82 at mc=1 (the mc=0 hump at
 0.4-0.75 → 2.43 flattens under replay). No gate.
 
-**dv_0945_tape** — the $3M floor LOWERS PF (1.655, −716 trips, 2023 1.46 → 1.34); $1M is
-a no-op (universe floor $2M binds first). Bands flat 1.64-1.74 to $100M, then **≥$100M →
+**dv_0945_tape** — the \$3M floor LOWERS PF (1.655, −716 trips, 2023 1.46 → 1.34); \$1M is
+a no-op (universe floor \$2M binds first). Bands flat 1.64-1.74 to \$100M, then **≥\$100M →
 1.480 @ 404** — the most-liquid tail is the one weak cell (heavily-traded in-play names
 mean-revert less). ⏭ a dv CEILING is the only idea here; not adopted.
 
@@ -1767,7 +1767,7 @@ mean-revert less). ⏭ a dv CEILING is the only idea here; not adopted.
 | accel/slope20/slope5 ceilings | ❌ ALL INVERTED (S31) → floors s5 ≥ 0, s20 ≥ 30 ADOPTED (S31b) |
 | eff_9ema ≥ −0.10 | ❌ inert (S32) |
 | vol10rate ≥ 0.75 | ❌ inert (S32) |
-| dv_0945_tape ≥ $3M | ❌ mildly negative; ceiling idea parked (S32) |
+| dv_0945_tape ≥ \$3M | ❌ mildly negative; ceiling idea parked (S32) |
 
 **FINAL STACK (10 gates): speed_1m > 2% ∧ dist_lo > 2% ∧ eff_10m ≥ 0.3 ∧ k300 ≥ 40 ∧
 k600 ≥ 60 ∧ k180 ≥ 15 ∧ gap_adj_60 < 10 ∧ dlv > 3% ∧ slope_5m ≥ 0 ∧ slope_20m ≥ 30
@@ -2333,8 +2333,8 @@ of the 12 worst trips in the book had rr < 2. **rr shifts the distribution of
 losses; it does not remove the blow-ups.** By year: rr<0.75 lifts six of seven
 years, 2023 the sole exception (1.48 → 1.17).
 
-Also killed: the **$1 price floor** — 1.704 → 1.715 while dropping 1,195 trips
-and 1,464% of net; the sub-$1 slice runs PF 1.658 and is BETTER than book in
+Also killed: the **\$1 price floor** — 1.704 → 1.715 while dropping 1,195 trips
+and 1,464% of net; the sub-\$1 slice runs PF 1.658 and is BETTER than book in
 2022/2023/2025. Disproportion test in reverse. Stacked on rr it subtracts
 (1.827 → 1.826) and hurts both weak years. Keep it for borrow/fee realism if at
 all, not for edge.
@@ -2504,7 +2504,7 @@ of the session.
 direction-flipped: ENTRY = new 20m HIGH, EXIT = 5m MIN cover target, and the
 point is the mirror image — **on a squeeze the cover target RATCHETS UP behind
 price**, so the short is carried the whole way before it may cover (MSGM: entered
-$11.47, covered $22.25, 48 min). ⚠ base_v4 has NO adj_ratio column (retired
+\$11.47, covered \$22.25, 48 min). ⚠ base_v4 has NO adj_ratio column (retired
 scheme); verified on MSGM that trip prices sit inside the raw bar range, so bars
 and trip prices share one axis with no rescaling. Also: `scrollZoom` is a plotly
 CONFIG flag, NOT part of `chart_controls.js` (which only does middle-click +
@@ -3210,7 +3210,7 @@ paired-trip edge is a small median gain. With no stop, weight the tail.
 
 ## The worst trade — VERU 2022-04-11, −83.4%
 
-Short at $6.95 (10:21), covered $12.74 (11:54): **1.83× against the short in 92
+Short at \$6.95 (10:21), covered \$12.74 (11:54): **1.83× against the short in 92
 minutes**, never printing a new 9m low. A real biotech event (Phase 3 COVID
 results, ~+250% intraday). ⚠ **It looked utterly ordinary at entry**: volat 49bp
 (just over the 40bp floor), rr 2.24, dslo 0.00%, d20a 21.9% — **NO roster voice
@@ -4313,24 +4313,24 @@ nothing left (47 trades, then 30 at weight 0.18) and the roster is unchanged or 
 is ever re-sized this is the split to use (weight X-with-leg ≈ 1.0, X-without ≈ 0.45); as a seat it does not clear the S46 bar
 (rr ≥ 12 got in on a fold-by-fold win with 69 solo trips; this has 30 solo trips at 0.68).
 
-## §S49 — the $1 floor (user, 2026-09-08): `signal_vwap >= $1` joins the SPEC; the book IMPROVES
+## §S49 — the \$1 floor (user, 2026-09-08): `signal_vwap >= $1` joins the SPEC; the book IMPROVES
 
-Broker reality (verified 2026-09-08): sub-$1 stock is "not rebate eligible" and costs 30 bp of trade value to take
-at Lightspeed; TradeZero's free limit orders are ≥ $1 only. The s47 book (SPEC, mc=1, 9m exit) by entry price:
-< $1 = 544 trades (15.2%) @ 1.93 / +2.18% · $1–2 261 @ 3.09 · $2–5 727 @ 2.56 · $5–10 821 @ 1.98 · $10–20 611 @
-2.33 · $20–50 435 @ 2.24 · $50+ 174 @ 1.61. (The sub-$1 slice is far less fee-sensitive than FlushFader's broad
+Broker reality (verified 2026-09-08): sub-\$1 stock is "not rebate eligible" and costs 30 bp of trade value to take
+at Lightspeed; TradeZero's free limit orders are ≥ \$1 only. The s47 book (SPEC, mc=1, 9m exit) by entry price:
+< \$1 = 544 trades (15.2%) @ 1.93 / +2.18% · \$1–2 261 @ 3.09 · \$2–5 727 @ 2.56 · \$5–10 821 @ 1.98 · \$10–20 611 @
+2.33 · \$20–50 435 @ 2.24 · \$50+ 174 @ 1.61. (The sub-\$1 slice is far less fee-sensitive than FlushFader's broad
 book — +2.2%/trade vs +0.5% — but it is also the hardest borrow, and we are starting out.)
 
 | book | n | PF | avg% | worst | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | SPEC (no floor) | 3,573 | 2.213 | +2.00 | −83.4 | 2.48 (688) | 2.28 (810) | 1.34 (405) | 1.86 (298) | 2.38 (471) | 2.43 (641) | 2.70 (260) |
-| **SPEC + signal_vwap ≥ $1 (replay inside)** | **3,067** | **2.327** | +2.03 | −83.4 | 2.45 (610) | 2.38 (763) | 1.32 (353) | 1.78 (215) | 3.12 (384) | 2.52 (536) | 3.04 (206) |
-| SPEC + prev close ≥ $1 (`--min-prev-close 1`) | 2,879 | 2.185 | +1.80 | −83.4 | 2.28 (567) | 2.39 (743) | 1.30 (337) | 1.57 (194) | 2.69 (356) | 2.26 (499) | 3.18 (183) |
+| **SPEC + signal_vwap ≥ \$1 (replay inside)** | **3,067** | **2.327** | +2.03 | −83.4 | 2.45 (610) | 2.38 (763) | 1.32 (353) | 1.78 (215) | 3.12 (384) | 2.52 (536) | 3.04 (206) |
+| SPEC + prev close ≥ \$1 (`--min-prev-close 1`) | 2,879 | 2.185 | +1.80 | −83.4 | 2.28 (567) | 2.39 (743) | 1.30 (337) | 1.57 (194) | 2.69 (356) | 2.26 (499) | 3.18 (183) |
 
-**Adopted: the SIGNAL-price floor** (knowable at the signal bar; `entry_px >= 1` gives 3,067 @ 2.325 — a handful of trips differ at the $1 boundary). The
-prior-close variant is worse because it also drops the sub-$1 names that spike THROUGH $1 on day D — among the
+**Adopted: the SIGNAL-price floor** (knowable at the signal bar; `entry_px >= 1` gives 3,067 @ 2.325 — a handful of trips differ at the \$1 boundary). The
+prior-close variant is worse because it also drops the sub-\$1 names that spike THROUGH \$1 on day D — among the
 best shorts. `spikefader_zq.SPEC` carries the clause; the Scanner port must gate on the signal bar's raw vwap, not
-`close_m1`. Volume at $10k/position: 46 trades/mo, ~150k shares/mo above $1 (606k with the sub-$1 names).
+`close_m1`. Volume at \$10k/position: 46 trades/mo, ~150k shares/mo above \$1 (606k with the sub-\$1 names).
 
 ## §S50 — SpikeFader S47 IN THE LIVE SCANNER (2026-09-10): ported and sealed zero-diff
 
@@ -4342,7 +4342,7 @@ engine and applies the rest post-hoc): new strictly-prior 1200-bar HIGH, time-cl
 `vwap / sess_low − 1 > 3%` (the s47 `dlv` substitution — the parquet `dlv` is an S41q moment, not the spec's), ols_slope_300 ≥ 0
 and ols_slope_1200 ≥ 5e-5 ln/bar (the ring `LogPxOls`; ⚠ the SPEC's literal 0.0030 is the per-MINUTE figure in a per-bar
 column and selects nothing — 30 bp/min ÷ 60), signal < 15:30, ac1_ewma ≥ −0.1 (`EwmaAutoCorrMa(40, 3)` of the signed slot
-returns), signal vwap ≥ $1 (§S49). Exit = strictly-prior 540-bar LOW (§S47), next-bar fill, else MOC at the close bar; no
+returns), signal vwap ≥ \$1 (§S49). Exit = strictly-prior 540-bar LOW (§S47), next-bar fill, else MOC at the close bar; no
 overnight shorts. `SpikeFaderBook.fs` = the research `mc1` (per ticker-day, SIGNAL order, kept iff `signal_sec >= the last kept
 exit_sec`) + ROSTER v3.4 as the OVERWRITE CASCADE it is (E .19 → D volat ≥ 100 bp .48 → C halts ≥ 2 ∧ ssh ∈ [60,300) .75 → X
 rr ≥ 12 .74 → B dslo ≤ −5% .99 → A rr < 0.5 1.00; the LAST firing voice wins, so C ∧ X = 0.74). Returns short-signed as the
