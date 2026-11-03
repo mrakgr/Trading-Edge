@@ -40,6 +40,9 @@ type RunningMedian() =
 //         the mean 1-minute range of the 1s vwaps over its previous sessions, Program.fs) — instead of K × σ (`Sigma`);
 //         and THE LEVEL may be the session VWAP (`Vwap`: the cumulative RTH Σv·p / Σv, "worked very well in one paper on
 //         Nasdaq" — Zarattini & Aziz's QQQ study: long above the VWAP, short below) instead of the key level (`Key`).
+//   THE BASELINE (user 2026-11-03: "just buying at the open and staying long if the open holds, otherwise going
+//         short"): `Open` = the level is the session's first bar's vwap; `OpenLong` = a LONG signal on the first bar (it
+//         fills on the second), the warm-up then only delays the first reversal.
 //   THE MARKS: m in Marks seconds after the entry — the first bar at or after entry_t + m, its t and vwap, whatever the
 //         exit (an exit study reads them); past the session's end nan.
 // RTH, the front contract and the 1s present bars as PitFader (Program.fs). The level and the EWMAs restart each session.
@@ -50,6 +53,7 @@ let Marks = [| 5; 10; 30; 60; 120; 300; 600; 1200; 1800 |]
 type LevelKind =
     | Key                      // the decayed session max of the 5 s volume priority
     | Vwap                     // the session VWAP
+    | Open                     // the session's opening price (the first bar's vwap): the baseline (user 2026-11-03)
 
 type BandKind =
     | Sigma                    // K × the bias's σ
@@ -77,10 +81,11 @@ type LevelConfig =
       BiasHalfLife: float      // the bias's mean and variance (30 s)
       KSigma: float            // the band around the level: K in the band's unit (σ, ticks or ATRs; 2.0)
       WarmSec: int             // no signal in the session's first WarmSec seconds
-      Level: LevelKind         // Key (LV-1..3) or Vwap (LV-4)
-      Band: BandKind }         // Sigma (LV-1..3), Ticks or Atr (LV-4)
+      Level: LevelKind         // Key (LV-1..3), Vwap (LV-4) or Open (the baseline)
+      Band: BandKind           // Sigma (LV-1..3), Ticks or Atr (LV-4)
+      OpenLong: bool }         // a long from the first bar (the baseline's literal rule)
 
-let defaultLevelConfig = { VolHalfLife = 5.0; LevelHalfLife = 300.0; BiasHalfLife = 30.0; KSigma = 2.0; WarmSec = 300; Level = Key; Band = Sigma }
+let defaultLevelConfig = { VolHalfLife = 5.0; LevelHalfLife = 300.0; BiasHalfLife = 30.0; KSigma = 2.0; WarmSec = 300; Level = Key; Band = Sigma; OpenLong = false }
 
 type LTrip =
     { Side: int
@@ -169,8 +174,19 @@ let runSession (cfg: LevelConfig) (tick: float) (atr: float) (sessionStartSec: i
                     level <- cumPV / cumV
                     levelT <- b.t
                     levelVol <- cumV
+            | Open ->
+                if i = 0 then
+                    level <- b.vwap
+                    levelT <- b.t
+                    levelVol <- b.volume
             // 4. the bias and the signal
-            if w > 0.0 && b.t >= warmT && i < n - 1 && not (System.Double.IsNaN level) then
+            if cfg.OpenLong && i = 0 && n > 1 then
+                held <-
+                    Some { Side = 1; SigI = 0; SigT = b.t; Level = level; LevelT = levelT; LevelVol = levelVol
+                           Mean = b.vwap; Sigma = 0.0; VolNow = vSum; TypMed = med.Median; LevelNow = levelVol; BandW = 0.0
+                           EntryI = -1; EntryT = -1; EntryPx = nan; ExitSigT = -1; ExitT = -1; ExitPx = nan; Reason = ""
+                           MarkT = Array.create Marks.Length -1; MarkPx = Array.create Marks.Length nan }
+            elif w > 0.0 && b.t >= warmT && i < n - 1 && not (System.Double.IsNaN level) then
                 let mean = wp / w
                 let sigma = sqrt (max 0.0 (wp2 / w - mean * mean))
                 let band = cfg.KSigma * (match cfg.Band with Sigma -> sigma | Ticks -> tick | Atr -> atr)

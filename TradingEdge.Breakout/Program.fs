@@ -51,6 +51,7 @@ type Args =
     | Warm_Sec of int
     | Level of string
     | Band of string
+    | Open_Long
     | Floors of string
     | Vref_Sessions of int
     | Session_Start_Sec of int
@@ -76,7 +77,8 @@ type Args =
             | Bias_Half_Life _ -> "level: the bias's mean / variance EWMA half-life, seconds (default 30)."
             | K_Sigma _ -> "level: the band around the key level in σ (default 2)."
             | Warm_Sec _ -> "level: no signal in the session's first N seconds (default 300)."
-            | Level _ -> "level: key (the decayed session max of the 5 s volume priority, default) or vwap (the session VWAP)."
+            | Level _ -> "level: key (the decayed session max of the 5 s volume priority, default), vwap (the session VWAP) or open (the session's opening price: the baseline)."
+            | Open_Long -> "level: a LONG from the session's first bar (the baseline's literal rule: buy the open, reverse when it fails)."
             | Band _ -> "level: the band's unit for --k-sigma — sigma (the bias's σ, default), ticks, or atr (the root's mean 1-minute range over its previous --vref-sessions sessions)."
             | Level_Sec _ -> "absorption: how long a detection's range stays armed for the LEVEL family, seconds (default 900)."
             | Vol_Mins _ -> "volume: the window's V in minutes of vref_min, comma-separated (default 5,10,20,40)."
@@ -113,7 +115,10 @@ let main argv =
     let lvCfg : LevelEngine.LevelConfig =
         { VolHalfLife = a.GetResult(Vol_Half_Life, 5.0); LevelHalfLife = a.GetResult(Level_Half_Life, 300.0)
           BiasHalfLife = a.GetResult(Bias_Half_Life, 30.0); KSigma = a.GetResult(K_Sigma, 2.0); WarmSec = a.GetResult(Warm_Sec, 300)
-          Level = (match a.GetResult(Level, "key") with "key" -> LevelEngine.Key | "vwap" -> LevelEngine.Vwap | x -> failwithf "--level %s: key or vwap" x)
+          Level = (match a.GetResult(Level, "key") with
+                   | "key" -> LevelEngine.Key | "vwap" -> LevelEngine.Vwap | "open" -> LevelEngine.Open
+                   | x -> failwithf "--level %s: key, vwap or open" x)
+          OpenLong = a.Contains Open_Long
           Band = (match a.GetResult(Band, "sigma") with
                   | "sigma" -> LevelEngine.Sigma | "ticks" -> LevelEngine.Ticks | "atr" -> LevelEngine.Atr
                   | x -> failwithf "--band %s: sigma, ticks or atr" x) }

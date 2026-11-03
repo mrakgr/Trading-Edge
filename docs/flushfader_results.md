@@ -18841,3 +18841,71 @@ private repo's d2377d3 (`MakeSpreadRthCapped`). The live sessions' tape (the pri
 the cap of 10-14…10-23 was the LATEST signal floored, tighter still (it stepped down with every new low). It missed
 9 of 74 entries; the rounded-up cap fills 4 of the 7 misses the control reproduces (+\$142 of their \$229 model P&L),
 + 3 ticks fills 6.
+
+## S49al — EXITS: the resting 5m-high sell vs the live maker exit (user, 2026-11-03)
+
+**Why.** On 2026-11-02, live, FlushFader's maker exits chased the ask down after 5m-high spikes:
+- CHOW lost −262 bp against the model exit (−\$52.56 on a model trip of +\$82.53);
+- AIOK lost −261 bp, filled 813 s after its exit signal.
+
+User: "Missing 250bps is unacceptable." The rule the user ordered, deployed in the Oms the same morning (private repo
+a79fd41 + 25e61a1, `MakeSpreadRthCappedPassiveExit`):
+- **While the position is held:** a SELL LIMIT rests at the current 5m high (the exit channel max, rounded UP), beside
+  the capped entry, and is replaced whenever the rounded level moves.
+- **At the target:** the resting sell stays at its level for 60 s, then the maker takes whatever is left.
+
+**The sim.** `scripts/equity/flushfader_exit_sim.py` → `data/equity/flushfader_exit_sim/report.md` (per trip
+`sim.parquet`):
+- **Scope:** the broad book's 37,254 trips (2020-01..2026-08); the 54 `next_open` exits are left out.
+- **Market data:** the trades tape plus the Massive NBBO, extended to exit + 1,800 s (about 43k requests, 3.2 GB
+  cached); LAT 0.216 s.
+- **The rebuild:** the 1s bars rebuilt from the tape reproduce the research trigger on **37,200 of 37,200** trips
+  (T+1 = exit_sec, and that bar's vwap = exit_px within 1e-6).
+- **The four fill models:** lit / queue / hidden as in §S49ak, plus `back` (the most pessimistic: when the ask reaches
+  our price, its displayed size goes ahead of us).
+
+**Totals** (Δ in bp of the \$36.95M notional; t clustered by trade date; years > 0 out of 7). MODEL = +\$188,085, +50.9 bp:
+
+| fill model | MAKER − MODEL | REST60 − MODEL | **REST60 − MAKER** | REST0 − MAKER | RESTinf − MAKER |
+|---|---|---|---|---|---|
+| lit | −3.5 (t −11.8, 0/7) | −2.1 (t −3.3) | +1.4 (t 2.1, 4/7) | +1.7 | +1.6 |
+| queue | −11.2 (t −28.4, 0/7) | −2.0 (t −3.2) | **+9.2 (t 12.5, 7/7)** | +8.9 | +9.8 |
+| hidden | −11.2 | −6.9 (t −11.7) | +4.2 (t 6.3, 6/7) | +4.3 | +4.8 |
+| back | −11.2 | −9.6 (t −16.4) | +1.6 (t 2.4, 5/7) | +2.0 | +1.7 |
+
+**The tail** (queue model; per trip, exit − MODEL in bp):
+
+| | p1 | p5 | < −100 bp | < −250 bp |
+|---|---|---|---|---|
+| MAKER | −256 | −116 | 6.32 % | 1.09 % |
+| REST60 | −190 | −87 | 3.78 % | 0.48 % |
+| REST60 (back) | −219 | −98 | 4.80 % | 0.73 % |
+
+**Findings:**
+- **The resting exit beats the live maker in every fill model.** The maker is 3.5–11.2 bp behind the model in every
+  one; in the queue model the resting exit closes almost all of that gap.
+- **It cuts the tail.** On the 407 trips where the maker lost more than 250 bp to the model (mean −362 bp), REST60
+  averages −82 (queue) or −113 (back), and is better on 79–88 % of them.
+- **The cost.** On the 6,036 trips where the maker beats the model by more than 25 bp, REST60 gives up about half of
+  that. Its own worst trips are gaps straight through the level (GNPX −814 bp).
+- **The 60 s wait barely matters.** REST0, REST60 and RESTinf are within about 1 bp of each other.
+- **By price** (REST60 − MAKER, queue): < \$2 +12.8, \$2–5 +12.4, \$5–10 +6.1, \$10–20 +6.9, > \$20 +6.0 bp. ⚠ In
+  `back`, under \$2 the resting exit LOSES to the maker (−4.6 bp): the queue assumption matters most there. Watch the
+  live sub-\$2 fills.
+- **Fill timing** (queue): 48 % complete before the trigger bar, 32 % in it, 15 % within 60 s, 5 % via the maker. The
+  median is about 1 s before the research signal. The live maker's median was +11.5 s, and 18 % took more than 60 s.
+- **Control:** the resting price moved one tick down / up moves the harness as it must. −1 tick fills earlier and is
+  worse than REST60 (−\$6.0k, t −3.1). +1 tick needs the maker fallback more often (18 % of trips), is neutral in queue
+  (+\$0.9k, t 0.5) and better in `back` (+\$4.2k, t 2.7). Under a pessimistic queue, a level one tick ABOVE the 5m
+  high may beat the level itself — it needs its own study.
+- **Fixes along the way:**
+  - the first full run filled a resting sell through a halt's zero-size quotes (NYCB 2024-03-06, −6,274 bp); now
+    zero-size quotes are dropped, auction prints fill at the auction price, and only prints within 50 ms of real time
+    count;
+  - the headline barely moved (+9.8 → +9.2 bp); the superseded run is kept as `sim_v1`;
+  - hand traces of AEI, NXTP, RWT and NYCB.
+- **Not modelled:** fees and rebates (prices only), the knock-on to later trips on the same ticker-day.
+
+**The live A/B on replays** (the Oms itself, the fake broker, 2026-10-15..30 + 11-02): **+\$465.70 over 13 days** at
+the live sizing. The gains come from reversals the maker chased down (AIOK 10-30 +\$137, CHOW +\$106, SAIQ +\$74,
+AZTR +\$61); the worst ticker cost \$20. Private repo `docs/execution_styles.md` has the Oms side.

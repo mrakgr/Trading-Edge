@@ -161,3 +161,67 @@ Cells: PF raw fit → **holdout** (the holdout net of one tick per trip):
 
 That's the paper's finding in futures form: trend-following around the VWAP works on the Nasdaq, but the edge is small
 and has narrowed since 2023.
+
+## LV-5 — the baseline: long at the open, short when it fails (user, 2026-11-03)
+
+User: "compare the trend following VWAP system on NQ with just buying at the open and staying long if the open holds,
+otherwise going short ... use that as a baseline"; then "buying at the open, holding 10-30m and only flipping then if
+the open fails to hold".
+
+**The flags:**
+- `--level open`: the level is the session's first bar's vwap.
+- `--open-long`: a LONG from the first bar. The warm-up (`--warm-sec`) then only delays the first reversal: the hold.
+- The regression: the new code at LV-4's VWAP no-band settings reproduces its 26,407 NQ trips exactly.
+- Runs: `data/futures/levels/run_nq_*` and `run_open_w{300,600,1200,1800}_{t,s}` (NQ, ES, MES; 1 min bias; `t` = band
+  0, `s` = 2σ).
+
+**NQ, the open rule against the VWAP rules** (PF raw fit → holdout; net of a tick per trip; daily figures holdout, net):
+
+| rule | trips/day | PF raw fit → holdout | −1 tick | ticks / trip | bp / day fit → holdout | daily Sharpe |
+|---|---|---|---|---|---|---|
+| VWAP, no band | 9.1 | 1.11 → 1.04 | 1.02 | +2.4 | 7.5 → 2.5 | 0.22 |
+| VWAP, 2σ | 3.7 | 1.12 → 1.05 | 1.04 | +6.1 | 6.4 → 2.8 | 0.39 |
+| open, no band (5 min warm-up) | 5.5 | 1.04 → 1.11 | 1.09 | +8.6 | 2.2 → 5.8 | 0.84 |
+| open, 2σ | 2.7 | 1.04 → 1.18 | 1.17 | +25.7 | 2.0 → 8.2 | 1.30 |
+| open-long, no band | 6.0 | 1.04 → 1.12 | 1.11 | +9.0 | 2.4 → 6.9 | 0.98 |
+| open-long, 2σ | 3.2 | 1.04 → 1.18 | 1.17 | +22.8 | 2.3 → 8.8 | 1.36 |
+
+**Holding the open's long before the first flip allowed** (PF raw fit → holdout, net of a tick):
+
+| hold | NQ, no band | NQ, 2σ | ES, no band | ES, 2σ | MES, 2σ |
+|---|---|---|---|---|---|
+| 5 min | 1.04 → 1.12 (1.11) | 1.04 → 1.18 (1.17) | 1.04 → 1.09 (1.02) | 1.02 → 1.13 (1.09) | 0.99 → 1.12 (1.08) |
+| 10 min | 1.03 → 1.14 (1.12) | 1.02 → 1.20 (1.19) | 1.07 → 1.10 (1.03) | 1.03 → 1.14 (1.09) | 0.97 → 1.12 (1.08) |
+| 20 min | 1.02 → 1.15 (1.13) | 1.03 → 1.19 (1.18) | 1.10 → 1.11 (1.04) | 1.08 → 1.14 (1.10) | 0.99 → 1.14 (1.10) |
+| 30 min | 1.05 → 1.13 (1.11) | 1.07 → 1.15 (1.14) | 1.12 → 1.13 (1.06) | 1.10 → 1.15 (1.11) | 1.04 → 1.13 (1.10) |
+
+**By year, the 30 min hold** (PF raw):
+
+| year | NQ 2σ | NQ no band | ES 2σ | ES no band |
+|---|---|---|---|---|
+| 2015 | 0.98 | 0.98 | — | — |
+| 2016 | 0.88 | 0.90 | — | — |
+| 2017 | 0.93 | 0.91 | — | — |
+| 2018 | 1.28 | 1.30 | — | — |
+| 2019 | 1.05 | 1.05 | — | — |
+| 2020 | 1.05 | 1.01 | 1.17 | 1.17 |
+| 2021 | 1.11 | 1.11 | 1.08 | 1.11 |
+| 2022 | 1.14 | 1.08 | 1.08 | 1.11 |
+| 2023 | 1.15 | 1.19 | 1.16 | 1.12 |
+| 2024 | 1.05 | 1.01 | 0.99 | 1.01 |
+| 2025 | 1.23 | 1.19 | 1.29 | 1.28 |
+| 2026 | 1.21 | 1.11 | 1.10 | 0.97 |
+
+The 30 min hold with 2σ, per day net of a tick: NQ +2.8 → **+7.0 bp** (Sharpe 0.41 → 1.12), ES +3.3 → +4.0
+(0.54 → 0.82), MES +0.1 → +3.6.
+
+**Findings:**
+- **The trivial open baseline is as good as the VWAP rules.** Over 2015–26 both are PF ~1.05–1.08. They swap places
+  between the periods: the VWAP leads 2015–22 (1.11–1.12 against 1.04), the open since 2023 (1.11–1.18 against
+  1.04–1.05).
+- **What's there is generic intraday trend persistence on the equity index futures, not the VWAP.** The VWAP is the
+  steadier by year (> 1 in 11 of 11 full years); the open is lumpier (it loses 2016, 2017, 2020).
+- **A 20–30 min hold before the first flip makes the two periods agree best.** ES is 1.10–1.12 → 1.13–1.15.
+- **The open rule's NQ edge rests on 2018 onward.** It loses 2015–17.
+- **The scale:** NQ's +7 bp a day is about \$280 per NQ contract at ~20,000 points (\$28 per MNQ). Costs are small
+  next to it: a tick is 0.125 bp on NQ.
