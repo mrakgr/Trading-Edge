@@ -24,7 +24,10 @@ open TradingEdge.Breakout.Engine
 // = BO-6 (AbsEngine.fs: strong delta the price did not follow; the references — volume per present bar and the median
 // N-bar move — over the previous VrefSessions sessions, so a root trades from its VrefSessions + 1-th session);
 // --window momentum = BO-7 (MomEngine.fs: the 1m breakout with repeat entries, the pre-entry volume / delta windows, the
-// 1–60 s marks and PitFader's 236 sealed features stored as REAL; ONE table, no feats/ rows; vref_bar as absorption's).
+// 1–60 s marks and PitFader's 236 sealed features stored as REAL; ONE table, no feats/ rows; vref_bar as absorption's);
+// --window level = LV-1 (LevelEngine.fs: the KEY-LEVEL TREND, user 2026-11-03 — the decayed session max of a 5 s volume
+// EWMA is the level, a 30 s EWMA mean ± 2σ against it the bias, stop-and-reverse; one row per trip with its marks; no
+// cross-session reference, so a root trades from its first session).
 
 type Args =
     | Bars_Dir of string
@@ -41,6 +44,13 @@ type Args =
     | Max_Move_Ratio of float
     | Level_Sec of int
     | Entry_Bars of int
+    | Vol_Half_Life of float
+    | Level_Half_Life of float
+    | Bias_Half_Life of float
+    | K_Sigma of float
+    | Warm_Sec of int
+    | Level of string
+    | Band of string
     | Floors of string
     | Vref_Sessions of int
     | Session_Start_Sec of int
@@ -55,12 +65,19 @@ type Args =
             | Bars_Dir _ -> "The 1s bars, one file per ET date (default data/futures/intraday_1s_ticks)."
             | Grids _ -> "The quote tick per contract (default data/futures/grids.parquet)."
             | Out_Dir _ -> "The output directory (default data/futures/breakout/run_bo2 for sigma, run_bo3 for volume; replaced by a run)."
-            | Window _ -> "sigma (BO-2, the σ-threshold window), volume (BO-3, the fixed-volume window) or absorption (BO-6). Required."
+            | Window _ -> "sigma (BO-2, the σ-threshold window), volume (BO-3, the fixed-volume window), absorption (BO-6), momentum (BO-7) or level (LV-1, the key-level trend). Required."
             | Abs_Windows _ -> "absorption: the detection windows in present bars, comma-separated (default 30,60,120,300)."
             | Min_Imb_Ratio _ -> "absorption: the pre-filter's floor on |Σ delta ÷ Σ volume| ÷ the root's reference at N (default 2.0)."
             | Min_Rv _ -> "absorption: the pre-filter's window volume ÷ (N × the average per bar) floor (default 1.0)."
             | Max_Move_Ratio _ -> "absorption: the pre-filter's ceiling on the move in the aggressors' direction ÷ the reference N-bar move (default 0.5)."
             | Entry_Bars _ -> "momentum: the entry channel in present bars (default 60 = the 1m high / low)."
+            | Vol_Half_Life _ -> "level: the priority's volume EWMA half-life, seconds (default 5)."
+            | Level_Half_Life _ -> "level: the key level's decay half-life, seconds (default 300)."
+            | Bias_Half_Life _ -> "level: the bias's mean / variance EWMA half-life, seconds (default 30)."
+            | K_Sigma _ -> "level: the band around the key level in σ (default 2)."
+            | Warm_Sec _ -> "level: no signal in the session's first N seconds (default 300)."
+            | Level _ -> "level: key (the decayed session max of the 5 s volume priority, default) or vwap (the session VWAP)."
+            | Band _ -> "level: the band's unit for --k-sigma — sigma (the bias's σ, default), ticks, or atr (the root's mean 1-minute range over its previous --vref-sessions sessions)."
             | Level_Sec _ -> "absorption: how long a detection's range stays armed for the LEVEL family, seconds (default 900)."
             | Vol_Mins _ -> "volume: the window's V in minutes of vref_min, comma-separated (default 5,10,20,40)."
             | Max_Ratio _ -> "volume: a start needs σ ÷ the reference σ ≤ this (default 1.0 = the tighter half)."
@@ -90,16 +107,23 @@ let main argv =
     let floors = a.GetResult(Floors, "2,5,10,20") |> csv |> Array.map float
     let nVref = a.GetResult(Vref_Sessions, 20)
     let mode = a.GetResult Window
-    if not (List.contains mode [ "sigma"; "volume"; "absorption"; "momentum" ]) then
-        failwithf "--window %s: expected sigma, volume, absorption or momentum" mode
-    let volMode, absMode, momMode = (mode = "volume"), (mode = "absorption"), (mode = "momentum")
+    if not (List.contains mode [ "sigma"; "volume"; "absorption"; "momentum"; "level" ]) then
+        failwithf "--window %s: expected sigma, volume, absorption, momentum or level" mode
+    let volMode, absMode, momMode, lvMode = (mode = "volume"), (mode = "absorption"), (mode = "momentum"), (mode = "level")
+    let lvCfg : LevelEngine.LevelConfig =
+        { VolHalfLife = a.GetResult(Vol_Half_Life, 5.0); LevelHalfLife = a.GetResult(Level_Half_Life, 300.0)
+          BiasHalfLife = a.GetResult(Bias_Half_Life, 30.0); KSigma = a.GetResult(K_Sigma, 2.0); WarmSec = a.GetResult(Warm_Sec, 300)
+          Level = (match a.GetResult(Level, "key") with "key" -> LevelEngine.Key | "vwap" -> LevelEngine.Vwap | x -> failwithf "--level %s: key or vwap" x)
+          Band = (match a.GetResult(Band, "sigma") with
+                  | "sigma" -> LevelEngine.Sigma | "ticks" -> LevelEngine.Ticks | "atr" -> LevelEngine.Atr
+                  | x -> failwithf "--band %s: sigma, ticks or atr" x) }
     let momBars = a.GetResult(Entry_Bars, 60)
     let absNs = a.GetResult(Abs_Windows, "30,60,120,300") |> csv |> Array.map int
     let minImb, minRv, maxMove, levelSec =
         a.GetResult(Min_Imb_Ratio, 2.0), a.GetResult(Min_Rv, 1.0), a.GetResult(Max_Move_Ratio, 0.5), a.GetResult(Level_Sec, 900)
     let volMins = a.GetResult(Vol_Mins, "5,10,20,40") |> csv |> Array.map float
     let maxRatio, nSig = a.GetResult(Max_Ratio, 1.0), a.GetResult(Sigma_Sessions, 20)
-    let outDir = a.GetResult(Out_Dir, if momMode then "data/futures/breakout/run_bo7" elif absMode then "data/futures/breakout/run_bo6" elif volMode then "data/futures/breakout/run_bo3" else "data/futures/breakout/run_bo2")
+    let outDir = a.GetResult(Out_Dir, if lvMode then "data/futures/levels/run_lv1" elif momMode then "data/futures/breakout/run_bo7" elif absMode then "data/futures/breakout/run_bo6" elif volMode then "data/futures/breakout/run_bo3" else "data/futures/breakout/run_bo2")
     let sessStart, entryEnd, flatSec = a.GetResult(Session_Start_Sec, 34200), a.GetResult(Entry_End_Sec, 54000), a.GetResult(Flat_Sec, 57600)
     let sw = Stopwatch.StartNew()
     let log (s: string) = printfn "[%7.1fs] %s" sw.Elapsed.TotalSeconds s
@@ -140,13 +164,20 @@ let main argv =
     let tick = Dictionary<string, float>()
     query (sprintf "SELECT contract, tick FROM read_parquet('%s') WHERE tick IS NOT NULL" grids) (fun r ->
         tick.[r.GetString 0] <- r.GetDouble 1)
-    if momMode then log (sprintf "%d sessions with a front contract; MOMENTUM: the %d-bar breakout, repeat entries, 60 s exit" fronts.Count momBars)
+    if lvMode then log (sprintf "%d sessions with a front contract; KEY LEVELS %A" fronts.Count lvCfg)
+    elif momMode then log (sprintf "%d sessions with a front contract; MOMENTUM: the %d-bar breakout, repeat entries, 60 s exit" fronts.Count momBars)
     elif absMode then log (sprintf "%d sessions with a front contract; ABSORPTION windows %A bars, imb ratio ≥ %g, rv ≥ %g, move ratio ≤ %g, level %d s" fronts.Count absNs minImb minRv maxMove levelSec)
     elif volMode then log (sprintf "%d sessions with a front contract; VOLUME windows %A min of vref, ratio ≤ %g" fronts.Count volMins maxRatio)
     else log (sprintf "%d sessions with a front contract; σ %A ticks × floors %A min" fronts.Count thrs floors)
 
     let featNames = Array.append TradingEdge.PitFader.Features.Names TradingEdge.PitFader.Features.BarNames
-    if momMode then
+    if lvMode then
+        let marks = LevelEngine.Marks |> Array.map (fun m -> sprintf "t_%d INTEGER, px_%d DOUBLE" m m) |> String.concat ", "
+        exec (sprintf """CREATE TABLE trips (root VARCHAR, contract VARCHAR, td DATE, side TINYINT, sig_t INTEGER, level DOUBLE,
+                level_t INTEGER, level_vol DOUBLE, mean DOUBLE, sigma DOUBLE, vol_now DOUBLE, typ_med DOUBLE, level_now DOUBLE,
+                entry_t INTEGER, entry_px DOUBLE,
+                exit_sig_t INTEGER, exit_t INTEGER, exit_px DOUBLE, reason VARCHAR, tick DOUBLE, band DOUBLE, atr DOUBLE, %s)""" marks)
+    elif momMode then
         let pre = MomEngine.PreBars |> Array.map (fun k -> sprintf "pre_vol_%d DOUBLE, pre_dimb_%d DOUBLE" k k) |> String.concat ", "
         let marks = MomEngine.Marks |> Array.map (fun m -> sprintf "t_%d INTEGER, px_%d DOUBLE, dimb_%d DOUBLE, vol_%d DOUBLE" m m m m) |> String.concat ", "
         exec (sprintf """CREATE TABLE trips (root VARCHAR, contract VARCHAR, td DATE, side TINYINT, sig_t INTEGER, entry_t INTEGER,
@@ -216,7 +247,30 @@ let main argv =
                             let row = fapp.CreateRow().AppendValue(c).AppendValue(td).AppendValue(t)
                             for x in f do (if Double.IsNaN x then row.AppendNullValue() else row.AppendValue x) |> ignore
                             row.EndRow()
-                    if momMode && arr.Length >= 3 then
+                    if lvMode && arr.Length >= 3 then
+                        // the ATR reference (causal): the root's mean 1-minute range over its previous nVref sessions
+                        let ah = match bhist.TryGetValue root with | true, q -> q | _ -> (let q = Queue<float>() in bhist.[root] <- q; q)
+                        let atr = if ah.Count = nVref then Seq.average ah else nan
+                        let trade = lvCfg.Band <> LevelEngine.Atr || not (Double.IsNaN atr)
+                        let lvTrips = if trade then LevelEngine.runSession lvCfg tk atr sessStart entryEnd arr else ResizeArray()
+                        let r1 = LevelEngine.minuteRange arr
+                        if not (Double.IsNaN r1) then
+                            ah.Enqueue r1
+                            if ah.Count > nVref then ah.Dequeue() |> ignore
+                        for o in lvTrips do
+                            let row =
+                                app.CreateRow()
+                                    .AppendValue(root).AppendValue(c).AppendValue(td).AppendValue(sbyte o.Side).AppendValue(o.SigT)
+                                    .AppendValue(o.Level).AppendValue(o.LevelT).AppendValue(o.LevelVol).AppendValue(o.Mean).AppendValue(o.Sigma)
+                                    .AppendValue(o.VolNow).AppendValue(o.TypMed).AppendValue(o.LevelNow).AppendValue(o.EntryT).AppendValue(o.EntryPx).AppendValue(o.ExitSigT)
+                                    .AppendValue(o.ExitT).AppendValue(o.ExitPx).AppendValue(o.Reason).AppendValue(tk).AppendValue(o.BandW)
+                            (if Double.IsNaN atr then row.AppendNullValue() else row.AppendValue atr) |> ignore
+                            for k in 0 .. LevelEngine.Marks.Length - 1 do
+                                (if o.MarkT.[k] < 0 then row.AppendNullValue() else row.AppendValue o.MarkT.[k]) |> ignore
+                                (if Double.IsNaN o.MarkPx.[k] then row.AppendNullValue() else row.AppendValue o.MarkPx.[k]) |> ignore
+                            row.EndRow()
+                            nTrips <- nTrips + 1L; inTable <- inTable + 1
+                    elif momMode && arr.Length >= 3 then
                         let bh = match bhist.TryGetValue root with | true, q -> q | _ -> (let q = Queue<float>() in bhist.[root] <- q; q)
                         if bh.Count = nVref then
                             let vrefBar = Seq.average bh
