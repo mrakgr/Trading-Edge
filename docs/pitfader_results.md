@@ -2115,3 +2115,106 @@ count. One ES regular session for scale: MBO \$1.47 (0.87 GB), MBP-10 \$2.16 (4.
   the script sent `NGN5`. NG's total is low by roughly its 2025–26 share (a few dollars).
 - **Without equity, the financial and commodity groups' whole 2015–26 history is about \$160 of MBP-10.** Databento's
   \$125 free credit nearly covers that.
+
+## PIT-16 — longs and shorts split (user 2026-11-04: "Right now I think we're using the same parameters for both and that's most likely not the right thing to do.")
+
+The PIT-12/13 stacks pool the two sides:
+- one core per group (k300, the exit, the per-root volatility floor);
+- one threshold per feature, applied to the side-signed value.
+
+`pitfader_combo.py --side long|short` runs the same fit-only search on one side's trips. The core is chosen on fit as
+well (as PIT-13 does): exit 300 / 600 / 900 × k300 ≥ 25 / 52 / 75 × the floor on / off, by the worse fit half. Then
+the pfmin stack is built on that core. The financial groups run as PIT-12, the commodities as PIT-13 (`--both-dirs`).
+
+- **Control:** `--side both` reproduces PIT-12 and PIT-13 line for line (`combo_side_both_fin.md` vs `combo_pfmin.md`,
+  `combo_side_both_com.md` vs `combo_commodities.md`), apart from the new by-side lines.
+- **Outputs:** `data/futures/pitfader/combo_side_{both,long,short}_{fin,com}.md`.
+- **Log:** `logs/pit16.log`.
+
+**The pooled stacks, broken down by side.** PF raw at mc = 0 (episodes) and mc = 1, fit 2015–22 → holdout 2023–26:
+
+| group | LONG fit | LONG holdout | LONG mc 1 holdout | SHORT fit | SHORT holdout | SHORT mc 1 holdout |
+|---|---|---|---|---|---|---|
+| equity | 2.15 (595) | 1.54 (376) | 1.41 | 2.57 (430) | 4.00 (335) | **2.08** |
+| bonds | 2.71 (226) | 12.21 (80) | **2.46** | 2.23 (210) | 2.16 (63) | 1.58 |
+| FX | 2.65 (313) | 2.31 (121) | 1.83 | 3.33 (318) | 2.68 (131) | 2.04 |
+| metals | 3.83 (142) | 1.38 (69) | 1.18 | 1.39 (122) | 1.75 (78) | 1.12 |
+| ags | 3.41 (61) | 111 (11) | 56 | 3.82 (59) | 0.41 (13) | 1.21 |
+| energy (CL MCL NG RB) | 5.00 (167) | 2.14 (59) | **1.75** | 1.69 (141) | 0.81 (98) | 1.02 |
+| NG + RB | 3.15 (46) | 5.26 (44) | 4.02 | 6.51 (57) | 4.70 (52) | 3.16 |
+
+The sides do differ: equity's shorts beat its longs, bonds' and energy's longs beat their shorts. The FIT PF already
+ranks the two sides the same way in equity, bonds, FX and energy (the holdout agrees in 4 of 6 groups with both
+sides populated; metals and NG + RB invert).
+
+**Each side searched on its own.** mc = 1 holdout PF (holdout episodes), against the pooled stack's same side:
+
+| group · side | the per-side configuration (chosen on fit) | per side | pooled |
+|---|---|---|---|
+| equity · long | k300 ≥ 75 + floor, exit 300; z20 ≤ −2.14, z_since_opp ≤ −1.95 | 1.25 (270) | **1.41** (376) |
+| equity · short | k300 ≥ 75 + floor, exit 600; z_since_opp ≤ −2, hour ≤ 12 | 1.91 (153) | **2.08** (335) |
+| bonds · long | k300 ≥ 25 + floor, exit 600; eff_ewma_20m, consol_3m_lag1m, consol_3m, eff_ewma_10m | **4.33** (61) | 2.46 (80) |
+| bonds · short | k300 ≥ 25 + floor, exit 900; the core alone 2.01 (170), its stack 1.32 (67) | 1.32 (67) | **1.58** (63) |
+| FX · long | k300 ≥ 75 + floor, exit 300; dimb60, z20, consol_5m | **2.67** (48) | 1.83 (121) |
+| FX · short | k300 ≥ 52 + floor, exit 300; eff_ewma_20m, consol_5m, dimb180 | **2.36** (113) | 2.04 (131) |
+| metals · long | k300 ≥ 75, exit 600; z_since_flow, dimb180, eff_ewma_20m | 1.03 (56) | **1.18** (69) |
+| metals · short | k300 ≥ 25 + floor, exit 300; hour ≥ 12, eff_ewma_20m ≥ | 0.89 (741) | **1.12** (78) |
+| ags · long | k300 ≥ 52 + floor, exit 300; hour, consol_3m_lag1m, dimb60, dimb180 | 3.46 (13) | **56** (11) |
+| ags · short | k300 ≥ 25 + floor, exit 300; consol and hour gates | 0.70 (130) | **1.21** (13) |
+| energy · long | k300 ≥ 52 + floor, exit 300; z20 ≤ −2.24 | 1.08 (246) | **1.75** (59) |
+| energy · short | k300 ≥ 52 + floor, exit 900; hour ≥ 12, consol_3m ≤ 0.28, eff_ewma_20m ≥ | **1.77** (71) | 1.02 (98) |
+| NG + RB · long | k300 ≥ 75 + floor, exit 300; z_since_flow ≤ −2.33 | 2.42 (26) | **4.02** (44) |
+| NG + RB · short | k300 ≥ 52 + floor, exit 600; eff_ewma_20m, consol_3m_lag1m, eff_ewma_10m | 1.13 (87) | **3.16** (52) |
+
+- **The split wins 4 of 14 and loses 10.** It wins bonds longs, FX longs and shorts, and energy shorts; three of the
+  four rest on fewer than 115 holdout episodes. Searching half the data overfits:
+  - the fit PFs rise (e.g. bonds longs' 5.25, metals longs' 10.22);
+  - z20 comes back for equity longs, the feature PIT-11 showed does not carry;
+  - NG, the strongest pooled stack, falls apart on both sides.
+- **The exit was the one consistent difference** in the per-side searches: shorts chose a longer exit in equity
+  (600), bonds (900), energy (900) and NG + RB (600). On the pooled stacks' own entries it doesn't hold. mc = 1 holdout,
+  exit 300 / 600 / 900:
+  - equity shorts: **2.08** / 1.29 / 1.19;
+  - bonds shorts: **1.75** / 1.58 / 1.56;
+  - FX shorts: **2.04** / 1.47 / 1.04.
+
+  Only energy longs (0.86 / 1.54 / 1.75) prefer the long exit, and that's the pooled choice already. The longer
+  short exits came with the per-side cores, not from the shorts.
+- **One new candidate: energy shorts on their own core.** k300 ≥ 52 + floor, exit 900.
+  - The core alone: holdout mc = 1 1.45 (159), mc = 0 2.55.
+  - + hour ≥ 12 + consol_3m ≤ 0.28: mc = 1 1.88 (76).
+  - Per root: CL 9.64 (21), MCL 2.57 (27), NG 1.46.
+  - ⚠ The holdout beats the fit (core mc = 0 1.73 → 2.55), the PIT-13 pattern of an unstable CL. And 2021 and 2025
+    lose.
+
+**Depth × exit by side, on the pooled stacks' own entries** (user: "that is how it was for regular stocks. SpikeFader
+also liked longer exits than FlushFader, not to mention higher leg counts"). The pooled stack, then k300 ≥ a deeper K,
+each exit, per side (`combo_side_both_*.md`, "deeper by side"). mc = 1 PF fit → holdout (holdout episodes at mc = 0):
+
+| group | side | the pooled core | deeper |
+|---|---|---|---|
+| equity | LONG | k75 exit 300: 1.43 → 1.41 (376) | k100: 1.93 → **0.98** (156) |
+| equity | SHORT | k75 exit 300: 1.56 → 2.08 (335) | k100: 2.74 → **2.03** (115); k150: 4.09 → 2.38 (15) |
+| FX | LONG | k52 exit 300: 1.77 → 1.83 (121) | k75: 1.67 → 1.90 (58) |
+| FX | SHORT | k52 exit 300: 2.09 → 2.04 (131) | k75: **4.10 → 2.25** (62) |
+| metals | LONG | k52 exit 300: 1.97 → 1.18 (69) | k75: 2.17 → 1.00 (46); k100: 3.20 → 0.76 (24) |
+| metals | SHORT | k52 exit 300: 1.27 → 1.12 (78) | k75 exit 900: **1.76 → 2.28** (51); k100 exit 900: 4.14 → 9.93 (19) |
+| energy | SHORT | k75 exit 900: 1.25 → 1.02 (98) | k100: 2.61 → 0.85 (29) |
+
+- **The higher leg count is a short-side property, as on stocks.** At more depth, the shorts keep or raise their PF
+  in equity, FX and metals; the longs lose it (equity 1.41 → 0.98, metals 1.18 → 0.76). The fit shows the same
+  (equity shorts' mc = 1 fit 1.56 → 2.74 at k100).
+- **The longer exit is not**, except in metals, where the deeper shorts are best at exit 900. Equity and FX shorts stay
+  best at 300 at every depth.
+- Bonds and ags run out of episodes past their cores (≤ 17 a side). NG + RB improves deeper on both sides (11 and 21
+  episodes).
+- ⇒ The side-specific parameter worth carrying is the DEPTH: a deeper k300 for shorts (equity ~100, FX ~75, metals
+  ~75 with exit 900), the pooled rest unchanged. Equity shorts at k100 keep the PF on a third of the trades, so it's a
+  quality-for-quantity trade there. FX and metals shorts gain outright.
+
+**Verdict:** one set of parameters for both sides is not the wrong choice here. Fitted separately, the sides overfit
+far more often than they gain. The sides do differ in strength, and the fit already shows it in the groups that
+matter. So the asymmetry is better used through **sizing by side** (the stock systems' pf1 weighting from the fit PF)
+than through separate rules. The two exceptions:
+- the shorts' DEPTH (above);
+- energy, where the shorts need their own core (the pooled stack's shorts are 1.02).

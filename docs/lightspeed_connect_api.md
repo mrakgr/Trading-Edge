@@ -273,6 +273,16 @@ stock that fills use up.
 - **`LocateOrder` at `Price "0"` is refused**: `LocateOrderReject` 1421 "Price must be > 0" (a validation error). A 0/0
   quote cannot be "unlocked" with a free locate (the user's hypothesis, ruled out).
 
+**⭐ PRODUCTION, 2026-11-04 04:44 ET (`TradingEdge.Oms/probe/ls_locate_id.py`, LocateRequests only):** the locate
+logger's quote ids (`"L"` + 31 hex digits, LocateLog.fs) are accepted and ECHOED unchanged. A `LocateRequestReject`
+1401 "##:REJECT - Locates are currently unavailable" (the desk closed, as at 04:04 on 10-16) CARRIES the request's
+`QuoteRequestID`: only the validation rejects (1411, 1421) come back without one. F with a 32-hex control id answered
+the same.
+**06:11 ET the same day: the desk was OPEN** (it opens between 04:44 and 06:11 ET; on 10-16 it was open by 07:03).
+All three came back as a `LocateQuote` with our id in BOTH `QuoteRequestID` and `QuoteID`, the "L" ids included. All
+three were 0 / 0, BSP too (10-16: 0.1235 / 101,400): easy to borrow now, or nothing to lend, which the quote alone
+cannot tell.
+
 ## §L7 Paper does not fill a resting limit when trades print through it (2026-10-14, measured on 10-12 and 10-13)
 
 The first full maker-entry paper days (the delayed follower: our orders reach paper 900 s after the market, and paper's

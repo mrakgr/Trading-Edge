@@ -32,7 +32,11 @@ ap.add_argument('--objective', choices=['net', 'pf', 'pfmin'], default='pf',
 ap.add_argument('--min-keep', type=float, default=0.40)
 ap.add_argument('--groups', default='equity,bonds,fx')
 ap.add_argument('--both-dirs', action='store_true', help='every candidate in BOTH directions (commodities may invert)')
+ap.add_argument('--side', choices=['both', 'long', 'short'], default='both',
+                help="PIT-16 (user 2026-11-04: split the longs from the shorts): one side's trips only, and the CORE is "
+                     "then chosen on fit for that side too (as PIT-13 does for the commodities)")
 a = ap.parse_args()
+SIDE = {'both': None, 'long': 1, 'short': -1}[a.side]
 MIN_KEEP, MIN_GAIN, MAX_STEPS = a.min_keep, 0.03, 4
 GROUPS = {'equity': (['ES', 'MES', 'NQ'], 75, 300, True),
           'bonds': (['ZB', 'ZN', 'ZT'], 25, 600, False),
@@ -87,7 +91,11 @@ print('Cells: PF raw / −1 tick (episodes or trips). Thresholds = the core\'s F
       'episodes. mc 3 = up to 3 trips open per root-session-side.\n')
 for gname in a.groups.split(','):
     roots, K, n, use_floor = GROUPS[gname]
-    t = ds.dataset('data/futures/pitfader/trips_mc0_aux').to_table(columns=cols, filter=(ds.field('volat_20m') > 0) & ds.field('root').isin(roots))
+    flt = (ds.field('volat_20m') > 0) & ds.field('root').isin(roots)
+    if SIDE is not None:
+        flt = flt & (ds.field('side') == SIDE)
+        K, n, use_floor = None, None, None
+    t = ds.dataset('data/futures/pitfader/trips_mc0_aux').to_table(columns=cols, filter=flt)
     c = lambda x: t[x].to_numpy(zero_copy_only=False)
     root, td = c('root'), pd.to_datetime(c('td'))
     s, epx, v, k3 = c('side').astype(np.float64), c('entry_px'), c('volat_20m'), c('k_300')
@@ -185,7 +193,7 @@ for gname in a.groups.split(','):
                 x = mk & part
                 cells.append(f'{f(pf(RAW[x]))} / {f(pf(NET[x]))} ({x.sum():,})')
         print('| ' + ' | '.join(cells) + ' |')
-    print(f'## {gname} ({", ".join(roots)}) · core = k300 ≥ {K}{" + abs floor" if use_floor else ""} · exit {n}{core_note}\n')
+    print(f'## {gname} ({", ".join(roots)}){"" if SIDE is None else " · " + a.side.upper() + " only"} · core = k300 ≥ {K}{" + abs floor" if use_floor else ""} · exit {n}{core_note}\n')
     print('| step | gate added | mc 0 fit | **mc 0 holdout** | mc 1 fit | **mc 1 holdout** | mc 3 fit | **mc 3 holdout** |')
     print('|---|---|---|---|---|---|---|---|')
     mask = base.copy(); show(0, 'the core', mask)
@@ -212,6 +220,37 @@ for gname in a.groups.split(','):
     print('\nPer root, the final stack (mc 0 raw PF fit → holdout (holdout episodes)): ' + ' · '.join(
         f'{r} {f(pf(RAW[mask & FIT & (root == r)]))} → {f(pf(RAW[mask & ~FIT & (root == r)]))} ({len(np.unique(EP[mask & ~FIT & (root == r)])):,})'
         for r in sorted(set(root))))
+    if SIDE is None:                                 # PIT-16: the pooled stack, side by side
+        m1 = mck(mask, 1)
+        print('\nThe final stack by side (PF raw / −1 tick (episodes)): ' + ' · '.join(
+            f'{lab} mc 0 fit {f(pf(RAW[mask & FIT & (s == sd)]))} / {f(pf(NET[mask & FIT & (s == sd)]))} '
+            f'({len(np.unique(EP[mask & FIT & (s == sd)])):,}), holdout {f(pf(RAW[mask & ~FIT & (s == sd)]))} / '
+            f'{f(pf(NET[mask & ~FIT & (s == sd)]))} ({len(np.unique(EP[mask & ~FIT & (s == sd)])):,}); mc 1 holdout '
+            f'{f(pf(RAW[m1 & ~FIT & (s == sd)]))} / {f(pf(NET[m1 & ~FIT & (s == sd)]))}'
+            for lab, sd in (('LONG', 1.0), ('SHORT', -1.0))))
+        # PIT-16: the one parameter the per-side searches disagreed on is the exit — the same entries, each exit, by side
+        print('\nThe final stack\'s entries by exit and side (PF raw (mc 0 episodes) fit → holdout; mc 1 holdout):')
+        for n2, (ex2, px2) in EXS.items():
+            R2 = 1e4 * s * (px2 - epx) / np.abs(epx); E2 = ex2.astype(np.int64)
+            EP2 = pd.factorize(pd.Series(key * 100_000 + E2))[0]
+            t2 = replay_k(grp, SIG[order], E2[order], mask[order], 1); m2_ = np.zeros(len(t2), np.bool_); m2_[order] = t2
+            print(f'- exit {n2}: ' + ' · '.join(
+                f'{lab} {f(pf(R2[mask & FIT & (s == sd)]))} ({len(np.unique(EP2[mask & FIT & (s == sd)])):,}) → '
+                f'{f(pf(R2[mask & ~FIT & (s == sd)]))} ({len(np.unique(EP2[mask & ~FIT & (s == sd)])):,}); mc 1 '
+                f'{f(pf(R2[m2_ & ~FIT & (s == sd)]))}' for lab, sd in (('LONG', 1.0), ('SHORT', -1.0))))
+    if SIDE is None:                                 # PIT-16 (user: SpikeFader liked longer exits AND higher leg counts)
+        print('\nThe final stack, deeper by side (k300 ≥ K and exit; PF raw mc 0 fit → holdout (holdout episodes); mc 1 fit → holdout):')
+        print('| side | k300 ≥ | exit | mc 0 fit | mc 0 holdout | mc 1 fit | mc 1 holdout |')
+        print('|---|---|---|---|---|---|---|')
+        for lab, sd in (('LONG', 1.0), ('SHORT', -1.0)):
+            for kk in sorted({K, 52, 75, 100, 150} - {x for x in (25, 52, 75, 100, 150) if x < K}):
+                for n2, (ex2, px2) in EXS.items():
+                    R2 = 1e4 * s * (px2 - epx) / np.abs(epx); E2 = ex2.astype(np.int64)
+                    EP2 = pd.factorize(pd.Series(key * 100_000 + E2))[0]
+                    mm = mask & (k3 >= kk) & (s == sd)
+                    t2 = replay_k(grp, SIG[order], E2[order], mm[order], 1); m2_ = np.zeros(len(t2), np.bool_); m2_[order] = t2
+                    print(f'| {lab} | {kk} | {n2} | {f(pf(R2[mm & FIT]))} | {f(pf(R2[mm & ~FIT]))} ({len(np.unique(EP2[mm & ~FIT])):,}) | '
+                          f'{f(pf(R2[m2_ & FIT]))} | {f(pf(R2[m2_ & ~FIT]))} |')
     print(f'\nThe final stack by year (mc = 0, PF raw (episodes)): ' + ' · '.join(
         f'{y} {f(pf(RAW[mask & (YR == y)]))} ({len(np.unique(EP[mask & (YR == y)])):,})' for y in sorted(set(YR))) + '\n')
     del t

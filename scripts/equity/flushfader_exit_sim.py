@@ -72,6 +72,10 @@ ap.add_argument("--sample", type=int, default=0, help="random trips for a test r
 ap.add_argument("--seed", type=int, default=20261103)
 ap.add_argument("--trace", help="KEY (symbol_date_signalsec): print one trip's level path, prints and fills")
 ap.add_argument("--phase", choices=("fetch", "sim", "report", "all"), default="all")
+ap.add_argument("--variants", default="MAKER,REST0,REST60,RESTinf,REST60_m1,REST60_p1",
+                help="S49al-4 (user 2026-11-04): H60 / H30 = after REST60's hold, rest at the ceil of the last 60 / 30 "
+                     "present bars' vwap max (re-priced every bar, never the maker); H60_0 / H30_0 = the same from T+1")
+ap.add_argument("--tag", default="", help="an output suffix (sim<tag>.parquet, parts<tag>/, report<tag>.md)")
 args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time() - T0:7.1f}s]", *a, flush=True)
@@ -83,7 +87,7 @@ EARLY = {"2016-11-25", "2017-07-03", "2017-11-24", "2018-07-03", "2018-11-23", "
          "2020-11-27", "2020-12-24", "2021-11-26", "2022-11-25", "2023-07-03", "2023-11-24", "2024-07-03", "2024-11-29", "2024-12-24",
          "2025-07-03", "2025-11-28", "2025-12-24", "2026-11-27", "2026-12-24"}
 def close_sec(d): return 46800 if d in EARLY else 57600
-sfx = f"_s{args.sample}" if args.sample else ""
+sfx = (f"_s{args.sample}" if args.sample else "") + args.tag
 os.makedirs(args.out, exist_ok=True); qdir = os.path.join(args.out, "quotes"); os.makedirs(qdir, exist_ok=True)
 
 con = duckdb.connect(); con.execute("SET memory_limit='2GB'"); con.execute("SET threads=4")
@@ -247,7 +251,7 @@ def tick_of(p): return 0.01 if p >= 1.0 else 0.0001
 def ceil_tick(v):
     tk = tick_of(v); return round(math.ceil(v / tk - 1e-6) * tk, 4)
 FM = ["lit", "queue", "hidden", "back"]
-VAR = ["MAKER", "REST0", "REST60", "RESTinf", "REST60_m1", "REST60_p1"]
+VAR = args.variants.split(",")
 
 def sim_trip(r, X, Q, rec, trace=False):
     midnight = base_ns(r.trade_date)
@@ -300,9 +304,25 @@ def sim_trip(r, X, Q, rec, trace=False):
     n = float(max(1, math.floor(args.notional / r.entry_px))); rec["n"] = n
     tk = tick_of(r.entry_px)
     empty = np.zeros(0)
+    def after(h, t_start):
+        # S49al-4: from t_start on, the resting price = ceil(max of the last h present bars' vwaps), re-priced as each bar
+        # closes (a bar closes at its second + 1), up to the window's end; appended to the pre-trigger path
+        roll = pd.Series(wd).rolling(h, min_periods=1).max().values
+        j = int(np.searchsorted(s + 1, t_start, side="right")) - 1
+        at, ap_ = [t_start], [ceil_tick(roll[j])]
+        for i in range(j + 1, len(s)):
+            if s[i] + 1 > te: break
+            c = ceil_tick(roll[i])
+            if abs(c - ap_[-1]) > 1e-9: at.append(float(s[i] + 1)); ap_.append(c)
+        return np.concatenate([st, at]), np.concatenate([sp, ap_]), np.inf
     plan = {"MAKER": (empty, empty, t1), "REST0": (st, sp, t1), "REST60": (st, sp, t1 + args.hold), "RESTinf": (st, sp, np.inf),
             "REST60_m1": (st, np.array([round(p - tick_of(p), 4) for p in sp]), t1 + args.hold),
             "REST60_p1": (st, np.array([round(p + tick_of(p), 4) for p in sp]), t1 + args.hold)}
+    for v in VAR:
+        if v[0] == "H":
+            h, _, z = v[1:].partition("_")
+            plan[v] = after(int(h), t1 if z == "0" else t1 + args.hold)
+    plan = {v: plan[v] for v in VAR}
     out_t = np.zeros(20000); out_px = np.zeros(20000); out_q = np.zeros(20000)
     for v, (a_t, a_px, tm) in plan.items():
         for k, fm in enumerate(FM):

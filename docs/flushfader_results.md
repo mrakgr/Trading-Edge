@@ -18909,3 +18909,207 @@ a79fd41 + 25e61a1, `MakeSpreadRthCappedPassiveExit`):
 **The live A/B on replays** (the Oms itself, the fake broker, 2026-10-15..30 + 11-02): **+\$465.70 over 13 days** at
 the live sizing. The gains come from reversals the maker chased down (AIOK 10-30 +\$137, CHOW +\$106, SAIQ +\$74,
 AZTR +\$61); the worst ticker cost \$20. Private repo `docs/execution_styles.md` has the Oms side.
+
+### S49al-2 — how much of the model's exit is OVERSHOOT above the 5m high (user, 2026-11-04)
+
+The question came from PARA, 2026-11-03.
+- **The level** was 5.1972, so the resting sell sat at 5.20.
+- **10:44:13:** the resting sell filled at 5.20 at .467. The same bar ran 5.187 → 5.33 and its VWAP (5.242) crossed the
+  level: that's the research trigger.
+- **10:44:14:** the next bar's VWAP was 5.286, the research fill. The resting exit gave up \$25.80.
+
+FlushFader's target is VWAP-based on both ends (the engine's
+`targetHit = bar.vwap > hi`; the level is the max of the prior 300 bars' VWAPs; the fill is the NEXT bar's VWAP). So on
+a breakout the model sells at the level plus the run past it. **How much of the book's edge is that?** From
+`data/equity/flushfader_exit_sim/sim.parquet` (S49al's 37,200 target exits, \$1,000 a trip):
+
+| the exit price | mean bp | PF | win % |
+|---|---|---|---|
+| the MODEL (the next bar's VWAP after the trigger) | **+50.7** | 1.495 | 67.0 |
+| the trigger's level, rounded up (if every trip sold exactly there) | +40.5 | 1.385 | 66.0 |
+| REST60, fill model queue (S49al) | +48.7 | 1.493 | |
+| REST60, fill model back (the most pessimistic) | +41.2 | 1.398 | |
+
+- **The overshoot is 10.2 bp a trip, 20 % of the model's edge.** The median is +4.7 bp, and 58.5 % of exits are
+  above the level. The other 41.3 % are below it (the trigger bar crossed, the next bar fell back): there the level
+  beats the model.
+- The overshoot is the same every year, 8.7–11.6 bp. By price: \$1–2 +18 bp, \$2–5 +12, \$5–10 +9, \$10+ +6.
+
+**The resting order earns most of it back, by WHEN it fills.** REST60 (queue) by the time of its last fill, relative to
+the trigger bar's close:
+
+| filled | trips | fill − the trigger's level, bp | model − level, bp | fill − model, bp | Δ \$ |
+|---|---|---|---|---|---|
+| > 60 s before | 3,068 | +135.0 | +17.5 | **+117.4** | +35,825 |
+| 5–60 s before | 5,326 | +2.1 | +13.3 | −11.2 | −5,932 |
+| 1–5 s before | 9,449 | +1.5 | +15.0 | −13.5 | −12,703 |
+| 0–1 s before (the PARA case) | 11,901 | +2.3 | +19.9 | **−17.6** | −20,873 |
+| 0–1 s after | 879 | +0.5 | +6.2 | −5.7 | −501 |
+| 1–60 s after (the price fell back, then returned) | 4,739 | +1.1 | −14.1 | +15.2 | +7,157 |
+| > 60 s after (the maker took over) | 1,838 | −90.5 | −33.8 | −56.6 | −10,383 |
+
+- **26,676 trips (72 %) fill in the run-up to the trigger and give up the overshoot**: −11 to −18 bp each, −\$39.5k
+  in all. That's the PARA case.
+- **3,068 trips (8 %) fill more than a minute early, at an older, HIGHER level**: +117 bp each, +\$35.8k.
+  - A print touched the 5m high while no 1s VWAP got above it.
+  - The price then fell away, and the research held until the level had decayed.
+  - The VWAP model can't see these touches. The resting order can.
+- Net (queue): −2.0 bp against the model, so the PF is 1.493 against 1.495.
+
+**Verdict:** the model's exit does credit an overshoot a passive exit can't get (20 % of the edge at the trigger). But
+the early touches of a higher level pay for almost all of it, so the resting exit costs only 2 bp in the queue model.
+In the pessimistic back model the early fills thin out and it costs 9.6 bp (PF 1.40 against 1.50). That's the honest
+range for live. PARA's −\$25.80 was the 0–1 s bucket. It's the commonest case, but the bucket that pays it back is
+the early touches.
+
+### S49al-3 — two rule changes tested: re-buying after a resting fill, and the 60 s wait (user, 2026-11-04)
+
+**1. Turning off RestedOut** (the Oms ends a signal's entry once its resting sell fills before the trigger).
+`scripts/equity/flushfader_rebuy_sim.py`, on S49al's trips and the 1s slim bars (their VWAPs equal the book's prices):
+- After each resting fill before the trigger, the capped maker entry re-buys n shares once a 1s VWAP is at or below the
+  entry (the cap), at the NEXT bar's VWAP capped at the entry.
+- The re-entry is held to the model's exit.
+- Not modelled: a second resting exit on the re-entry, and the second round of fees.
+
+| fill model | fills before the trigger | re-buys | re-buy mean | re-buy win % | REST60 | REST60 + re-buy | PF REST60 → with re-buy |
+|---|---|---|---|---|---|---|---|
+| queue | 29,744 | 4,406 | +6.4 bp | 76.3 | +48.75 bp | +49.50 bp | 1.493 → 1.489 |
+| back | 25,668 | 2,667 | +4.9 bp | 75.6 | +41.15 bp | +41.51 bp | 1.398 → 1.396 |
+
+- ⚠ **The first version of this table was WRONG** (re-buys −239 bp, PF → 1.12). It re-bought at the cap itself. But
+  these resting fills are mostly BELOW the entry: a median of −86 bp, where the 5m high had decayed under the entry
+  price. The market was already below the cap, and a capped maker bid buys there, not at the cap.
+- **The re-buy is about neutral:** +5 to +6 bp gross, +0.4 to +0.75 bp on the book, with the PF unchanged. By year
+  (queue): +16, +14, +17 (2020–22), then −4, −3, +7, −24 (2023–26).
+- **Leave RestedOut on.** Turning it off adds nothing that survives a second round of fees, and the recent years are
+  negative.
+
+**2. The 60 s wait before the maker.** Already in S49al's table: REST0 switches at once, REST60 waits 60 s.
+
+| fill model | REST0 | REST60 |
+|---|---|---|
+| lit | +49.1 bp | +48.8 bp |
+| queue | +48.6 bp | +48.9 bp |
+| hidden | +44.0 bp | +44.0 bp |
+| back | +41.7 bp | +41.3 bp |
+
+- **A wash**, within ±0.4 bp in every model.
+- The 1,838 trips that reach the maker after 60 s (−56.6 bp vs the model) are falling prices. The maker chases the ask
+  down whenever it starts, so starting earlier doesn't save them. The trips that dip after the trigger and come back
+  (+\$7.2k) are what the wait buys, and that roughly offsets what it costs elsewhere.
+- RESTinf (never switch) is no better, and it leaves 1–2 % unfilled at the window's end.
+- **Keep the 60 s.** Nothing in the data argues for changing it.
+
+### S49al-4 — passive limits at the 1m / 30 s high instead of the maker (user, 2026-11-04: "Right now, active maker orders chase entries and exits.")
+
+`flushfader_exit_sim.py --variants …,H60,H30,H60_0,H30_0 --tag _hi`: S49al's harness, with four new exits:
+- **H60 / H30:** after REST60's 60 s at the 5m level, a resting sell at the rounded-up max of the last 60 / 30 present
+  bars' VWAPs, re-priced as each bar closes, NEVER the maker.
+- **H60_0 / H30_0:** the same from the trigger, with no 60 s hold.
+
+Unfilled at the window's end (exit_sec + 30 min, or the close) is marked at the last VWAP. The six old variants
+reproduce S49al to the dollar in every fill model (the control). 37,200 trips, 2 h 07 min, 2.1 GB peak.
+
+| exit | lit | queue | hidden | back |
+|---|---|---|---|---|
+| MODEL | +50.9 bp | +50.9 | +50.9 | +50.9 |
+| MAKER | +47.4 | +39.7 | +39.7 | +39.7 |
+| REST60 (today's rule) | +48.8 | +48.9 | +44.0 | +41.3 |
+| H60 | +48.8 | +49.1 | +43.8 | +40.8 |
+| H30 | +48.7 | +49.0 | +43.9 | +40.9 |
+| H60_0 | +49.0 | +49.2 | +44.2 | +41.2 |
+| H30_0 | +49.0 | +49.1 | +44.3 | +41.4 |
+
+**Only the trips REST60 hands to the maker** (still unfilled 60 s after the trigger) can differ:
+
+| fill model | trips | MODEL | REST60 | H60 | H30 | H60_0 | H30_0 |
+|---|---|---|---|---|---|---|---|
+| queue | 1,837 | +49.9 bp | −6.8 | −2.2 | −4.0 | −3.4 | −3.7 |
+| back | 2,934 | +52.9 bp | −13.2 | −19.6 | −17.4 | −20.4 | −16.7 |
+
+- **No change worth making.** On the whole book every variant is within ±0.5 bp of REST60 in every fill model.
+- On the trips that reach the fallback, the two fill models disagree on the sign:
+  - **queue:** the passive highs beat the maker by 3–5 bp;
+  - **back** (others at the same high first): they lose 3–7 bp to it. A resting order at a recent high on a falling
+    stock waits behind the queue and fills later and lower than a maker following the ask.
+- The passive highs also leave 10–53 positions unfilled at the window's end (the 60-bar high the most).
+- The 200-trip sample (H30 +22.6 vs REST60 +20.4) was noise.
+- **The maker fallback stays.** The money isn't in the fallback: it's 5–8 % of the trips, and every exit loses a few
+  bp on them.
+
+### S49al-5 — a FlushFader FAILURE short? (user, 2026-11-04: "Would this be a good short setup then?")
+
+`scripts/equity/flushfader_failure_short.py`. The setup is causal:
+1. A FlushFader long's resting sell fills before the trigger (REST60, queue).
+2. A later 1s VWAP is at or below the long's entry.
+3. SHORT at the next bar's VWAP.
+4. Cover at the long's model exit (the first VWAP break above the decayed 5m high, filled at the next bar's VWAP).
+
+Gross: no borrow, no locate.
+
+| slice | trades | mean bp | median bp | PF | win | median hold min |
+|---|---|---|---|---|---|---|
+| all | 4,922 | −2 | −25 | 0.96 | 26 % | 1 |
+| 2020 / 2021 / 2022 | 923 / 1,199 / 521 | −12 / −10 / −13 | | 0.77 / 0.80 / 0.72 | | |
+| 2023 / 2024 / 2025 / 2026 | 452 / 599 / 787 / 441 | +7 / +8 / −3 / +30 | | 1.13 / 1.14 / 0.96 / 1.61 | | |
+| \$1–2 / \$2–5 / \$5–10 / \$10+ | 919 / 1,590 / 991 / 1,422 | −17 / −3 / +5 / +3 | | 0.77 / 0.95 / 1.12 / 1.08 | | |
+
+**No.** These aren't failed bounces off the 5m high:
+- The 5m high had already decayed below the entry, and the resting sell filled a median 86 bp under it.
+- The price is at or below the entry within a median 0.9 s of that fill.
+- The long's loss on these trips (−239 bp, entry to model exit) happens mostly BEFORE a short can be filled: the short's
+  fill is already 241 bp below the entry on average. What's left after it reverts.
+
+The research long loses here because it holds a falling stock. The short arrives too late to profit from that, and the
+cover (a buy on the break) overshoots against it.
+
+## S49am — SHORT at FlushFader's exit, cover at the 5m low (user, 2026-11-04: "The older variant with high profit factors did have it, I am curious if the current one does as well.")
+
+`scripts/equity/flushfader_exit_short.py`, on the reference book's 37,200 target exits and the 1s slim bars (raw; their
+VWAPs equal the book's prices). All of it is causal:
+- **Short** at the long's exit fill: exit_px at exit_sec, the next bar's VWAP after the 5m-high break.
+- **Cover** when a later 1s VWAP is below the min of the previous 300 present bars, the long's target mirrored, at the
+  next bar's VWAP.
+- **Backstop:** cover at the last RTH bar.
+
+Gross: no borrow, locate or fees. S20 tested the other flip, a LONG continuation on the 5m-high break, and it lost.
+
+| slice | trades | mean bp | median bp | PF | win | median hold | to the close |
+|---|---|---|---|---|---|---|---|
+| **all** | 37,200 | **+24.9** | +87.3 | **1.254** | 65 % | 11.5 min | 0.7 % |
+| 2020 | 7,059 | +22.5 | +80.7 | 1.228 | 64 % | 12.6 | 0.9 % |
+| 2021 | 8,670 | +31.1 | +90.2 | 1.367 | 67 % | 10.6 | 0.7 % |
+| 2022 | 3,678 | +30.4 | +88.3 | 1.351 | 66 % | 12.5 | 0.7 % |
+| 2023 | 2,875 | +45.4 | +103.5 | 1.509 | 68 % | 11.9 | 0.7 % |
+| 2024 | 4,825 | +17.0 | +87.9 | 1.148 | 64 % | 11.8 | 0.7 % |
+| 2025 | 6,481 | +14.3 | +81.4 | 1.132 | 63 % | 11.4 | 0.5 % |
+| 2026 | 3,612 | +22.7 | +88.5 | 1.213 | 66 % | 10.3 | 0.2 % |
+
+| slice | trades | mean bp | median bp | PF | win |
+|---|---|---|---|---|---|
+| \\$1–2 | 5,080 | +41.0 | +115.7 | 1.366 | 67 % |
+| \\$2–5 | 11,889 | +38.0 | +102.6 | 1.393 | 67 % |
+| \\$5–10 | 8,423 | +24.1 | +87.9 | 1.255 | 66 % |
+| \\$10–20 | 5,971 | +14.9 | +72.5 | 1.161 | 64 % |
+| \\$20+ | 5,832 | −4.2 | +60.9 | 0.958 | 61 % |
+| entry to the 5m low < 200 bp (the lowest fifth) | 7,440 | −5.8 | +56.6 | 0.921 | 63 % |
+| 200–266 bp | 7,440 | +9.5 | +73.1 | 1.117 | 64 % |
+| 266–343 bp | 7,440 | +24.7 | +88.5 | 1.287 | 66 % |
+| 343–465 bp | 7,440 | +35.0 | +113.8 | 1.333 | 66 % |
+| > 465 bp (the highest fifth) | 7,440 | +61.3 | +165.2 | 1.427 | 68 % |
+| the long trip lost | 12,264 | +13.0 | +79.1 | 1.122 | 63 % |
+| the long made 0–100 bp | 5,622 | +19.6 | +74.6 | 1.242 | 65 % |
+| the long made 100–300 bp | 13,106 | +21.2 | +83.7 | 1.240 | 66 % |
+| the long made > 300 bp | 6,208 | +61.4 | +144.4 | 1.518 | 69 % |
+
+- **The edge is there: PF 1.25 gross, every year 1.13–1.51.** The median (+87 bp) is far above the mean (+25 bp), so
+  the losers are few and large: the pop that keeps going. There's no stop; 0.7 % of trips run to the close.
+- **It's mean reversion, and it grows with the bounce.** The further the short starts above the 5m low, the better
+  (PF 0.92 → 1.43 by fifths). Likewise the bigger the long's win (> 300 bp: 1.52). Cheap names are stronger (\$1–5: 1.37–1.39);
+  \$20+ is break-even.
+- **⚠ Costs decide it.** The \$1–5 names that carry the edge are the hardest to borrow, and the hold is about 11 min.
+  A 1 c/share locate on a \$3 stock is 33 bp, against a +38 bp mean. That's what the locate-quote logging (the
+  2026-11-04 plan) has to measure.
+- **Execution:** the entry is the same event as the long's resting exit, so a second resting sell at the level is the
+  natural passive short. The cover mirrors the long's target, so its resting buy at the 5m low has the same overshoot
+  question as S49al-2.
