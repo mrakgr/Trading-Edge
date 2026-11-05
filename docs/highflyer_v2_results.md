@@ -1338,6 +1338,283 @@ inflated baseline, so today's genuine spike no longer clears rvol ≥ 5. You bot
 setups (trips drop ~350) and keep lower-quality ones. Short (10 bars) is also worse — too noisy a
 denominator. The edge wants ~20 bars.
 
+## Run 31 — on CAUSAL data, against the close entry on the same rules (2026-11-05, user)
+
+**User:** "How does the system which enters at 10 ET compare to the daily close one? Does it do any better?" Then: re-measure
+it on causal data, as v5 did for the daily system (`docs/highflyer_results.md` v5 / v5c). Runs 1–30 were measured on June-era
+tables and on the back-adjusted scale. The engine then has **two lookahead leaks** (CLAUDE.md rule 4):
+- **The \$1 floor** reads the back-adjusted 10:00 price.
+- **rvol** divides the partial candle's RAW volume by the mean of the BACK-ADJUSTED daily volumes. Before a later 1-for-k reverse
+  split the baseline is k× too small, so rvol is k× too big. A later forward split deflates it.
+
+**The port:** `scripts/equity/highflyer_v2_port.py --scale back|causal [--entry partial|close]` re-implements the engine
+(Types.fs / Backtest.fs: the 20-bar volume baseline, the > 45-day gap reset with its mark-to-market close, the warmup from
+2005-01-01, the partial candle's entry and fill). The 10:00 candles come from the archived `partial_candle_1000`
+(`db_archive/2026-09-29`).
+- **Control:** `--scale back` reproduces the engine's CSVs on today's data trip for trip. The 10:00 book matches 3,923 = 3,923
+  and the close book 5,565 = 5,565, with every price and feature within 5e-12 relative
+  (`scripts/equity/highflyer_v2_port_diff.py`; the engine ran on a parquet-view copy of its four tables).
+- **Analysis:** `scripts/equity/highflyer_v2_causal.py` → `data/equity/highflyer_repro/v2_causal.md`.
+- **Low float** is causal in every book: the SEC public float known by the entry date (Polygon's scso where SEC has none),
+  carried to the entry date through the split count and priced at the raw 10:00 close. Coverage is 77 % (91 % from 2013).
+
+Entries 2005-01 .. 2026-05-13, 5-day hold, no costs, +50 % clip:
+
+| book | trips | win | PF raw | **PF clip** | mean | median | clip 2005–14 / 2015–26 |
+|---|---|---|---|---|---|---|---|
+| 10:00, back-adjusted (the engine) | 3,923 | 55.5 % | 1.878 | 1.792 | +2.73 % | +0.88 % | 1.676 / 1.853 |
+| **10:00, causal** | 3,867 | 56.0 % | 1.910 | **1.829** | +2.70 % | +0.93 % | 1.722 / 1.888 |
+| 10:00, causal · breadth > 0.5 | 2,523 | 55.7 % | 1.924 | 1.841 | +2.74 % | +0.92 % | 1.735 / 1.907 |
+| close, causal (rvol ≥ 5) | 5,597 | 53.4 % | 1.679 | **1.596** | +1.98 % | +0.50 % | 1.630 / 1.578 |
+| close, causal · breadth > 0.5 | 3,647 | 53.4 % | 1.723 | 1.670 | +1.98 % | +0.45 % | 1.765 / 1.612 |
+| **10:00, causal · low float** | 871 | 59.0 % | 2.730 | **2.503** | +6.11 % | +2.16 % | 2.188 / 2.596 |
+| 10:00, causal · float ≥ \$300M | 2,088 | 56.3 % | 1.679 | 1.667 | +1.76 % | +0.80 % | 1.921 / 1.607 |
+| **10:00, causal · A+** (low float, red, −1..−6 % from the open) | 104 | 71.2 % | 6.265 | **5.369** | +13.25 % | +8.06 % | 3.924 / 5.846 |
+| 10:00, causal · A+ · breadth > 0.5 | 74 | 66.2 % | 4.591 | 3.718 | +11.70 % | +6.99 % | 3.568 / 3.773 |
+| close, causal · low float | 1,625 | 55.9 % | 2.045 | 1.876 | +3.75 % | +1.32 % | 1.965 / 1.853 |
+
+**The disproportion test passes, and the leaks were HURTING.** 13.8 % of the 10:00 book changes and the clip PF RISES, 1.792 →
+1.829. That is the behaviour of a genuine system.
+- The 298 trips the causal scale drops were weak: clip 1.537. 231 of them belong to tickers with a LATER reverse split (the
+  inflated rvol), and 15 had a raw 10:00 price under \$1.
+- The 242 it adds are strong: clip 1.947. 194 of them have a later forward split (the deflated rvol had hidden them).
+- The 3,625 shared trips keep their returns; 63 differ, by dividends, at most 0.31 pp.
+- The close book barely moves: 1.586 → 1.596, since its rvol reads one scale throughout.
+
+**Timing, with the selection held fixed (Run 2, causal).** On the 2,395 trips both books take, the 10:00 entry gives clip
+**2.763** against 2.022 at the close, a mean of +3.64 % against +2.36 %, and a 61.5 % win rate against 56.7 %. The 10:00 fill
+is a median 0.73 % cheaper than the close: these names keep rising into the close.
+
+**By year (causal, clip PF).**
+- The 10:00 book loses only in 2005 (0.94, its first year) and in 2026 (**0.72** on 87 trips, January–May). 2008 is weak at
+  1.15.
+- Its low-float slice also fails in 2026 (0.67 on 33 trips). The close book held up in 2026 (1.41).
+- The year table is in `v2_causal.md` §5.
+
+**Verdict.**
+- The 10:00 entry IS better, and the causal measurement strengthens it: 1.83 against 1.60 on the full books, 2.50 against 1.88
+  on low float, and 2.76 against 2.02 on the same trades.
+- A+ is the strongest cell (5.4) but thin: 104 trips in 21 years, about 5 a year. Its cuts were chosen on this data (Runs
+  15–17).
+- Breadth does not help A+: with breadth > 0.5 it falls to 3.7. That is consistent with the user's 07-01 stance (breadth for
+  sizing, not as a filter).
+- Still unmodelled:
+  - **Costs.** A 10:00 market or limit fill in a low-float name pays a wider spread than the closing auction.
+  - **The 2026 weakness.**
+  - **The minute bars.** The partial candle's "10:00 close" is the 09:59 minute bar's close, from the minute aggs built in
+    June/July.
+
+## Run 32 — a liquidity proxy for the low-float gate (2026-11-05, user)
+
+**User:** "The only real problem with that system was getting good quality low float data. We managed to get some by
+scraping it from Edgar, but it was very patchy. I wonder if we could replace the low float criteria via 60d median dollar
+volume or some other indicator?"
+- Script: `scripts/equity/highflyer_v2_float_proxy.py` → `data/equity/highflyer_repro/v2_float_proxy.md`.
+- Book: the causal 10:00 book (Run 31, 3,867 trips; the float is known on 77 %).
+- **dv60_med** is the median raw close · volume over the 60 sessions before the entry day: GapFader's definition, and the one
+  the live Oms already loads (`L1Config.Volume60`).
+
+**It tracks float closely.** Spearman ρ with the dollar float is 0.88, and the AUC for low float vs not is 0.95. Median
+dv60_med is \$0.42M for low-float trips against \$12.8M for float ≥ \$300M. adv20 does about as well (0.87 / 0.94); the
+price does worse (0.71 / 0.85).
+
+**The edge lives below ~\$2M dv60_med and is flat above it:**
+
+| dv60_med | \$0–0.5M | \$0.5–1M | \$1–2M | \$2–5M | \$5–10M | \$10–25M | \$25M+ |
+|---|---|---|---|---|---|---|---|
+| trips | 770 | 326 | 356 | 605 | 460 | 506 | 844 |
+| PF clip | 2.08 | **2.58** | 2.01 | 1.59 | 1.57 | 1.53 | 1.58 |
+| low float among the covered | 90 % | 72 % | 51 % | 17 % | 5 % | 1 % | 0 % |
+
+**Over the whole book the proxy looks weaker (dv60_med < \$2M: 1,452 trips, clip 2.17, against low float's 871 at 2.50).
+That is a coverage artefact, not a weaker cut.**
+- Trips WITHOUT float data are weak (1.43). They are mostly from before 2013, when the SEC XBRL frames are thin (CS
+  coverage 40 % in 2005–12 vs 93 % from 2013), and ADRs (15 % / 62 %).
+- The float gate never sees those trips. The proxy keeps them.
+- The proxy's mismatches are good trades either way: dv60_med < \$2M with float ≥ \$300M makes 2.15 (243 trips), and low float
+  with dv60_med ≥ \$2M makes 2.47 (97 trips).
+
+Like for like, from 2013:
+
+| cut (2013+) | trips | PF clip | mean | 2013–14 / 2015–20 / 2021–26 |
+|---|---|---|---|---|
+| all | 2,774 | 1.90 | +3.07 % | 1.99 / 2.42 / 1.55 |
+| **low float (< \$300M)** | 777 | **2.56** | +6.47 % | 2.34 / 3.30 / 2.14 |
+| **dv60_med < \$1M** | 773 | **2.54** | +6.21 % | 2.49 / 3.07 / 2.19 |
+| dv60_med < \$2M | 1,017 | 2.41 | +5.55 % | 2.42 / 2.86 / 2.10 |
+| dv60_med < \$2M · CS only | 925 | 2.49 | +5.70 % | 2.87 / 3.03 / 2.03 |
+| dv60_med < \$2M · ADRC | 92 | 1.84 | +3.97 % | 0.67 / 1.64 / 2.76 |
+| **A+ (red dip · low float)** | 95 | **5.52** | +14.09 % | 4.16 / 7.54 / 4.74 |
+| red dip · dv60_med < \$1M | 93 | 4.35 | +12.57 % | 2.66 / 6.45 / 3.65 |
+| **red dip · dv60_med < \$2M · CS only** | 111 | **4.80** | +11.91 % | 6.16 / 7.22 / 3.41 |
+
+**Verdict: dv60_med < \$1–2M on common stock replaces the float gate.**
+- It matches the float gate on the full book (2.54 against 2.56 on the same number of trades) and comes close on A+ (4.80
+  against 5.52, with 17 % more trades).
+- It is computable for every name, every day, from the daily bars alone. No scraping is needed, and the live Oms already
+  holds the number.
+- ADRs are the weak part of the proxy's extra trades.
+- Caveats:
+  - The thresholds were read off this data, from a coarse grid of 5, where the PF is smooth in the cut.
+  - The cut is nominal dollars over 21 years.
+  - Costs are still unmodelled, and they matter most exactly here: a \$1M-a-day name at 10:00.
+
+## Run 33 — the real liquidity around the trade (2026-11-05, user)
+
+**User:** "The volume is usually significantly higher on the breakout day so that plays in our favor ... these setups are
+accompanied by news which increases the liquidity around the event ... compare the differences between 20d mean and 60d
+median estimates."
+- Script: `scripts/equity/highflyer_v2_liquidity.py` → `data/equity/highflyer_repro/v2_liquidity.md`.
+- Book: the causal 10:00 book, closed trips 2016-08 .. 2026-05 (2,118). The proxy book (dv60_med < \$2M, CS) has 700; the proxy
+  A+ has 91.
+- Measure: dollar volume actually traded, from the 1s bars (lit + TRF; the auction markers dropped).
+
+Medians, proxy book: dv60_med \$0.48M, adv20 \$0.75M.
+
+| window | dollar volume | ÷ dv60_med | ÷ adv20 | a \$10k position: median · p90 · trips over 5 % |
+|---|---|---|---|---|
+| entry day, 09:30–10:00 | \$1.92M | 4.0× (sd 1.09) | 2.4× (sd 0.91) | |
+| **entry day, 10:00–10:15** (the fill) | \$0.47M | 0.94× (sd 1.33) | 0.61× (sd 1.16) | 2.1 % · 12.7 % · 27 % |
+| entry day, full | \$9.16M | 17× (sd 1.20) | 11× (sd 1.03) | 0.1 % · 0.6 % · 0 % |
+| **exit day, 09:30–09:45** (the 5-day exit at the open) | **\$93k** | 0.21× (sd 1.60) | 0.14× (sd 1.51) | **10.7 % · 93 % · 69 %** |
+| exit day, full | \$1.73M | 3.9× (sd 1.14) | 2.4× (sd 1.05) | |
+
+- **The user is right about the breakout day.** The entry day trades 17× the 60-day median (A+: 25×), and the first half hour
+  4×.
+- The fill window right after 10:00 is thinner. Volume falls off sharply after the first half hour, and the 15 minutes after
+  10:00 carry about one 60-day median's worth. A \$10k entry is a median 2 % of that window, and above 5 % on 27 % of trips.
+- **The EXIT is the constraint.** Six sessions later the news has faded: the exit morning's first 15 minutes trade a median
+  \$93k, 0.2× dv60_med. A \$10k market exit at the open is a median 11 % of that window, and above 5 % on 69 % of trips. (The
+  opening auction's cross is not separately measured here.)
+- The exit day as a whole still trades 3.9× dv60_med. The tested exit (the open of bar i + 6) is the expensive way out, and an
+  exit worked over that day, or over the days before it, is the obvious variant to test.
+- **The 20-day mean is the better liquidity estimate here, not the 60-day median.** It has the tighter actual/estimate spread
+  in every window but one: sd 0.91 vs 1.09 in the first half hour, 1.05 vs 1.14 for the exit day. These names were already
+  waking up in the weeks before the breakout, and the shorter mean catches that.
+- Both are rough: an sd near 1 means a factor of about 2.7 either way. For sizing, the day's own volume up to 10:00 is the
+  better measure.
+
+## Run 34 — 2026 through October, and the market (2026-11-05, user)
+
+**User:** "we could backfill the database and see whether it flipped since we last tested it ... start by checking whether this
+low profit factor in 2026 was due to lack of trades". Then: "I thought that this method wasn't affected by the general market,
+but I guess I was wrong. The period you picked out is when the market was in a short-term bear phase."
+- Minute aggs were backfilled from 07-18 to 10-30 (`download-bulk-minute`).
+- The 10:00 candles after 06-25 come from `scripts/equity/build_partial_candle_ext.py`, which runs the fsx's SQL into a parquet.
+  Its control rebuilt 06-01 .. 06-25 against the archive: prices exact on 212,532 rows; volume within 24 shares, from the
+  rounding of fractional minute volumes.
+- The causal port then ran through 2026-10-30 and reproduces every trip closed by 05-13 exactly.
+- Script: `scripts/equity/highflyer_v2_2026.py` → `data/equity/highflyer_repro/v2_2026.md`.
+
+**Not a lack of trades.** January 1 – May 13 had 86 trips, above the typical 60–115 for that window. Three earlier years had
+an equally weak start: 2005 (0.72, full year 0.94), 2016 (0.65 → 3.55) and 2020 (0.84 → 2.11).
+
+**It has not flipped.** Trips · PF clip · mean:
+
+| 2026 | all | proxy book (dv60_med < \$2M, CS) |
+|---|---|---|
+| Jan – May 13 | 86 · 0.74 · −1.5 % | 29 · 0.65 · −2.4 % |
+| May 14 – Oct | 75 · 0.94 · −0.3 % | 36 · 1.50 · +1.8 % |
+| **Jan – Oct** | **161 · 0.82 · −0.9 %** | **65 · 0.99 · −0.0 %** |
+
+- Of the 243 rolling 10-month windows in 2005–2025, only **4 (1.6 %)** were as bad for the full book.
+- The proxy book has been worse: 14 windows (5.8 %), the worst at 0.18. It also had losing years (2005 0.77, 2008 0.84) and
+  recovered from each.
+- The months: Feb 0.54, Mar 0.49, Apr 0.49 (9 trips), Sep **0.28** (12 trips).
+
+**The market DOES move it, through what happens DURING the hold.** SPY's holder's return over the trip's own 5-day hold is
+descriptive only, since it is future information:
+
+| SPY over the hold | ≤ −3 % | −3..−1 % | −1..+1 % | +1..+3 % | ≥ +3 % |
+|---|---|---|---|---|---|
+| all: trips · PF clip | 211 · **0.66** | 658 · 1.06 | 1,754 · 1.79 | 1,091 · 3.06 | 221 · 3.12 |
+| proxy book | 73 · 0.98 | 241 · 1.59 | 587 · 2.16 | 400 · 3.12 | 77 · 3.70 |
+
+- ρ = 0.18, and the slope of the clipped return on SPY's is 0.89, about a beta of one. The proxy book is less exposed (ρ 0.11;
+  it breaks even in the worst bucket). IWM looks the same.
+- **The causal breadth gate does not see it coming.** In 2005–2025 the book makes 1.88 with breadth lag-1 above 0.5 and 1.88
+  with it below; in February–April 2026 it lost on both sides (0.62 / 0.44).
+- February–March 2026 fit the user's bear-phase reading: SPY fell 1.0–1.5 % on average over those holds.
+- April (SPY +2.4 % over the holds) and September (SPY −0.4 %, IWM −1.7 %) lost anyway, so the market is not the whole
+  story.
+
+**Reading:** a beta-one long book whose 2026 is its worst stretch since 2005: the 1.6 % tail of the full book, the 5.8 % tail
+of the proxy book. Not yet outside history, but no recovery either.
+
+## Run 35 — an earlier exit, and the past windows as bad as 2026 (2026-11-05, user)
+
+**User:** "So there were such bad periods before?" and "maybe we could consider getting out on day 3 or 4's open. Most of the
+edge is there during the first 3 days anyway." Script: `scripts/equity/highflyer_v2_exit_day.py` →
+`data/equity/highflyer_repro/v2_exit_day.md`.
+
+**The past windows as bad as 2026 Jan–Oct are all market crises.**
+- Full book (0.82): only the four windows that end in March–June 2009 (Jun 2008 .. Jun 2009). Those are 35–42 trips each,
+  against 2026's 161.
+- Proxy book (0.99): 2005, the 2008–09 crisis (down to 0.18 on 14 trips) and 2011-03..12 (the August 2011 downgrade).
+- 2026 is the worst stretch since the GFC. It carries far more trades, and there is no comparable crash in it.
+
+**The exit at the open of session k after the entry** (k = 6 is production's; the same 3,935 trips in every column; PF clip ·
+mean):
+
+| book | k = 1 | k = 2 | k = 3 | k = 4 | k = 5 | k = 6 |
+|---|---|---|---|---|---|---|
+| all | 1.49 · +0.86 % | 1.66 · +1.49 % | 1.76 · +2.03 % | 1.81 · +2.28 % | 1.79 · +2.42 % | 1.81 · +2.66 % |
+| proxy book (1,378) | 1.45 · +1.01 % | 1.81 · +2.20 % | 2.01 · +3.23 % | 2.05 · +3.66 % | 2.10 · +4.03 % | 2.21 · +4.60 % |
+| proxy A+ (166) | 1.42 · +0.94 % | 2.29 · +2.93 % | 2.77 · +5.62 % | 2.86 · +7.33 % | 2.89 · +7.12 % | 3.31 · +8.58 % |
+| proxy, 2021–26 (436) | 1.73 · +1.69 % | 1.93 · +2.98 % | 1.96 · +3.73 % | 1.98 · +4.19 % | 1.98 · +4.12 % | 1.98 · +4.40 % |
+| proxy, 2026 (65) | 1.22 · +0.59 % | 1.38 · +1.28 % | 1.35 · +1.75 % | 1.15 · +0.58 % | 1.04 · +0.19 % | 0.99 · −0.04 % |
+
+- **By k = 3 the proxy book has earned 70 % of the 6-day mean** (85 % in 2021–26, where days 4–6 add PF only 1.96 → 1.98).
+- Over the full history the later days still pay, about +1.4 pp of mean. They pay most in 2015–20 and for A+.
+- Per session held, the early exit is the more efficient use of capital: about 1.1 %/session at k = 3 against 0.8 % at k = 6.
+- In 2026 everything after day 2 was a loss: k = 2 makes 1.38, and the book decays to 0.99 by k = 6.
+
+**The exit morning's liquidity** (09:30–09:45 dollar volume, 2016-08+; median · a \$10k sell's median share):
+
+| book | k = 1 | k = 2 | k = 3 | k = 4 | k = 5 | k = 6 |
+|---|---|---|---|---|---|---|
+| proxy book | \$336k · 3.0 % | \$155k · 6.4 % | \$125k · 8.0 % | \$111k · 9.0 % | \$119k · 8.4 % | \$90k · 11.1 % |
+| proxy A+ | \$354k · 2.8 % | \$158k · 6.3 % | \$217k · 4.6 % | \$138k · 7.2 % | \$197k · 5.1 % | \$154k · 6.5 % |
+
+The liquidity falls off after day 1, then stays roughly flat. Exiting at day 3 or 4 instead of day 6 eases the exit only from
+about 11 % to 8–9 % of the first 15 minutes. **An earlier exit is a capital-efficiency and recent-regime choice, not the
+liquidity fix**, which remains working the exit through the session.
+
+## Run 36 — a rule for "the edge has returned" (2026-11-05, user)
+
+**User:** "I think the best thing to do would be to just wait until the edge for this system comes back ... What do you think
+would be a good stretch of winning trades to conclude it has returned?"
+- Script: `scripts/equity/highflyer_v2_return_rule.py` → `data/equity/highflyer_repro/v2_return_rule.md`.
+- The rule: the clipped PF over the last N trades ≥ X.
+- **Power** is the chance a HEALTHY system passes: the book's own trades from 2009-07 to 2025.
+- **False pass** is the chance a BROKEN one passes: the same trades shifted down to a PF of exactly 1.0, with the same shape
+  and spread.
+- Both come from a bootstrap of 20,000 draws.
+
+Proxy book (dv60_med < \$2M, CS; 68 trades a year; healthy PF 2.52, 59 % wins; broken 42 % wins), production exit; power /
+false pass:
+
+| last N trades (≈ months) | PF ≥ 1.2 | PF ≥ 1.4 | **PF ≥ 1.6** | 2026's value now |
+|---|---|---|---|---|
+| 30 (≈ 5) | 93 % / 34 % | 88 % / 24 % | 82 % / 16 % | 1.32 |
+| **50 (≈ 9)** | 97 % / 31 % | 93 % / 19 % | **88 % / 11 %** | 1.11 |
+| 75 (≈ 13) | 99 % / 27 % | 97 % / 14 % | 92 % / 6 % | — |
+
+The full 10:00 book trades 196 a year, so it decides faster. Its last 100 trades (≈ 6 months) at PF ≥ 1.6 give 76 % / 5 %;
+the value now is 0.97.
+
+**Streaks of winners are a weak test.** A run of 6 straight winners somewhere in 50 trades happens to 60 % of healthy books
+and 13 % of broken ones. A run of 5 happens to 81 % and 32 %.
+
+**Recommendation:**
+- The edge is back when **the proxy book's last 50 trades make clipped PF ≥ 1.6**: 88 % power, 11 % false passes, about 9
+  months of trades.
+- The full book's last 100 trades at ≥ 1.6 is an earlier signal (about 6 months): it misses more healthy systems (76 %) but
+  rarely passes a broken one (5 %).
+- Trades in a market phase cluster, so the bootstrap's independence assumption flatters both rates. A recovery that only
+  coincides with a strong market rally deserves a second look.
+- Monitoring costs a minute-agg backfill, `build_partial_candle_ext.py` and the causal port, once a month.
+
 ## Takeaways
 
 1. **Early entry helps when the name is the same** (PF 2.29 vs 1.98 on the shared

@@ -11200,6 +11200,10 @@ the tight-consolidation breakout to new 52-week highs on a volume + move spike. 
 **Status: working long-only daily-momentum edge. Filtered (breadth + ≥2005): 4,245 trips, PF raw
 1.960 / clip 1.600, +\$1.08M. Honest next-open fills, 5-day time-stop.**
 
+> ⚠ **2026-11-05 ([v5c](#v5c)):** these headline numbers predate the max-log-ATR floor listed in the table below, and the raw
+> PF / \$ include a phantom +2,342 % trade (SNS 2009-12-15, a reverse split missing from June's data). Today, like for
+> like: 4,220 trips, PF raw 1.692 / clip **1.643**. With the floor: 3,563 / 1.745 / **1.691**.
+
 v3 is not a new engine or a new system — it is the **same `TradingEdge.HighFlyer` production system**,
 carried forward into a research methodology that computes every PF/return figure on **clipped per-trade
 returns** and decides on **cumulative** views. That shift (2026-06-21) was significant enough — it
@@ -12921,3 +12925,53 @@ ATR, ~0 with rvol.
   1.60 → 1.74 and the mean +2.02 → +2.51 % on 57 % of the book, in both halves (1.89 / 1.62).
 - A modest feature, not GapFader's regime switch: worth carrying as a sizing / filter candidate; at 1,840 trips the
   quintile differences are suggestive, not conclusive.
+
+<a id="v5c"></a>
+
+## v5c — where June's headline went: the floor, and one phantom reverse split (2026-11-05, user)
+
+**User:** "investigate why the HighFlyer system has missing trips now. Maybe the difference is between the one that enters
+at 10 ET and the one that enters at the close? ... If that's not it, we'll have to branch out from the June commit and try
+rebuilding the database." It is neither a mixed-up system (the June headline and the repro are both the daily close-entry
+`TradingEdge.HighFlyer`) nor something a June rebuild would fix. `scripts/equity/highflyer_june_gap.py` →
+`data/equity/highflyer_repro/june_gap.md`; the floor-off run is `data/equity/highflyer_repro/v3_nofloor.csv`.
+
+**1. No trips are missing. The headline predates the max-log-ATR floor.** "The system in one screen" lists the
+`max log ATR ≥ 0.04` gate, but its numbers (4,245 trips; unfiltered 6,647 / 1.851) were measured before that gate was wired
+in later the same day ("Unfiltered-engine headline PF 1.851 → 1.922, 6,647 → 5,617 trips"). The 11-01 repro ran the engine
+default, which includes the floor. Like for like:
+
+| run | all trips | all PF (\$) | breadth · ≥ 2005: trips | PF raw | PF clip | P&L (\$10k / trip) |
+|---|---|---|---|---|---|---|
+| June headline (floor OFF) | 6,647 | 1.851 | 4,245 | 1.960 | 1.600 | +\$1,079k |
+| **today, floor OFF** | 7,040 | 1.668 | **4,220** | 1.692 | **1.643** | +\$746k |
+| today, floor ON (the 11-01 repro; closed trips) | 5,884 | 1.712 | 3,563 | 1.745 | 1.691 | +\$727k |
+| June, floor ON (06-21) | 5,617 | 1.922 | — | — | — | — |
+
+The book has the same size (4,220 vs 4,245), and the honest clip PF is slightly *better* today (1.643 vs 1.600). The
+whole difference is in the raw tail: about 40 return units above the +50 % clip in June's book (June's \$10–20 band:
+raw 2.854 vs clip 1.780), against about 5 today, where the largest winner is +161 %.
+
+**2. June's raw tail was largely ONE phantom trade.** June's tables lacked dozens of reverse splits. Polygon re-keyed and
+re-issued them later: see the 09-22 mirror fix (40aef2b) and the 09-24 history rewrite (`docs/data_v2.md`). June's own v0
+trip files (`data/equity/momentum_v0/*.csv`, 06-15/16, back-adjusted on June's tables) still carry the evidence. Their
+price over today's back-adjusted close steps by exactly the split ratio: TBLT +7,184 %, SYTA +6,381 %, JAGX +4,974 % in
+June, each −30 to −50 % today. Only one such step falls inside the hold of a trip in the book:
+
+| symbol | entry → exit | today | June scale entry → exit | June ret | split inside the hold |
+|---|---|---|---|---|---|
+| **SNS** (Steak n Shake) | 2009-12-15 → 12-23 | \$262.20, +23.4 % | 0.050 → 0.989 | **+2,342 %** | 2009-12-21, 1-for-20 |
+
+June's unadjusted entry (\$13.11, the \$10–20 band) against the post-split exit is worth +\$232k at \$10k a trade. With SNS
+at its June return, today's book reads PF raw **1.908** / clip 1.646 / +\$978k, against June's 1.960 / 1.600 / +\$1,079k.
+That is 70 % of the raw-P&L gap and essentially all of the \$10–20 band's excess (≈ 1.07 × 23 loss units ≈ 25 units:
+SNS 23.2 + today's 1.4). The other phantoms in June's data are not v3 trips. Their entry-day gates read only pre-split bars,
+which sit on one uniform scale in both datasets, so today's engine would take them too, and it takes none of them.
+
+**The remaining ~\$100k (about 10 %)** is unattributed. It could be composition: missing reverse splits also distorted the
+gates (a phantom +900 % day blocks trips nearby), so June's 4,245 and today's 4,220 are not the same set. It could also be
+a phantom that June's sparse v0 observations cannot see. Neither changes the conclusion.
+
+**Verdict:** the June headline's raw PF (1.960) and \$ figure were inflated by a data error. The clip PF, the methodology
+standard, is unchanged or better (1.600 → 1.643 like for like; 1.691 with the floor). There is nothing to rebuild:
+rebuilding June's database would only restore the missing splits. The causal port (v5) remains the reference.
