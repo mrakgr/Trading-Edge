@@ -19113,3 +19113,130 @@ Gross: no borrow, locate or fees. S20 tested the other flip, a LONG continuation
 - **Execution:** the entry is the same event as the long's resting exit, so a second resting sell at the level is the
   natural passive short. The cover mirrors the long's target, so its resting buy at the 5m low has the same overshoot
   question as S49al-2.
+
+## S49an — Mann–Kendall tau and Page's CUSUM (user, 2026-11-04: trend measures from another thread)
+
+**The measures** (record-only, in the research engine since base_v20, appended after the 335 old columns):
+- **Mann–Kendall tau-a** of the last {60, 180, 300, 600, 1200} present-bar VWAPs, the signal bar included:
+  (concordant − discordant pairs) / (n(n−1)/2), ties counting 0. It measures monotonicity, robust to a wick and
+  recover, unlike eff's net/path.
+  - Computed exactly at the signal (merge-sort inversions, O(n log n): `Intraday.mkTau`).
+  - The user's question: a Fenwick tree over price ranks would give an O(log n) sliding update on every bar. But it
+    needs a fixed rank space, a 1-bp grid on which near-equal prices tie. At-signal only, the exact count is cheaper.
+- **Page's CUSUM**, both directions, on every present bar's log return: S⁺ = max(0, S⁺ + z − k), S⁻ the same with −z.
+  Recorded per k: S⁺, S⁻, and the present bars since each last reset.
+  - Normalised `cusz_*`: z = r / (volat_20m / √30), k = 0.25 / 0.5 / 1.
+  - Raw `cusr_*`: z = r in bp, k = 0 / 4.35 / 10 bp (0, and the p50 / p75 of |r| per present bar over 3.24M returns of
+    400 random 2020–22 whitelist ticker-days).
+
+**Checks:**
+- `mkTau` = a brute-force O(n²) count on 3,000 random arrays with ties (worst |diff| 0).
+- A Python recomputation from the 1s bars of 300 random trips: tau exact; raw CUSUM S exact. The ages agree except
+  for a 1-bar convention on a CUSUM never reset since the open.
+- The old 335 columns are bit-identical to the committed engine on 2024-03-04..08 (21,441 = 21,441).
+  ⚠ `base_v19` (2026-09-08) is no longer a valid control: the engine and data have moved since (21,468 vs 21,441
+  trips that week).
+- **base_v20:** 8,256,556 trips in 20m41s, 9.7 GB peak (`scripts/equity/flushfader_run_base_v20.sh`).
+
+**On the reference book** (37,254 trips, 100 % joined; fit 2020–22 PF 1.613, holdout 2023–26 PF 1.370;
+`scripts/equity/flushfader_trend_features.py` → `data/equity/flushfader/trend_features.md`). PF per quintile (edges
+on fit), fit → holdout:
+
+| feature | Q1 | Q2 | Q3 | Q4 | Q5 |
+|---|---|---|---|---|---|
+| tau_300 | 1.55 / 1.37 | 1.66 / 1.29 | 1.60 / 1.51 | 1.77 / 1.40 | 1.51 / 1.30 |
+| tau_1200 | 1.74 / 1.33 | 1.64 / 1.54 | 1.61 / 1.54 | 1.67 / 1.21 | 1.42 / 1.29 |
+| cusz_dn_k05 (normalised) | 1.45 / 1.38 | 1.52 / 1.35 | 1.64 / 1.40 | 1.63 / 1.33 | 1.80 / 1.39 |
+| cusr_dn_k435 (raw) | 1.29 / 1.10 | 1.43 / 1.29 | 1.56 / 1.21 | 1.73 / 1.40 | 1.87 / 1.50 |
+| cusr_dn_k10 (raw) | 1.27 / 1.10 | 1.51 / 1.21 | 1.60 / 1.24 | 1.68 / 1.48 | 1.88 / 1.48 |
+| cusr_dn_age_k10 (raw) | 1.38 / 1.12 | 1.55 / 1.30 | 1.58 / 1.27 | 1.62 / 1.42 | 1.78 / 1.48 |
+
+- **Tau has no gradient**, in either period, at any window: the drop tests sit at 44–88 % of the random-drop null.
+- **The normalised CUSUM does not carry.** Its fit gradient (1.45 → 1.80) is flat in the holdout (1.33–1.40).
+- **The k > 0 up-side CUSUMs are always 0 at a flush signal**, so they say nothing.
+- **The raw downside CUSUM is monotone in both periods.** Dropping its fit-worst fifth beats 98.5 % of random drops
+  of as many holdout trips. Its gradient mostly survives within each volat_20m tertile (low: 1.01 → 1.48 holdout)
+  and on both sides of the session-low split (above: 1.10 → 1.69). It is the raw bp size of the persistent selling;
+  the normalisation removes it. Spearman 0.62 with volat_20m.
+- **⚠ The k = 0 up-side CUSUM is the SESSION LOW, already known.** With k = 0, S⁺ resets at every new low since the
+  open, so S⁺ = 0 exactly when the signal sets the day's low: 16,875 of 16,887 trips agree with `breach_lo_sess = 0`,
+  the other 12 are ties. At the low: 45 % of the book, fit 1.51 / holdout 1.23. Above it: 1.71 / 1.50, every year
+  but 2021. This is §S11 / §S41l / §S41m's binary rule, found again.
+
+**Substitution** (§S49's method): every recorded feature (leaks excluded: `bars_held`, the `ma_*m_sec` marks), the
+same fit-chosen 20 % end drop, ranked by the holdout PF it leaves (no drop: 1.370):
+
+| feature | holdout PF after | rank of 282 |
+|---|---|---|
+| breach_lo_sess (= cusr_up_k0) | 1.506 | 1 |
+| n_eff_shannon_1200 | 1.467 | 2 |
+| pct_chg_open | 1.458 | 4 |
+| the volume features (vol_0945_tape, vol_*_bar) | 1.44–1.45 | 5–15 |
+| cusr_dn_age_k10 | 1.421 | ~41 |
+| cusr_dn_k435 / k10 | 1.40 | ~115 |
+| tau_300 | 1.387 | ~200 |
+| cusz_dn_k05 | 1.368 | ~257 |
+
+**Verdict:**
+- Tau and the volatility-normalised CUSUM add nothing to FlushFader.
+- The raw downside CUSUM is a real, monotone, both-period gradient, but a middling filter: about 40th–115th of the
+  282 features already recorded.
+- The best thing the CUSUM found is the session-low rule the book already knew.
+- A candidate for the V2 fit's feature set (sizing), not a gate.
+
+## S49ao — the Kalman local linear trend (user, 2026-11-04)
+
+**The model:** ln(vwap) = μ + ε, with the level μ' = μ + β + η and the slope β' = β + ζ, one step per present bar.
+The filter gives the slope β̂ and its SE recursively, with no window. Responsiveness is set by the ratios
+q_level = σ²η/σ²ε and q_slope = σ²ζ/σ²ε.
+- **How it differs from the OLS slopes:** exponentially decaying weights instead of a window, so nothing jumps when an
+  old bar leaves.
+- **But it is not a new kind of measure.** In steady state it is Holt's double exponential smoothing. Its SE also
+  converges, so with fixed variances β̂/SE is β̂ rescaled; σε is therefore scaled by the engine's
+  σ_bar = volat_20m/√30, which makes the t-stat a volatility-normalised slope.
+- **The grid (user: the full model, a 3 × 3 grid):**
+  - rows: q_level 0 / 0.01 / 0.25 (steady-state level gain ≈ 0 / 0.1 / 0.4);
+  - columns: q_slope SOLVED per row so the slope reaches half of a step change in the true slope in 60 / 300 / 1200
+    present bars (`KALMAN_QS`).
+  - A raw ratio grid failed: level noise lets the level absorb a move, so the slow cells took 3,000–200,000 bars to
+    respond, longer than a session.
+- **Recorded per filter:** `kal_slope_*` (bp per bar), `kal_t_*` (β̂ / (σ_bar·√P_ββ)) and `kal_gap_*` (ln(vwap) − μ̂
+  in bp).
+- The q_level 0 t-stats are huge (median −165 / −420): a smooth-trend model is very sure of its slope. Within a
+  filter this is a scale only.
+
+**Checks:**
+- The 364 base_v20 columns are bit-identical on 2024-03-04..08 (21,441 = 21,441).
+- An independent Python Kalman filter on the 1s bars matches the engine to 1e-10 relative (200 trips × 9 filters).
+- **base_v21:** 8,256,556 trips, 21m41s, 10.1 GB peak (`scripts/equity/flushfader_run_base_v21.sh`).
+
+**On the reference book** (`flushfader_trend_features.py --family kalman --base …/base_v21` → `kalman_features.md`;
+fit 2020–22 / holdout 2023–26; PF per quintile, fit → holdout):
+
+| feature | Q1 | Q2 | Q3 | Q4 | Q5 | drop the fit-worse fifth: holdout PF (null pct) |
+|---|---|---|---|---|---|---|
+| kal_gap_l0_h1200 | 1.99 / 1.64 | 1.73 / 1.42 | 1.62 / 1.18 | 1.37 / 1.22 | 1.24 / 1.04 | 1.43 (100) |
+| kal_t_l025_h1200 | 1.37 / 1.19 | 1.61 / 1.23 | 1.58 / 1.35 | 1.79 / 1.56 | 1.82 / 1.58 | 1.42 (100) |
+| kal_slope_l025_h300 | 1.81 / 1.52 | 1.79 / 1.32 | 1.50 / 1.45 | 1.46 / 1.12 | 1.30 / 1.10 | 1.41 (98) |
+| kal_t_l0_h60 | 1.56 / 1.37 | 1.69 / 1.35 | 1.66 / 1.50 | 1.57 / 1.32 | 1.60 / 1.32 | 1.37 (49) |
+
+- **Three both-period gradients:**
+  - **the gap:** further below the filtered level is better;
+  - **the fast slope:** steeper selling is better;
+  - **the slow t-stat:** an uptrend over the last ~20 min before the flush is better (the runner-pullback story).
+- **The fast t-stats are flat.**
+- **Substitution** (the same fit-chosen 20 % end drop on all 301 recorded features, leaks excluded; no drop 1.370):
+  - the best Kalman is #30 (kal_gap_l0_h1200, 1.432), then #40 / #46 / #53;
+  - ahead of them: the session low (1.506), n_eff_shannon_1200 (1.467), pct_chg_open (1.458), the volume features
+    (1.44–1.45), z_since_flow (1.440).
+- **Each restates an existing feature** (|Spearman|):
+  - the gap ~ rng_300 / rng_600 0.68, volat_3m 0.63;
+  - the slow t ~ lows_since_first_low 0.73, pct_chg_open 0.72, the session low 0.68;
+  - the fast slope ~ rng_600 0.91, rng_300 0.89, volat_3m 0.85.
+
+**Verdict:**
+- The Kalman trend is better behaved than tau or the CUSUM (several monotone both-period gradients, top ~10 % of the
+  301 features), but it re-measures the flush's range and speed (rng / volat) and the day's structure
+  (lows since the first low, the change from the open, the session low).
+- Like the raw CUSUM it is a candidate input for the V2 sizing fit, where a correlated feature can still add a little.
+  It is not a gate, and not a reason for a new system.

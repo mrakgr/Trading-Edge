@@ -390,7 +390,13 @@ CREATE TABLE trips (
     dollar_vol_60_bar DOUBLE, dollar_vol_300_bar DOUBLE, dollar_vol_600_bar DOUBLE, dollar_vol_1200_bar DOUBLE,
     vol_60_prev_bar DOUBLE, tc_60_prev_bar DOUBLE,
     vol_ew_60 DOUBLE, dv_ew_60 DOUBLE, halt_secs_cum INTEGER,
-    qty DOUBLE, net_pnl DOUBLE
+    qty DOUBLE, net_pnl DOUBLE,
+    tau_60 DOUBLE, tau_180 DOUBLE, tau_300 DOUBLE, tau_600 DOUBLE, tau_1200 DOUBLE,
+    cusz_up_k025 DOUBLE, cusz_dn_k025 DOUBLE, cusz_up_age_k025 DOUBLE, cusz_dn_age_k025 DOUBLE, cusz_up_k05 DOUBLE, cusz_dn_k05 DOUBLE, cusz_up_age_k05 DOUBLE, cusz_dn_age_k05 DOUBLE, cusz_up_k1 DOUBLE, cusz_dn_k1 DOUBLE, cusz_up_age_k1 DOUBLE, cusz_dn_age_k1 DOUBLE,
+    cusr_up_k0 DOUBLE, cusr_dn_k0 DOUBLE, cusr_up_age_k0 DOUBLE, cusr_dn_age_k0 DOUBLE, cusr_up_k435 DOUBLE, cusr_dn_k435 DOUBLE, cusr_up_age_k435 DOUBLE, cusr_dn_age_k435 DOUBLE, cusr_up_k10 DOUBLE, cusr_dn_k10 DOUBLE, cusr_up_age_k10 DOUBLE, cusr_dn_age_k10 DOUBLE,
+    kal_slope_l0_h60 DOUBLE, kal_t_l0_h60 DOUBLE, kal_gap_l0_h60 DOUBLE, kal_slope_l0_h300 DOUBLE, kal_t_l0_h300 DOUBLE, kal_gap_l0_h300 DOUBLE, kal_slope_l0_h1200 DOUBLE, kal_t_l0_h1200 DOUBLE, kal_gap_l0_h1200 DOUBLE, kal_slope_l01_h60 DOUBLE, kal_t_l01_h60 DOUBLE, kal_gap_l01_h60 DOUBLE, kal_slope_l01_h300 DOUBLE, kal_t_l01_h300 DOUBLE, kal_gap_l01_h300 DOUBLE, kal_slope_l01_h1200 DOUBLE, kal_t_l01_h1200 DOUBLE, kal_gap_l01_h1200 DOUBLE, kal_slope_l025_h60 DOUBLE, kal_t_l025_h60 DOUBLE, kal_gap_l025_h60 DOUBLE, kal_slope_l025_h300 DOUBLE, kal_t_l025_h300 DOUBLE, kal_gap_l025_h300 DOUBLE, kal_slope_l025_h1200 DOUBLE, kal_t_l025_h1200 DOUBLE, kal_gap_l025_h1200 DOUBLE,
+    cusr_up_k025 DOUBLE, cusr_dn_k025 DOUBLE, cusr_up_age_k025 DOUBLE, cusr_dn_age_k025 DOUBLE, cusr_up_k05 DOUBLE, cusr_dn_k05 DOUBLE, cusr_up_age_k05 DOUBLE, cusr_dn_age_k05 DOUBLE, cusr_up_k1 DOUBLE, cusr_dn_k1 DOUBLE, cusr_up_age_k1 DOUBLE, cusr_dn_age_k1 DOUBLE, cusr_up_k2 DOUBLE, cusr_dn_k2 DOUBLE, cusr_up_age_k2 DOUBLE, cusr_dn_age_k2 DOUBLE,
+    aslope_k025 DOUBLE, aslope_k05 DOUBLE, aslope_k1 DOUBLE, aslope_k2 DOUBLE
 )"""
 
 // (right-side-of-V cont_trips sink DELETED — S39g: study closed at S26,
@@ -593,6 +599,13 @@ type TripSink(outDir: string) =
             f p.Vol60PrevBar; f p.Tc60PrevBar
             f p.VolEw60; f p.DvEw60; i p.HaltSecsCum
             f qty; f pnl
+            // ⭐ S49an: tau_{60..1200}, then cusz_* and cusr_* (per k: up, dn, up_age, dn_age) — TAU_WINDOWS / CUSUM_* order
+            for x in p.Tau do f x
+            for x in p.CusumZ do f x
+            for x in p.CusumRaw do f x
+            for x in p.Kalman do f x                         // ⭐ S49ao: kal_{slope,t,gap}_<KALMAN_NAMES>
+            for x in p.CusumRawLo do f x                     // ⭐ S49ap: cusr_{up,dn,up_age,dn_age}_k{025,05,1,2}
+            for x in p.AnchoredSlope do f x                  // ⭐ S49aq: aslope_k{025,05,1,2}
             row.EndRow()
             total <- total + 1L
             if pnl > 0.0 then wins <- wins + 1L; grossWin <- grossWin + pnl

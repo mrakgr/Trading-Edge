@@ -879,3 +879,224 @@ term cuts those trades' PF−1 by ~30 %.
   removes both, so PF−1 barely moves while net falls.
 - **Verdict: NOT ADOPTED** (recommendation; the user decides). AMOD's loss is a HALT problem (held through an LULD
   pause), not a drawdown-sizing problem — the next study if any.
+
+## V2-20 — the raw downside CUSUM as a SIZING term, against and beside the 20m slope (2026-11-04)
+
+**The user:** "the faster the move against the trend, the better it is to fade it ... we're already using the 20m slope
+for sizing in the production system, so it will be directly competing with it." The candidates are from
+flushfader_results.md §S49an:
+- `cus` = cusr_dn_k435: the raw downside CUSUM at k = 4.35 bp/bar, the bp of selling in excess of the median bar move
+  since its last reset;
+- `vel` = cus / bars since that reset: its velocity.
+
+Each enters like s20 (winsorised at 1 % / 99 %, standardised). The protocol is V2-16's: fit on one year block's
+barnum ≥ 22 trades, apply to the other, production units (`scripts/equity/flushfaderv2_cusum_holdout.py` →
+`data/flushfaderv2/cusum_holdout.md`). All 35,185 V2 book trades joined (base_v21 + the young splice base_v21_young).
+
+| model | sized PF−1 fwd / mirror (**mean**) | net fwd / mirror (**sum**) | net per unit-trade | max DD fwd / mirror |
+|---|---|---|---|---|
+| A s20 (production) | 0.721 / 0.908 (**0.815**) | 8,412 / 8,588 (**17,000**) | 0.805 | 74 / 101 |
+| B cus instead of s20 | 0.706 / 0.902 (**0.804**) | 8,452 / 8,276 (**16,728**) | 0.797 | 80 / 96 |
+| C s20 + cus | 0.723 / 0.911 (**0.817**) | 8,587 / 8,595 (**17,182**) | 0.813 | 85 / 96 |
+| D vel instead of s20 | 0.708 / 0.904 (**0.806**) | 8,396 / 8,269 (**16,665**) | 0.796 | 72 / 82 |
+| **E s20 + vel** | 0.725 / 0.918 (**0.822**) | 8,522 / 8,586 (**17,109**) | 0.813 | **70 / 83** |
+
+A paired day-bootstrap against A (each trade's out-of-sample sized return, 2,000 resamples of the trading days):
+
+| model | Δ PF−1 [90 %] | resamples > 0 | Δ net [90 %] |
+|---|---|---|---|
+| B | −0.014 [−0.026, −0.003] | 2 % | −272 [−430, −116] |
+| C | +0.001 [−0.004, +0.006] | 62 % | +182 [+109, +256] |
+| D | −0.012 [−0.025, +0.001] | 7 % | −336 [−513, −155] |
+| E | +0.005 [−0.001, +0.012] | 92 % | +109 [+20, +197] |
+
+- **Neither replaces the slope.** B and D lose 0.012–0.014 PF−1 and 1.6–2.0 % of net, both reliably.
+- **They are not competing with s20:** Spearman s20~cus −0.16, s20~vel −0.03. s20 stays the win-rate term (odds ×0.92
+  per SD, both fits).
+- **cus is a SIZE term, not an edge term.** p odds ×0.99–1.00 per SD, but W ×1.15–1.22 and L ×1.14–1.18. It scales
+  the trade's move both ways, like volatility. So C's +1.1 % net comes from exposure (PF−1 +0.001, 62 %), and its
+  forward max DD rises 74 → 85.
+- **vel is the small real addition.** E is +0.005–0.007 PF−1 (92 % of resamples above 0), +0.6 % net (interval above
+  0), with LOWER max DD on both holdouts (74 → 70, 101 → 83). Per SD: p odds ×1.015, W ×1.04–1.05, L ×1.01–1.04.
+- **The size of it:** about half of each V2-16 change the user adopted (+0.009–0.011 PF−1 each).
+
+**Verdict:** keep s20. If a CUSUM term goes into production, it is the VELOCITY (cus / bars since its reset) as a fourth
+continuous term beside s20: model E. The gain is small but consistent: +0.005–0.007 PF−1, +0.6 % net, a lower drawdown.
+The level adds exposure, not edge. The port would need the CUSUM at k = 4.35 in the Oms engine (O(1) per bar) and a
+refit of the production coefficients. **The user's call.**
+
+## V2-21 — the CUSUM at SMALLER k: the gain is the depth below the session high (2026-11-04)
+
+**The user, on V2-20:** "This k that we're using is quite aggressive." At k = 4.35 bp/bar (the median bar move) the
+CUSUM resets after any pause, so its reset is a median of only 11 bars back. The research engine now also records
+k = 0.25 / 0.5 / 1 / 2 bp/bar (flushfader_results.md §S49ap: base_v22 + base_v22_young). The 391 base_v21 columns are
+bit-identical on the control week, and the new values equal a Python recomputation exactly.
+
+On the V2 book, a smaller k reaches further back up the leg:
+
+| k (bp/bar) | 0 (= the session high) | 0.25 | 0.5 | 1 | 2 | 4.35 |
+|---|---|---|---|---|---|---|
+| bars since the reset (median) | 1,955 | 1,361 | 772 | 245 | 54 | 11 |
+| the drop since it (median, bp) | 1,579 | 1,425 | 1,095 | 634 | 327 | 171 |
+
+The level S⁻ = the drop since the reset − k × the bars since it, exactly (no reset in between, by definition), so
+S⁻ / bars = the drop's speed − k.
+
+**V2-20's protocol** (`flushfaderv2_cusum_holdout.py --base …/base_v22 --young …/base_v22_young --ks 025,05,1,2,435`
+→ `data/flushfaderv2/cusum_holdout_lo.md`; `--ks 0,025` → `cusum_holdout_k0.md`). The refactored script reproduces
+V2-20's A / C / E to the digit (the control).
+
+| model | sized PF−1 fwd / mirror (**mean**) | Δ PF−1 vs A, pooled [90 %] (resamples > 0) | Δ net [90 %] | max DD fwd / mirror |
+|---|---|---|---|---|
+| A s20 (production) | 0.721 / 0.908 (**0.815**) | | | 74 / 101 |
+| s20 + cus k0 (the drop from the session high, bp) | 0.740 / 0.912 (**0.826**) | +0.014 [+0.000, +0.028] (95 %) | +181 [−4, +366] | 66 / 106 |
+| **s20 + cus k0.25** | 0.743 / 0.914 (**0.829**) | +0.016 [+0.000, +0.033] (95 %) | **+251 [+31, +479]** | **60** / 103 |
+| s20 + cus k0.5 | 0.730 / 0.911 (0.821) | +0.007 (77 %) | +64 | 60 / 100 |
+| s20 + cus k1 | 0.724 / 0.910 (0.817) | +0.003 (64 %) | +24 | 63 / 102 |
+| s20 + cus k2 | 0.723 / 0.911 (0.817) | +0.002 (75 %) | +74 | 69 / 101 |
+| s20 + cus k4.35 (V2-20 C) | 0.723 / 0.911 (0.817) | +0.001 (64 %) | +182 | 85 / 96 |
+| s20 + vel k4.35 (V2-20 E) | 0.725 / 0.918 (0.822) | +0.005 (92 %) | +109 | 70 / 83 |
+| s20 + vel at k 0 … 2 | 0.810–0.816 | −0.005 … 0.000 | | |
+
+- **The gain is the LEVEL at small k, and it decays smoothly as k grows:** k0 +0.014, k0.25 +0.016, k0.5 +0.007,
+  k1 +0.003, k2 +0.002. A smooth trend across neighbouring cells, not one lucky cell; still, the best of 12 variants
+  at a one-sided 95 % is modest evidence.
+- At small k the level is nearly **how far the price has fallen from the session high**, which k0 is exactly, at
+  almost the whole gain.
+- It correlates more with s20 than the k4.35 terms did (Spearman −0.35 to −0.45) but does not replace it: both terms
+  stay in the fits.
+- **Its coefficients (k0.25, per SD):** p odds ×0.95 / ×1.05 (no consistent win-rate effect), W ×1.08–1.11,
+  L ×1.20–1.21. Given volatility, s20 and dslo, a deeper fall from the high raises the typical LOSS more than the
+  typical win, so the model sizes those trades DOWN. The deepest flushes are the riskiest per unit of edge.
+- **The velocities add nothing at small k.** The only useful velocity is k4.35's: the speed of the final ~11-second
+  burst (V2-20 E).
+- Each of the best two is about the size of one V2-16 change the user adopted (+0.009–0.011 PF−1).
+
+**Verdict:**
+- **For production: s20 + the drop from the session high (k0), or its k0.25 refinement:** +0.014–0.016 sized PF−1,
+  +1.1–1.5 % net, the forward max DD 74 → 60–66 (the mirror +2–5).
+- **k0 is the simplest port:** ln(session high / price) in bp, from state the Oms engine already keeps.
+- k0.25 needs the CUSUM itself (O(1) per bar) for +0.002 more and a lower forward DD.
+- Combining with V2-20's burst velocity (vel k4.35) is untested.
+- **The user's call:** which term, then a production refit + the Oms port + the pins.
+
+## V2-22 — an OLS slope that RESETS with the CUSUM, against the fixed 20m slope (2026-11-04)
+
+**The user:** "what if we made an OLS slope feature that resets when the CUSUM does? Would it work better than the
+20m one?"
+- **The feature:** `aslope_k*` (flushfader_results.md §S49aq, base_v23 + base_v23_young). The OLS slope of ln(vwap),
+  in bp per bar, over the present bars since the k-CUSUM's last downside reset (its anchor bar included): the leg's
+  slope, with the CUSUM choosing the window.
+- **Checks:** = numpy polyfit over those bars (1,179 trip-k pairs, worst 4.5e-12 relative). The 407 base_v22 columns
+  are bit-identical on the control week.
+- **Protocol:** V2-20's (`flushfaderv2_cusum_holdout.py --base …/base_v23 --young …/base_v23_young --ks 025,05,1,2
+  --aslope` → `data/flushfaderv2/cusum_holdout_aslope.md`). The script still reproduces V2-21's tables on base_v22
+  exactly (the control).
+
+| model | sized PF−1 (mean of the holdouts) | Δ PF−1 vs A, pooled (resamples > 0) | Δ net | max DD fwd / mirror |
+|---|---|---|---|---|
+| A s20 (production) | 0.815 | | | 74 / 101 |
+| s20 + cus k0.25 (V2-21) | **0.829** | +0.016 (95 %) | +251 | 60 / 103 |
+| aslope k0.25 instead of s20 | 0.798 | −0.018 (2 %) | −470 | 72 / 95 |
+| s20 + aslope k0.25 | 0.814 | −0.001 (41 %) | +18 | 71 / 98 |
+| cus k0.25 + aslope k0.25 (no s20) | 0.805 | −0.009 (26 %) | −394 | 64 / 100 |
+| s20 + cus k0.25 + aslope k0.25 | 0.828 | +0.016 (91 %) | +260 | 57 / 101 |
+| aslope instead of s20, k 0.5 / 1 / 2 | 0.805 / 0.807 / 0.802 | −0.012 / −0.010 / −0.015 | −330 … −440 | |
+| s20 + aslope, k 0.5 / 1 / 2 | 0.818 / 0.818 / 0.815 | +0.003 / +0.003 / +0.000 | +12 … +123 | |
+
+- **The anchored slope does not replace the fixed 20m slope.** At every k it loses 0.010–0.018 sized PF−1 and 2–3 %
+  of net, reliably at k0.25 and k2 (2 % / 1 % of resamples above A).
+- **Without s20, even the CUSUM level cannot make up for it:** cus + aslope (no s20) is below production at every k.
+- **Beside s20 it adds nothing:** −0.001 … +0.003. In the full model (s20 + cus k0.25 + aslope k0.25) it leaves V2-21's
+  best where it was (0.828 vs 0.829, net +260 vs +251; forward DD 60 → 57).
+- **Why:** the CUSUM's window is the current LEG. The fixed 20 minutes covers more than the leg: the slide into it, and
+  its setting (Spearman with s20: +0.19 / −0.07 / −0.18 / −0.08 at k0.25 / 0.5 / 1 / 2, so they are barely related).
+  What predicts a good fade is the 20-minute context, not the leg's own slope. The leg's endpoint speed (V2-21's
+  velocity) failed the same way.
+
+**Verdict:** keep the fixed 20m slope. V2-21's addition stands: **s20 + the CUSUM level at k0.25** (the user's pick
+over k0). The anchored slope is not worth the port.
+
+## V2-23 — the CUSUM's AGE as a sizing term; rate600 continuous instead of binary (2026-11-04)
+
+**The user:** "whether the number of bars since the CUSUM anchor could serve as a feature in its own right. In SpikeFader,
+I think we had some luck with rate features ... Maybe we are [using them] as a binary feature."
+- **The age:** ln(1 + bars since the k-CUSUM's downside reset), standardised. At k0.25 it is the leg's duration since
+  the recent high the CUSUM anchors to (median 1,361 bars, p90 4,729).
+- **The rate:** production already uses rate600 as a BINARY term, "fast" iff lows_600 / bars_600 >= 0.07 (44.6 % of
+  the book; odds ×0.89, W ×1.03, L ×1.04). Here the continuous rate600 (winsorised, standardised) is tested instead of
+  the flag and beside it.
+- **Protocol:** V2-20's (`flushfaderv2_cusum_holdout.py … --ks 025,05,1,2,435 --age` → `data/flushfaderv2/cusum_holdout_age.md`).
+
+| model | sized PF−1 (mean) | Δ PF−1 vs A, pooled (resamples > 0) | Δ net [90 %] | max DD fwd / mirror |
+|---|---|---|---|---|
+| A s20 (production) | 0.815 | | | 74 / 101 |
+| s20 + cus k0.25 (V2-21) | 0.829 | +0.016 (95 %) | +251 [+25, +480] | 60 / 103 |
+| s20 + age k0.25 | 0.818 | +0.005 (87 %) | +238 [+138, +338] | 71 / **92** |
+| s20 + cus k0.25 + age k0.25 | 0.827 | +0.015 (93 %) | **+287 [+58, +525]** | **57 / 99** |
+| s20 + age k0.5 / 1 / 2 / 4.35 | 0.814 / 0.812 / 0.814 / 0.813 | +0.000 / −0.003 / −0.001 / −0.002 | −6 … +30 | |
+| s20, rate600 continuous INSTEAD of the flag | 0.807 | −0.008 (4 %) | −188 [−296, −80] | 82 / 98 |
+| s20 + rate600 continuous beside the flag | 0.814 | −0.000 (30 %) | −13 | 73 / 99 |
+
+- **The age is a weak term on its own, and only at k0.25.**
+  - Beside s20: +0.005 sized PF−1 and +1.4 % net (interval above 0), the mirror DD 101 → 92.
+  - Its fits: p odds ×0.98 / ×1.02 (no win-rate effect), L ×1.03 / ×1.11, W ×1.02. A longer leg since the recent high
+    means somewhat larger losses, so it sizes down a little.
+  - At larger k (0.5 … 4.35) it adds nothing.
+- **Beside the level it mostly overlaps.** The level carries the age by construction (S⁻ = the drop − k × the age).
+  s20 + cus + age at k0.25 is 0.827 against 0.829 without it. It adds +36 net (+287 vs +251) and lowers both drawdowns
+  (60 / 103 → 57 / 99), but these are small and inside the bootstrap noise. With the level in, its coefficients shrink
+  to ~1.
+- **The rate works better as the binary flag.**
+  - The continuous rate600 in its place is reliably worse (−0.008, 4 %; net −1.1 %).
+  - Beside the flag it adds nothing.
+  - The effect sits at the threshold ("fast" vs not), not along the scale, so the production flag stays.
+
+**Verdict:**
+- **Not worth a separate term:** the age. It is mostly what the level already says.
+- **If the port wants a little more net and a slightly lower drawdown:** s20 + cus k0.25 + age k0.25. The age comes
+  free from the same CUSUM state.
+- **Otherwise:** V2-21's s20 + cus k0.25 stays the candidate.
+- **rate600:** keep it binary.
+
+## V2-24 — the production refit with the CUSUM level (k0.25), and why the reference needs a rebuild (2026-11-04)
+
+**The user:** "we'll use the new CUSUM level feature in the production system ... Distance from the high should have
+some effect on our decision making." Production is FIT on the full period (2020-01-02 .. 2026-08-21, every barnum ≥ 22
+trade). The year blocks (V2-16, V2-20..23) are only for evaluating a candidate.
+
+**`flushfaderv2_reference.py` changes:**
+- **The CUSUM level:** `cusr_dn_k025` is joined from `--cus-trips` (base_v23 + its young splice) on symbol /
+  trade_date / signal_sec. It enters as a 9th term, winsorised at the fit set's 1 % / 99 %, standardised, a NaN at
+  z = 0.
+  - It is gated on the coefficient file: a file without the term gives exactly the older model.
+  - `--no-cusum` fits the old model.
+  - The pins carry `cusum_dn_k025`.
+- **⚠ THE DATA HAS MOVED UNDER THE PRODUCTION REFERENCE.** The script no longer ran as it was: 630 base_v19 trips on 47
+  ticker-days, 7 of them book trades (APPH, IRBT, UEC), have no barnum in today's `mr_candidate_1s_v2`.
+  - **The cause:** on 2026-10-25 the 1s bars were rebuilt without the condition-15/16 markers (the official open /
+    close prints that restate a cross already on the tape), and the candidates were rebuilt from them at the $1.6M
+    dv_0945 floor.
+  - These ticker-days' morning volume had been inflated by the markers; without them they are below the floor.
+  - The ATR5 table was rebuilt with them, so those days read NaN there too.
+  - The production fit (2026-10-19) predates all of this.
+  - **`--barnum-fallback`** (for this one-change refit only) fills such a trip's barnum and ATR5 from the production
+    reference's own trips file: 44 filled, the other 586 were never engine-level trips.
+
+**The controls:**
+1. Apply mode with the production file reproduces the production book: 35,185 trades, every column identical,
+   pf1_fitted and the multiplier exactly. The one exception is BBBY 2026-04-28's ATR5 (1.4e-17, a rounding of the
+   ATR5 rebuild).
+2. `--no-cusum` reproduces every production coefficient, both s20 constants, BasePf1 and all 200 pins exactly.
+
+**The fit WITH the term** (the same book; `data/flushfaderv2/cusum_k025/`):
+- **The term:** p odds ×0.992, W ×1.098, L ×1.210 per SD, the V2-21 shape. It sizes deep falls from the recent high
+  down. Winsorised at [291, 5,256] bp, mean 1,300.6, SD 950.0.
+- **BasePf1:** 0.6184 → 0.6318.
+- **Production units:** the mean position 0.616 → 0.631 units, the median 0.541 → 0.557, at the 2-unit cap 0.32 % →
+  0.49 %.
+- **Agreement:** Spearman 0.945 between the old and new PF−1.
+
+**⏭ The user, on the cause: "we should rebuild the reference with the open and close markers removed."** This fit
+is the CONTROL point, not production. The reference is being rebuilt on today's data (V2-25), and the CUSUM term is
+refitted there.

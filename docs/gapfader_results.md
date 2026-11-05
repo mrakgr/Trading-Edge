@@ -2432,3 +2432,56 @@ open(D+1); the last hour = the close / the 15:00 minute vwap − 1.
   they are −2.4 %, the losers −2.5 %, the deep losers −4.6 % (a long PF 0.61–0.77 in both halves). A wild-open,
   heavy-volume gap-up is a multi-day SHORT from its close (GF-4's heavy-volume gap-ups fade; GF-41's failed gap-down
   short) — parked with the shorts (borrow; the user's longs-only ruling).
+
+## GF-64 — the gap short collector's thresholds: premarket rvol at 09:25, first-30-minute rvol at 10:00 (2026-11-05, user)
+
+**User:** "What should the minimum 60d median volume be and what should the premarket rvol and first 30m rvol be?" The
+collector (private Oms, uncommitted) asks the borrow desk about heavy-volume names at 09:25 (premarket volume only, either
+direction; the weak-premarket gap-ups are left out: their imbalance lines belong to the live GapFader) and at 10:00 (the
+09:30–10:00 volume). `scripts/equity/gapshort_thresholds.py` → `data/equity/gapfader/gapshort_thresholds.md` (every
+cell: PF, mean, trades a year, PF 2016–20 / 2021–26). rvol on the 60-session MEDIAN (GapFader's vol60_med / dv60_med; not
+episode-partitioned here). Gross, no borrow fee: the collector is what will price the borrow.
+
+**How many a day** (the live Oms's premarket.csv, every ticker's premarket volume to the 09:29 cutoff, 6 days 10-23 ..
+11-04, every listing, price ≥ \$1; median (min–max)):
+
+| dv60_med floor | rvol_pm ≥ 0.1 | ≥ 0.25 | ≥ 0.5 | ≥ 1 | ≥ 2 |
+|---|---|---|---|---|---|
+| none | 166 (112–217) | 81 (65–92) | 50 (40–64) | 32 (29–37) | 22 (20–27) |
+| \$500k | 60 (31–102) | 22 (12–28) | 10 (8–13) | 6 (4–6) | 3 (1–5) |
+| \$1M | 50 (24–88) | 15 (6–21) | 4 (2–8) | 3 (1–4) | 2 (0–3) |
+
+Most heavy-premarket names are illiquid (none vs \$500k: 32 vs 6 a day at rvol ≥ 1). 70–75 % of them gap ≥ 2 % (3 live days
+with opens) — the census holds only those; the other quarter is unscored.
+
+**09:25 → short the open, cover at the close** (dv60_med ≥ \$500k; the census, gaps ≥ 2 %, 2016-08 .. 2026-09):
+
+| rvol_pm (median) | gap-UP: PF · mean · /yr (halves) | gap-DOWN |
+|---|---|---|
+| 0.1–0.25 | 0.99 · −0.04 % · 1,850 (1.04 / 0.97) | 1.07 · +0.20 % · 1,438 (1.14 / 1.05) |
+| 0.25–0.5 | 0.98 · −0.06 % · 721 (1.12 / 0.94) | 1.19 · +0.55 % · 586 (1.32 / 1.15) |
+| 0.5–1 | 1.22 · +0.77 % · 404 (1.32 / 1.18) | 1.27 · +0.84 % · 341 (1.30 / 1.26) |
+| 1–2 | 1.35 · +1.33 % · 266 (1.79 / 1.21) | 1.34 · +1.16 % · 196 (1.37 / 1.33) |
+| ≥ 2 | 1.57 · +2.76 % · 503 (1.78 / 1.52) | 1.39 · +1.64 % · 187 (1.63 / 1.33) |
+| **≥ 0.5** | **1.42 · +1.75 % · 1,173 (1.61 / 1.37)** | **1.32 · +1.14 % · 723 (1.41 / 1.30)** |
+
+- The gap-up fade starts at rvol_pm 0.5 (below it: flat, every floor); the gap-down follow already at 0.25 (1.19) and
+  rises with the volume. The edge is MONOTONE in the premarket volume on both sides.
+- Without a floor the low bands look better (gap-up 0.1–0.5: 1.06–1.08) — the illiquid names, where a borrow is least
+  likely. Above \$500k the floors change little (\$1M ≥ 0.5: 1.38 / 1.26). ⚠ Gap-downs at rvol ≥ 2 fade with the floor
+  (\$1M 1.15, \$5M 0.97): a liquid name crashing on huge volume bounces.
+
+**10:00 → short the first 1s vwap at/after 10:00, cover at the close** (dv60_med ≥ \$500k; rvol30 = 09:30–10:00 volume /
+vol60_med):
+
+| rvol30 | gap-DOWN ≤ −4 % failed / held / all | gap-UP ≥ 4 % failed / held (rvol_pm ≥ 0.2 only: GF-10's sample) |
+|---|---|---|
+| < 0.25 | 1.53 / 1.22 / 1.33 — but 2016–20 only (2.30 / 0.97) | 0.88 / 1.03 (≈ 15 / yr) |
+| 0.25–1 | 1.03–1.04 / 0.94–1.10 | 0.70–1.00 / 0.22–1.00 |
+| **≥ 1** | **1.14 · +0.38 % / 1.18 · +0.42 % / 1.16 · +0.40 %, 1,544 / yr (1.21 / 1.13)** | **1.26 · +0.81 %, 524 / yr (1.40 / 1.21)** / 1.02 |
+
+- At 10:00 the line is rvol30 ≥ 1: below it nothing holds since 2021 (the low-volume gap-down "edge" is 2016–20 only).
+- Gap-downs: held or failed barely matters (1.18 / 1.14). Gap-ups: only the FAILED ones (1.26); a heavy-volume gap-up that
+  held its open is flat (1.02).
+- The 10:00 means are small (+0.4–0.8 % gross): a \$0.12 / share locate (11-04's typical quote) is 1.2 % of a \$10 stock —
+  the borrow decides these, which is what the collector measures.

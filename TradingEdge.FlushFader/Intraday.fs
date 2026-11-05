@@ -132,6 +132,30 @@ type FlushPosition =
       // before the signal. Indexed by CONSOL_SLOTS. nan until k(+2) slots. RECORD-ONLY.
       Consol: float[]
       ConsolLag1m: float[]
+      // ----- ⭐ S49an (user 2026-11-04): TREND MEASURES, RECORD-ONLY.
+      // MANN–KENDALL TAU-a of the last {60,180,300,600,1200} present-bar vwaps INCLUDING the signal bar: (concordant −
+      // discordant pairs) / (n(n−1)/2), ties 0 — monotonicity, robust to a wick-and-recover (unlike eff's net/path).
+      // Computed EXACTLY at the signal (merge-sort inversions, O(n log n): `mkTau`). Indexed by TAU_WINDOWS; nan until n bars.
+      Tau: float[]
+      // PAGE'S CUSUM, both directions, on every present bar's log return: S⁺ = max(0, S⁺ + z − k), S⁻ = max(0, S⁻ − z − k);
+      // no window — it accumulates while a drift persists and resets when it does not. Per k: [S⁺; S⁻; present bars since S⁺
+      // last reset; … since S⁻]. CusumZ: z = r / (volat_20m / √SlotBars) (the slot volatility per root-bar), k = CUSUM_KZ,
+      // running from the first bar volat_20m is warm (nan before). CusumRaw: z = r in bp, k = CUSUM_KRAW (bp per bar).
+      CusumZ: float[]
+      CusumRaw: float[]
+      // ⭐ S49ao (user 2026-11-04): KALMAN LOCAL LINEAR TREND on ln(vwap), one step per present bar: y = μ + ε,
+      // μ' = μ + β + η, β' = β + ζ, with q_level = σ²η/σ²ε and q_slope = σ²ζ/σ²ε (KALMAN_QL × KALMAN_QS: 3 level gains ×
+      // slope half-responses of 60/300/1200 bars). Per filter, [the slope β in bp per bar; β / SE with σε = the engine's
+      // σ_bar = volat_20m / √30 (SE = σ_bar·√P_ββ; nan while volat is cold); the price's gap from the filtered level
+      // ln(vwap) − μ̂ in bp], KALMAN_NAMES order. RECORD-ONLY.
+      Kalman: float[]
+      // ⭐ S49ap (user 2026-11-04: "This k that we're using is quite aggressive"): the raw CUSUM at SMALLER k, CUSUM_KRAW_LO
+      // (bp per bar), the same four per k as CusumRaw. A smaller k drains slower, so the reset reaches further back up the leg.
+      CusumRawLo: float[]
+      // ⭐ S49aq (user 2026-11-04: "an OLS slope feature that resets when the CUSUM does"): per CUSUM_KRAW_LO k, the OLS
+      // slope of ln(vwap) over the present bars since the DOWN CUSUM's last reset (its anchor bar included), in bp per
+      // bar — the leg's slope with the CUSUM choosing the window. nan below 3 bars.
+      AnchoredSlope: float[]
       // ----- S40 (user 2026-08-01): slot-vwap RANGE twins of the eff pair.
       // Numerator = ln(hi/lo) over the SAME 41/21-slot-vwap span the eff returns
       // cover; eff_rng = that range over the SAME Σ|r| denominator. Direction-
@@ -811,6 +835,80 @@ type IntradayConfig =
 let CONSOL_SLOTS = [| 6; 10; 20; 40 |]
 let CONSOL_NAMES = [| "3m"; "5m"; "10m"; "20m" |]
 
+/// ⭐ S49an (user 2026-11-04): the trend measures' ladders. Order is load-bearing (the record's arrays, the Backtest
+/// appender). TAU_WINDOWS in present bars (the engine's 1/3/5/10/20m ladder); CUSUM_KZ = the normalised CUSUMs' drift
+/// allowance in σ_bar; CUSUM_KRAW = the raw CUSUMs' in bp per bar: 0, and the p50 / p75 of |r| per present bar
+/// (4.35 / 10.0 bp: 3,242,698 returns of 400 random base-whitelist ticker-days 2020–22, measured 2026-11-04).
+let TAU_WINDOWS = [| 60; 180; 300; 600; 1200 |]
+let CUSUM_KZ = [| 0.25; 0.5; 1.0 |]
+let CUSUM_KZ_NAMES = [| "025"; "05"; "1" |]
+let CUSUM_KRAW = [| 0.0; 4.35; 10.0 |]
+let CUSUM_KRAW_NAMES = [| "0"; "435"; "10" |]
+let CUSUM_KRAW_LO = [| 0.25; 0.5; 1.0; 2.0 |]
+let CUSUM_KRAW_LO_NAMES = [| "025"; "05"; "1"; "2" |]
+
+/// ⭐ S49ao (user 2026-11-04): the Kalman local-linear-trend grid. Rows = the level-noise ratio q_level (steady-state
+/// level gain ≈ 0 / 0.1 / 0.4); columns = the slope-noise ratio q_slope solved (2026-11-04, a bisection on the
+/// steady-state gains) so the slope's response to a step in the true slope reaches half in 60 / 300 / 1200 present
+/// bars at that row's q_level. Level noise lets the level absorb a move, so the same q_slope is much slower with it:
+/// a raw ratio grid would leave the slow filters cold all day.
+let KALMAN_QL = [| 0.0; 0.01; 0.25 |]
+let KALMAN_QS = [| [| 3.1505e-7; 5.1754e-10; 2.0318e-12 |]
+                   [| 1.9102e-6; 5.6953e-8; 3.3901e-9 |]
+                   [| 3.5182e-5; 1.3486e-6; 8.3630e-8 |] |]
+let KALMAN_NAMES = [| for l in [| "l0"; "l01"; "l025" |] do for h in [| "h60"; "h300"; "h1200" |] -> l + "_" + h |]
+
+/// Mann–Kendall tau-a of v.[0 .. n−1] (time order): (concordant − discordant) / (n(n−1)/2), a tie counting 0. Discordant
+/// pairs = the STRICT inversions (i < j, v_i > v_j), counted by a bottom-up merge sort; tied pairs = Σ g(g−1)/2 over the
+/// sorted runs of equal values; concordant = all − discordant − tied. `a`, `b`: scratch of length >= n (not allocated
+/// here: one call per signal per window).
+let mkTau (v: float[]) (n: int) (a: float[]) (b: float[]) =
+    Array.blit v 0 a 0 n
+    let mutable inv = 0L
+    let mutable src = a
+    let mutable dst = b
+    let mutable width = 1
+    while width < n do
+        let mutable lo = 0
+        while lo < n do
+            let mid = min (lo + width) n
+            let hi = min (lo + 2 * width) n
+            let mutable i = lo
+            let mutable j = mid
+            let mutable k = lo
+            while i < mid && j < hi do
+                if src.[j] < src.[i] then
+                    inv <- inv + int64 (mid - i)          // src.[j] is below every remaining left element
+                    dst.[k] <- src.[j]
+                    j <- j + 1
+                else
+                    dst.[k] <- src.[i]
+                    i <- i + 1
+                k <- k + 1
+            while i < mid do
+                dst.[k] <- src.[i]
+                i <- i + 1
+                k <- k + 1
+            while j < hi do
+                dst.[k] <- src.[j]
+                j <- j + 1
+                k <- k + 1
+            lo <- hi
+        let t = src
+        src <- dst
+        dst <- t
+        width <- width * 2
+    let mutable ties = 0L
+    let mutable g = 1L
+    for i in 1 .. n - 1 do
+        if src.[i] = src.[i - 1] then g <- g + 1L
+        else
+            ties <- ties + g * (g - 1L) / 2L
+            g <- 1L
+    ties <- ties + g * (g - 1L) / 2L
+    let total = int64 n * int64 (n - 1) / 2L
+    float (total - inv - ties - inv) / float total
+
 /// ⭐ 2026-09-06 (port from LowFader §L16, user): rr-qualified event counts for ONE leg. Reset with the leg's LegCounters;
 /// OnEvent on every leg event (new 20m low / high) with that bar's rr = vol_60 (time-clock) / (vol_0945_tape / 15);
 /// nan (cold) counts for nothing. RECORD-ONLY.
@@ -1124,6 +1222,45 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let slotMax21 = MaxMa 21
     let slotMin21 = MinMa 21
     let mutable prevSlotVwap : float voption = ValueNone
+    // ⭐ S49an: the last max(TAU_WINDOWS) present-bar vwaps (a ring) + mkTau's scratch; the CUSUMs (S, and the present bar
+    // of the last reset, per k) on the present-bar clock `presentBar`
+    let tauMax = TAU_WINDOWS.[TAU_WINDOWS.Length - 1]
+    let tauRing = Array.zeroCreate<float> tauMax
+    let mutable tauHead = 0
+    let mutable tauCount = 0
+    let tauWin = Array.zeroCreate<float> tauMax
+    let tauA = Array.zeroCreate<float> tauMax
+    let tauB = Array.zeroCreate<float> tauMax
+    let mutable presentBar = 0
+    let cusZUp = Array.zeroCreate<float> CUSUM_KZ.Length
+    let cusZDn = Array.zeroCreate<float> CUSUM_KZ.Length
+    let cusZUpAt = Array.zeroCreate<int> CUSUM_KZ.Length
+    let cusZDnAt = Array.zeroCreate<int> CUSUM_KZ.Length
+    let mutable cusZWarm = false
+    let cusRUp = Array.zeroCreate<float> CUSUM_KRAW.Length
+    let cusRDn = Array.zeroCreate<float> CUSUM_KRAW.Length
+    let cusRUpAt = Array.zeroCreate<int> CUSUM_KRAW.Length
+    let cusRDnAt = Array.zeroCreate<int> CUSUM_KRAW.Length
+    let cusLUp = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let cusLDn = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let cusLUpAt = Array.zeroCreate<int> CUSUM_KRAW_LO.Length
+    let cusLDnAt = Array.zeroCreate<int> CUSUM_KRAW_LO.Length
+    // ⭐ S49aq: the anchored regressions' running sums since each down-CUSUM's reset (x = bars since the anchor)
+    let aN = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let aSx = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let aSxx = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let aSy = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    let aSxy = Array.zeroCreate<float> CUSUM_KRAW_LO.Length
+    // ⭐ S49ao: the nine Kalman filters (state μ, β; covariance P00, P01, P11 in units of σ²ε); started at the first bar
+    let kN = KALMAN_NAMES.Length
+    let kQl = [| for i in 0 .. 2 do for _ in 0 .. 2 -> KALMAN_QL.[i] |]
+    let kQs = [| for i in 0 .. 2 do for j in 0 .. 2 -> KALMAN_QS.[i].[j] |]
+    let kMu = Array.zeroCreate<float> kN
+    let kB = Array.zeroCreate<float> kN
+    let kP00 = Array.zeroCreate<float> kN
+    let kP01 = Array.zeroCreate<float> kN
+    let kP11 = Array.zeroCreate<float> kN
+    let mutable kOn = false
     let mutable prevEtSec = -1                   // the PREVIOUS present bar's etSec (aux-mark lookback)
     let mutable prevVwap = nan                   // ... and its vwap (continuation signal price)
     // did the PREVIOUS bar close strictly above its prior {10..60}m mean? (the
@@ -1736,6 +1873,68 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         entryMinLag120.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         entryMinLag180.Push (match priorEntryMin with ValueSome v -> v | ValueNone -> nan)
         consol.Push (log bar.vwap)   // ⭐ consol: every bar, same slot clock as `slots`
+        // ⭐ S49an: the tau ring and the CUSUMs, every present bar (this bar included: the signal's state is its close)
+        presentBar <- presentBar + 1
+        tauRing.[tauHead] <- bar.vwap
+        tauHead <- (tauHead + 1) % tauMax
+        if tauCount < tauMax then tauCount <- tauCount + 1
+        if prevVwap > 0.0 && bar.vwap > 0.0 then
+            let r = log (bar.vwap / prevVwap)
+            let step (up: float[]) (dn: float[]) (upAt: int[]) (dnAt: int[]) (i: int) (z: float) (k: float) =
+                up.[i] <- up.[i] + z - k
+                if up.[i] <= 0.0 then
+                    up.[i] <- 0.0
+                    upAt.[i] <- presentBar
+                dn.[i] <- dn.[i] - z - k
+                if dn.[i] <= 0.0 then
+                    dn.[i] <- 0.0
+                    dnAt.[i] <- presentBar
+            for i in 0 .. CUSUM_KRAW.Length - 1 do step cusRUp cusRDn cusRUpAt cusRDnAt i (1e4 * r) CUSUM_KRAW.[i]
+            for i in 0 .. CUSUM_KRAW_LO.Length - 1 do step cusLUp cusLDn cusLUpAt cusLDnAt i (1e4 * r) CUSUM_KRAW_LO.[i]
+            match ew40.State with
+            | ValueSome v when v > 0.0 ->
+                cusZWarm <- true
+                let z = r / (v / sqrt (float cfg.SlotBars))
+                for i in 0 .. CUSUM_KZ.Length - 1 do step cusZUp cusZDn cusZUpAt cusZDnAt i z CUSUM_KZ.[i]
+            | _ ->
+                // not running yet: held at 0, its age counted from the bar it starts
+                for i in 0 .. CUSUM_KZ.Length - 1 do
+                    cusZUpAt.[i] <- presentBar
+                    cusZDnAt.[i] <- presentBar
+        // ⭐ S49aq: this bar into each anchored regression; a reset on this bar restarts it here (the anchor bar is its first point)
+        if bar.vwap > 0.0 then
+            let y = log bar.vwap
+            for i in 0 .. CUSUM_KRAW_LO.Length - 1 do
+                if cusLDnAt.[i] = presentBar then
+                    aN.[i] <- 0.0; aSx.[i] <- 0.0; aSxx.[i] <- 0.0; aSy.[i] <- 0.0; aSxy.[i] <- 0.0
+                let x = float (presentBar - cusLDnAt.[i])
+                aN.[i] <- aN.[i] + 1.0
+                aSx.[i] <- aSx.[i] + x
+                aSxx.[i] <- aSxx.[i] + x * x
+                aSy.[i] <- aSy.[i] + y
+                aSxy.[i] <- aSxy.[i] + x * y
+        // ⭐ S49ao: the Kalman filters, one predict + update per present bar (observation noise R = 1: the variances
+        // are in units of σ²ε, so the gains depend on the ratios only)
+        if bar.vwap > 0.0 then
+            let y = log bar.vwap
+            if not kOn then
+                kOn <- true
+                for i in 0 .. kN - 1 do
+                    kMu.[i] <- y; kB.[i] <- 0.0; kP00.[i] <- 1.0; kP01.[i] <- 0.0; kP11.[i] <- 1.0
+            else
+                for i in 0 .. kN - 1 do
+                    let a = kP00.[i] + 2.0 * kP01.[i] + kP11.[i] + kQl.[i]
+                    let c = kP01.[i] + kP11.[i]
+                    let d = kP11.[i] + kQs.[i]
+                    let sInv = 1.0 / (a + 1.0)
+                    let k0 = a * sInv
+                    let k1 = c * sInv
+                    let e = y - (kMu.[i] + kB.[i])
+                    kMu.[i] <- kMu.[i] + kB.[i] + k0 * e
+                    kB.[i] <- kB.[i] + k1 * e
+                    kP00.[i] <- a - k0 * a
+                    kP01.[i] <- c - k0 * c
+                    kP11.[i] <- d - k1 * c
         // the slot chain: one |r| into the volat EWMAs per completed slot
         match slots.Push(bar.vwap, bar.volume) with
         | ValueSome v ->
@@ -2282,6 +2481,40 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       SlotCount = slotReturns
                       Consol = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 0)))
                       ConsolLag1m = CONSOL_SLOTS |> Array.map (fun k -> vv (consol.Ratio(k, 2)))
+                      Tau =
+                        TAU_WINDOWS |> Array.map (fun n ->
+                            if tauCount < n then nan
+                            else
+                                let start = (tauHead - n + tauMax) % tauMax
+                                for j in 0 .. n - 1 do tauWin.[j] <- tauRing.[(start + j) % tauMax]
+                                mkTau tauWin n tauA tauB)
+                      CusumZ =
+                        [| for i in 0 .. CUSUM_KZ.Length - 1 do
+                             if cusZWarm then
+                                 yield cusZUp.[i]; yield cusZDn.[i]
+                                 yield float (presentBar - cusZUpAt.[i]); yield float (presentBar - cusZDnAt.[i])
+                             else yield! [| nan; nan; nan; nan |] |]
+                      CusumRaw =
+                        [| for i in 0 .. CUSUM_KRAW.Length - 1 do
+                             yield cusRUp.[i]; yield cusRDn.[i]
+                             yield float (presentBar - cusRUpAt.[i]); yield float (presentBar - cusRDnAt.[i]) |]
+                      CusumRawLo =
+                        [| for i in 0 .. CUSUM_KRAW_LO.Length - 1 do
+                             yield cusLUp.[i]; yield cusLDn.[i]
+                             yield float (presentBar - cusLUpAt.[i]); yield float (presentBar - cusLDnAt.[i]) |]
+                      AnchoredSlope =
+                        [| for i in 0 .. CUSUM_KRAW_LO.Length - 1 do
+                             let n = aN.[i]
+                             let den = n * aSxx.[i] - aSx.[i] * aSx.[i]
+                             yield (if n >= 3.0 && den > 0.0 then 1e4 * (n * aSxy.[i] - aSx.[i] * aSy.[i]) / den else nan) |]
+                      Kalman =
+                        let sigmaBar = match ew40.State with ValueSome v when v > 0.0 -> v / sqrt (float cfg.SlotBars) | _ -> nan
+                        [| for i in 0 .. kN - 1 do
+                             if kOn then
+                                 yield 1e4 * kB.[i]
+                                 yield kB.[i] / (sigmaBar * sqrt kP11.[i])
+                                 yield 1e4 * (log bar.vwap - kMu.[i])
+                             else yield! [| nan; nan; nan |] |]
                       RngSlots20m =
                         (match slotMax41.State, slotMin41.State with
                          | ValueSome h, ValueSome l

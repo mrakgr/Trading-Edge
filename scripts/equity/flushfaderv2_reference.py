@@ -58,6 +58,15 @@ ap.add_argument("--volat", choices=["bands", "log"], default="log", help="fit mo
 ap.add_argument("--near-low-hi", type=float, default=0.03, help="the near-low gate drops dslo in (0, this] (0.03 = production since 2026-10-19, V2-15/V2-16; was 0.02)")
 ap.add_argument("--door", type=int, default=40)
 ap.add_argument("--credit", type=float, default=0.001)
+ap.add_argument("--cus-trips", nargs="+", default=["data/equity/flushfader/base_v23/*.parquet",
+                                                  "data/equity/flushfader/young/base_v23_young/*.parquet"],
+                help="V2-24: the corpora carrying cusr_dn_k025 (the raw downside CUSUM at k = 0.25 bp/bar, research "
+                     "flushfader_results.md §S49ap), joined on symbol / trade_date / signal_sec")
+ap.add_argument("--barnum-fallback", default="data/flushfaderv2/flushfaderv2_reference_trips.parquet",
+                help="V2-24: a trip with no barnum in --cands takes the one this production-reference trips file recorded. "
+                     "The 2026-10-25 marker-free rebuild of the 1s bars and the candidates ($1.6M dv_0945 floor) dropped 47 "
+                     "ticker-days the 10-19 production fit had (630 base_v19 trips, 7 book trades); '' = no fallback (fails)")
+ap.add_argument("--no-cusum", action="store_true", help="fit mode: the model WITHOUT the CUSUM term (the pre-V2-24 production fit)")
 ap.add_argument("--mem", default="8GB")
 args = ap.parse_args()
 T0 = time.time()
@@ -88,7 +97,23 @@ D = con.execute(f"""
     WHERE gap_60 < {args.door} AND lows_since_first_low_300 >= 6 AND lows_since_first_low_180 >= 3
       AND signal_sec <= 54000
     ORDER BY symbol, trade_date, signal_sec""").df()
-log(f"{len(D):,} rows after the integer pre-filters")
+cus_src = " UNION ALL ".join(f"SELECT symbol, trade_date::VARCHAR AS trade_date, signal_sec, cusr_dn_k025 FROM read_parquet('{g}')" for g in args.cus_trips)
+CU = con.execute(f"SELECT * FROM ({cus_src})").df()
+D = D.merge(CU, on=["symbol", "trade_date", "signal_sec"], how="left")
+log(f"{len(D):,} rows after the integer pre-filters; cusr_dn_k025 joined on {D.cusr_dn_k025.notna().sum():,} (NaN {D.cusr_dn_k025.isna().sum():,})")
+if args.barnum_fallback and D.barnum.isna().any():
+    # the ATR5 table was rebuilt from the same candidates (2026-10-25): those ticker-days' ATR5 comes from the file too
+    FB = pd.read_parquet(args.barnum_fallback, columns=["symbol", "trade_date", "signal_sec", "barnum", "atr5"]).rename(
+        columns={"barnum": "barnum_fb", "atr5": "atr5_fb"})
+    D = D.merge(FB, on=["symbol", "trade_date", "signal_sec"], how="left")
+    miss = D.barnum.isna(); filled = miss & D.barnum_fb.notna()
+    D.loc[filled, "barnum"] = D.loc[filled, "barnum_fb"]
+    D.loc[filled, "atr5"] = D.loc[filled, "atr5_fb"]
+    D = D.drop(columns=["barnum_fb", "atr5_fb"])
+    log(f"barnum fallback ({args.barnum_fallback}): {int(miss.sum())} trips had none in --cands, {int(filled.sum())} filled; "
+        f"the {int((miss & ~filled).sum())} left were never engine-level trips (dropped)")
+    D = D[D.barnum.notna()].reset_index(drop=True)
+    D["barnum"] = D.barnum.astype("int64")            # the join made it nullable; the book stores int64
 assert D.barnum.notna().all(), f"{D.barnum.isna().sum()} trips without a barnum"
 D = D[D.barnum >= args.min_barnum].reset_index(drop=True)
 log(f"{len(D):,} rows at barnum >= {args.min_barnum} ({(D.barnum < args.young_below).sum():,} young: barnum < {args.young_below})")
@@ -115,7 +140,7 @@ M &= ~(nz(D.volat.values >= 140) & nz(D.gap_60.values >= 4))            # rule14
 M &= ~(nz(D.ht.values >= 4) & nz(D.ssh.values < 300))                    # the WAIT
 n_broad = int(M.sum())
 M &= ~(nz(dslo > NEAR_LOW_LO) & nz(dslo <= NEAR_LOW_HI))                 # ⭐ V2: the near-low gate
-T = D[M].copy(); T["rate600"] = rate600[M]; T["z20"] = z20[M]; T["v10r"] = v10r[M]; T["dslo"] = dslo[M]; T["s20"] = s20[M]
+T = D[M].copy().reset_index(drop=True); T["rate600"] = rate600[M]; T["z20"] = z20[M]; T["v10r"] = v10r[M]; T["dslo"] = dslo[M]; T["s20"] = s20[M]
 log(f"engine-level trips: broad {n_broad:,} -> V2 {len(T):,} (near-low gate removes {n_broad - len(T):,}); NaN dslo {np.isnan(T.dslo.values).sum()}, NaN s20 {np.isnan(T.s20.values).sum()}")
 
 # ---- the book: raw $1 floor + per-ticker-day mc=1 greedy in signal order
@@ -146,12 +171,19 @@ def volat_cols(c):
     if c.get("volat_shape", "bands") == "log":
         return [np.log(np.clip(B.volat.values, *c["volat_clip_bp"]))]
     return [volat_band == k for k in range(1, 5)]
+def zcus(x, c):
+    """V2-24: the CUSUM level (bp), winsorised at the fit set's 1 % / 99 % and standardised; a NaN enters as z = 0 (the mean)"""
+    z = (np.clip(x, c["cus_lo"], c["cus_hi"]) - c["cus_mean"]) / c["cus_sd"]
+    return np.where(np.isnan(x), 0.0, z)
 def design(c):
+    # ⭐ V2-24: the CUSUM term only when the coefficient file has it (an older file gives exactly the older model)
     return np.column_stack([np.ones(len(B)), gap_band == 1, gap_band == 2] + volat_cols(c)
-                           + [fast, tier, flag, zs20(B.s20.values, c)]).astype(float)
+                           + [fast, tier, flag, zs20(B.s20.values, c)]
+                           + ([zcus(B.cusr_dn_k025.values.astype(float), c)] if "cus_lo" in c else [])).astype(float)
 def names(c):
     v = ["ln volat (clip 40-250 bp)"] if c.get("volat_shape", "bands") == "log" else ["volat 60-90", "volat 90-140", "volat 140-250", "volat 250+"]
-    return ["1", "gap 1-3", "gap 4-39"] + v + ["rate600 fast", "S tier", "dslo >= 4%", "s20 (standardised)"]
+    return (["1", "gap 1-3", "gap 4-39"] + v + ["rate600 fast", "S tier", "dslo >= 4%", "s20 (standardised)"]
+            + (["CUSUM dn k0.25 (standardised)"] if "cus_lo" in c else []))
 
 def fit_logistic(X, y, it=50):
     b = np.zeros(X.shape[1])
@@ -183,6 +215,10 @@ else:
     lo, hi = np.quantile(s, [0.01, 0.99]); zc = np.clip(s, lo, hi)
     C = {"s20_lo": float(lo), "s20_hi": float(hi), "s20_mean": float(zc.mean()), "s20_sd": float(zc.std()), "volat_shape": args.volat}
     if args.volat == "log": C["volat_clip_bp"] = VOLAT_CLIP
+    if not args.no_cusum:
+        cu = B.cusr_dn_k025.values.astype(float)[OLD]; cu = cu[~np.isnan(cu)]
+        clo, chi = np.quantile(cu, [0.01, 0.99]); cc = np.clip(cu, clo, chi)
+        C.update({"cus_k_bp": 0.25, "cus_lo": float(clo), "cus_hi": float(chi), "cus_mean": float(cc.mean()), "cus_sd": float(cc.std())})
     X = design(C)[OLD]; RO = R[OLD]; win = RO > 0
     C.update({"beta_p": [float(v) for v in fit_logistic(X, win.astype(float))],
               "beta_w": [float(v) for v in fit_loglink(X[win], RO[win])],
@@ -192,7 +228,7 @@ X = design(C); pf1_model = pf1_of(X, C)
 pf1 = np.where(young, args.young_scale * pf1_model, pf1_model)        # ⭐ the young trades at YOUNG_SCALE
 mult = np.clip(pf1 / C["base_pf1"], 0.25, 4.0)
 B["gap_band"] = gap_band; B["volat_band"] = volat_band; B["rate600_fast"] = fast; B["s_tier"] = tier; B["dslo_flag"] = flag
-B["s20_z"] = X[:, -1]; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
+B["s20_z"] = X[:, names(C).index("s20 (standardised)")]; B["cus_z"] = X[:, -1] if "cus_lo" in C else np.nan; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
 log(f"multiplier mean {mult.mean():.4f}, range {mult.min():.3f}-{mult.max():.3f}, at the 0.25 floor {(mult <= 0.25).mean()*100:.1f}%")
 
 def pf(r):
@@ -209,11 +245,15 @@ if not args.coef:
     rows += ["| term | β_p (odds ×) | β_W (×) | β_L (×) |", "|---|---|---|---|"]
     rows += [f"| {nm} | {bp[j]:+.6f} ({np.exp(bp[j]):.3f}) | {bw[j]:+.6f} ({np.exp(bw[j]):.3f}) | {bl[j]:+.6f} ({np.exp(bl[j]):.3f}) |" for j, nm in enumerate(names(C))]
     rows += ["", f"s20: winsorise [{C['s20_lo']:.6f}, {C['s20_hi']:.6f}] bp/min, mean {C['s20_mean']:.6f}, SD {C['s20_sd']:.6f}; BasePf1 {C['base_pf1']:.10f}"]
+    if "cus_lo" in C:
+        rows += [f"CUSUM dn k0.25: winsorise [{C['cus_lo']:.6f}, {C['cus_hi']:.6f}] bp, mean {C['cus_mean']:.6f}, SD {C['cus_sd']:.6f}; "
+                 f"NaN in the book {int(np.isnan(B.cusr_dn_k025.values.astype(float)).sum())}"]
     # the PIN TABLE: 200 book trades spread over the multiplier range, inputs at full precision
     # (from the barnum >= 22 book only: the pins carry no barnum, so a young pin would not reproduce in the F# test)
     oi = np.flatnonzero(OLD)
     idx = oi[np.unique(np.argsort(mult[oi], kind="stable")[np.linspace(0, len(oi) - 1, 200).astype(int)])]
-    C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7" + (", ln volat V2-14/V2-16" if args.volat == "log" else ""),
+    C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7" + (", ln volat V2-14/V2-16" if args.volat == "log" else "")
+                       + ("" if args.no_cusum else ", + the CUSUM level dn k0.25 V2-21/V2-24"),
               "fit": f"all years, V2 book n={int(OLD.sum()):,}, credit ${args.credit}/sh/side, from {args.trips[0]}",
               "design": names(C), "gap_edges": [0, 1, 4, 40], **({} if args.volat == "log" else {"volat_edges_bp": [40, 60, 90, 140, 250]}), "rate600_fast_threshold": 0.07,
               "s_tier": "halts_today >= 1 and 300 <= secs_since_halt < 2400", "near_low_gate": [NEAR_LOW_LO, NEAR_LOW_HI],
@@ -221,7 +261,9 @@ if not args.coef:
               "pins": [{"gap_60": int(B.gap_60.values[i]), "volat_bp": float(B.volat.values[i]), "l600": int(B.l600.values[i]),
                         "b600": int(B.b600.values[i]), "ht": int(B.ht.values[i]), "ssh": int(B.ssh.values[i]),
                         "signal_vwap": float(B.signal_vwap.values[i]), "sess_low": float(B.sess_low.values[i]),
-                        "ols_slope_1200": float(B.ols_slope_1200.values[i]), "pf1": float(pf1[i]), "multiplier": float(mult[i])}
+                        "ols_slope_1200": float(B.ols_slope_1200.values[i]),
+                        **({"cusum_dn_k025": float(B.cusr_dn_k025.values[i])} if "cus_lo" in C else {}),
+                        "pf1": float(pf1[i]), "multiplier": float(mult[i])}
                        for i in idx]})
     jp = os.path.join(args.out_dir, "v2_coefficients.json"); json.dump(C, open(jp, "w"), indent=1); log(f"wrote {jp} ({len(idx)} pins)")
 
