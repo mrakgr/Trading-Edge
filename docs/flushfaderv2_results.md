@@ -1100,3 +1100,94 @@ trade). The year blocks (V2-16, V2-20..23) are only for evaluating a candidate.
 **⏭ The user, on the cause: "we should rebuild the reference with the open and close markers removed."** This fit
 is the CONTROL point, not production. The reference is being rebuilt on today's data (V2-25), and the CUSUM term is
 refitted there.
+
+## V2-25 — the reference REBUILT on the marker-free base, with and without the CUSUM level (2026-11-05)
+
+**User (11-04):** "we should rebuild the reference with the open and close markers removed." The base: **base_v24**, the
+current engine on the full current universe (`data/equity/flushfader/v24/cands_b11.parquet`: every barnum ≥ 11
+ticker-day of the 2026-10-25 marker-free `mr_candidate_1s_v2`, 1,183,355 ticker-days, 2020-01-02 .. 2026-08-21; the main
+book and the young trades in one run, `scripts/equity/flushfader_run_base_v24.sh`). 8,440,488 trips.
+- ⚠ The run was OOM-KILLED in its 11 GB scope at 81.5 % (the engine's memory grows through a run: 7.8 GB at 22 %, 9.4 GB
+  at 37 %). Resumed from 2025-04-15 into a side directory (`flushfader_run_base_v24_tail.sh`, peak 11.35 GB); the
+  overlap 2025-04-15 .. 05-14 matched the original parts row for row (72,897 rows × 411 columns, both directions); the
+  parts were merged at 2025-05-15 (the parts never run more than 15 days out of date order). ⏭ The memory growth
+  needs fixing before the next full-period base.
+
+**Without the CUSUM** (`flushfaderv2_reference.py --trips/--cus-trips base_v24 --barnum-fallback '' --no-cusum`,
+`data/flushfaderv2/v24_nocus/`): 195,660 engine-level trips, book **35,767** (production 35,185), PF 1.601 (1.596),
+sized 1.815 (1.825), BasePf1 **0.6212** (0.6184). The coefficients barely move: the p intercept 1.130 → 1.088, the S
+tier's L term −0.151 → −0.167, every other within ~0.01; the s20 winsorisation [−106.73, 10.55] bp/min (was
+[−106.54, 10.51]). The markers' removal changed the book by 1.6 %, the model by almost nothing.
+
+**With the CUSUM** (k0.25, the same command without `--no-cusum`, `data/flushfaderv2/v24_cusum/`, 200 pins):
+
+| CUSUM dn k0.25 per SD | p (odds ×) | W (×) | L (×) |
+|---|---|---|---|
+| rebuilt (v24) | 0.991 | 1.098 | 1.206 |
+| pre-rebuild (V2-24) | 0.992 | 1.098 | 1.210 |
+
+- Winsorised at [292.0, 5,248.5] bp, mean 1,302.5, SD 947.9. BasePf1 0.6212 → **0.6343**; in sample, sized PF 1.815 →
+  1.830.
+- It takes weight from the volatility term (ln volat: W ×2.22 → ×1.89, L ×2.17 → ×1.54): the depth below the recent
+  high in bp carries part of what the volatility measured.
+- Production units: mean 0.619 → 0.634, median 0.545 → 0.563, at the 2-unit cap 0.24 % → 0.41 %, at the 0.125 floor
+  1.4 % → 3.0 %. Spearman 0.943 between the two PF−1s.
+
+**The holdout on the rebuilt book** (`flushfaderv2_cusum_holdout.py --book v24_nocus --base base_v24 --young '' --ks
+0,025`; fwd = fit 2020–23 → 2024–26, mirror the reverse; production units, net and DD in units):
+
+| model | sized PF−1 fwd / mirror / **mean** | net sum | max DD fwd / mirror | Δ PF−1 vs s20 (90 %), share > 0 | Δ net (90 %) |
+|---|---|---|---|---|---|
+| s20 (production) | 0.716 / 0.893 / **0.805** | 17,289 | 75 / 103 | | |
+| **s20 + cus k0.25** | 0.738 / 0.899 / **0.819** | 17,552 | 70 / 104 | +0.017 [+0.002, +0.032], 96 % | +263 [+44, +486] |
+| s20 + cus k0 | 0.734 / 0.897 / 0.816 | 17,486 | 76 / 108 | +0.014 [+0.001, +0.027], 96 % | +197 [+17, +379] |
+| s20 + vel k0.25 | 0.713 / 0.887 / 0.800 | 17,296 | 72 / 100 | −0.004, 18 % | +7 |
+
+- **The V2-20/21 result holds on the rebuilt data:** +0.014 mean PF−1 (was +0.016), +263 units (was +251), 96 % of
+  day resamples. The forward drawdown gains less than before (75 → 70; was 74 → 60). The coefficients agree across the
+  fits (L ×1.196 / ×1.209 per SD fwd / mirror). The velocity adds nothing, again.
+- **⇒ The production refit = `data/flushfaderv2/v24_cusum/v2_coefficients.json`** (the user's decision 11-04: "we'll
+  use the new CUSUM level feature in the production system"). Next: the Oms engine's CUSUM, sealed against research's
+  `cusr_dn_k025`; Sizing.fs's new term, constants and pins.
+
+## V2-26 — the production book WEEK BY WEEK and MONTH BY MONTH: the percentiles (2026-11-05, user)
+
+**User:** "how the new FlushFader system does on a monthly and weekly basis ... look into specific percentiles".
+`scripts/equity/flushfaderv2_period_percentiles.py` → `data/flushfaderv2/period_percentiles.md`. The V2-25 production
+book (35,767 trades, 2020-01-02 .. 2026-08-21) at L2's production size (units = clip(PF−1, 0.125, 2), one unit = 15 % of
+equity), % of equity, research's net (+ the \$0.001/sh/side maker credit), periods by the entry date.
+
+| % of equity | positive | mean | p1 | p5 | p10 | p25 | p50 | p75 | p90 | worst |
+|---|---|---|---|---|---|---|---|---|---|---|
+| DAY (1,666) | 79 % | | −5.08 | −1.92 | −0.86 | +0.20 | +1.27 | +2.78 | +4.66 | −20.53 (2020-03-18) |
+| WEEK (347) | 90 % | +7.83 | −5.45 | −0.93 | +0.11 | +2.55 | +6.23 | +10.78 | +17.67 | −8.66 (2022-05-13) |
+| WEEK, without the CUSUM | 89 % | +7.64 | −6.26 | −1.45 | −0.24 | +2.54 | +6.08 | +10.46 | +17.59 | −9.71 (2024-10-04) |
+| WEEK 2023–26 (190) | 90 % | +6.99 | −4.90 | −1.32 | +0.02 | +2.24 | +6.27 | +9.94 | +15.28 | −6.54 (2024-10-04) |
+| MONTH (80) | 99 % | +33.95 | +0.89 | +4.87 | +6.87 | +16.12 | +29.13 | +43.82 | +60.34 | −0.60 (2023-11) |
+| MONTH 2023–26 (44) | 98 % | +30.17 | +0.21 | +4.68 | +6.81 | +18.70 | +29.13 | +38.73 | +51.34 | −0.60 (2023-11) |
+
+- One losing month in 80 (2023-11, −0.6 %); the longest losing streak 2 weeks; the worst 4-week run −0.93 %.
+- **The CUSUM tightens the LEFT tail** at a slightly higher mean: weekly p5 −1.45 → −0.93, p1 −6.26 → −5.45, the worst
+  week −9.71 → −8.66 (2023–26: −9.71 → −6.54).
+- ⚠ **What these numbers are NOT.** No commission, slippage or borrow. No concurrency cap: the book deploys a median 166 %
+  of equity per day summed over its trades (p90 352 %; 17 trades a day, p90 36), which L2's margin budget does not allow.
+  No compounding. Research's fills (the next bar's vwap in, the target on a trade-through).
+- ⚠ **Against live:** the 11-04 live FlushFader day, −\$668 on the \$8,000 sizing equity (−8.4 %), is worse than all but
+  0.18 % of research days (3 of 1,666; none in 2024–26). The research fill model applied to those live signals gave −\$660
+  — the SIGNALS lost, not the fills. Whether research would have taken the same trades at the same sizes needs the
+  day's bars in the research data (the weekly execution review, exec_review.py / signal_review.py).
+
+**SEALED (2026-11-05):** the Oms's port (private repo: `Engine/FlushFader.fs` the down CUSUM `CusumDn025`, k `CusumKBp`
+0.25, stepped on every present bar before the entry block in research's arithmetic order; `Engine/Sizing.fs` Dim 9, the
+V2-25 betas / constants / BasePf1 0.6343; Parity's signals and book + `cusr_dn_k025`, `cus_z`). `parity trips -s
+2020-01-02 -e 2026-08-21 --from-bars --system flushfader --min-barnum 11 --candidates data/v2_candidates/mr_candidate_1s_v2`
+(68 min, peak 2.1 GB), diffed with `scanner_diff.py --rtol 1e-12`:
+- **Book 35,767 = 35,767, zero-diff:** keys identical; every column exact (cusr_dn_k025, cus_z, s20_z, dslo, barnum,
+  atr5 …) but pf1_model / pf1_fitted 3.3e-15 and the multiplier 3.9e-15 relative.
+- **Engine-level trips 195,660 = 195,660, zero-diff** on the 12 shared columns, cusr_dn_k025 among them.
+- Oms tests 216 / 216: SizingTests' 200 pins to 1e-9 (the pins carry cusum_dn_k025), HUT 2026-07-27's pf1 = the book's
+  0.5146670937966513. Controls: k = 0 (the constant check fails), no winsorising (2 tests fail).
+- The production files: `data/flushfaderv2/{v2_coefficients.json, flushfaderv2_reference_book.parquet,
+  flushfaderv2_reference_trips.parquet, flushfaderv2_reference.md}` = v24_cusum's; the 10-19 production files are in
+  `pre_v25_2026-11-05/`. `flushfaderv2_reference.py`'s defaults (base_v24, no barnum fallback) reproduce the JSON byte for
+  byte.

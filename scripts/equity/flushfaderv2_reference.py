@@ -43,8 +43,8 @@ import argparse, json, os, time
 import numpy as np, pandas as pd, duckdb
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", nargs="+", default=["data/equity/flushfader/base_v19/*.parquet",
-                                              "data/equity/flushfader/young/base_v19_young/*.parquet"])
+ap.add_argument("--trips", nargs="+", default=["data/equity/flushfader/base_v24/*.parquet"],
+                help="V2-25 (2026-11-05): base_v24, the marker-free base with the young trades in the same run (was base_v19 + its young)")
 ap.add_argument("--cands", default="data/v2_candidates/mr_candidate_1s_v2/*/*.parquet", help="the barnum source (hive)")
 ap.add_argument("--min-barnum", type=int, default=11)
 ap.add_argument("--young-below", type=int, default=22)
@@ -58,14 +58,14 @@ ap.add_argument("--volat", choices=["bands", "log"], default="log", help="fit mo
 ap.add_argument("--near-low-hi", type=float, default=0.03, help="the near-low gate drops dslo in (0, this] (0.03 = production since 2026-10-19, V2-15/V2-16; was 0.02)")
 ap.add_argument("--door", type=int, default=40)
 ap.add_argument("--credit", type=float, default=0.001)
-ap.add_argument("--cus-trips", nargs="+", default=["data/equity/flushfader/base_v23/*.parquet",
-                                                  "data/equity/flushfader/young/base_v23_young/*.parquet"],
+ap.add_argument("--cus-trips", nargs="+", default=["data/equity/flushfader/base_v24/*.parquet"],
                 help="V2-24: the corpora carrying cusr_dn_k025 (the raw downside CUSUM at k = 0.25 bp/bar, research "
                      "flushfader_results.md §S49ap), joined on symbol / trade_date / signal_sec")
-ap.add_argument("--barnum-fallback", default="data/flushfaderv2/flushfaderv2_reference_trips.parquet",
+ap.add_argument("--barnum-fallback", default="",
                 help="V2-24: a trip with no barnum in --cands takes the one this production-reference trips file recorded. "
                      "The 2026-10-25 marker-free rebuild of the 1s bars and the candidates ($1.6M dv_0945 floor) dropped 47 "
-                     "ticker-days the 10-19 production fit had (630 base_v19 trips, 7 book trades); '' = no fallback (fails)")
+                     "ticker-days the 10-19 production fit had (630 base_v19 trips, 7 book trades); '' = no fallback (fails) — the "
+                     "default since V2-25 (base_v24 is built on the rebuilt candidates: nothing to fill)")
 ap.add_argument("--no-cusum", action="store_true", help="fit mode: the model WITHOUT the CUSUM term (the pre-V2-24 production fit)")
 ap.add_argument("--mem", default="8GB")
 args = ap.parse_args()

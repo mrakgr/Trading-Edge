@@ -2485,3 +2485,36 @@ vol60_med):
   held its open is flat (1.02).
 - The 10:00 means are small (+0.4–0.8 % gross): a \$0.12 / share locate (11-04's typical quote) is 1.2 % of a \$10 stock —
   the borrow decides these, which is what the collector measures.
+
+## GF-65 — exit at the SHORT-TERM HIGH instead of the 10:00 time stop: worse in the model, no better than the live maker (2026-11-05, user)
+
+**User:** "if the executions really lag the live model badly, we should consider exiting at the 1m–5m highs ... resting
+orders at the short term highs instead of chasing down ... after 10 ET ... also after 9:45 ET". `scripts/equity/
+gapfader_exit_highs.py` → `data/equity/gapfader/exit_highs.{md,parquet}`. The production book (GF-54 gates, PF−1 > 0),
+37,818 trades 2016-08 .. 2026-09, entry at the official open, net of 0.4c / share; the target (50 % of the gap) rests all
+day in every variant; hiN@S = from S also a resting sell at the N-minute high (the max of the prior N × 60 s of 1s vwaps),
+following it, filled AT it when a 1s vwap trades above it; neither by 15:59:59: the last vwap.
+
+| exit | PF | 2016–20 / 2021–26 | mean % | median % | sized Σ (vs base) |
+|---|---|---|---|---|---|
+| **base (target, else the 10:00 vwap)** | **1.565** | 1.45 / 1.66 | +0.63 | +2.02 | 20,598 |
+| hi1@10:00 | 1.471 | 1.33 / 1.60 | +0.55 | +2.01 | 18,056 (−12 %) |
+| hi5@10:00 | 1.439 | 1.29 / 1.58 | +0.53 | +2.03 | 17,565 (−15 %) |
+| hi1 … hi5 @09:45 | 1.23–1.24 | **0.97–0.99** / 1.49–1.50 | +0.28 | +1.0–1.2 | 10.7–11.1k (−47 %) |
+| target, else the close | 1.247 | 1.02 / 1.53 | +0.43 | +2.28 | 13,164 (−36 %) |
+
+- **From 09:45: no.** It gives back the 09:45–10:00 recovery, where the target fills (47 % → 41 % of trades); 2016–20 < 1.
+- **From 10:00: mildly worse (−12 % / −15 %), the same ADVERSE SELECTION as every dip / stop study here.** Most of the
+  19,937 non-target trades tick through the high within a minute or two at about the 10:00 price (hi1: median wait 55 s;
+  waits < 30 s +0.04 % vs the 10:00 vwap); the ones that do not are still sliding and fill far lower (hi5, waits of
+  5–30 min: −0.67 %; over 30 min: −3.97 %). Net vs the 10:00 vwap: hi1 −0.15 %, hi5 −0.19 % per non-target trade.
+- **Against the LIVE maker** (the Oms's 10:00 exit, 38 exits 10-26 .. 11-04, exec_day.py): −23 bp mean vs the model's
+  10:00 vwap, median +3 bp, −\$32 — the mean is three falling names (NIVF −463 bp, LIME −314, LSTR −271), the ones a resting
+  high would fill badly too. Live maker ≈ resting high, within the noise of 38 exits; the model prefers neither.
+- **GapFader's live execution vs the model, all 62 live trades:** entries exact (the cross), targets exact, the 10:00
+  exits −\$34 in all (model +\$109, live +\$75). It does not lag the model badly. ⚠ Found here: exec_day.py counted a
+  target filled on the 1s bar's HIGH above it, where r1 needs a VWAP above it (AIBZ 10-30: one print AT 3.19, the target
+  rounded up to the tick; our resting limit did not fill, and r1 does not count it) — fixed 2026-11-05, so the live gap
+  on targets (−\$57) was the script's, not the execution's.
+- ⇒ **Keep the 10:00 time stop and the maker.** A resting order at the short-term high would match the model by
+  construction, but the model it would match is worse.
