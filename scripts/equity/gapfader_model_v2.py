@@ -34,7 +34,7 @@ import numpy as np, pandas as pd, duckdb
 ap = argparse.ArgumentParser()
 # the production coefficients' path; 2026-10-31 (user: "keep the coefficients as they are") the holder's-return rebuild
 # wrote its refit beside them (gf_coefficients_holder_refit.json) and production kept its own
-ap.add_argument("--coefficients-out", default="data/equity/gapfader/gf_coefficients.json")
+ap.add_argument("--coefficients-out", default="data/equity/gapfader/gf_coefficients_gf54.json")   # 2026-11-05: production is GF-67's (gapfader_model_v3.py)
 args = ap.parse_args()
 T0 = time.time()
 def log(*a): print(f"[{time.time()-T0:7.1f}s]", *a, file=sys.stderr, flush=True)

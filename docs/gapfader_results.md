@@ -2518,3 +2518,137 @@ following it, filled AT it when a 1s vwap trades above it; neither by 15:59:59: 
   on targets (−\$57) was the script's, not the execution's.
 - ⇒ **Keep the 10:00 time stop and the maker.** A resting order at the short-term high would match the model by
   construction, but the model it would match is worse.
+
+## GF-66 — crowded gap-down days: keep the −4 % floor (2026-11-05, user)
+
+**User (a sell-off morning):** "I bet today we'll have a lot of stocks gapping down over 4%. We'll have to look into whether
+tightening up the requirement so that we're buying stocks down 10% on days like this would be better."
+- Script: `scripts/equity/gapfader_crowded_days.py` → `data/equity/gapfader/crowded_days.md`.
+- Book: production's (GF-54), 37,818 trades from 2016-08 to 2026-09; r1 net of costs; sized = Σ units × r1.
+- Both day measures are known at the open: the CROWD (the number of names the book takes that day) and SPY's opening gap.
+- Cells: PF · mean r1 · trades.
+
+| day | days | all depths | −4..−6 % | −6..−10 % | ≤ −10 % | sized Σ: ≤ −10 % only vs all |
+|---|---|---|---|---|---|---|
+| crowd 1–3 | 797 | 1.63 · +0.73 % | 1.94 · +0.78 % | 1.45 · +0.69 % | 1.20 · +0.46 % | 82 vs 1,249 |
+| crowd 4–9 | 934 | 1.50 · +0.63 % | 1.49 | 1.48 | 1.58 | 499 vs 3,534 |
+| crowd 10–19 | 399 | 1.36 · +0.51 % | 1.42 | 1.42 | 1.16 | 186 vs 2,599 |
+| crowd 20–39 | 155 | 1.24 · +0.36 % | 1.30 | 1.33 | 1.03 | 105 vs 1,447 |
+| **crowd 40+** | 119 | **1.76 · +0.70 %** | 1.61 | 1.79 | **2.38 · +1.98 %** | 2,537 vs **11,793** |
+| **SPY gap ≤ −1 %** | 119 | **1.82 · +0.74 %** | 1.69 | 1.83 | **2.38 · +1.95 %** | 2,382 vs **11,602** |
+| SPY −1 .. −0.3 % | 383 | 1.55 · +0.63 % | 1.52 | 1.63 | 1.55 | 438 vs 3,326 |
+| SPY flat (±0.3 %) | 1,232 | 1.32 · +0.45 % | 1.35 | 1.34 | 1.22 | 449 vs 3,829 |
+| SPY ≥ +0.3 % | 670 | 1.29 · +0.46 % | 1.34 | 1.38 | 1.08 | 140 vs 1,865 |
+
+- **A market-wide gap-down is GapFader's BEST kind of day, not its worst.** SPY gapping down 1 % or more makes PF 1.82, against
+  1.32 on a flat open. A 40+-name crowd makes 1.76. The same holds in every era: the 20+-name days make 1.59 / 1.67 / 1.59 in
+  2016–19 / 2020–22 / 2023–26.
+- The deep (≤ −10 %) names are the best cell on those days (2.38), **but alone they would keep only about a fifth of the
+  profit** (2,537 of 11,793 sized). The −4..−10 % names carry the rest at PF 1.6–1.8.
+- The weak days are the MIDDLE crowds (10–39 names, 1.24–1.36), and there the deep names are no better (1.03–1.16).
+- 23 % of the 274 days with 20+ names lose. The worst was 2020-03-12 (1,252 names, SPY −6.7 %, −1,104 sized); the
+  ≤ −10 % subset made +40 that day.
+- **Depth matters ONLY on market gap-down days** (user: "Didn't you find out that deeper gaps don't really improve the PF ...
+  Is it the case that deeper gaps are only better on deep selloffs like today's?" — yes). PF by depth, −4..−6 % / −6..−10 % /
+  ≤ −10 %:
+
+  | SPY's opening gap | days | −4..−6 % | −6..−10 % | ≤ −10 % |
+  |---|---|---|---|---|
+  | all days | 2,404 | 1.53 | 1.59 | 1.62 (the earlier finding: depth is flat) |
+  | **≤ −1 %** | 119 | 1.69 | 1.83 | **2.38** |
+  | ≤ −1 %, without March 2020 | 111 | 1.96 | 3.11 | **3.05** |
+  | ≤ −1 %, 2023–26 | 39 | 1.57 | 2.56 | 2.65 |
+  | −1 .. −0.3 % | 383 | 1.52 | 1.63 | 1.55 |
+  | **> −0.3 % (a normal open)** | 1,902 | 1.35 | 1.35 | **1.16** |
+
+  - Day-clustered, the ≤ −10 % names beat the −4..−6 % names on 69 % of the 77 such days that have both, by a median
+    +1.76 pp. The effect is not one day: it is weaker in 2016–19 (25 deep trades).
+  - Mechanism, plausibly: on a market sell-off part of every stock's gap is the market (premarket liquidation, beta), and that
+    part reverts. On a quiet day a −10 % gap is the stock's own news, and that reverts less.
+  - The flat average hid two opposite effects. This is a SIZING interaction (depth × SPY's gap, both known by the 09:28 LOO
+    deadline from SPY's premarket), not a floor. It is a month-end candidate for the model: up-size the deep names on market
+    gap-down days, down-size them on normal opens.
+- **QQQ's gap is the better market measure** (user: "It wasn't SPY so much that opened down, but Nasdaq". On 2026-11-05 SPY
+  opened −0.17 %, QQQ −1.28 %, IWM −0.10 %; by 10:45 QQQ was −5.4 % on the day).
+
+  | QQQ's opening gap | days | all depths | −4..−6 % | −6..−10 % | ≤ −10 % |
+  |---|---|---|---|---|---|
+  | ≤ −1 % | 178 | 1.77 | 1.62 | 1.79 | **2.45** |
+  | ≤ −1 %, without March 2020 | 170 | 2.12 | 1.84 | 2.80 | **3.29** |
+  | ≤ −1 % with SPY > −1 % | 69 | 1.52 | 1.35 | 1.64 | 3.16 (76 trades) |
+  | ≤ −1 % with SPY > −0.3 % (2026-11-05's kind) | 3 | 1.41 | 1.25 | 1.90 | — (2) |
+  | −1 .. −0.3 % | 456 | 1.50 | 1.58 | 1.53 | 1.18 |
+  | > −0.3 % | 1,770 | 1.34 | 1.38 | 1.39 | 1.19 |
+
+  QQQ identifies more market gap-down days than SPY (178 against 119), with the same depth interaction. A sizing model should
+  use QQQ's gap, or the deeper of the two. A Nasdaq-only gap-down with a flat SPY is rare: 3 days in ten years.
+- **Verdict: no deeper floor on crowded days.** The losses on days like 2026-11-05 come from the market falling AFTER the open,
+  between the cross and the 10:00 exit. That is not knowable at the cross.
+
+## GF-67 — sizing with QQQ's premarket gap × the stock's depth (2026-11-05, user)
+
+**User:** "Let's make a sizing model based on the QQQ when the gaps are large. We don't have to freeze the model completely, we
+can make minor adjustments to improve our PF. What we must not do is abandon our approach completely."
+- Script: `scripts/equity/gapfader_qqq_sizing.py` → `data/equity/gapfader/qqq_sizing.md`.
+- **Approach unchanged.** These are new TERMS in GF-54's model: the same logit p, log W and log L by IRLS, the same
+  standardisation and winsorisation, units = clip(PF−1, 0.125, 2), and the same scoring code.
+- Both new inputs are known at the LOO deadline:
+  - depth = ln(−gap_est), the noisy auction estimate;
+  - **QQQ's PREMARKET gap at 09:29:25**: its last 1s vwap before the cutoff vs the previous close, as the holder's return,
+    capped at 0 above. It matches the official-open gap to ρ 0.999 (median difference 0.016 pp); 183 of the book's 2,404 days
+    are ≤ −1 %.
+- On 2026-11-05: QQQ 683.34 at 09:29:25 against a previous close of 691.95, **−1.24 %**.
+
+| model (fit 2021–26 unless split) | within 2021–26 (A↔B, units PF−1) | 2016–19 ↔ 2021–26 | OOS 2016–20: units PF · Σ | day PF · Σ (all days) | worst day · 5 worst | units/trade on QQQ ≤ −1 % days / others |
+|---|---|---|---|---|---|---|
+| **production (GF-54)** | 0.843 | 0.491 | 1.489 · +75.0 | 3.93 · +206 | −11.0 · −15.6 | 0.74 / 0.73 |
+| + QQQ | 0.899 | 0.622 | 1.428 · +89.1 | 4.46 · +237 | −24.3 · −30.1 | 1.19 / 0.49 |
+| + depth + QQQ + depth × QQQ | 0.870 | 0.636 | 1.564 · +87.5 | **5.25** · +243 | −12.6 · −17.8 | 0.91 / 0.57 |
+| + deep10 + QQQ ≤ −1 % + both | 0.870 | **0.667** | 1.566 · +100.3 | 5.22 · **+255** | −15.5 · −22.3 | 1.12 / 0.48 |
+| **+ deep10 + deep10 × (QQQ ≤ −1 %)** | 0.843 | 0.537 | **1.591 · +100.3** | 4.60 · +242 | **−11.6 · −16.2** | 0.84 / 0.71 |
+
+(Σ = Σ units × r1 / 100, in units. The worst day is 2020-03-12 for every model.)
+
+**Calibration (fit 2021–26; realised PF−1 without March 2020, which holds 1,287 of the 1,739 deep trades on QQQ-down days).**
+Deep gaps (≤ −10 %) on QQQ ≤ −1 % opens realised 2.09: the narrow flags model predicts 2.06, production 0.66, the continuous
+interaction 3.22 (overconfident). On normal opens deep gaps realised 0.20: production predicts 0.72, the narrow flags 0.31.
+Production gets the deep names wrong in both directions, as GF-66 said.
+
+**What the models add is market exposure on Nasdaq gap-down days.** On 2026-11-05 every variant lost more than production on
+the 12 fills (Σ units × return: production −43, continuous interaction −48, the QQQ-main-effect flags −68), because QQQ fell
+another 4 % after the open. Any QQQ main effect raises EVERY name on such days, which doubles the worst day (−24 against
+−11).
+
+**Recommendation: the narrow flags model** (+ deep10 + deep10 × QQQ ≤ −1 %). It is the minimal adjustment: it only re-sizes
+the ≤ −10 % names, up on Nasdaq gap-down opens and down on the rest. The other 92 % keep production's sizing.
+- Out of sample on 2016–20 it is the best: units PF 1.489 → **1.591**, Σ +75 → +100.
+- All days: Σ +206 → +242.
+- The tail is production's: worst day −11.6 against −11.0.
+- Its cross-regime score is the weakest of the new ones (0.537), though still above production's 0.491.
+- The continuous interaction gains more on day PF (5.25) at a slightly fatter tail, and is overconfident where it upsizes.
+
+### GF-67 → production (2026-11-05, user: "let's go for the narrow flags model. We'll deploy it tomorrow")
+
+- **The coefficients:** `scripts/equity/gapfader_model_v3.py` writes `data/equity/gapfader/gf_coefficients.json`, GF-54's
+  model + deep10 + d10xq1, fitted on 2021-01 .. 2026-09 (n = 21,909).
+  - 200 pins, stratified 50 per (deep, QQQ down) cell; recomputed from the JSON to 5e-15.
+  - Fit-set calibration, predicted against realised PF−1: deep on a QQQ-down open 2.045 / 1.894; deep on a normal open
+    0.280 / 0.247; shallow 0.73 / 0.47 and 0.70 / 0.98.
+  - GF-54's file is kept as `gf_coefficients_pre_gf67.json`. `gapfader_model_v2.py` now writes `gf_coefficients_gf54.json`,
+    so a rerun cannot overwrite production.
+  - **Control:** GF-54's three-term model refitted on this book reproduces `gf_coefficients_holder_refit.json` (the 10-31
+    holder's-return refit) to 3e-15. Its β differ from the deployed GF-54's by at most 1.6e-4: v3's base terms carry that
+    refit.
+- **The Oms:**
+  - `Engine/GapFader.fs` `Model.size dv60 rvol gap marketGap`: deep10 = gap ≤ −10 % on the decision's own gap (the auction
+    price's holder's return); d10xq1 also needs the market gap ≤ −1 %, and nan counts as not down.
+  - `MarketGap`: QQQ's last 1s vwap before 09:29:25 over the eligible trades, against its previous close (`priorCloses`,
+    which holds ETFs).
+  - L1's cutter feeds it QQQ's trades and fixes it at the first frame that reaches 09:29:25. Every frame carries the value
+    to the watched workers' `OnClock`. QQQ's trades are subscribed until 09:30 and never enter the universe.
+  - `GapDecision.MarketGap` is journaled as `market_gap=`; `--market-ticker` (default QQQ, "" off).
+  - Tests: 220 pass, with the pins, the flags' directions and edges, the tracker, the decision, and L1 end to end with
+    QQQ's trades and its subscription dropped after 09:30.
+  - Controls each fail on purpose: the market term off (3 tests), the cutoff second counted (2), QQQ never unsubscribed (1).
+- ⚠ **Replays of the captures before 2026-11-06 hold no QQQ trades.** Their market gap is nan and every open is sized as a
+  normal one.
