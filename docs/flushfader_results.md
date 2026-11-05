@@ -18524,7 +18524,7 @@ a debloated fork of the research engine) gained the four features the broad book
 `counters600` (the 10m `NewLowCounters` rung, reset on a strictly-prior 600-bar-high breach — `sMax600`, the br300 idiom) —
 and the five broad-book gates as `IntradayConfig` knobs with off-sentinels: `MaxCrf −0.002`, `MaxCoil5mLag1m 0.22`,
 `MaxGap60 40` (RAW gap_60), `Rule140VolatBp 140 / Rule140MaxGap 4`, `HaltWaitCount 4 / HaltWaitSec 300`; `MinDv0945Tape`
-2e6 (the \$3M rung was stale). `Engine/Sizing.fs` embeds the A3 raw β vectors (`data/flushfader_gate_review/a3_coefficients.json`,
+2e6 (the \$3M rung was stale). `Engine/Sizing.fs` embeds the A3 raw β vectors (`models/flushfader_gate_review/a3_coefficients.json`,
 written by `flushfader_sizing_model.py --dump-coefficients` and now COMMITTED — the only data file in the repo), the base
 0.5190225, clip [0.25, 4], numpy.digitize's half-open band edges, NaN rate600 → slow; `BookBroad.fs` = raw entry_px ≥ \$1 +
 the per-ticker-day mc=1 greedy walk + the multiplier; `Live.fs`'s `LiveSignal` carries the multiplier, the four sizing

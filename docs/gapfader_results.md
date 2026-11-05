@@ -1758,7 +1758,7 @@ p10 / p50 / p90 0.24 / 0.76 / 1.74.
 
 ### GF-45d — the production coefficients (2026-10-20, user: "roll with 2021–2026")
 
-`data/equity/gapfader/gf_coefficients.json` (tracked, force-added), written by `scripts/equity/gapfader_sizing_model.py`'s last
+`models/gapfader/gf_coefficients.json` (tracked, force-added), written by `scripts/equity/gapfader_sizing_model.py`'s last
 section. Contents:
 - **The fit:** dv20 + rvolc (ln dv20 · ln(rvol + 0.001) · rvol < 0.005), 2021-01 … 2026-09, n = 31,220.
 - **The gates** and **the indicator cutoffs** (XNAS 09:29:25, XASE 09:29:50, premarket from 04:00).
@@ -2629,7 +2629,7 @@ the ≤ −10 % names, up on Nasdaq gap-down opens and down on the rest. The oth
 
 ### GF-67 → production (2026-11-05, user: "let's go for the narrow flags model. We'll deploy it tomorrow")
 
-- **The coefficients:** `scripts/equity/gapfader_model_v3.py` writes `data/equity/gapfader/gf_coefficients.json`, GF-54's
+- **The coefficients:** `scripts/equity/gapfader_model_v3.py` writes `models/gapfader/gf_coefficients.json`, GF-54's
   model + deep10 + d10xq1, fitted on 2021-01 .. 2026-09 (n = 21,909).
   - 200 pins, stratified 50 per (deep, QQQ down) cell; recomputed from the JSON to 5e-15.
   - Fit-set calibration, predicted against realised PF−1: deep on a QQQ-down open 2.045 / 1.894; deep on a normal open

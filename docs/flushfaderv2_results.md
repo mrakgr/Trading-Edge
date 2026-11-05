@@ -593,7 +593,7 @@ A risk rule; V2-12 shows it cannot be credited with edge. Only FlushFader is gat
   - ⚠ DuckDB's `greatest` / `least` skip NULLs, so a row without a previous close would get a "true range" of H − L. The
     TR is set to NULL there instead. That changed 343 ticker-days, none at barnum ≥ 11.
 - `flushfaderv2_reference.py --max-atr5 4.0` drops ticker-days at ATR5 ≥ 4.0; a NaN ATR5 passes.
-  - ⭐ The production reference is now built with `--coef data/flushfaderv2/v2_coefficients.json`: the V2-7 model is
+  - ⭐ The production reference is now built with `--coef models/flushfaderv2/v2_coefficients.json`: the V2-7 model is
     APPLIED, because a refit would see the gated book.
   - Control: `--max-atr5 inf` reproduces the barnum-11 book in every column.
   - The previous outputs are kept in `data/flushfaderv2/pre_atr5_2026-10-18/`.
@@ -656,7 +656,7 @@ and a re-seal. Worth doing only together with the next refit of the model. → *
 
 **Question (user).** Raise the gate from dslo ∈ (0, 2 %] to (0, 3 %]: what is the (2 %, 3 %] band like?
 
-**Setup.** The books are replayed by `flushfaderv2_reference.py --near-low-hi H --coef data/flushfaderv2/v2_coefficients.json`
+**Setup.** The books are replayed by `flushfaderv2_reference.py --near-low-hi H --coef models/flushfaderv2/v2_coefficients.json`
 (new option; `data/flushfaderv2/dslo3/`, tags g2 / g25 / g3), so the freed mc=1 slots refill. Control: g2 = the
 production book, 36,172 trades, multipliers identical. Tables: `scripts/equity/flushfaderv2_dslo3.py`
 (`data/flushfaderv2/dslo3/dslo3.md`). Flat and sized by the production coefficients, net of the credit.
@@ -738,7 +738,7 @@ s20 winsorise [−106.535, 10.509] bp/min, mean −26.375, SD 21.351.
 
 **Status: ADOPTED (user 2026-10-19: "We'll adopt both changes. We always want more net with a better pf1").** ln volat
 plus the 3 % gate are now `flushfaderv2_reference.py`'s defaults. The fit on the full period is the production
-reference: `data/flushfaderv2/v2_coefficients.json`, book 35,185. The 2026-10-18 files are in
+reference: `models/flushfaderv2/v2_coefficients.json`, book 35,185. The 2026-10-18 files are in
 `data/flushfaderv2/pre_refit_2026-10-19/`. Ported to the Oms (`Engine/Sizing.fs`: Dim 8, `lnVolat`;
 `Config.fs`: NearLowHi 0.03), with the 200 pins reproduced to 1e-9.
 

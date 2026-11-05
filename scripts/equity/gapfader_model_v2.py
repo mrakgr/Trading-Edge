@@ -24,7 +24,7 @@ THE MODELS (GF-45's machinery: logit p, log W, log L by IRLS, terms standardised
   current   ln dv20_prior (the 20-session MEAN) + ln(rvol20 + 0.001) + (rvol20 < 0.005)      rvol20 = pm / avgvol20_prior
   dv60 only ln dv60_med + the same rvol20 terms
   new       ln dv60_med + ln(rvol60 + 0.001) + (rvol60 < 0.005)                           rvol60 = pm / vol60_med
-OUTPUT: data/equity/gapfader/gf_coefficients.json — PRODUCTION's (Engine/GapFader.fs's Model, pinned by the Oms's tests;
+OUTPUT: models/gapfader/gf_coefficients.json — PRODUCTION's (Engine/GapFader.fs's Model, pinned by the Oms's tests;
 the new model fitted on 2021–26, 200 pins). GF-45's model is kept as gf_coefficients_pre_gf54.json (its scripts read it).
 
   cd research && python -u scripts/equity/gapfader_model_v2.py > data/equity/gapfader/model_v2.md 2> logs/gapfader_model_v2.log; echo exit $?

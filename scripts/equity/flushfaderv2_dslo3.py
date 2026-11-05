@@ -1,6 +1,6 @@
 """FlushFaderV2 — V2-15: raise the near-low gate from (0, 2 %] to (0, 3 %]? (user 2026-10-19)
 
-The books are REPLAYED by flushfaderv2_reference.py --near-low-hi H --coef data/flushfaderv2/v2_coefficients.json
+The books are REPLAYED by flushfaderv2_reference.py --near-low-hi H --coef models/flushfaderv2/v2_coefficients.json
 (out-dir data/flushfaderv2/dslo3, tags g2 = production / g25 / g3): the gate changes the engine-level set, mc=1 refills
 the freed slots, the production coefficients size every book. Flat and sized, net of the $0.001/sh/side credit.
 Run from research/:  python -u scripts/equity/flushfaderv2_dslo3.py > data/flushfaderv2/dslo3/dslo3.md; echo exit $?

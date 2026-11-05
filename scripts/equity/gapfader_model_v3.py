@@ -7,7 +7,7 @@ We'll deploy it tomorrow").
 Everything else is GF-54's (gapfader_model_v2.py): logit p, log W, log L by IRLS on 2021-01 .. the book's end; lm60, lrv60
 winsorised 1/99 % on the fit; every term standardised (the flags too, as rv5_60); PF−1 = p / ((1 − p) · L / W) − 1. The fit
 is GF-67's (gapfader_qqq_sizing.py, model "+ deep10 + deep10 × QQQ ≤ −1 %"); this script writes it out.
-OUTPUT: data/equity/gapfader/gf_coefficients.json — production's (Engine/GapFader.fs's Model, pinned by the Oms's tests).
+OUTPUT: models/gapfader/gf_coefficients.json — production's (Engine/GapFader.fs's Model, pinned by the Oms's tests).
 GF-54's production file is kept as gf_coefficients_pre_gf67.json (gapfader_model_v2.py now writes gf_coefficients_gf54.json).
 200 pins, stratified: 50 from each (deep10, QQQ ≤ −1 %) cell of the fit set.
     cd research && python3 scripts/equity/gapfader_model_v3.py > data/equity/gapfader/model_v3.md
@@ -62,7 +62,7 @@ COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/ga
         "fit_mean_pf1": float(mm[FIT].mean()),
         "pins": [{"ticker": C.ticker.values[i], "date": C.date.values[i], "dv60_med": float(C.dv60_med.values[i]), "rvol": float(C.rvol60.values[i]),
                   "gap": float(C.gap_est.values[i]), "qqq_gap": float(C.qqq_pm_gap.values[i]), "pf1": float(mm[i])} for i in sorted(pins_idx)]}
-OUT, OLD = "data/equity/gapfader/gf_coefficients.json", "data/equity/gapfader/gf_coefficients_pre_gf67.json"
+OUT, OLD = "models/gapfader/gf_coefficients.json", "models/gapfader/gf_coefficients_pre_gf67.json"
 if not os.path.exists(OLD): shutil.copyfile(OUT, OLD)       # GF-54's, kept once
 json.dump(COEF, open(OUT, "w"), indent=1)
 def pf1_from_json(q, J):

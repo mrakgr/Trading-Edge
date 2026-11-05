@@ -12,7 +12,7 @@ index that tells you WHERE the current truth lives and HOW to regenerate it. Com
 **⭐⭐ PRODUCTION SINCE 2026-10-12 = FlushFaderV2** (`docs/flushfaderv2_results.md`; user: "replace FlushFader with V2 in
 production"). THE BROAD BOOK below + **the near-low gate** (reject 0 < dslo ≤ 2 %, dslo = signal_vwap / running session
 low − 1, the signal bar included) → book **35,612**; **sizing V2 = A3 + [dslo ≥ 4 %] + z(s20)** (s20 = ols_slope_1200 ×
-6e5, winsorised at the book's 1 / 99 % and standardised), coefficients `data/flushfaderv2/v2_coefficients.json`
+6e5, winsorised at the book's 1 / 99 % and standardised), coefficients `models/flushfaderv2/v2_coefficients.json`
 (`scripts/equity/flushfaderv2_reference.py`). The Oms reads the fitted PF−1 on the ONE unit scale 0.519 (A3's book mean;
 user 2026-10-12), so V2 positions average ~1.15 units. Capped replay (cap 20, cross-fit) vs V1: net +13.6 %, max DD
 443 → 308, worst day −296 → −199 units, 80/80 months. Sealed in the Oms 2026-10-12 (see V2-10 in the V2 doc).
@@ -28,9 +28,9 @@ user 2026-10-12), so V2 positions average ~1.15 units. Capped replay (cap 20, cr
   - holdout sized PF−1 0.796 → 0.815, net in production units +2.6 %.
 - **The Oms units:** 1 unit = 1 PF−1 = 15 % of equity, clip [0.125, 2] (since 2026-10-13; not the 0.519 scale above).
 - **Reference:** `python -u scripts/equity/flushfaderv2_reference.py` (the defaults ARE production), which writes
-  `data/flushfaderv2/v2_coefficients.json` and the book **35,185** trades: flat PF 1.596, sized 1.825, net 21,101 %
+  `models/flushfaderv2/v2_coefficients.json` and the book **35,185** trades: flat PF 1.596, sized 1.825, net 21,101 %
   flat / 28,308 % sized.
-- `--coef data/flushfaderv2/v2_coefficients.json` reproduces it exactly. The previous files are in
+- `--coef models/flushfaderv2/v2_coefficients.json` reproduces it exactly. The previous files are in
   `data/flushfaderv2/pre_refit_2026-10-19/`.
 
 **Signal**: new strict 1200-bar (≈20m) vwap low → buy next bar vwap; exit strict new 300-bar (≈5m) high → sell next
@@ -73,7 +73,7 @@ dictionary reproduces v49 EXACTLY, 39,769 = 39,769):
 
 **Status (2026-09-09 evening, §S49aj)**: the Scanner (`TradingEdge.Scanner`, private repo) IS THE BROAD BOOK — crf, coil,
 counters600/rate600, the gap door, rule140, the WAIT and the A3 sizing (`Engine/Sizing.fs`, betas from the committed
-`data/flushfader_gate_review/a3_coefficients.json`) are in; the 13 dropped gates and the ROSTER are deleted. Sealed 2026-09-09: full period `--from-bars` 209,252 = 209,252 engine-level trips and **37,254 = 37,254 book** (multiplier |Δ| < 4e−15); every gate OFF per year vs base_v19 **8,273,415 = 8,273,415** on 53 columns; 10-day trades tape `--gate --ms-precision` 1,180 / 201 zero-diff, gate exact 10/10; `Sizing_Test.fsx` 52/52 cells.
+`models/flushfader_gate_review/a3_coefficients.json`) are in; the 13 dropped gates and the ROSTER are deleted. Sealed 2026-09-09: full period `--from-bars` 209,252 = 209,252 engine-level trips and **37,254 = 37,254 book** (multiplier |Δ| < 4e−15); every gate OFF per year vs base_v19 **8,273,415 = 8,273,415** on 53 columns; 10-day trades tape `--gate --ms-precision` 1,180 / 201 zero-diff, gate exact 10/10; `Sizing_Test.fsx` 52/52 cells.
 Reference = `scripts/equity/flushfader_broad_reference.py` (double precision, calendar-aware cutoff: book 37,254 — the
 S49 scripts' 37,279 includes 25 half-day 12:00–13:00 trades the engine refuses); diff = `scripts/equity/scanner_diff.py`.
 Not built: the order-management layer (20-unit cap, one open position per ticker, equity fraction per unit).

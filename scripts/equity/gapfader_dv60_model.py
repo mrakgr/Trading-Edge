@@ -147,7 +147,7 @@ R = C.r2.values * 100
 FIT = LATE
 cur, (cp, cw, cl) = model(["ldv", "lrv", "rv5"], FIT, R)
 alt, (ap, aw, al) = model(["lm60", "lrv", "rv5"], FIT, R)
-J = json.load(open("data/equity/gapfader/gf_coefficients_pre_gf54.json"))
+J = json.load(open("models/gapfader/gf_coefficients_pre_gf54.json"))
 err = max(abs(a - b) for a, b in zip(list(cp) + list(cw) + list(cl), J["beta_p"] + J["beta_w"] + J["beta_l"]))
 print(f"## Fitted as production (2021–26, design trade): the current model reproduces gf_coefficients.json (max |Δβ| {err:.1e})\n")
 print("| term (per SD) | current: odds × / W × / L × | dv60_med: odds × / W × / L × |\n|---|---|---|")

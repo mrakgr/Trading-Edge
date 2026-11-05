@@ -23,7 +23,7 @@ import numpy as np, pandas as pd, duckdb
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--trips", default="data/equity/flushfader/base_v19/*.parquet")
-ap.add_argument("--coef", default="data/flushfader_gate_review/a3_coefficients.json")
+ap.add_argument("--coef", default="models/flushfader_gate_review/a3_coefficients.json")
 ap.add_argument("--out-dir", default="data/flushfader_gate_review")
 ap.add_argument("--tag", default="", help="suffix for the output names (e.g. 10d)")
 ap.add_argument("--door", type=int, default=40)

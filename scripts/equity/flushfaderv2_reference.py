@@ -28,16 +28,17 @@ Outputs (out-dir, + _TAG):
                                          signals under its default config must equal this set; keys symbol,
                                          trade_date, signal_sec) + dslo / s20
   flushfaderv2_reference_book.parquet    + raw px ≥ $1 + mc=1 greedy + the sizing features + multiplier
-  v2_coefficients.json                   (fit mode only) the β vectors, BasePf1, the s20 constants, the thresholds,
+  v2_coefficients.json                   (fit mode only; a CANDIDATE — production's is models/flushfaderv2/, promoted by a
+                                         copy with the Oms's port: models/README.md) the β vectors, BasePf1, the s20 constants, the thresholds,
                                          and a PIN TABLE of 200 book trades' (inputs → multiplier) for the F# tests
 
 Run from research/:
   python -u scripts/equity/flushfaderv2_reference.py                                    # ⭐ THE PRODUCTION REFERENCE since
       2026-10-19 (V2-16): the fit on the full period (ln volat, gate 3 %, ATR5-gated, barnum >= 22 fit set);
-      --coef data/flushfaderv2/v2_coefficients.json reproduces it exactly (the 2026-10-18 V2-7 file:
+      --coef models/flushfaderv2/v2_coefficients.json reproduces it exactly (the 2026-10-18 V2-7 file:
       data/flushfaderv2/pre_refit_2026-10-19/, with --near-low-hi 0.02)
   python -u scripts/equity/flushfaderv2_reference.py --trips 'data/equity/flushfader/base_10d/*.parquet' --tag 10d \
-      --coef data/flushfaderv2/v2_coefficients.json                                     # apply the full-period fit
+      --coef models/flushfaderv2/v2_coefficients.json                                     # apply the full-period fit
 """
 import argparse, json, os, time
 import numpy as np, pandas as pd, duckdb
