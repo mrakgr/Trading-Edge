@@ -1694,3 +1694,171 @@ median 3.52 / p95 4.52. (A first all-years control matched on four coarse dv60 b
   regime (Run 34), common to both groups. The wait decision stands; the return rule (Run 36) could track the
   chain-proxy book instead (fewer trips — the bootstrap power would need recomputing).
 - Costs remain unmodelled; the exit-liquidity bottleneck (Run 33) is unchanged.
+
+## Run 38 — a SOLD PUT instead of the stock (2026-11-06, user)
+
+> USER: *"For HighFlyer, how would selling puts perform instead of taking outright positions?"*
+
+Script `scripts/equity/highflyer_v2_put_sale.py`, output `data/equity/highflyer_repro/v2_put_sale.md` / `.parquet`. Run 37's
+1,838 chain trips; the ATM put (strike nearest the 10:00 price) and a −10% put at the first expiry on or after the exit date
+(median 16 dte); sold at D's 10:00:00 1-minute quote; out (A) at the exit day's 10:00 quote (the stock exits at the open:
+a 30-minute mismatch) or (B) held to expiry at intrinsic, the stock to the same close beside it. Stub filter: an ask above
+the strike, a spread > 50% of the mid, or no quote — **only 836 of 1,838 ATM contracts have a clean 10:00 quote (71 of the
+proxy book's 417)**; the median spread is 24% of the mid (40% in the proxy book); the ATM credit at the bid a median 4.35% of
+the stock (9.72% in the proxy book). Per share, % of the 10:00 price.
+
+| ATM put, clean quotes | n | mean % | PF | worst % |
+|---|---|---|---|---|
+| **all chain trips: stock, 10:00 → the exit open** | 836 | **+2.31** | **1.77** | -82.0 |
+| sold put, out at the exit, bid / bid + 25% / mid | 836 | -0.66 / +0.28 / +1.23 | 0.73 / 1.15 / 1.85 | -63.9 / -61.2 / -58.5 |
+| stock held to the expiry's close | 836 | +2.83 | 1.66 | -83.6 |
+| sold put held to expiry, bid / bid + 25% / mid | 836 | +0.91 / +1.36 / +1.81 | 1.37 / 1.58 / 1.82 | -63.7 / -61.9 / -60.1 |
+| **proxy book: stock, 10:00 → the exit open** | 71 | **+10.55** | **5.27** | -26.6 |
+| sold put, out at the exit, bid / bid + 25% / mid | 71 | -1.24 / +2.20 / +5.64 | 0.73 / 1.91 / 6.28 | -29.9 / -18.9 / -12.9 |
+| stock held to the expiry's close | 71 | +11.49 | 3.08 | -81.7 |
+| sold put held to expiry, bid / bid + 25% / mid | 71 | +4.01 / +5.62 / +7.23 | 2.15 / 2.88 / 3.83 | -42.5 / -42.1 / -41.8 |
+
+The −10% put is weaker still (all: out at the exit bid + 25% PF 1.04, to expiry 1.40, vs the stock 1.44 / 1.30 on its 444
+trips). By the stock's move to the exit (ATM, bid + 25%, mean %, stock / put): < −20% −28.4 / −21.0; −20..−10 −14.2 / −9.2;
+−10..0 −4.1 / −1.7; 0..+10 +4.2 / +2.3; +10..+20 +14.2 / +4.5; > +20% (46) +36.5 / +9.2. 2026: every structure loses (all
+chain trips, bid + 25%: stock 0.37, put at the exit 0.29, to expiry 0.64).
+
+**Read — NO.** HighFlyer's edge is its RIGHT TAIL (the > +20% trips: +36% on the stock), and a sold put caps it at the
+credit (+9%) while keeping 60-75% of the downside. Short volatility needs the opposite payoff — a bounded win against a
+modest, frequent edge (SpringFlyer S16's held-to-expiry call). Add the 10:00 spreads on these names (24-40% of the mid)
+and the put only matches the stock at the mid, which is not a fill. Half the trips have no clean quote at all.
+
+## Run 39 — a BOUGHT CALL instead of the stock (2026-11-06, user)
+
+> USER: *"Ok, since puts don't work that well, how would buying calls do?"*
+
+Script `scripts/equity/highflyer_v2_call_buy.py` (Run 38's, calls instead of puts), output
+`data/equity/highflyer_repro/v2_call_buy.md` / `.parquet`. The ATM call and a +10% call at the first expiry on or after the
+exit (median 16 dte); bought at D's 10:00:00 1-minute quote (ask / ask − 25% of the spread / mid); sold at the exit day's
+10:00 quote or held to expiry at intrinsic. Clean ATM quotes 1,089 of 1,838 (proxy book 134); median ATM premium 6.0% of
+the stock (12.1% in the proxy book), spread 22% of the mid (29%). Per share, % of the 10:00 price.
+
+| | n | stock to the exit: mean / PF | call out at the exit, ask / ask − 25% / mid: PF | ask − 25%: mean | call to expiry, ask − 25%: PF | return on premium (ask − 25%): mean / median |
+|---|---|---|---|---|---|---|
+| all, ATM | 1089 | +2.69 / **1.85** | 0.87 / **1.25** / 1.80 | +0.64 | 1.31 | +9.0% / −29.7% |
+| all, +10% | 614 | +3.29 / **1.85** | 1.03 / **1.40** / 1.93 | +0.78 | 1.26 | +19.6% / −60.1% |
+| proxy, ATM | 134 | +9.59 / **3.97** | 1.24 / **2.04** / 3.54 | +3.85 | 1.63 | +35.9% / −10.3% |
+| proxy, +10% | 64 | +14.60 / **4.45** | 1.93 / **2.89** / 4.41 | +5.87 | 2.08 | +99.2% / −3.0% |
+
+By the stock's move to the exit (all, ATM, ask − 25%, mean %, stock / call): < −20% (22) −26.1 / −10.6; −20..−10 −14.0 / −7.8;
+−10..0 −4.2 / −4.2; **0..+10 (413, the largest bucket) +4.2 / +0.6**; +10..+20 +14.1 / +7.7; > +20% (75) +39.2 / +27.0.
+2026 (all, ATM, ask − 25%): call 0.25 at the exit / 0.22 to expiry vs the stock 0.52.
+
+**Read — better than the sold put, still worse than the stock.** The call does what it should at the tails: it keeps ~70%
+of the > +20% trips and loses ~40% of what the stock loses below −20%. What sinks it is the middle: the most common
+outcome, a +0–10% trip, earns the stock +4.2% and the call +0.6% — the premium's decay and the spread take it. At
+executable fills the PF falls from 1.85 to 1.25-1.40 (all) and from 4.0-4.5 to 2.0-2.9 (proxy); only at the mid does it
+match the stock, and holding to expiry is no better. The capital argument cuts both ways: the call ties up 6-12% of the
+stock's price, but the ROP is a lottery (median −30% all, −10% proxy; a > 90% loss in 8-28% of trips). As in S13/S16 and
+Run 38, these options are priced for more movement than the median trip delivers.
+
+## Run 40 — entering EARLIER (09:31 / 09:45), the close entry in 2026, and the crowding question (2026-11-06, user)
+
+> USER: *"I wonder if 2026 started losing because people aping Qullamaggie's breakout strategy? I wonder if entering
+> earlier, like 9:45 or even at the open would do better? Also, I've never asked, but does the enter at the close strategy
+> also lose in 2026?"*
+
+Partial candles at 09:31 (the first minute: "at the open"), 09:45 and 10:00 rebuilt from the minute aggs in one pass
+(`scripts/equity/build_partial_candles_multi.py` → `data/equity/highflyer_repro/partial_candles/<HHMM>/<YYYY>.parquet`).
+**CONTROL: the rebuilt 10:00 candles equal the archive on all 39,467,440 ticker-days 2005–2026** (prices exact, volume
+within 100 shares; the archive's 196k extra rows per year-window are tickers with no RTH minute before 10:00, never
+enterable), and the port on them reproduces Run 34's 3,948 trips, every return equal. Each earlier book = the same rules
+decided at the cutoff (move, fade and rvol on the candle to it; the fill at its close); rvol >= 1.0, and scaled to the 10:00
+book's median volume fraction by then (09:45 0.67, 09:31 0.16). The close book through 10-30 (`--entry close`) equals the
+05-13 one on every common trip (5,570 closed returns). Tables: `scripts/equity/highflyer_v2_earlier.py` →
+`data/equity/highflyer_repro/v2_earlier.md`.
+
+| all trips: trips · PF clip · mean | 2005–2015 | 2016–2025 | 2026 Jan–Oct | Jan–May 13 | May 14–Oct |
+|---|---|---|---|---|---|
+| **10:00 (production)** | 1654 · 1.78 · +2.3 % | 2120 · **1.95** · +3.2 % | 161 · **0.82** · −0.9 % | 86 · 0.74 | 75 · 0.94 |
+| 09:45, rvol >= 1.0 | 1070 · 1.49 · +1.6 % | 1373 · 1.64 · +2.5 % | 105 · 0.84 · −0.8 % | 52 · 0.77 | 53 · 0.92 |
+| 09:45, rvol >= 0.67 | 1482 · 1.50 · +1.6 % | 2016 · 1.67 · +2.6 % | 166 · 0.81 · −1.0 % | 94 · 0.85 | 72 · 0.75 |
+| 09:31, rvol >= 1.0 | 308 · 0.65 · −1.8 % | 426 · 1.10 · +0.9 % | 35 · 1.01 · +0.4 % | 20 · 1.33 | 15 · 0.48 |
+| 09:31, rvol >= 0.16 | 1147 · 1.16 · +0.7 % | 1605 · 1.39 · +2.1 % | 190 · 1.05 · +0.3 % | 104 · 1.27 | 86 · 0.77 |
+| **the close** (rvol >= 5) | 2556 · 1.64 · +1.8 % | 2917 · 1.57 · +2.2 % | 207 · **1.24** · +1.1 % | 115 · 1.39 | 92 · 1.02 |
+
+The proxy book: 10:00 2.51 → 0.99 in 2026; 09:45 1.76-1.87 → 0.96-1.02; 09:31 0.94-1.32 → 1.09-1.28; the close 1.61 →
+**1.35** (92 trips). The 09:45 / 09:31 books share 81 % / 63 % of their trips with the 10:00 book.
+
+**The cost of waiting** (descriptive: the 10:00 book's OWN trips priced from earlier that morning — selected with 10:00
+information, not tradeable):
+
+| | from 09:31 | from 09:45 | from 10:00 | median move 09:31 → 10:00 | 09:45 → 10:00 |
+|---|---|---|---|---|---|
+| 2016–2025 | 2120 · 4.25 · +7.5 % | 2.34 · +4.2 % | 1.95 · +3.2 % | +3.30 % | +0.51 % |
+| 2026 | 161 · 1.68 · +2.5 % | 0.93 · −0.4 % | 0.82 · −0.9 % | **+3.23 %** | +0.44 % |
+
+**Read**:
+- **Entering earlier does not help** — in normal years it is clearly worse (09:45 1.64-1.67, 09:31 1.10-1.39 vs 1.95 in
+  2016–2025), and in 2026 09:45 is as bad as 10:00 (0.81-0.84) and 09:31 only flat (1.01-1.05). The wait to 10:00 is a
+  FILTER: a name still up 10-30 % and not fading at 10:00 is a better buy than one that opened that way. (The 09:31 → 10:00
+  move a trip has already made, +3.3 %, is the price of that filter and is worth paying.)
+- **No crowding signature**: if copycats were buying these breakouts earlier, the run-up before our entry would have grown
+  and the drift after it shrunk at the entry. The run-up is normal in 2026 (+3.23 % from 09:31, vs +3.30 % in 2016–2025;
+  the gap and the 10:00 → close drift likewise, 12.7 % / −0.1 %), while the trips priced from 09:31 — with hindsight —
+  still drop from PF 4.25 to 1.68. What failed is the hold AFTER the entry day, as Run 34's market dependence says, not
+  the entry. (Not a proof against crowding; a different kind — selling into the follow-through days — would not show here.)
+- **The close entry does NOT lose in 2026**: PF 1.24 (207 trips; proxy 1.35), against its own 1.57 in 2016–2025 — weaker,
+  flat since May 14 (1.02). It is normally the worse entry (1.57 vs 1.95) and held up better this year.
+
+### Run 40b — PREMARKET entries: 08:30 and 09:00 (user, 2026-11-06: "What about entering an hour before the open or half an hour?")
+
+Premarket candles [04:00, c) built the same way (`build_partial_candles_multi.py --cutoffs 0830,0900`: a cutoff before 09:30
+takes the premarket's own OHLC); the fill = the last premarket minute's close (⚠ OPTIMISTIC: premarket quotes on these
+names are thin and wide). rvol scaled to the 10:00 book's median volume fraction by then (08:30 1.7 %, 09:00 3.6 %; only
+3,226 of its 3,948 trips had traded by 08:30), and 09:00 at rvol >= 0.25 (the gap short screen's "heavy premarket").
+
+| PF clip (trips) | 2016–2025, all | 2026, all | 2016–2025, proxy | 2026, proxy |
+|---|---|---|---|---|
+| 08:30, rvol >= 0.017 | 1.11 (1499) | 0.97 (218) | 0.92 (479) | 0.55 (50) |
+| 09:00, rvol >= 0.036 | 1.12 (1459) | 0.99 (196) | 0.89 (449) | 0.90 (44) |
+| 09:00, rvol >= 0.25 | 0.88 (545) | 0.84 (57) | 0.64 (247) | 0.58 (23) |
+| 09:31 (scaled) | 1.39 (1605) | 1.05 (190) | 1.32 (525) | 1.09 (53) |
+| 09:45 (scaled) | 1.67 (2016) | 0.81 (166) | 1.87 (665) | 0.96 (64) |
+| **10:00** | **1.95** (2120) | 0.82 (161) | **2.51** (696) | 0.99 (65) |
+| the close | 1.57 (2917) | 1.24 (207) | 1.61 (1305) | 1.35 (92) |
+
+**Read — the earlier the decision, the worse the book, monotonically: 08:30 1.11 → 09:00 1.12 → 09:31 1.39 → 09:45 1.67 →
+10:00 1.95** (2016–2025, all; the proxy book 0.92 → 0.89 → 1.32 → 1.87 → 2.51), with 2026 near 1.0 or below at every one
+of them. The premarket books share only 51-55 % of their trips with the 10:00 book: the premarket gapper that is still up
+10-30 % and holding at 10:00 is the trade; the premarket gapper as such is not (and the heaviest premarket volume is the
+worst cell, 0.64-0.88 — the gap-short screen's population, GF-64). The cost of waiting, for the 10:00 trips that traded by
+08:30: a median +4.55 % run from 08:30 to 10:00 in 2016–2025 — rising since 2023 (+5.9 / +5.1 / +6.1 / 2026 +5.4 %, vs
++3.6-4.7 % in 2016–2022): more of the move now happens before the open, a possible crowding signature, but it did not hurt
+the 10:00 book in 2023–2025.
+
+### Run 40c — LATE entries: 15:00 and 15:30 (user, 2026-11-06: "What about buying 30 or 60m before the close instead?")
+
+Candles [09:30, c) with volume from 04:00 (`--cutoffs 1500,1530`); the fill at the candle's close (the last minute before the
+cutoff); the same exit (the open of the 6th session). Two gates: rvol >= 1.0 (the 10:00 book's) and the CLOSE entry's
+rvol >= 5 scaled to the share of the day's volume in by then on the close book's trips (82 % / 87.5 % → 4.1 / 4.4).
+
+| PF clip · trips | 2016–2025, all | 2026, all | 2016–2025, proxy | 2026, proxy |
+|---|---|---|---|---|
+| 10:00 (production) | **1.95** · 2120 | 0.82 · 161 | **2.51** · 696 | 0.99 · 65 |
+| 15:00, rvol >= 1.0 | 1.44 · 8304 | 1.10 · 914 | 1.68 · 3038 | 1.57 · 236 |
+| 15:00, rvol >= 4.1 | 1.72 · 2608 | 1.27 · 158 | 1.95 · 1186 | 1.55 · 77 |
+| 15:30, rvol >= 1.0 | 1.41 · 8847 | 1.09 · 972 | 1.63 · 3292 | 1.47 · 251 |
+| **15:30, rvol >= 4.4** | 1.80 · 2616 | **1.37** · 160 | 1.95 · 1191 | **2.01** · 74 |
+| the close (rvol >= 5) | 1.57 · 2917 | 1.24 · 207 | 1.61 · 1305 | 1.35 · 92 |
+
+(2005–2015: 15:30 rvol >= 4.4 1.85, the close 1.64, 10:00 1.78; the proxy 2.10 / 1.79 / 2.05. 2026 halves at 15:30 rvol >= 4.4:
+Jan–May 13 1.47, May 14–Oct 1.21; the proxy 2.09 / 1.91.)
+
+**Read**:
+- **15:30 beats the close in every period** (all 1.80 vs 1.57 in 2016–2025, 1.85 vs 1.64 before; 2026 1.37 vs 1.24; the
+  proxy book 1.95 vs 1.61, and 2026 **2.01** vs 1.35): the last 30 minutes' move is a cost, the mirror of the morning's
+  "wait for 10:00" filter. (Not a pure timing change: the partial path also applies the fade gate, close vs open >= −7 %,
+  on the 15:30 candle; the close path does not.)
+- **10:00 is still the best book in normal years** (1.95 / proxy 2.51), but **in 2026 the late entry is the one that
+  works**: the proxy book at 15:30 rvol >= 4.4 is 74 trips at PF 2.01, both halves of the year (2.09 / 1.91). Whatever broke
+  in 2026 hits the morning entry — the names bought at 10:00 that then fail during the same day — far more than the names
+  still strong into the close.
+- The rvol >= 1 versions are the weaker, wider books (8-9k trips): late in the day the volume gate is what selects.
+- ⚠ The gates 4.1 / 4.4 come from the close book's own volume profile, not a search; but the 15:30 2026 cells are small
+  (74-160 trips). A candidate for the return rule / a second book, not a ruling.

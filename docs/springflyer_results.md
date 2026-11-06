@@ -1729,3 +1729,48 @@ fell 20-40% +3,055 / +2,280 / +1,811; fell 0-20% +1,170 / +2,014 / +2,917; rose 
 - ⚠ The fills are the open question: the EOD quote is the closing NBBO, and whether a sell fills at bid + 25% into a
   climax close is unmeasured (the tick quotes, STANDARD, can answer it). The 10-day stock short is still the better
   10-day trade (S13: +1,233 / 2.55); these compare like for like at the expiry day only.
+
+## S17 — SOLD IN-THE-MONEY calls vs ATM (user, 2026-11-06)
+
+> USER: *"I'd like to see a test on how selling ITM calls on SpringFlyer candidates would do. I wonder if those would be more
+> profitable than ATM ones?"*
+
+Script `scripts/equity/springflyer_itm_calls.py`, log `logs/springflyer_itm_calls.log`, output
+`data/equity/springflyer/itm_calls.parquet`. S13's 147 trades and expiries (median 24 dte); from D's chain the ATM strike and
+the strikes nearest 0.90× / 0.80× the close (medians 89 % / 80 %). Sold at D's close (bid / bid + 25 % / mid), out at the
+10-day exit (ask / ask − 25 % / mid) or held to expiry at intrinsic. Stub filter per strike (an ask above the stock, a bid
+more than 5 % of the stock below intrinsic, a spread > 50 % of the mid): 121 trades clean at every strike.
+
+| at D's close (medians) | premium at the bid, % of the stock | of it TIME VALUE | spread % of the mid |
+|---|---|---|---|
+| ATM | 18.7 | 16.3 | 11 |
+| 10 % ITM | 22.7 | 11.6 | 12 |
+| 20 % ITM | 26.6 | 7.3 | 11 |
+
+| the 121 trades clean at every strike | win% | mean bp | median bp | PF | worst bp | p5 bp |
+|---|---|---|---|---|---|---|
+| **stock short, 10-day exit** | 69% | **+1395** | +1550 | **2.96** | -10921 | -4784 |
+| sold ATM call, 10-day exit, bid + 25 % | 76% | +921 | +1338 | **3.06** | -8554 | **-2736** |
+| sold 10 % ITM call, 10-day exit, bid + 25 % | 73% | +972 | +1648 | 2.66 | -9654 | -4417 |
+| sold 20 % ITM call, 10-day exit, bid + 25 % | 72% | +1003 | +1882 | 2.55 | -9654 | -4417 |
+| stock short, to the expiry day | 65% | +1220 | +1785 | 2.12 | -22810 | -5056 |
+| sold ATM call, to expiry, bid + 25 % | 79% | +941 | +1647 | **2.36** | -21437 | -2944 |
+| sold 10 % ITM call, to expiry, bid + 25 % | 72% | +944 | +1996 | 2.11 | -21437 | -4417 |
+| sold 20 % ITM call, to expiry, bid + 25 % | 69% | +972 | +2270 | 2.05 | -22708 | -4417 |
+
+At the bid / at the mid the order is the same (10-day exit: ATM 2.64 / 3.52, 10 % ITM 2.25 / 3.15, 20 % ITM 2.13 / 3.06).
+By the stock's move to expiry (bid + 25 %, mean bp — stock / ATM / 10 % ITM / 20 % ITM): fell > 40 % +5,720 / +2,692 / +3,137 /
++3,424; fell 20-40 % +3,056 / +2,208 / +2,585 / +2,955; fell 0-20 % +1,164 / +2,002 / +2,178 / +2,006; rose 0-20 % −845 / +503 /
+−35 / −370; rose 20-40 % −3,065 / −1,477 / −2,419 / −2,535; rose > 40 % −9,490 / −7,955 / −8,456 / −8,868.
+
+**Read — an ITM call is a step from the ATM call TOWARD the stock short**, not a better trade. Its premium is mostly
+intrinsic (the time value falls 16 % → 12 % → 7 % of the stock), so it keeps more of a crash (+3,424 vs +2,692 bp when the
+stock fell > 40 %) and gives back the cushion against a rise (−370 vs +503 when it rose 0-20 %; −2,535 vs −1,477 at
+20-40 %). The mean rises a little (+921 → +972 → +1,003, the stock +1,395) and the PF falls (3.06 → 2.66 → 2.55, the stock
+2.96). The ATM call stays the best risk-adjusted sale — the highest PF and by far the mildest typical loss (p5 −2,736 vs
+−4,417 bp, the stock −4,784) — and the deep ITM call is a stock short with a small cap and a spread to pay. With the
+stub-quote filter, the ATM sale at bid + 25 % now edges the stock short on PF at the 10-day exit too (3.06 vs 2.96 on
+these 121; S13's 1.93 was unfiltered).
+
+⏭ Next (user): the CHAIN LIQUIDITY — the intraday quotes and sizes of these contracts, and whether a limit order worked through
+the day near the ask (the bid + x % fills assumed here) would fill.
