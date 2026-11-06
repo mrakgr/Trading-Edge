@@ -1646,3 +1646,51 @@ Worth knowing for future work: expressing tightness on the /sum scale would
 have made the kinship with the efficiency-ratio family obvious years earlier.
 The one place log-vs-linear DOES matter is standalone range features on names
 that move hundreds of percent — there the two spaces genuinely disagree.
+
+## Run 37 — split by LISTED OPTIONS (2026-11-06, user)
+
+> USER: *"Yesterday we found out that it's dead in 2026, so I am wondering if splitting the stocks into those that have
+> option chains and those that don't would make a difference."* (after SpringFlyer S12: the names WITHOUT options are
+> the far better shorts.) *"I'd expect them to be better, but we'll see."*
+
+Script `scripts/equity/highflyer_v2_options.py` (`--cached` reuses the saved probes), output
+`data/equity/highflyer_repro/v2_options.md` / `.parquet`. Run 34's causal 10:00 book, closed trips 2016-01-05 →
+2026-10-30 (ThetaData options STANDARD starts 2016-01-04): **2,281 trips**; `has_chain` = call rows on the PREVIOUS
+session's EOD (causal for the 10:00 entry). 81% of all trips have a chain, 55% of the proxy book (dv60_med < \$2M, CS).
+Cells: trips · PF clip · mean.
+
+| | all: chain | all: no chain | proxy: chain | proxy: no chain |
+|---|---|---|---|---|
+| 2016 | 116 · 3.14 · +3.3 % | 22 · 4.92 · +9.2 % | 32 · 7.86 · +7.3 % | 13 · 3.46 · +7.8 % |
+| 2017 | 194 · 2.39 · +3.3 % | 51 · 2.51 · +4.3 % | 54 · 4.18 · +6.5 % | 40 · 2.72 · +4.7 % |
+| 2018 | 168 · 3.07 · +3.2 % | 30 · 2.32 · +4.4 % | 32 · 4.41 · +6.2 % | 23 · 2.64 · +4.6 % |
+| 2019 | 139 · 1.93 · +2.3 % | 23 · 2.72 · +6.1 % | 21 · 2.32 · +4.4 % | 16 · 2.13 · +5.6 % |
+| 2020 | 188 · 2.54 · +6.7 % | 62 · 1.48 · +2.5 % | 44 · 4.23 · +15.7 % | 50 · 1.37 · +1.9 % |
+| 2021 | 249 · 1.36 · +1.6 % | 99 · 1.23 · +1.7 % | 58 · 2.09 · +5.0 % | 77 · 1.47 · +2.9 % |
+| 2022 | 62 · 2.31 · +3.9 % | 18 · 1.44 · +2.2 % | 19 · 2.91 · +7.7 % | 16 · 1.56 · +2.4 % |
+| 2023 | 145 · 1.83 · +2.6 % | 18 · 1.91 · +6.4 % | 35 · 2.27 · +5.1 % | 17 · 1.51 · +3.8 % |
+| 2024 | 231 · 1.74 · +2.5 % | 35 · 2.83 · +3.8 % | 51 · 4.95 · +8.9 % | 26 · 3.94 · +5.5 % |
+| 2025 | 218 · 1.89 · +3.3 % | 52 · 1.41 · +2.1 % | 33 · 6.06 · +11.0 % | 39 · 1.09 · +0.5 % |
+| **2026 Jan–Oct** | 128 · 0.79 · -1.0 % | 33 · 0.90 · -0.6 % | 38 · 1.07 · +0.3 % | 27 · 0.93 · -0.5 % |
+| **2016–2025** | 1710 · 2.02 · +3.2 % | 410 · 1.76 · +3.5 % | **379 · 3.65 · +7.9 %** | 317 · 1.73 · +3.4 % |
+
+By dv60_med (all trips): < \$2M chain 449 · **3.21** · +7.1 % vs no chain 391 · 1.71 · +3.3 %; \$2-10M 1.52 vs 1.32 (48
+no-chain); above \$10M almost every name has options (4 without). By entry price: < \$10 2.79 vs 1.58; \$10-30 1.73 vs
+1.61; > \$30 1.35 vs 2.55 (66 no-chain trips).
+
+**Control, inside dv60 < \$2M, matched on dv60 deciles, 2000 draws**: the chain trips' 3.21 against no-chain trips drawn
+with their mix: p5 1.18 / median 1.44 / p95 1.76; the no-chain trips' 1.71 against chain trips drawn with theirs: p5 2.78 /
+median 3.52 / p95 4.52. (A first all-years control matched on four coarse dv60 bands was broken — 52 no-chain trips above
+\$2M resampled to stand in for 1,389 chain trips — and was withdrawn.)
+
+**Read**:
+- **The chain matters, with the sign OPPOSITE to the user's expectation and to SpringFlyer's**: for this LONG the names
+  WITH options are the better buys — proxy book 3.65 vs 1.73 in 2016–2025, ahead in **10 of 10 years**. With S12 that is
+  one consistent picture, the short-sale constraint: a name without options overshoots, so it is a better short after a
+  climax (SpringFlyer) and a worse long after a breakout (HighFlyer).
+- **The chain-proxy cell is the new best HighFlyerV2 book**: 379 trips 2016–2025, PF clip 3.65, mean +7.9 % (the
+  whole proxy book 2016–2025: 696 · 2.51 · +5.8 %), ~38 trips/yr.
+- **⚠ It does NOT rescue 2026**: chain-proxy 38 · 1.07 · +0.3 %, every cell 0.79–1.07. The 2026 failure is the market
+  regime (Run 34), common to both groups. The wait decision stands; the return rule (Run 36) could track the
+  chain-proxy book instead (fewer trips — the bootstrap power would need recomputing).
+- Costs remain unmodelled; the exit-liquidity bottleneck (Run 33) is unchanged.

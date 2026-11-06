@@ -1396,3 +1396,336 @@ it has to be on the ADVERSE side (a stop), not on the profit side.
   (`docs/lowflyer_short_productionization_research.md` is the prior work on locates).
 - The tail rule (an adverse-side stop) remains open. User: *"I like this system a lot."*
 - Next up: LongHiker revisited with a consolidation feature (user's idea, to be explained).
+
+## S10 — the SPEC v2 signal list since 2020, for the options study (user, 2026-11-06)
+
+> USER: *"I'd like to investigate whether such trades could be better expressed using options. Let's gather a list of
+> SpringFlyer signals since 2020, and then we'll look into selling calls on them."*
+
+Script `scripts/equity/springflyer_signals.py` (S9's book was computed inline and never committed; this is its saved
+reproduction), features rebuilt through 2026-10-30 as `data/springflyer_daily_2026-10-30.parquet` (the 09-07 file kept),
+log `logs/springflyer_signals.log`. Output **`data/equity/springflyer/signals_spec_v2.parquet` / `.csv`**: every SPEC v2
+signal 2005 → 2026-10-12 with D's RAW close (the price a strike is set against), the outcomes, `exit_date_5` /
+`exit_date_10`, `phantom_suspect`, `in_book10` (the exact-session 10-day book, S9 open item 4) and `in_book10_s9`.
+
+### the control: S9 does not reproduce exactly, and the difference is the split corrections
+
+| through 2026-09-04 | signals | names | 10d mc=1 book | PF | mean | median |
+|---|---|---|---|---|---|---|
+| S9 (2026-09-07 data) | 827 | 439 | 480 | 3.17 | +1,731 | +2,107 |
+| the 09-07 feature file, today's 20d-high flag | 801 | 430 | 468 | 3.20 | +1,765 | +2,115 |
+| rebuilt on today's data | **785** | 423 | 461 | **3.26** | +1,795 | +2,152 |
+
+The 20d closing-high flag is identical on v1 (`trading.db`) and data v2 (1,001 spec rows, 801 pass on both): the
+difference is the daily data itself, corrected between 09-08 (when a subagent last reproduced 827) and now. **Every one
+of the 42 lost signals is a reverse-split phantom**: the 16 the rebuild drops had 20-session ranges of 800-2,800%
+(SNS 2009, SGY 2016, LVLT 2011, PPHM 2017, EDR 2014, ORPN 2019, ETS 2005) that are 4-150% on corrected data, and the
+46 feature rows whose 20d-high flag now fails all moved the same way (OZM, REV, BBX, AIG, RBS, NXTD, TPL, JFBR ...).
+Corrected data RAISES the PF (3.17 → 3.26) — the phantoms were a cost, the lookahead protocol's control direction.
+
+### ⚠ phantom suspects still in the data — an UNRECORDED split or ticker reuse
+
+UBXG 2026-06-15 (chg20 +6,799%): its close went 0.129 → 3.12 on 2026-05-22 on **0.01×** its median volume — a ~1:25
+reverse split missing from `splits` — inside the 20-session window, so rng20c / er20 / chg20 are contaminated. The scan
+over the 2020+ book: 83 entries had a ≥ 3× one-day close jump in the prior 20 sessions, and nearly all of them are the
+climax itself (20-10,000× volume). The flag = a ≥ 3× (or ≤ ⅓×) one-day jump on **< 3×** the prior-20 median volume
+inside the window: **63 of 795 signals, 14 since 2020** (ADRO, BNZI, BTB, CZR, EPSM, ESGC, PSTV, TCGL, UBXG, WLL —
+WLL = the post-bankruptcy shares, CZR = the Eldorado merger). Kept in the file, out of the book. The splits that ARE
+recorded (MEDS, HOLO, IFBD, LYRA, RGC, DGNX, SKYQ, AKAN, TDIC, SDOT within 30 days of a 2020+ signal) are handled by
+the causal `n` and are not suspects.
+
+### the book since 2020 (exact-session mc=1, 10-day timestop, suspects excluded), short bp
+
+| year | signals | book | win% (r10) | mean r10 | median r10 | PF r10 | PF r5 | worst r10 | p95 mfe5 (adverse) | median close \$ | median dv20 \$M |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2020 | 87 | 61 | 72% | +1638 | +2552 | 2.76 | 3.35 | -17370 | +9755 | 9.27 | 39.7 |
+| 2021 | 81 | 43 | 84% | +2149 | +2276 | 6.12 | 3.16 | -9213 | +19467 | 19.70 | 66.2 |
+| 2022 | 35 | 21 | 81% | +2214 | +2053 | 9.66 | 4.64 | -2902 | +7927 | 6.52 | 16.9 |
+| 2023 | 40 | 26 | 65% | +1116 | +1946 | 1.90 | 4.99 | -10864 | +9167 | 6.05 | 26.6 |
+| 2024 | 113 | 68 | 72% | +1585 | +2454 | 2.10 | 1.53 | -19094 | +10149 | 9.51 | 35.0 |
+| 2025 | 118 | 67 | 73% | +2456 | +2894 | 5.71 | 13.63 | -6918 | +6010 | 9.34 | 33.0 |
+| 2026 | 101 | 56 | 84% | +2732 | +2584 | 5.29 | 2.23 | -18795 | +13823 | 18.21 | 38.4 |
+| **all** | 575 | 342 | 76% | +2025 | +2462 | **3.47** | 3.04 | -19094 | +11201 | 10.28 | 35.1 |
+
+342 trades in 6.8 years (~50/yr; 3 still open at the data's end). Every year PF > 1.9. The D close in raw dollars: \$2-5
+86, \$5-10 82, \$10-20 61, \$20-50 76, \$50+ 37 — half the book is under \$10, where listed options are thin or absent;
+the chain's existence on D is the options study's first filter. The adverse side is the same as S9's: p95 of the
+5-day high +112% against the entry, worst trade −191% (the squeeze) — a sold call carries the same unbounded tail as the
+stock short unless it is capped (a bear call spread), so the study compares both against the stock short.
+
+⏭ Next: ThetaData (key in `~/.config/thetadata/credentials`, mode 600, never printed) — for each book signal, does a chain
+exist on D (expiries around `exit_date_10`, strikes against the raw close), its IV and bid/ask; then the call sale (naked
+and spread) against the stock short on the same signals.
+
+## S11 — ThetaData access and option COVERAGE of the book (user, 2026-11-06)
+
+**Access**: the REST API is served by the local Theta Terminal v3 (`~/thetadata/ThetaTerminalv3.jar`, the user runs it:
+`THETADATA_API_KEY` from `~/.config/thetadata/credentials`; `http://127.0.0.1:25503/v3/...`). The account: **Options
+STANDARD** (stock/index/rate FREE), 4 concurrent requests. **History starts 2016-01-04, measured**: AAPL's EOD on
+2016-01-04 returns 571 calls; 2015-12-31 and earlier are refused (*"requiring a PROFESSIONAL subscription"*). EOD rows
+carry the day's last NBBO (bid/ask); the hourly quote and implied-volatility endpoints respond (AAPL 2016-01-04).
+HTTP 472 = no data (no chain that day).
+
+Script `scripts/equity/springflyer_option_coverage.py`, log `logs/springflyer_option_coverage.log`, output
+`data/equity/springflyer/option_coverage.parquet`: for every book signal 2016-01-04 → (393 on 357 names), one EOD request
+for D's calls; the ATM call = the strike nearest D's raw close at the first expiry on or after the 10-day exit date.
+
+| year | book | symbol in today's list | chain on D | % | median ATM spread % of mid | median ATM mid % of close | median dte | stock-short PF r10, chain | no chain |
+|---|---|---|---|---|---|---|---|---|---|
+| 2016 | 9 | 7 | 4 | 44% | 80.7 | 11.8 | 27 | 15.47 | inf |
+| 2017 | 19 | 18 | 8 | 42% | 13.2 | 15.5 | 25 | 13.71 | 8.31 |
+| 2018 | 9 | 5 | 4 | 44% | 23.1 | 23.3 | 30 | 1.00 | inf |
+| 2019 | 14 | 14 | 8 | 57% | 24.0 | 13.9 | 24 | 0.44 | 6.78 |
+| 2020 | 61 | 55 | 27 | 44% | 9.5 | 23.7 | 24 | 2.17 | 3.23 |
+| 2021 | 43 | 33 | 21 | 49% | 6.7 | 31.1 | 31 | 14.99 | 3.69 |
+| 2022 | 21 | 13 | 9 | 43% | 24.4 | 13.4 | 30 | 68.28 | 7.02 |
+| 2023 | 26 | 18 | 10 | 38% | 15.2 | 16.5 | 34 | 1.18 | 2.36 |
+| 2024 | 68 | 46 | 20 | 29% | 9.3 | 16.1 | 18 | 1.33 | 2.56 |
+| 2025 | 67 | 40 | 21 | 31% | 24.1 | 16.7 | 24 | 5.72 | 5.71 |
+| 2026 | 56 | 23 | 15 | 27% | 23.3 | 14.7 | 24 | 2.02 | 6.62 |
+| **all** | 393 | 272 | **147** | **37%** | 14.2 | 18.8 | 24 | **2.55** | **4.23** |
+
+By the raw close: \$2-5 33/95 with a chain, \$5-10 35/93, \$10-20 26/79, \$20-50 30/86, \$50+ 23/40 — coverage is flat
+in price (~35%), so it is listing age / size, not price, that decides it; and it is falling (44-57% 2016-2022 → 27-31%
+2024-2026: the recent climaxes are fresh IPOs and small floats without listed options).
+
+**Read**:
+- **Only 37% of the book (147 trades in 10.8 years, ~14/yr) can be expressed with calls at all**, and that subset is
+  the WEAKER one: the stock short's PF r10 is 2.55 on the names with a chain vs 4.23 on those without. Options would be a
+  satellite on a third of the signals, not a replacement for the short.
+- **The premium is large**: the ATM call ~24 days out is priced at a median **18.8% of the stock** (IV in the
+  hundreds) — MORE than the stock short makes on these same 147 trades (median r10 +13.1%, mean +12.3%; the no-chain
+  trades +30.5%). At expiry a sold ATM call keeps the whole premium on any decline and loses only above strike + premium:
+  it trades the profit beyond 18.8% for an 18.8% cushion against the squeeze. ⚠ That is the EXPIRY payoff; the 10-day
+  exit buys back a call with ~2 weeks left, so the measured trade needs the D+10 quote, not this arithmetic.
+- **The spread is the cost**: a median 14% of the mid (wider than 20% in 2016, 2018-19, 2022, 2025-26) — the fill
+  model, not the mid, decides whether the sale pays.
+
+⏭ The call sale on the 147: hold to the 10-day exit, buy back at the ask (or expire); naked ATM / OTM and the bear
+call spread, against the stock short on the same trades; fills at bid (sell) / ask (buy) and at the mid as the bound.
+
+## S12 — dv60_med as a quality proxy, and the option listing as a feature (user, 2026-11-06)
+
+> USER: *"This is an amazing find. Could the 60d median volume act as a proxy for trade quality? We found yesterday that
+> the 60d median volume has a strong correlation with stock's float."*
+
+Script `scripts/equity/springflyer_dv60.py`, log `logs/springflyer_dv60.log`. dv60_med = median(volume × close) over the
+60 sessions BEFORE D (same episode); the book = the 436 closed exact-session trades 2005 →. These names were DORMANT
+before the climax: median dv60 \$0.48M against a dv20_prior 48× larger (the run-up's own volume; rank ρ 0.44).
+
+### dv60_med: a weak, non-monotone proxy
+
+| dv60_med | trades | win% r10 | median r10 | PF r10 | PF r5 | 2005-2019 PF (n) | 2020-2026 PF (n) |
+|---|---|---|---|---|---|---|---|
+| < \$1M | 263 | 78% | +2493 | **3.82** | 3.29 | 6.14 (56) | 3.53 (207) |
+| \$1-2M | 44 | 66% | +1339 | 3.60 | 6.49 | 1.45 (17) | 6.64 (27) |
+| \$2-5M | 56 | 66% | +1234 | **1.85** | 1.48 | 0.75 (14) | 2.42 (42) |
+| \$5-20M | 40 | 60% | +1165 | **1.68** | 2.63 | 0.65 (6) | 1.91 (34) |
+| > \$20M | 33 | 82% | +2115 | 14.80 | 6.11 | inf (4) | 13.68 (29) |
+
+Quintiles: Q1-Q3 (< \$1M) PF 3.6-4.2, Q4-Q5 2.5-2.8. The dormant names short best and a \$2-20M hole is weak in both
+halves, but the top band (large caps in a 200% climax, 33 trades) is the best of all, and split at the median the
+below-median half wins only 7 of 11 years. dv20_prior quintiles are flat (2.8-3.7).
+
+### ⭐ the option chain is NOT a disguised dv60 — it holds in every stratum
+
+| stratum (2016+) | chain: trades / PF r10 / median r10 | no chain: trades / PF r10 / median r10 |
+|---|---|---|
+| dv60 above median | 118 / 2.62 / +1331 | 77 / 4.31 / +2888 |
+| dv60 below median | 29 / 2.31 / +1275 | 166 / 4.20 / +3181 |
+| 2016-2021 | 72 / 3.02 / +1466 | 83 / 4.75 / +2888 |
+| 2022-2026 | 75 / 2.22 / +1050 | 160 / 4.03 / +3194 |
+| listed 1-4 yrs | 57 / 1.96 / +1310 | 107 / 3.86 / +2873 |
+| listed > 4 yrs | 84 / 2.71 / +1001 | 74 / 7.08 / +3209 |
+| close < \$10 | 68 / 2.00 / +1339 | 118 / 3.07 / +2857 |
+| close ≥ \$10 | 79 / 3.29 / +1267 | 125 / 6.09 / +3424 |
+
+(listed < 1 yr: 6 chain trades, uninformative.) **Iso-trip control**: 147 no-chain trades drawn 2000× with the chain
+subset's dv60 mix → PF r10 p5 2.71 / median 4.34 / p95 7.48; the chain subset's 2.55 sits at the **3rd percentile**.
+The median r10 without a chain is +2,900-3,400 bp in every stratum, with one +1,000-1,500.
+
+**Read**: the listing is the stronger feature, and it is knowable on D (the chain's existence that day). The mechanism
+it fits is the short-sale constraint (Miller 1977; option listings lower overvaluation — Figlewski & Webb 1993,
+Danielsen & Sorescu 2001): with no options there is no synthetic short and no market maker shorting stock to hedge, so
+the climax overshoots further and unwinds harder. ⚠ The same constraint is the cost: the no-chain names are the ones
+hardest to borrow — the best trades are the least available, and the borrow fee is exactly what is unmodelled here.
+
+## S13 — the short expressed as a SOLD CALL, on S11's 147 trades (user, 2026-11-06)
+
+Script `scripts/equity/springflyer_call_sale.py`, log `logs/springflyer_call_sale.log`, output
+`data/equity/springflyer/call_sale.parquet`. The contract = S11's (first expiry on or after the 10-day exit, median 24
+dte). Sell at D's closing bid, buy back at the exit day's closing ask (the long leg the other way round); 6 contracts
+that expired on/before the exit settle at intrinsic; no split inside any hold; every exit quote present. P&L per share
+of the underlying in bp of D's close. The ATM credit at the bid: median **1,638 bp** of the stock (3 zero bids).
+
+| structure (the same 147 trades) | n | win% | mean bp | median bp | PF | worst bp | p5 bp |
+|---|---|---|---|---|---|---|---|
+| **stock short, 10-day exit (no borrow fee)** | 147 | 67% | **+1233** | +1310 | **2.55** | -10921 | -5192 |
+| sold ATM call, bid/ask | 147 | 69% | +574 | +1139 | 1.93 | -8740 | -4472 |
+| sold ATM call, mid | 147 | 76% | +914 | +1341 | 2.95 | -8367 | -2999 |
+| sold +25% OTM call, bid/ask | 140 | 68% | +445 | +618 | 2.09 | -7588 | -3282 |
+| sold +25% OTM call, mid | 140 | 81% | +771 | +880 | 3.60 | -7419 | -2532 |
+| bear call spread ATM / +50%, bid/ask | 134 | 46% | **-617** | -62 | **0.28** | -8113 | -4217 |
+| bear call spread, mid | 134 | 69% | +151 | +506 | 1.41 | -4359 | -2436 |
+| HOLD TO EXPIRY: stock short to the expiry day | 147 | 64% | +1165 | +1653 | 2.05 | -22810 | -5685 |
+| HOLD TO EXPIRY: sold ATM call (bid), intrinsic at expiry | 147 | 76% | +717 | +1382 | 1.97 | -21618 | -5098 |
+| HOLD TO EXPIRY: sold ATM call (mid) | 147 | 79% | +927 | +1531 | 2.36 | -21255 | -4019 |
+
+By the stock's outcome (10-day exit, mean bp): stock rose > 20% (20 trades) stock −4,814 / ATM −3,828 / OTM −2,640 /
+spread −3,286; rose 0-20% (28) −736 / −169 / +83 / −1,091; fell 0-20% (36) +875 / +969 / +778 / −330; fell > 20% (63)
++4,232 / +2,076 / +1,385 / +225. The worst trade: RGTI 2024-12-11 stock −10,921, ATM call −8,740.
+
+**Read — NO: the call is not the better expression of this trade.**
+- At executable prices **every option structure earns less than the stock short**: the ATM call keeps 47% of the
+  stock short's mean (+574 vs +1,233), the OTM call 36%. At the mid the calls' PF beats the stock's (2.95 / 3.60), but
+  the round trip across the spread costs ~340 bp per trade on the ATM call — the median spread is 14% of the mid, on
+  an option worth 16% of the stock.
+- **The squeeze cushion is thin**: when the stock rose > 20% the ATM call lost 80% as much as the stock (−3,828 vs
+  −4,814); RGTI −87% vs −109%. The premium cushions the small adverse moves; the squeeze runs through it.
+- **The bear call spread is a loser at bid/ask** (PF 0.28): four crossings against a ~6% credit; it caps the loss but
+  pays for the cap with the whole edge.
+- **Holding to expiry recovers the time value but not the gap** (ATM PF 1.97 vs the stock to the same day 2.05), and
+  the edge itself decays after the 10th session (the stock short 2.55 → 2.05).
+- **The borrow fee is the only lever**: the stock short leads the ATM call by ~660 bp per trade (10-day exit, ~14
+  calendar days) — a borrow fee of ~170%/yr to break even. Options earn their place only where the borrow is that
+  expensive or not available at all; and S12 says the names where the borrow is hardest (no chain) are exactly the ones
+  that have no options.
+
+## S14 — the PUT DIAGONAL / BACKSPREAD (user, 2026-11-06)
+
+> USER: *"What if we did something like selling a short term ATM put and buying OTM puts further out to profit from the
+> decline? The idea is to profit from both a decline in volatility and when the stock drops a lot, and only lose money if
+> the stock goes down a little. On parabolic moves the least likely outcome is that the stock will start to consolidate,
+> instead it will either continue going up a lot or drop sharply."*
+
+Script `scripts/equity/springflyer_put_diagonal.py`, log `logs/springflyer_put_diagonal.log`, output
+`data/equity/springflyer/put_diagonal.parquet`. Short 1 ATM put at the nearest expiry with dte ≥ 5 (median 18; 58 of 146
+settle at intrinsic before the exit), long N puts at the strike nearest 0.80 × close at the first expiry with dte ≥ 30
+(median 50); entered at D's close, out at the 10-day exit; sold at the bid, bought at the ask; N = 1, 2, 3 and the
+zero-cost ratio (median 1.0). (The first run requested greeks for every contract of the chain and stalled server-side
+with a buffered, empty log; rerun with the light EOD chain + per-contract greeks and `python3 -u`.)
+
+### the premise
+
+- **The middle IS thin, but the outcome is one-sided**: over the whole book (436 trades) only 19% end the 10 days within
+  ±10% (29% at 5 days); 54% fell more than 20% (30% more than 40%), 13% rose more than 20%. "Consolidation is the least
+  likely outcome" holds; "up a lot OR down a lot" does not — it is down a lot.
+- **⚠ The structure is LONG volatility, not short**: net vega at entry is positive in 88% of the 1:1 trades (the
+  longer-dated leg carries more vega than the short-dated one). The IV collapse after the climax (median −0.23 on the long
+  leg, −0.12 on the short, from 1.83 / 2.20) therefore HURTS it.
+- **The options are overpriced, not underpriced**: the ATM straddle to its expiry (median 24 days) prices a median
+  **40.9%** move; the realised |move| was a median **28.9%**, larger than implied in only 27% of trades; a long straddle
+  at the mid loses a mean 9.6% of the stock. Any long-volatility structure starts from that deficit.
+
+### the result (146 trades; the stock short on the same trades for reference)
+
+| structure | n | win% | mean bp | median bp | PF | worst bp |
+|---|---|---|---|---|---|---|
+| **stock short (no borrow fee)** | 146 | 68% | **+1279** | +1331 | **2.68** | -10921 |
+| short ATM put alone | 146 | 40% | -555 | -329 | 0.42 | -7088 |
+| long OTM put alone | 146 | 25% | -570 | -403 | 0.29 | -9000 |
+| 1:1 diagonal | 146 | 21% | -1125 | -815 | 0.08 | -11222 |
+| 1:2 backspread | 146 | 8% | -1695 | -1073 | 0.04 | -20222 |
+| zero-cost ratio | 144 | 20% | -940 | -750 | 0.05 | -4753 |
+| 1:2 backspread, mid | 146 | 42% | -178 | -91 | 0.63 | -8050 |
+| zero-cost ratio, mid | 144 | 47% | -217 | -58 | 0.54 | -2564 |
+
+By the stock's 10-day outcome (mean bp, 1:1 / 1:2 / zero-cost): fell > 40% −2,570 / −2,266 / −2,055 (the stock short
++5,566); fell 20-40% −1,341 / −1,514 / −1,300; fell 10-20% −1,562 / −2,960 / −1,006; fell 0-10% −307 / −1,192 / −289; rose
+0-10% −209 / −868 / −358; rose > 40% −314 / −2,093 / +125. **It loses in every bucket, and most where the user expected
+the profit**: in a crash the short ATM put loses the whole drop to its strike (−2,874) while the −20% put, bought at a
+median 17.9% of the stock (IV ~180%), only gets back its price (+304).
+
+**⚠ Stub quotes at the climax**: 46 of 146 trades had an absurd or > 50%-wide entry quote on a leg (AMC 2021-01-27: the
+16-strike put offered at \$26.95 with the stock at \$19.90 — above the strike, its maximum value; SQNS 2025-07-11: the
+4-strike put at \$5.70). The exit quotes are sane (the deep ITM put's bid a median 1.03× intrinsic). On the 100 clean
+trades: stock short PF 2.84 (+1,410); the structures at bid/ask 0.06-0.16, **at the mid 0.48-0.58** — the verdict holds.
+S13's sold calls used the same quotes and were not filtered; its mid rows are the bound to trust.
+
+**Read — NO.** The climax prices its options for a bigger move than happens, so the money is on the SHORT-volatility
+side (S13's sold call at the mid: PF 2.95) and the plain stock short, which owns the whole decline, beats every option
+structure here before borrow fees. The backspread pays for crash insurance at crash prices.
+
+## S15 — the adverse excursion, with options vs without (user, 2026-11-06)
+
+> USER: *"We should also look at the MAE for those with options vs without. If those stocks that have options really have
+> more upside, we should see that reflected in the drawdown figures for the two books. If that's true, it might be a good
+> idea to tighten up the rules for the with-option names."*
+
+Script `scripts/equity/springflyer_chain_mae.py`, log `logs/springflyer_chain_mae.log`. The 390 closed 2016+ trades, the
+10-session path in D's scale; MAE = the highest high over the hold vs the entry close.
+
+| group | n | MAE p50 | p75 | p90 | p95 | max | MAE > 20% | > 50% | > 100% | session-1 high p50 / p90 | MFE p50 | PF r10 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| chain | 147 | 12.0 | 31.1 | 66.5 | 104.2 | 226 | 37% | 14% | 6% | 5.2 / 33.5 | 27.1 | 2.55 |
+| no chain | 243 | 17.6 | 50.7 | 95.5 | 136.8 | 1182 | 47% | 26% | 9% | 6.3 / 53.8 | 42.3 | 4.23 |
+
+**The premise is the other way round: the names WITHOUT options have the larger squeezes** (and the larger falls — MFE
+42% vs 27%): they are the more volatile names both ways. **What differs is what follows the squeeze**:
+
+| MAE passed | chain: n / still won / mean r10 | no chain: n / still won / mean r10 |
+|---|---|---|
+| 10% | 78 / 51% / +29 | 149 / 71% / +1515 |
+| 20% | 54 / 48% / −468 | 113 / 66% / +1141 |
+| 30% | 45 / 44% / −930 | 97 / 63% / +748 |
+| 50% | 21 / 33% / −2583 | 63 / 57% / −207 |
+
+With options a squeeze tends to KEEP going; without, it collapses anyway. (The chain names' max high also comes later:
+30% in sessions 6-10 vs 18%.)
+
+**A stop does not fix it** (a session opening above the stop exits at that open; else at the stop): chain PF 2.55 → 1.50 /
+1.39 / 1.74 / 1.55 at +20 / +30 / +50 / +100%; no chain 4.23 → 1.47 / 1.46 / 1.67 / 2.37. The squeezes that reverse are
+too much of the profit; both eras agree for the chain names (2016-21 3.02 → 1.36 at +20%; 2022-26 2.22 → 1.66).
+
+**⭐ The tightening that works: the 20-session range > 3× for the chain names** (S8 had already found > 300% the stronger
+cell for the whole book):
+
+| era | chain, range 2-3× | chain, range > 3× | no chain, range 2-3× | no chain, range > 3× |
+|---|---|---|---|---|
+| 2016-2021 | 45 · 1.73 · +663 | 27 · **9.87** · +2540 | 29 · 3.81 · +1389 | 54 · 5.11 · +2860 |
+| 2022-2026 | 49 · 1.44 · +474 | 26 · **4.79** · +2292 | 49 · 3.48 · +1700 | 111 · 4.22 · +2954 |
+| all | 94 · 1.57 · +564 | 53 · **6.46** · +2418 | 78 · 3.58 · +1585 | 165 · 4.46 · +2924 |
+
+(n · PF r10 · mean bp.) The weak cell is the chain name with a 2-3× range, in both eras; without options the 2-3× range
+still shorts at 3.6. Candidate rule: **a name with listed options needs rng20c_d > 3.0**. ⚠ 53 trades; the other feature
+bands inside the chain names (er10, er20, chg20, rvol, dv60, price) are noisy at 12-96 trades each and are not proposed.
+
+## S16 — SHORT VOLATILITY held to expiry (user, 2026-11-06)
+
+Script `scripts/equity/springflyer_short_vol.py`, log `logs/springflyer_short_vol.log`, output
+`data/equity/springflyer/short_vol.parquet`. S13's 147 trades and contracts (ATM, first expiry on or after the 10-day exit,
+median 24 dte), the put at the same strike fetched; sold at D's close, held to EXPIRY, settled at intrinsic (no exit
+spread). Fills for each sold leg: the bid; bid + 25% of the spread; the mid. Clean quotes = no call ask above the stock,
+no put ask above the strike, both spreads ≤ 50% of the mid (113 of 147). Straddle credit: median 36.5% of the stock at
+the bid, 41.6% at the mid.
+
+| held to expiry, clean quotes (113) | win% | mean bp | median bp | PF | worst bp | p5 bp |
+|---|---|---|---|---|---|---|
+| **stock short to the expiry day** | 67% | **+1195** | +1955 | **2.04** | -22810 | -5440 |
+| short ATM call, bid | 80% | +910 | +1640 | 2.23 | -21618 | -3966 |
+| short ATM call, bid + 25% | 81% | +984 | +1718 | **2.35** | -21437 | -3927 |
+| short ATM call, mid | 81% | +1057 | +1777 | 2.48 | -21255 | -3887 |
+| short ATM straddle, bid | 68% | +854 | +1253 | 2.19 | -19922 | -3249 |
+| short ATM straddle, bid + 25% | 73% | +1013 | +1421 | **2.51** | -19547 | -3178 |
+| short ATM straddle, mid | 78% | +1171 | +1667 | 2.84 | -19172 | -3108 |
+
+With S15's range > 3× on top (45 clean trades): stock short **4.08** (+2,480, p5 −3,604); short call at bid + 25%
+**4.24** (+1,703, 91% win, **p5 −596**); straddle 2.88 (+1,259). All 147 trades, stubs included: call at bid + 25% 2.16,
+straddle 1.96, stock 2.05.
+
+By the stock's move to expiry (clean, bid + 25%, mean bp — stock / call / straddle): fell > 40% +5,621 / +2,729 / +267;
+fell 20-40% +3,055 / +2,280 / +1,811; fell 0-20% +1,170 / +2,014 / +2,917; rose 0-20% −871 / +719 / +2,465; rose 20-40%
+−3,050 / −1,450 / +274; rose > 40% (9) −9,002 / −7,270 / −5,345.
+
+**Read**:
+- **Held to expiry, the short call is competitive with the stock short**: a higher PF (2.35 vs 2.04 at bid + 25%) and a
+  much better typical bad trade (p5 −3,927 vs −5,440; with the range rule −596 vs −3,604) for a lower mean (+984 vs
+  +1,195). The ~210 bp gap over ~24 days is a borrow fee of **~32%/yr** — against S13's ~170%/yr at the 10-day exit. A
+  hot-name borrow is often above that, so on these names the call can be the cheaper way to hold the short.
+- **The straddle is the pure volatility harvest**: best PF at the mid (2.84), it profits when the stock rises 0-20%
+  (+2,465) where the short loses, and gives back the crash (+267 where the stock short makes +5,621).
+- **Neither touches the squeeze tail**: the worst trade is −192% to −228% in every structure (the 9 trades that rose
+  > 40% average −53% to −90%). Sizing remains the only defence.
+- ⚠ The fills are the open question: the EOD quote is the closing NBBO, and whether a sell fills at bid + 25% into a
+  climax close is unmeasured (the tick quotes, STANDARD, can answer it). The 10-day stock short is still the better
+  10-day trade (S13: +1,233 / 2.55); these compare like for like at the expiry day only.
