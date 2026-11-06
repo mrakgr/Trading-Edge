@@ -1862,3 +1862,101 @@ Jan–May 13 1.47, May 14–Oct 1.21; the proxy 2.09 / 1.91.)
 - The rvol >= 1 versions are the weaker, wider books (8-9k trips): late in the day the volume gate is what selects.
 - ⚠ The gates 4.1 / 4.4 come from the close book's own volume profile, not a search; but the 15:30 2026 cells are small
   (74-160 trips). A candidate for the return rule / a second book, not a ruling.
+
+## Run 41 — the late entries examined: is 15:30 real, and the relaxed gates (2026-11-06, user)
+
+> USER: *"relax the rvol criteria from 5 to 3 and get more trades that way. Maybe we could also reduce the change % criteria a
+> bit as well. One thing that doesn't sit well with me is how much better 15:30 ET is than either 15 or 16 ET ... did it
+> somehow catch a large trade that the other 2 filters missed? ... maybe 8% and 3 rvol on low median volume stocks would be
+> better than 10% and 5 rvol on the full book?"*
+
+Script `scripts/equity/highflyer_v2_late.py` → `data/equity/highflyer_repro/v2_late.md`; candles at 14:30 / 15:15 / 15:45 /
+16:00 added. Every late book through the SAME path (`--entry partial`: the candle [09:30, c), the fade gate), 16:00 included —
+the old `--entry close` path had no fade gate and gated on the daily bar. rvol in CLOSE-EQUIVALENT units: k × the close
+book's median share of the day's volume in by the cutoff (14:30 .770 … 16:00 .985), k = 5 (the close entry's) or 3.
+
+**1. 15:30 is not a fluke — and not special.** PF clip (PF without the best 5 % of trips), move >= 10 %, k = 5:
+
+| cutoff | all 2005–2015 | all 2016–2025 | all 2026 | proxy 2016–2025 | proxy 2026 |
+|---|---|---|---|---|---|
+| 14:30 | 2.03 (1.37) | 1.74 (1.15) | 1.29 (0.79) | 1.92 (1.34) | 1.45 (0.96) |
+| 15:00 | 1.93 (1.31) | 1.72 (1.14) | 1.27 (0.79) | 1.95 (1.35) | 1.55 (1.04) |
+| 15:15 | 1.89 (1.27) | 1.73 (1.15) | 1.37 (0.83) | 1.86 (1.29) | 1.70 (1.14) |
+| 15:30 | 1.85 (1.24) | 1.80 (1.19) | 1.37 (0.86) | 1.95 (1.35) | **2.01** (1.36) |
+| 15:45 | 1.82 (1.22) | 1.79 (1.17) | 1.22 (0.74) | 1.88 (1.30) | 1.56 (0.97) |
+| 16:00 | 1.72 (1.14) | 1.68 (1.11) | 1.30 (0.82) | 1.71 (1.18) | 1.49 (0.99) |
+
+The 2016–2025 curve is FLAT from 14:30 to 15:45 (1.72-1.80; the proxy 1.86-1.95) and drops at 16:00; 2005–2015 falls
+steadily with the hour (2.03 → 1.72). 15:30's 2026 peak (the proxy 2.01 on 74 trips) is a bump on a ~75-trip cell between
+1.70 and 1.56 — noise. It does not come from a big trade (the 10 best trips are 3 % of the 2016–2025 gains; the PF is clipped
+at +50 %), but in 2026 every late book leans on its best trips (36-43 % of the gains in the top 10; < 1 without the best 5 %
+except the proxy book at 15:00-15:30). What IS robust: **the last 15-30 minutes cost** — 16:00 is the worst late cutoff in
+every period — and against the OLD close book 15:30 wins twice: on the 2,315 common trips its fill is better (PF 1.90 vs
+1.81), and the old close path's 602 extra trips (no fade gate) are dead weight (PF 0.97). Through the same path the close
+itself is 1.68 (2016–2025), not 1.57.
+
+**2. The relaxed gates.** rvol 3 instead of 5 nearly doubles the trips and costs PF everywhere (all, 15:30: 1.80 → 1.56; the
+proxy 1.95 → 1.82); move 8 % instead of 10 % adds ~15 % more trips at about the same PF (1.80 → 1.75; the proxy 1.95 → 1.86).
+**The user's comparison**: the proxy book at 8 % / rvol 3 (15:30) — 2,651 trips 2016–2025, PF 1.75 (ex best 5 % 1.20), mean
++3.2 % — against the full book at 10 % / rvol 5 — 2,616 trips, 1.80 (1.19), +2.8 %: **the same trip count and PF at a
+higher mean, and better in 2026 (1.49 vs 1.37, 175 vs 160 trips)**; every year 2016–2026 positive (1.21 in 2022 to 2.26 in
+2019). Summed over the trips it is the larger book (+85 vs +73 position-units in 2016–2025; the proxy at 10 % / 5 +48), but
+it is the LOW-liquidity population — the exit-day liquidity of Run 33 applies in full. The cleanest cell is still the proxy
+at 10 % / 5 (1.95, 1,191 trips), the relaxed one buys trips at a lower PF.
+
+**Run 41 addendum — the LOOKAHEAD audit of the late books (user: "Is this using lookahead data?").** Every gate, against the
+port's code: move = the cutoff candle's close vs D−1's close as the holder's return (`cd − k1` = a dividend going ex on D,
+known at the open); rvol = the volume to the cutoff over the mean of the 20 PRIOR sessions; the 52w high, ATR, tightness, adv
+and dv60_med on prior bars only; the fade on the candle itself; the candle = minute bars strictly before the cutoff, the fill
+its last close (optimistic as a fill, not a lookahead). Three things checked beyond that:
+- **Survivorship (real, negligible)**: a trip whose stock stops trading for > 45 days before its exit (delisting, a long halt)
+  is `open = 1`, and the Run 37–41 tables kept `open == 0` only. Such trips: 7 of 3,948 (10:00), 7 of 5,158 (15:30 10 % / 5),
+  17 of 12,202 (15:30 8 % / 3) — with them every PF moves in the 3rd decimal (10:00 2016–2025 1.948 → 1.937; 15:30
+  1.796 → 1.798; 2026 0.817 → 0.824 / 1.367 → 1.368). They are valued at the last close; a real delisting can lose more.
+- **The rvol calibration**: the close-equivalent fractions were measured on 2005–2026; by period they are stable (15:30:
+  .887 / .880 / .878 / .860 for 2005-10 / 2011-15 / 2016-20 / 2021-26; 15:00 .82-.83; 16:00 .97-.99) — a pre-2016 value moves
+  the 15:30 gate from 4.40 to 4.42. One scalar from the volume profile, not from returns.
+- **Inherited, minor**: n(D) is research's corrected one (split_corrections read D's tape — split days only); the CS/ADRC type
+  is today's ticker_reference; vendor minute aggs may place a late-reported print in its execution minute.
+
+## Run 42 — a LINEAR SIZING MODEL for the 15:00 entry, with dv60_med (2026-11-06, user)
+
+> USER: *"creating a linear sizing model that is a function of price change above 8% and rvol above 2 would be a good idea ...
+> ideally, we'd enter an hour before the close. I don't trust the 15:30 ET results in 2026, most likely it's overfit. We'll
+> also have to figure out how to include 60d median volume into our sizing. Let's do that and then we'll leave the system
+> aside for the time being to focus on options."*
+
+Script `scripts/equity/highflyer_v2_sizing.py` → `data/equity/highflyer_repro/v2_sizing.md`. The book: 15:00 (the candle
+[09:30, 15:00), the fill its close), move >= 8 %, rvol >= 2 close-equivalent (1.64 at 15:00): 16,758 trips 2005–2026-10, the
+delisting-cut trips kept at their last close. The model: GF-54's form — logit p, log-link W (wins clipped at +50 %) and L,
+IRLS, standardised terms winsorised 1/99 % (flags not); PF−1 = p / ((1 − p) · L / W) − 1; units = clip(PF−1, 0.125, 2), PF−1 <= 0
+refused. **FIT 2005–2020, TEST 2021–2026** (never seen).
+
+**The three-term model** (move, ln rvol, ln dv60_med; per 1 sd: odds × 0.999 / 1.107 / 0.990, W × 1.148 / 0.875 / 0.797,
+L × 1.089 / 0.856 / 0.858 — a bigger move = bigger wins, more volume = more wins and smaller swings, a bigger name = smaller
+wins): test sized PF **1.42** vs equal-weight 1.27 (2021–2025 1.46 vs 1.31; 2026 1.17 vs 1.06); it RANKS — the test quintiles
+of predicted PF−1 realise +0.07 / +0.15 / +0.06 / +0.39 / +0.69; the units shuffled across the test trips 1000× give p95 1.32
+(the model 1.42, 0 % of shuffles at or above it); every term pulls its weight (without move 1.43, rvol 1.37, dv60 1.36).
+
+**But the dv60_med effect is a STEP, not a slope** (fit / test PF: < $500k 1.74 / 1.74, $0.5-2M 1.82 / 1.32, $2-10M 1.33 /
+1.14, > $10M 1.45 / 1.02) — and the plain proxy FILTER (dv60_med < $2M, equal weight) beats the model: test PF **1.55**
+(2,384 trips), 2026 1.44. A flag in the model does not fix it (1.43): the 0.125-unit floor keeps the > $2M trips at ~0.4
+units, and since 2021 they are near breakeven. (The filter is Run 32's low-float line, not a test-period choice; in 2005–2020
+the < $2M names were already the better ones.) Move and rvol are monotone in both halves (move 8-10 % → 20-30 %: fit 1.39 →
+1.85, test 1.20 → 1.40; rvol 2-3 → 10+: fit 1.37 → 2.09, test 1.11 → 1.89).
+
+| test 2021–2026 | trips | equal-weight PF | sized PF | 2026 equal / sized |
+|---|---|---|---|---|
+| the three-term model, all trips | 5,848 | 1.27 | 1.42 | 1.06 / 1.17 |
+| move, lrv + a dv60 < $2M flag | 5,848 | 1.27 | 1.43 | 1.06 / 1.18 |
+| **the proxy FILTER, then sized on move and ln rvol** | 2,384 | 1.55 | **1.62** | 1.44 / **1.46** |
+
+**The chosen form: filter on dv60_med < $2M, size on move and ln(rvol).** Within the filtered book the model adds less (1.55
+→ 1.62; 2021–2025 1.56 → 1.64, 2026 1.44 → 1.46) and ranks only at the ends (test quintiles +0.12 / +0.78 / +0.58 / +0.38 /
++0.95 realised PF−1): it mostly trims the weakest — small move AND low rvol. The 2005–2025 refit (a production candidate,
+not deployed; per 1 sd): intercept odds 1.180, W 0.1050, L 0.0733; move [0.0805, 0.2818] mean 0.1325 sd 0.0478 — odds × 1.055,
+W × 1.118, L × 1.101; ln rvol (close-eq.) [0.709, 4.197] mean 1.614 sd 0.718 — odds × 1.064, W × 0.955, L × 0.927.
+
+**Status (user): HighFlyerV2 is set aside for the options work.** Not dead — the late entry works in 2026 (the proxy book at
+15:00: 1.44 equal / 1.46 sized on 271 trips) — and the candidate is: 15:00 entry, move >= 8 %, rvol >= 2 close-equivalent,
+dv60_med < $2M, sized by this model; the exit-day liquidity (Run 33) and costs remain unmodelled.

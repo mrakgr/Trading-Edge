@@ -1774,3 +1774,62 @@ these 121; S13's 1.93 was unfiltered).
 
 ⏭ Next (user): the CHAIN LIQUIDITY — the intraday quotes and sizes of these contracts, and whether a limit order worked through
 the day near the ask (the bid + x % fills assumed here) would fill.
+
+## S18 — could a RESTING SELL LIMIT near the ask fill? (user, 2026-11-06)
+
+> USER: *"For stocks that meet the criteria, how realistic would it be to get a fill close to the ask?"*
+
+Script `scripts/equity/springflyer_option_fills.py`, log `logs/springflyer_option_fills.log`, output
+`data/equity/springflyer/option_fills.parquet` (per-trade aggregates). S13's 147 trades, the ATM call at its expiry; every
+RTH print on D with the NBBO in force (ThetaData `history/trade_quote`, STANDARD tick data): pos = (price − bid) / (ask −
+bid). A sell limit resting at spread level x fills when a buyer prints at pos >= x (for x < 1 our offer would have been the
+best one, so those buyers would have met it first — not an unreasonable proxy; at x = 1 queue priority is ignored, an upper
+bound). The would-be size N = the contracts for ~$5k of stock: median 5 (p10 1, p90 15). Contracts traded on D's ATM call:
+median 781 (p25 95, p75 2,829); 141 of 147 had a print. ⚠ IDEX 2020-11-24 (8.8M contracts in 985k prints, 99.9 % at the
+bid, a $1-2 stock) is a data artifact, dropped from the pooled table.
+
+| where the prints sit (pooled % / per-trade median %) | at or below the bid | 0-0.5 | 0.5-0.75 | 0.75-1 | at or above the ask |
+|---|---|---|---|---|---|
+| the whole day | 32 / 21 | 16 / 18 | 11 / 11 | 6 / 5 | 36 / 27 |
+| the last 60 min | 28 / 19 | 17 / 18 | 9 / 6 | 6 / 3 | **41 / 27** |
+| the last 30 min | 26 / 11 | 18 / 19 | 10 / 5 | 7 / 3 | 40 / 25 |
+
+| FILL RATE: buyers printed >= N contracts at pos >= x | x = 0.5 (mid) | 0.75 | 0.9 | 1.0 (the ask) |
+|---|---|---|---|---|
+| the whole day | 92 % | 88 % | 88 % | 87 % |
+| **the last 60 min** | 74 % | **67 %** | 66 % | 64 % |
+| the last 30 min | 65 % | 61 % | 59 % | 56 % |
+
+| the REALISED level of those prints in units of D's CLOSING spread (median) | pos >= 0.5 | >= 0.75 | >= 1.0 |
+|---|---|---|---|
+| the whole day | 0.38 | 0.29 | 0.21 |
+| **the last 60 min** | 0.55 | **0.57** | 0.54 |
+| the last 30 min | 0.60 | 0.60 | 0.58 |
+
+Last-hour fill rate at x = 0.75 by the stock's price: < \$5 61 % (33 trades), \$5-10 74 %, \$10-20 77 %, \$20-50 53 % (median
+near-ask contracts 5.5), \$50+ 74 % (N is 1-2 there).
+
+**Read**:
+- **Buyers DO lift the offer on these names at the climax**: ~40 % of the last hour's contracts print at or above the ask
+  (per-trade median 27 %) — call buying into the run. A resting offer at bid + 75 % of the spread would have met >= N buyers
+  in **2 of 3 trades in the last hour** (61 % in the last 30 min), and in 88 % over the whole day.
+- **But the price moves under the order**: the option is cheapest early and richest at the close (the stock closes at its
+  high — that is the setup), so the then-ask in the last hour is a median **bid + 55-60 % of the CLOSING spread** — about
+  the closing MID, not the closing ask; earlier in the day it is below the closing mid (0.21-0.38). Working the offer through
+  the last hour is worth ~the mid, against S16's bid + 25 % assumption: **the mid rows are the realistic ones for the ~2/3
+  that fill** (S16 ATM to expiry: mid PF 2.50 vs bid + 25 % 2.36; S17 10-day exit: 3.52 vs 3.06), the rest fall back to the
+  closing bid or are skipped.
+- ⚠ The order is placed BEFORE the signal is final (the spec is a value of the close): a name that misses at 15:58 leaves a
+  short call to buy back. And the queue at the ask is ignored (x = 1.0 is an upper bound). The live answer needs the
+  locate-style paper/live probe on a few names, not more history.
+
+**S18 addendum — the user's correction and the TICK SIZE (2026-11-06).** *"A trade that's up 200% on the day and goes down is
+just a winning trade, not a call that we'd need to buy back."* — right: a name that misses the spec at 15:58 has almost
+always faded from where the call was sold, so the early sale is a winner to close, not a liability; the "placed before the
+signal is final" caveat above is withdrawn. Tick sizes (US options): the Penny Interval Program classes quote $0.01 below
+$3 and $0.05 above (a few — SPY, QQQ, IWM — pennies throughout); every other class $0.05 below $3 and $0.10 above. In the
+147 trades' closing ATM quotes ~7-11 % show penny prices (a penny class); the rest are on the nickel / dime grid. The
+closing spread is a median **6 ticks** wide (p25 2, p75 13; one tick in only 16 %; a median $2.35 option, spread 14 % of the
+mid) — room to post INSIDE the spread (ask − 1 tick ≈ 83 % of a 6-tick spread). Queue: on many options exchanges a
+PRIORITY CUSTOMER order (a non-broker-dealer averaging < 390 orders a day) has priority at its price over market-maker
+quotes, so a retail offer at the ask is not necessarily last in line — the broker's options routing decides which venue.
