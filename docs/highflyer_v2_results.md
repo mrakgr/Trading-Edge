@@ -1960,3 +1960,59 @@ W × 1.118, L × 1.101; ln rvol (close-eq.) [0.709, 4.197] mean 1.614 sd 0.718 �
 **Status (user): HighFlyerV2 is set aside for the options work.** Not dead — the late entry works in 2026 (the proxy book at
 15:00: 1.44 equal / 1.46 sized on 271 trips) — and the candidate is: 15:00 entry, move >= 8 %, rvol >= 2 close-equivalent,
 dv60_med < $2M, sized by this model; the exit-day liquidity (Run 33) and costs remain unmodelled.
+
+**Run 42 addendum — why the sizing adds so little (user: "I am surprised that sizing based on change % and rvol doesn't add
+more").** The signal is real and holds out of sample INSIDE the filtered book (dv60_med < $2M; fit 2005–2020 | test 2021–2026
+PF): move 8-10 % 1.48 | 1.31 → 20-30 % 2.25 | 2.00; rvol 2-3 1.50 | 1.18 → 10+ 2.02 | 2.17; the 2×2 cells (move >= 10 % ×
+rvol >= 5) test 1.30 / 1.36 / 1.44 / **1.88**. (rvol and dv60_med are nearly independent, rank ρ −0.13: not a collinearity.)
+What limits it is the yardstick and the lever:
+- **A PF is a ratio, bounded by its cells**: no weighting of a book can lift it above its best cell's PF (1.88 here) — sizing
+  only blends toward it, and weights spanning ~3× (the fit's cell PF−1: 0.35 / 1.00 / 0.71 / 1.16) take 1.55 to 1.63.
+- **The value of sizing is in the return per unit of capital** (clip returns, test 2021–2026, the same total capital):
+
+| scheme | PF | mean per unit | total (same capital) | trips |
+|---|---|---|---|---|
+| equal weight | 1.55 | +2.13 % | 5,078 | 2,384 |
+| by the fit's cell PF−1 | 1.63 | +2.44 % (+15 %) | 5,811 | 2,384 |
+| the weakest cell refused (move < 10 % and rvol < 5) | 1.61 | +2.41 % | 5,742 | 1,866 |
+| only the best cell | 1.88 | +3.33 % (+56 %) | 7,932 | 770 |
+
+- **Capacity is the real cap**: the big gain needs ~3× the size in the best third of the trips — and these are the
+  dv60_med < $2M names, where 0.25 % of dv60_med is ~$5k and the exit morning already takes 11 % of the volume for $10k
+  (Run 33). For a small book the practical lever is the simple one: refuse the weakest cell (+13 % per unit), size the rest
+  evenly up to the liquidity cap.
+
+**Run 42 addendum 2 — the linear model vs the cells, on the same yardstick** (user: "Are you sizing by cells, or have you tried
+fitting a linear model?"). Inside the filtered book (dv60_med < $2M), fit 2005–2020, test 2021–2026, clip returns:
+
+| scheme | PF | mean per unit | vs equal | weight spread p90/p10 | 2026 PF |
+|---|---|---|---|---|---|
+| equal weight | 1.55 | +2.13 % | — | 1.0× | 1.44 |
+| the linear PF−1 model, units = clip(PF−1, .125, 2) (Run 42's) | 1.62 | +2.44 % | +14 % | 2.2× | 1.46 |
+| the same, units ∝ PF−1 (no floor / cap) | 1.62 | +2.44 % | +14 % | 2.2× | 1.46 |
+| **the same, units ∝ (PF−1)²** | **1.72** | **+2.81 %** | **+32 %** | 4.8× | 1.50 |
+| OLS on the clipped return, units ∝ max(predicted, 0) | 1.60 | +2.35 % | +10 % | 2.1× | 1.45 |
+| the 2×2 cells' fit PF−1 | 1.63 | +2.44 % | +14 % | 3.3× | 1.45 |
+
+The linear model and the cells extract the same (+14 % per unit): the limit is the SPREAD of the weights — the model's
+predicted PF−1 on the test trips runs only p10 +0.55 to p90 +1.20 (2.2×). Squaring it (4.8×) takes +32 % per unit and PF 1.72,
+and it holds in 2026 (1.50) — the sharper the mapping, the more concentrated the book (the capacity limit of the addendum
+above). Note the OLS: per sd, move adds +0.67 % to the mean return but ln rvol only +0.04 % — rvol improves the PF through
+MORE WINS AND SMALLER SWINGS (odds × 1.06, W × 0.96, L × 0.93 in the PF−1 model), not a higher mean.
+
+**Run 42 addendum 3 — squared INPUT terms** (user: "Let's try it"; the (PF−1)² above squares the model's OUTPUT, the size
+mapping). Inside the filtered book, fit 2005–2020 / test 2021–2026, every term standardised on the fit set:
+
+| terms | test, units = clip(PF−1) | test, units = (PF−1)²: PF · per unit · vs equal | 2026 | in sample (PF−1)² |
+|---|---|---|---|---|
+| move, ln rvol (the chosen form) | 1.62 · +2.44 % | **1.72** · +2.81 % · +32 % | 1.50 | 1.93 |
+| + move² | 1.61 · +2.41 % | 1.68 · +2.68 % · +26 % | 1.46 | 1.93 |
+| + ln rvol² | 1.64 · +2.49 % | 1.73 · +2.79 % · +31 % | 1.48 | 2.00 |
+| + move², ln rvol² | 1.64 · +2.47 % | 1.70 · +2.73 % · +28 % | 1.45 | 2.00 |
+| + move × ln rvol | 1.61 · +2.40 % | 1.67 · +2.65 % · +24 % | 1.48 | 1.93 |
+| + all three | 1.65 · +2.50 % | 1.72 · +2.78 % · +30 % | 1.42 | 2.00 |
+
+**Read — no gain out of sample.** The squares fit the past better (in sample 1.93 → 2.00: ln rvol² odds × 0.93, W × 0.93 — the
+rvol effect bends over at the extremes) and the test does not confirm it (1.67-1.73 vs 1.72; 2026 1.42-1.48 vs 1.50), as the
+band tables' straight-line shapes said. **The model stays linear in its inputs; the sharpness goes in the size mapping,
+units ∝ (PF−1)².**
