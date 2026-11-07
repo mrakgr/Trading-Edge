@@ -20,7 +20,8 @@ not inherit that. Here every input comes from the base parquets in double:
        YOUNG_SCALE (0.8) × the model's PF−1 (the young sized PF−1 0.59 vs 0.73). The model is FIT on the barnum >= 22 book
        only (the fit, BasePf1 and the pins are V2's as they were); pf1_model = the model, pf1_fitted = what production
        emits (× YOUNG_SCALE when young).
-  ⭐ ATR5 GATE (user 2026-10-18, V2-12/V2-13, after WFF 10-14): no trade on a ticker-day whose 5-day ATR % (the 5 daily
+  ⭐ ATR5 GATE — REMOVED 2026-11-07 (user, V2-34..V2-38: --max-atr5 defaults to inf; the production fit's coefficients
+       are unchanged). Was (user 2026-10-18, V2-12/V2-13, after WFF 10-14): no trade on a ticker-day whose 5-day ATR % (the 5 daily
        rows before D, scripts/equity/atr5_candidates.py) is >= MAX_ATR5 (4.0 = 400 %); a NaN ATR5 is not gated.
 
 Outputs (out-dir, + _TAG):
@@ -51,7 +52,7 @@ ap.add_argument("--min-barnum", type=int, default=11)
 ap.add_argument("--young-below", type=int, default=22)
 ap.add_argument("--young-scale", type=float, default=0.8)
 ap.add_argument("--atr5", default="data/equity/atr5/candidates_atr5.parquet", help="per-ticker-day ATR5 (atr5_candidates.py)")
-ap.add_argument("--max-atr5", type=float, default=4.0, help="drop ticker-days with ATR5 >= this (inf = off)")
+ap.add_argument("--max-atr5", type=float, default=float("inf"), help="drop ticker-days with ATR5 >= this (inf = off: the DEFAULT since 2026-11-07, V2-38; was 4.0)")
 ap.add_argument("--coef", default="", help="APPLY these coefficients instead of fitting (the 10-day seal set)")
 ap.add_argument("--out-dir", default="data/flushfaderv2")
 ap.add_argument("--tag", default="")

@@ -1191,3 +1191,513 @@ V2-25 betas / constants / BasePf1 0.6343; Parity's signals and book + `cusr_dn_k
   flushfaderv2_reference_trips.parquet, flushfaderv2_reference.md}` = v24_cusum's; the 10-19 production files are in
   `pre_v25_2026-11-05/`. `flushfaderv2_reference.py`'s defaults (base_v24, no barnum fallback) reproduce the JSON byte for
   byte.
+
+## V2-27 — the RIGHT SIDE OF THE V on the efficiency variant: wait for the 1m high (2026-11-07, user)
+
+**User:** "let's try Lance's right side of V concept again. In backtesting it only lowered our PF ... buy at the 1m high
+after the signal instead of directly at the signal price ... A lot of our losses from what I've seen are cascades, where
+waiting for a 1m high would have let us avoid the loss entirely." The first test was `flushfader_results.md` §S22 on
+the v1.x book (flush entry PF 2.137 / +1.28 % vs 1m-high break 1.917 / +0.90 %).
+
+**Method** (`scripts/equity/flushfaderv2_right_side.py`; `--report` prints these tables). Every V2-25 production book
+trade, the same signal and the same size, entered instead at the FIRST new 60-present-bar high made strictly after the
+reversal's entry-fill bar, filled at the following present bar's vwap (the engine's `aux_hi_60` discipline, recomputed
+from the 1s bars because the engine stops tracking it 20 min after the entry). The exit is production's, unchanged: a
+5m-high break implies a 1m-high break, so the first 5m break after the confirmation IS the original exit (S22's
+composition). A trade with no 1m high before its exit is not taken. **Controls:** the recomputed fill bar = the book's
+`entry_sec` and `entry_px` on 100 %; the recomputed break = the engine's `aux_hi_60` (second and price) on all 35,766
+trades it recorded. Sizing and the metric are V2-26's (% of equity at clip(PF−1, 0.125, 2) × 15 %). "Maker" keeps the
+\$0.001/sh credit on both sides (optimistic for an entry at a fresh high); "taker" pays \$0.003/sh on the entry.
+
+| 2020-01 … 2026-08 | trades | mean | PF | worst | ≤ −20 % per 1,000 | % of equity | weekly median | worst 4 weeks |
+|---|---|---|---|---|---|---|---|---|
+| reversal (production) | 35,767 | +0.61 % | **1.601** | −84.3 % | 3.1 | **+2,716** | +6.23 | −0.93 |
+| 1m-high break, maker | 35,766 | +0.34 % | 1.380 | −84.5 % | 2.3 | +1,538 | +3.44 | −8.72 |
+| 1m-high break, taker | 35,766 | +0.24 % | 1.262 | −84.5 % | 2.3 | +1,188 | +2.55 | −11.74 |
+
+| year | reversal PF · % eq | 1m break (maker) PF · % eq | (taker) PF · % eq |
+|---|---|---|---|
+| 2020 | 1.863 · +607 | 1.726 · +440 | 1.588 · +381 |
+| 2021 | 1.804 · +610 | 1.467 · +339 | 1.352 · +274 |
+| 2022 | 1.414 · +172 | 1.260 · +89 | 1.132 · +53 |
+| 2023 | 1.338 · +163 | 1.092 · +62 | 0.986 · +28 |
+| 2024 | 1.540 · +417 | 1.326 · +227 | 1.211 · +175 |
+| 2025 | 1.542 · +463 | 1.321 · +233 | 1.201 · +166 |
+| 2026 | 1.462 · +285 | 1.261 · +149 | 1.158 · +113 |
+
+- **Worse in every year, both liquidity halves** (gap_60 ≤ 4: PF 1.813 → 1.474; > 4: 1.487 → 1.328) and in the tail
+  measure that matters for drawdowns: the worst 4-week run −0.93 → −8.72 %. The confirmation premium is smaller per trade than on
+  the v1.x book (−0.27 % vs S22's −0.38 %) but larger against the edge: −44 % of the mean trade vs S22's −30 %.
+- **It does not avoid cascades: it re-enters them.** Only ONE of 35,767 trades never printed a 1m high before its exit
+  (the exit is itself a 5m high). The confirmation comes a median 111 s later (p90 321 s) at a median +0.52 % above the
+  reversal fill; a cascade's first small bounce makes a 1m high, so the trade is bought a few cents from the reversal and
+  rides the rest of the collapse. The 30 worst reversal trades average −46.4 % → −27.8 %: the tail shrinks, but the
+  ordinary trades pay for it many times over. It helps only slow cascades whose first bounce comes after a long slide.
+- **The live weeks (08-24 … 11-06, the parity book's 786 trades on today's data; controls 100 % as above):** reversal
+  +19.9 % of equity (PF 1.026) → 1m break −23.5 % (PF 0.855); from 10-12: −8.8 → −21.5 %. The live tail losers were
+  entered within 2–4 minutes at almost the same price — RAYA 1.434 → 1.423 (exit 0.890), AEHL 23.585 → 23.282 (14.217),
+  AMOD 1.849 → 1.700 (1.026), RETO 8.885 → 9.132 (2.146); only XHLD (−37.0 → −5.8 %) and MSGY (−30.9 → +3.5 %), whose
+  first 1m high came 30 minutes into the slide, were saved.
+- **Verdict:** the reversal entry wins again (S22 confirmed on the efficiency variant); the "right side of the V" is not
+  a fix for the cascade tail. A confirmation that would skip cascades has to be slower than any reversal exit, which
+  then makes it a different trade.
+
+## V2-28 — the QUIET entry: wait until 60 s pass without a new 20m low (2026-11-07, user)
+
+**User:** "What if we instead wait for 60s without a new 20m low?" (after V2-27). `scripts/equity/flushfaderv2_quiet_entry.py`
+(`--report` prints these tables). Every V2-25 book trade, the same signal and size; after the signal each new 20m low (a
+vwap strictly under the prior 1,200-present-bar min — the engine's entry channel) restarts a clock, and the trade is
+bought at the bar after the first one Q seconds past the last new low. The exit is SIMULATED from the bars (the first
+vwap strictly above the prior 300-present-bar max after the fill, filled at the next bar; overnight = the reversal's
+next-open exit), since a quiet entry can come after the reversal's own exit. **Controls:** every signal bar is a new 20m
+low under this definition (100 %); the exit simulated from the reversal's fill = the book's exit second and price on
+99.98 % of the same-day exits (the 7 others exit in the last second before 16:00); window 100 % / 100 %.
+
+| 2020-01 … 2026-08 | mean | PF | ≤ −20 % per 1,000 | % of equity | weekly median | worst 4 weeks | entered after the reversal's exit |
+|---|---|---|---|---|---|---|---|
+| reversal (production) | +0.61 % | **1.601** | 3.1 | **+2,716** | +6.23 | −0.93 | — |
+| quiet 30 s | +0.46 % | 1.477 | 2.9 | +2,034 | +4.51 | −11.52 | 0 % |
+| quiet 60 s | +0.34 % | 1.358 | 2.4 | +1,517 | +3.68 | −8.71 | 0 % |
+| quiet 120 s | +0.23 % | 1.264 | 2.2 | +1,031 | +2.67 | −12.51 | 3 % |
+| quiet 300 s | +0.07 % | 1.090 | 2.0 | +338 | +1.10 | −17.53 | 37 % |
+
+| year | reversal PF · % eq | quiet 30 s | quiet 60 s | quiet 120 s | quiet 300 s |
+|---|---|---|---|---|---|
+| 2020 | 1.863 · +607 | 1.866 · +553 | 1.677 · +430 | 1.443 · +284 | 1.087 · +68 |
+| 2021 | 1.804 · +610 | 1.626 · +462 | 1.453 · +337 | 1.332 · +232 | 1.105 · +72 |
+| 2022 | 1.414 · +172 | 1.349 · +134 | 1.258 · +98 | 1.237 · +78 | 1.154 · +45 |
+| 2023 | 1.338 · +163 | 1.223 · +110 | 1.102 · +64 | 0.995 · +25 | 0.927 · −6 |
+| 2024 | 1.540 · +417 | 1.378 · +293 | 1.290 · +214 | 1.236 · +159 | 1.139 · +80 |
+| 2025 | 1.542 · +463 | 1.372 · +303 | 1.298 · +235 | 1.253 · +156 | 1.119 · +70 |
+| 2026 | 1.462 · +285 | 1.310 · +179 | 1.237 · +139 | 1.194 · +97 | 1.051 · +9 |
+
+- **Monotone: every second of waiting costs edge**, in every year. At 60 s the trade fills a median 80 s after the
+  reversal (p90 160 s) at a median +0.36 % above it (lower on 35 %); the result is V2-27's 1m-high break almost exactly
+  (PF 1.358 vs 1.380) — both buy the first pause.
+- **Cascades pause.** The live tail losers went 60 s without a new low within about a minute, at nearly the reversal's
+  price, and then resumed: RAYA 1.434 → 1.451 (exit 0.890), AEHL 23.585 → 23.700, AMOD 1.849 → 1.709, RETO 8.885 → 9.084.
+  The 30 worst trades average −46.4 % → −28.3 % at 60 s, −22.1 % at 300 s: the tail shrinks with the wait, the edge
+  faster.
+- **The live weeks:** from 10-12, reversal −8.8 % of equity, quiet 60 s −21.8 %, 120 s −7.3 %, 300 s −1.9 %. Only the
+  long wait helps there, and over 2020–26 that wait leaves PF 1.09 (2023 below 1): it trades the edge away for the tail.
+- **Verdict:** no quiet-time rule improves the book; 60 s ≈ V2-27. The flush entry stays.
+
+## V2-29 — the gates PEELED OFF: are the big losers really more frequent? (2026-11-07, user)
+
+**User:** "keep removing the gates as a sanity check ... keep the >= 40bps volatility, and the gap count ... then see if the
+number of big losers really is higher than usual ... the gates we're using currently could be overfit, and simplifying the
+system will give us a more honest view of the true state of the market." `scripts/equity/flushfaderv2_gate_ladder.py`:
+gates-off slices of base_v24 (2020-01 … 2026-08-21, 8.44M trips) and of the 08-24 … 11-06 base run (today's universe),
+each layer a mask + greedy mc=1 per ticker-day, every trade ONE equal unit (the sizing model belongs to layer E), raw
+`ret_exit` (no maker credit). The frame everywhere: dv_0945 ≥ \$1.6M, ≥ \$1 raw, 09:45–15:00, barnum ≥ 11. **Control:**
+layer E = 35,795 trades vs the production book's 35,767 (the 28 = the early-close entry cutoff, not modelled here).
+
+| layer | 2020–26 trades / wk | mean | PF | ≤ −20 % per 1,000 | ≤ −20 % per 4 wk | from 10-12: trades | mean | PF | ≤ −20 % | percentile among 4-week stretches: big losers · Σ return |
+|---|---|---|---|---|---|---|---|---|---|---|
+| A volat ≥ 40 + gap_60 < 40 | 267 | +0.12 % | 1.097 | 3.0 | 3.21 | 1,004 | +0.03 % | 1.019 | 10 | p96 · **p31** |
+| B + freshness (lows300, eff10, v10r, z20, lows180) | 185 | +0.32 % | 1.300 | 2.9 | 2.12 | 624 | −0.07 % | 0.953 | 9 | p99 · p7 |
+| C + crf + coil | 113 | +0.49 % | 1.460 | 3.6 | 1.63 | 339 | −0.41 % | 0.797 | 5 | p92 · p0 |
+| D + rule140 + the halt wait | 111 | +0.50 % | 1.484 | 3.1 | 1.35 | 331 | −0.42 % | 0.793 | 5 | p95 · p0 |
+| E + near-low + ATR5 = production | 103 | +0.56 % | 1.544 | 3.1 | 1.28 | 308 | −0.15 % | 0.916 | 4 | p91 · p2 |
+
+The big-loser rate (≤ −20 % per 1,000 trades) by year, layer A / layer E: 2020 1.7 / 1.8 · 2021 1.0 / 1.1 · 2022 3.2 / 4.2 ·
+2023 5.3 / 6.7 · 2024 4.1 / 3.2 · 2025 3.5 / 3.9 · 2026 (to 08-21) 5.1 / 5.2 · **the window by month (A / E): 2026-09
+8.5 / 14.3, 10 7.4 / 13.0, 11 (to the 6th) 9.8 / 8.5.**
+
+- **The big losers are really more frequent, with or without the gates.** Every layer's live 4 weeks sit at p91–p99 of
+  its own 4-week big-loser counts; the minimal system had 10 (its history averages 3.2). The rate has climbed for years
+  (2021 1.0 per 1,000 → 2026 5.1) and the live months run near twice 2026's.
+- **The minimal system's 4 weeks were ORDINARY in return (p31)** — the raw flush-fade's PF 1.019 against its 1.097; October
+  was even good for it (PF 1.46). The weeks look historically bad only through the gates: each gate group that adds
+  history (freshness +0.20 %/trade, crf + coil +0.17 %) SUBTRACTED live (−0.10 %, −0.34 %), and the gated layers' 4 weeks
+  are p0–p7. Four weeks cannot separate overfit gates from a regime that turned against what they select, but the order
+  is consistent: the more selection, the worse the live gap to history.
+- Near-low + ATR5 are the exception (+0.27 %/trade live, ATR5 = WFF 10-14).
+
+## V2-30 — since June: big losers or the body? And SpikeFader-depth leg floors (2026-11-07, user)
+
+**User:** "You said that performance has been getting worse since June. Was that because there were more big losers during
+that period, excluding the last 4 weeks? It might be worth experimenting with tighter leg counter gates in the direction
+that SpikeFader has." (SpikeFader: highs300 ≥ 40, highs600 ≥ 90, highs180 ≥ 15; FlushFader: lows300 ≥ 6, lows180 ≥ 3,
+no 600 rung — 40 / 15 / 90 sit at ≈ p90 of the production book's lows300 / lows180 / lows600.)
+
+**1. The decomposition** (the V2-25 production book to 08-21 + the 08-24 … 11-06 parity book; V2-26's metric, % of equity
+per month; a big loser = ret + maker credit ≤ −20 %):
+
+| period | trades / mo | % eq / mo | big losers / mo | their % eq / mo | the rest's % eq / mo | PF | PF ex big | avg win | avg loss ex big |
+|---|---|---|---|---|---|---|---|---|---|
+| 2020–24 | 436 | +32.8 | 1.13 | −3.3 | +36.1 | 1.64 | 1.79 | 2.31 % | −2.81 % |
+| 2025 H2 | 533 | +44.7 | 2.16 | −8.0 | +52.8 | 1.61 | 1.83 | 2.46 % | −2.99 % |
+| 2026 Jan–May | 455 | +39.6 | 1.83 | −5.5 | +45.1 | 1.58 | 1.85 | 2.52 % | −3.01 % |
+| **2026 Jun – 10-09** | 392 | +27.7 | **3.28** | −8.4 | +36.1 | 1.23 | 1.51 | 2.82 % | **−3.59 %** |
+| live 10-12 … 11-06 | 308 | −8.8 | 4.00 | −26.2 | +17.5 | 0.95 | 1.30 | 2.53 % | −3.69 % |
+
+Months: 06 +54.1 · **07 +8.7** (big losers only −8.8; the body failed: PF ex big 1.20, median +0.92 %) · 08 +39.6 ·
+**09 +9.9** (big losers −17.7) · 10 +4.8 (−24.2).
+
+Per trade, Jun – 10-09 against Jan–May (bp of equity per trade, by return band):
+
+| band | ≤ −20 % | −20 … −10 | −10 … −5 | −5 … 0 | 0 … 5 | 5 … 10 | > 10 | total |
+|---|---|---|---|---|---|---|---|---|
+| share Jan–May → Jun–10-09 | 0.4 → 0.8 % | 1.3 → 2.4 % | 4.6 → 5.4 % | 25.1 → 26.1 % | 61.6 → 56.0 % | 6.3 → 8.1 % | 0.7 → 1.1 % | |
+| bp eq / trade Jan–May → Jun–10-09 | −1.2 → −2.1 | −1.8 → −3.4 | −3.0 → −3.4 | −4.0 → −4.7 | +12.8 → +12.2 | +4.8 → +6.4 | +1.1 → +2.1 | +8.7 → +7.1 |
+
+- **Partly.** The ≤ −20 % tail doubled per trade (0.4 → 0.8 %) and per month nearly tripled against 2020–24, but it explains
+  only −2.9 of the −11.9 % eq / month drop from Jan–May. The −10 … −20 % band doubled too (−1.6 bp / trade), every loss
+  band deepened (−3.6 bp in all), and the winners grew (+2.0 bp): the whole distribution widened, losers faster than
+  winners. Fewer trades (455 → 392 / month) make the rest. July was a body month, September and October tail months.
+
+**2. Tighter leg floors** (`scripts/equity/flushfaderv2_leg_floors.py`: V2-29's layer E with the lows floors replaced, greedy
+mc=1 re-run inside each mask — a cut trade can be replaced by a later signal — equal units, raw ret; control: the
+production floors = 35,795 vs the book's 35,767, as V2-29; the random column = PF p5–p95 of 300 same-n random subsamples
+of the production book):
+
+| lows300 · lows180 · lows600 | trades | mean | PF | random same-n PF | ≤ −20 % per 1,000 | 2020–24 | 2025 | 2026 Jan–May | Jun – 08-21 | 08-24 … 10-09 n · PF · Σret | live n · PF · Σret · ≤ −20 % |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 6 · 3 · 0 (production) | 35,795 | +0.56 % | 1.544 | — | 3.1 | 1.58 | 1.49 | 1.52 | 1.26 | 478 · 1.04 · +33 % | 308 · 0.92 · −45 % · 4 |
+| 10 · 3 · 0 | 30,795 | +0.60 % | 1.593 | 1.53–1.56 | 3.3 | 1.63 | 1.54 | 1.48 | 1.36 | 396 · 1.05 · +36 % | 254 · 0.77 · −106 % · 4 |
+| 15 · 3 · 0 | 24,724 | +0.63 % | 1.626 | 1.51–1.58 | 3.8 | 1.68 | 1.59 | 1.44 | 1.27 | 306 · 1.10 · +54 % | 217 · 0.81 · −76 % · 3 |
+| 20 · 3 · 0 | 19,619 | +0.66 % | 1.643 | 1.51–1.59 | 4.1 | 1.70 | 1.59 | 1.50 | 1.20 | 235 · 0.98 · −11 % | 167 · 0.67 · −113 % · 3 |
+| 30 · 3 · 0 | 12,339 | +0.69 % | 1.659 | 1.49–1.61 | 5.4 | 1.70 | 1.66 | 1.46 | 1.25 | 145 · 0.91 · −26 % | 116 · 0.74 · −65 % · 3 |
+| 40 · 3 · 0 | 7,967 | +0.65 % | 1.587 | 1.46–1.63 | 6.5 | 1.60 | 1.60 | 1.71 | 1.12 | 90 · 0.80 · −42 % | 81 · 0.62 · −73 % · 2 |
+| 6 · 8 · 0 | 32,456 | +0.58 % | 1.574 | 1.53–1.56 | 3.3 | 1.61 | 1.52 | 1.53 | 1.23 | 418 · 1.04 · +27 % | 271 · 0.83 · −81 % · 4 |
+| 6 · 15 · 0 | 22,934 | +0.64 % | 1.635 | 1.51–1.58 | 3.8 | 1.68 | 1.61 | 1.45 | 1.28 | 274 · 1.08 · +42 % | 201 · 0.75 · −99 % · 3 |
+| 6 · 3 · 30 | 16,929 | +0.65 % | 1.644 | 1.49–1.59 | 4.6 | 1.66 | 1.69 | 1.57 | 1.32 | 179 · 0.98 · −5 % | 159 · 0.79 · −68 % · 4 |
+| 6 · 3 · 60 | 7,156 | +0.58 % | 1.512 | 1.47–1.65 | 6.4 | 1.49 | 1.64 | 1.72 | 1.19 | 72 · 0.72 · −45 % | 74 · 0.68 · −42 % · 2 |
+| 6 · 3 · 90 | 3,123 | +0.48 % | 1.378 | 1.42–1.71 | 7.7 | 1.34 | 1.54 | 1.71 | 1.00 | 25 · 0.22 · −83 % | 40 · 0.62 · −32 % · 2 |
+| 15 · 8 · 30 | 14,926 | +0.68 % | 1.667 | 1.49–1.60 | 4.9 | 1.70 | 1.67 | 1.64 | 1.17 | 164 · 1.01 · +4 % | 138 · 0.67 · −98 % · 3 |
+| 20 · 15 · 60 | 5,803 | +0.63 % | 1.553 | 1.45–1.64 | 7.6 | 1.56 | 1.52 | 1.90 | 0.99 | 60 · 0.64 · −53 % | 65 · 0.70 · −33 % · 1 |
+| **40 · 15 · 90 (SpikeFader's)** | 2,139 | +0.56 % | 1.426 | 1.38–1.72 | **10.8** | 1.44 | 1.38 | 1.68 | 0.84 | 18 · 0.19 · −76 % | 29 · 0.86 · −8 % · 1 |
+
+- **Deeper legs carry MORE big losers on the long side, not fewer:** the ≤ −20 % rate climbs monotonically with every floor
+  (3.1 → 5.4 per 1,000 at lows300 ≥ 30; 10.8 at SpikeFader's floors). A deep flush is a cascade more often — the same
+  side-flip inversion as `feedback_side_flip_inverts_rulings`: a long leg of new highs exhausts, a long leg of new lows
+  is a collapse.
+- The moderate floors (lows300 15–30, lows180 15, lows600 30) lift PF 1.544 → 1.63–1.67, just past the random band, but
+  ALL of it is 2020–25; 2026 Jan–May is equal or worse (1.44–1.57 vs 1.52), Jun–Aug no better, and the live 4 weeks are
+  worse at every floor (PF 0.92 → 0.62–0.81). Σreturn falls with the trade count (15 · 3 · 0: 156 units vs 200).
+- **Not adopted.** The leg floors do not address the tails; tightening them toward SpikeFader trades breadth for depth,
+  and depth is where the live losers came from.
+
+## V2-31 — a cap on the 1m drop (the 60-bar range) (2026-11-07, user)
+
+**User:** "Back when we were doing MR experiments on 1m bars, we noticed that drops higher that 12% in 1m did quite poorly
+going forward. What if we create a gate using the 60-bar range to avoid buying into some of these more significant
+collapses?" (LowFlyer kept `1m ≥ −12 %`; LowFader's port found it already absorbed, `docs/lowfader_results.md`.)
+Feature: `d1m` = signal vwap / the 60-bar high − 1 (the gate-review tool's; at a new-low signal the 60-bar range).
+`scripts/equity/flushfaderv2_d1m_cap.py`, V2-30's harness (layer E, greedy re-run, equal units, raw ret; control 35,795).
+
+| 1m drop | 2020–26 trades | mean | PF | ≤ −20 % per 1,000 | 2026 Jan–Aug n · PF | 08-24 … 10-09 n · PF · Σret · big | live n · PF · Σret · big |
+|---|---|---|---|---|---|---|---|
+| ≤ −15 % | 58 | +0.98 % | 1.26 | 52 | 9 · 12.6 | 3 · 0.52 · −15 % · 1 | 0 |
+| −15 … −12 % | 91 | +2.20 % | 1.68 | 33.0 | 18 · 0.40 | 0 | 2 · 1.69 · +3 % · 0 |
+| −12 … −8 % | 631 | +1.42 % | 1.67 | 14.3 | 121 · 1.64 | 19 · 0.71 · −23 % · 0 | 13 · 2.27 · +27 % · 0 |
+| −8 … −5 % | 2,806 | +0.93 % | 1.56 | 10.0 | 400 · 1.40 | 59 · 0.73 · −40 % · 2 | 31 · 0.73 · −28 % · 2 |
+| −5 … −3 % | 8,220 | +0.87 % | 1.73 | 4.5 | 802 · 1.49 | 134 · 1.06 · +17 % · 2 | 75 · 0.69 · −67 % · 2 |
+| > −3 % | 23,989 | +0.38 % | 1.44 | 1.3 | 2,088 · 1.38 | 263 · 1.36 · +94 % · 0 | 187 · 1.11 · +21 % · 0 |
+
+Caps (greedy re-run): none 35,795 · PF 1.544 · −15 % 35,751 · 1.546 · −12 % 35,694 · 1.547 · −10 % 35,590 · 1.541 · −8 %
+35,300 · 1.538 (random same-n bands ±0.005); live 4 weeks unchanged to −12 % (PF 0.92 → 0.91), worse below.
+
+- **The −12 % knife is already gone:** 149 of 35,795 trades (0.4 %) drop more than 12 % in the minute — the freshness,
+  crf and volatility gates removed it, as on LowFader. A cap at −12 % moves PF by +0.003.
+- **The tail rate IS monotone in the 1m drop** (1.3 per 1,000 above −3 % → 10 at −5 … −8 % → 33–52 below −12 %), but so is
+  the mean (+0.38 % → +0.9–2.2 %): deeper drops are higher variance and higher mean, not worse trades.
+- **The live losers were shallow in the minute:** AMOD −3.6 %, AEHL −4.7 %, RAYA −7.6 % (the deepest), WFF −5.7 %, CHSN
+  −4.0 %, BRAI −1.9 %. Catching them takes a −3 % cap, which cuts a third of the book including its best band
+  (−5 … −3 %, PF 1.73). **Not adopted.**
+
+## V2-32 — CAPS on the leg counts (2026-11-07, user)
+
+**User:** "Should we put a max on the leg counts? I see that there is a cliff at some point where PF goes lower."
+`scripts/equity/flushfaderv2_leg_caps.py` (V2-30's harness; control 35,795). Bands of the production book:
+
+| band | trades | mean | PF | ≤ −20 % per 1,000 | 2020–24 PF | 2025 PF | 2026 Jan–Aug PF |
+|---|---|---|---|---|---|---|---|
+| lows300 6 … 59 | 34,342 | ≈ +0.57 % | 1.46–1.63 by band | 2.3–4.9 | 1.54–1.67 | 1.28–1.84 | 0.96–2.04 |
+| lows300 60 … 99 | 1,044 | +0.24 % | 1.20 | 4.8 | 1.15 | 1.43 | 1.36 |
+| lows300 ≥ 100 | 409 | +0.07 % | 1.05 | 12.2 | 0.97 | 1.75 | 1.00 |
+| lows600 6 … 89 | 34,024 | ≈ +0.58 % | 1.47–1.81 by band | 2.1–4.1 | 1.36–1.90 | 1.29–2.08 | 1.19–1.70 |
+| lows600 90 … 149 | 1,460 | +0.26 % | 1.21 | 5.5 | 1.15 | 1.42 | 1.50 |
+| lows600 ≥ 150 | 311 | +0.10 % | 1.07 | 12.9 | 1.03 | 1.16 | 1.59 |
+| lows180 20 … 29 | 4,607 | +0.44 % | 1.42 | 2.8 | 1.47 | 1.49 | 1.03 (08-24 … 10-09 0.58, live 0.48) |
+| lows180 30 … 49 / ≥ 50 | 2,457 / 1,012 | +0.51 / +0.44 % | 1.49 / 1.36 | 5.3 / 7.9 | 1.47 / 1.32 | 1.45 / 1.43 | 1.82 / 1.87 |
+
+Caps (greedy re-run; random = PF p5–p95 of same-n random cuts):
+
+| cap | trades | PF | random | ≤ −20 % per 1,000 | Σret (units) | 2026 Jan–May | Jun – 08-21 | 08-24 … 10-09 PF · Σret | live PF · Σret · big |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 35,795 | 1.544 | — | 3.1 | +199 | 1.52 | 1.26 | 1.04 · +33 % | 0.92 · −45 % · 4 |
+| lows300 ≤ 60 | 34,400 | **1.567** | 1.535–1.553 | 3.0 | +197 | 1.53 | 1.27 | 1.04 · +27 % | 0.93 · −36 % · 4 |
+| lows600 ≤ 90 | 34,085 | **1.568** | 1.535–1.554 | 2.9 | +195 | 1.53 | 1.25 | 1.05 · +39 % | 0.92 · −40 % · 3 |
+| lows180 ≤ 20 | 28,823 | 1.577 | 1.521–1.566 | 2.8 | +168 | 1.50 | 1.40 | 1.18 · +109 % | 1.06 · +23 % · 3 |
+| 60 · 30 · 90 | 31,265 | 1.580 | 1.527–1.560 | 2.8 | +183 | 1.48 | 1.26 | 1.04 · +30 % | 1.00 · −1 % · 3 |
+| 40 · 20 · 60 | 25,959 | 1.602 | 1.518–1.571 | 2.6 | +156 | 1.52 | 1.35 | 1.20 · +109 % | 1.12 · +43 % · 2 |
+
+- **The cliff is real at the very deep end:** lows300 ≥ 60 and lows600 ≥ 90 (≈ 4–5 % of the book) earn +0.07–0.26 % at
+  PF 1.05–1.21 with 2–4× the tail rate. A cap there clears the random band (PF +0.023) but at equal units leaves Σreturn
+  flat (+199 → +195–197): those trades are ≈ break-even, not losers. It is a 2020–24 effect (PF 0.97–1.15); 2025–26 deep
+  legs are ordinary (1.00–1.75) and the cap does nothing in 2026 or live.
+- **lows180 ≤ 20 is a different thing:** it cuts the 20 … 29 band (weak in 2026 and live) together with 30+, which is no
+  worse than the middle historically (1.49 / 1.36, 2026 1.82 / 1.87). The live improvement is AMOD (lows 26) and ALIT
+  (20); Σreturn −16 %. Fitted to the live losers; not a cliff.
+- The live losers sat mostly in the middle of every counter (RAYA 10, CHSN 11–14, AEHL 18, AMOD 26; WFF's lows600 109 the
+  one deep exception).
+- **Verdict:** lows300 ≤ 60 (or lows600 ≤ 90) is a defensible, cheap tidy-up — PF up, tails slightly down, return
+  unchanged — not a fix for the current losses. Not built (user: no changes during the 4-week trial).
+
+## V2-33 — the 60-session MEDIAN VOLUME as a floor (2026-11-07, user)
+
+**User:** "check how 60d median volume affects the trades. I see that many of our losses are in low float thrash that
+even a modest median would have filtered out." `scripts/equity/flushfaderv2_med60.py` (V2-30's harness; control 35,795).
+Causal: the 60 sessions BEFORE D from `data/v2/daily_adjusted.parquet` — shares `n(D) × median(volume / n)` (D's share
+scale), dollars `median(close × volume)`; < 20 prior sessions = young, passes every floor (1.4 % of the book).
+
+| median shares (60 d) | 2020–26 trades | mean | PF | ≤ −20 % per 1,000 | 2026 Jan–Aug n · PF | 08-24 … 10-09 n · PF · Σret | live n · PF · Σret · big |
+|---|---|---|---|---|---|---|---|
+| < 50k | 4,596 | **+0.93 %** | **1.70** | 4.4 | 772 · 1.52 | 156 · 1.00 · +1 % | 68 · 0.87 · −23 % · 1 |
+| 50k … 100k | 2,789 | +0.66 % | 1.49 | 6.5 | 425 · 1.56 | 54 · 0.86 · −16 % | 31 · 1.01 · +1 % · 1 |
+| 100k … 250k | 4,570 | +0.72 % | 1.62 | 5.0 | 428 · 1.67 | 116 · 1.48 · +77 % | 17 · 0.43 · −51 % · 2 |
+| 250k … 500k | 3,755 | +0.51 % | 1.47 | 4.0 | 255 · 1.50 | 22 · 0.72 · −12 % | 18 · 0.62 · −12 % · 0 |
+| 500k … 1M | 4,117 | +0.42 % | 1.42 | 2.4 | 302 · 1.86 | 53 · 0.78 · −17 % | 22 · 1.33 · +8 % · 0 |
+| 1M … 3M | 6,947 | +0.41 % | 1.47 | 1.7 | 622 · 1.08 | 48 · 0.72 · −16 % | 61 · 0.99 · −1 % · 0 |
+| ≥ 3M | 8,496 | +0.45 % | 1.59 | 1.6 | 598 · 0.90 | 28 · 1.48 · +11 % | 75 · 1.74 · +34 % · 0 |
+
+(Dollar bands say the same: < \$0.25M +0.90 % PF 1.70, ≥ \$30M +0.31 % PF 1.39.)
+
+| floor (greedy re-run) | trades | PF | random same-n | ≤ −20 % per 1,000 | Σret (units) | 2026 Jan–May | Jun – 08-21 | 08-24 … 10-09 PF · Σret | live PF · Σret · big |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 35,795 | 1.544 | — | 3.1 | +199 | 1.52 | 1.26 | 1.04 · +33 % | 0.92 · −45 % · 4 |
+| shares ≥ 50k | 31,199 | 1.513 | 1.527–1.561 | 2.9 | +157 | 1.55 | 1.09 | 1.07 · +32 % | 0.94 · −22 % · 3 |
+| shares ≥ 100k | 28,410 | 1.516 | 1.522–1.564 | 2.6 | +138 | 1.49 | 1.02 | 1.13 · +48 % | 0.92 · −23 % · 2 |
+| shares ≥ 250k | 23,840 | 1.490 | 1.510–1.574 | 2.1 | +105 | 1.31 | 1.00 | 0.86 · −29 % | 1.15 · +28 % · 0 |
+| shares ≥ 500k | 20,085 | 1.494 | 1.508–1.583 | 1.8 | +86 | 1.22 | 1.02 | 0.89 · −17 % | 1.25 · +40 % · 0 |
+| shares ≥ 1M | 15,968 | 1.516 | 1.495–1.596 | 1.6 | +69 | 1.13 | 0.81 | 1.00 · +0 % | 1.24 · +31 % · 0 |
+| \$ ≥ 1M | 22,166 | 1.444 | 1.509–1.584 | 2.1 | +88 | 1.22 | 0.95 | 0.85 · −31 % | 1.04 · +8 % · 1 |
+
+Live losers' median shares: RAYA 10k, TCRT 16k, BRAI 28k, CHSN 43k, TNMG 50k, AMOD 55k, AEHL 167k, WFF 183k, FTCI 219k,
+ALIT 428k, STLN 1.16M, SNDX 1.66M.
+
+- **The user's read of the live losers is right:** 8 of the 12 worst sat under 250k shares a day, and thin names do
+  carry 2–4× the tail rate (4–6.5 per 1,000 vs 1.6 at ≥ 1M).
+- **But the thin names ARE the edge:** under 50k shares is the book's best band (+0.93 % a trade, PF 1.70; liquid names
+  +0.4 %), in every period through 2026 Jan–Aug (1.52–1.67, while ≥ 1M fell to 0.90–1.08). Every floor puts PF BELOW
+  the random band and cuts Σreturn 21–65 %; a 250k floor makes 2026 Jan–May 1.52 → 1.31 and 08-24 … 10-09 negative.
+- Only the live 4 weeks favour a floor — another live inversion of a historically strong region (as dslo 25–50 %).
+  **Not adopted.** If thin-name tails keep repeating, a units cut there (not a floor) is the variant to replay.
+
+**The model vs live reconciliation (asked the same turn).** V2-26's % is of the \$8,000 SIZING equity, every book trade
+at the production size formula with no concurrency cap, compounding or costs. 10-14 … 11-06 at \$8k:
+model (today's build) −\$1,197 (−15.0 %; the −8.8 % counts 10-12/13, +\$496) · minus the model's trades not taken live
+(42 ticker-days, +\$619 — FUFU 10-19, CDT 11-06, CHSN 10-28) · trades both took: model −\$1,816 → live −\$2,576
+(−\$760: L2's sizes, its adds to falling positions, fills) · live-only +\$193 · WFF 10-14 −\$953 (blocked in today's build
+by the ATR5 gate, added after) ⇒ **live FlushFader ≈ −\$3,340 = −42 % of the sizing equity**. The broker account
+(29,945 → 27,272, −8.9 %) holds the other systems too (Snoozer BRAI +\$1,163).
+
+## V2-34 — the TWO-DAY RANGE gate, against ATR5 (2026-11-07, user)
+
+**User:** "A range filter that takes the max of yesterday's high and current session's and min of yesterday's low and
+current session's. Maybe that could work better than the ATR 5 filter." `scripts/equity/flushfaderv2_range2.py` (V2-30's
+harness with ATR5 made switchable; control: production = 35,795 as before). `rng2 = max(H[D−1], sess_high) /
+min(L[D−1], sess_low)`, the session extremes AT THE SIGNAL (the trip's own), D−1 = the previous daily_adjusted row on
+D's raw scale (× n[D−1] / n[D]). Coverage 100 %.
+
+| two-day range | 2020–26 trades | mean | PF | ≤ −20 % per 1,000 | 2025 PF | 2026 Jan–Aug PF | 08-24 … 10-09 n · PF · Σret · big | live n · PF · Σret · big |
+|---|---|---|---|---|---|---|---|---|
+| < 1.25 | 6,116 | +0.34 % | 1.47 | 1.0 | 1.42 | 0.94 | 47 · 1.49 · +15 % · 0 | 71 · 1.06 · +3 % · 0 |
+| 1.25 … 1.5 | 10,105 | +0.42 % | 1.47 | 1.8 | 1.43 | 1.08 | 76 · 0.52 · −84 % · 1 | 85 · 1.70 · +42 % · 0 |
+| 1.5 … 2 | 9,383 | +0.59 % | 1.57 | 2.6 | 1.59 | 1.33 | 170 · 2.09 · +177 % · 0 | 70 · 0.69 · −59 % · 1 |
+| 2 … 2.5 | 4,033 | +0.75 % | 1.67 | 2.2 | 1.75 | 1.95 | 67 · 1.39 · +27 % · 0 | 28 · 1.34 · +21 % · 1 |
+| 2.5 … 3 | 2,167 | +0.78 % | 1.63 | 5.5 | 1.30 | 1.99 | 45 · 1.23 · +16 % · 0 | 23 · 0.47 · −32 % · 0 |
+| 3 … 4 | 1,939 | +0.92 % | 1.69 | 6.7 | 1.79 | 1.99 | 31 · 0.85 · −9 % · 0 | 10 · 0.65 · −17 % · 1 |
+| 4 … 6 | 1,338 | +0.69 % | 1.40 | 12.7 | 1.01 | 1.51 | 19 · 0.28 · −60 % · 2 | 11 · 0.90 · −2 % · 0 |
+| ≥ 6 | 714 | +0.97 % | 1.48 | 18.2 | 1.42 | 1.38 | 23 · 0.60 · −49 % · 2 | 10 · 1.00 · +0 % · 1 |
+
+| variant (greedy re-run) | trades | PF | random same-n | ≤ −20 % per 1,000 | Σret (units) | 2025 | 2026 Jan–May | Jun – 08-21 | 08-24 … 10-09 PF · Σret · big | live PF · Σret · big |
+|---|---|---|---|---|---|---|---|---|---|---|
+| production (ATR5) | 35,795 | 1.544 | — | 3.1 | +199 | 1.49 | 1.52 | 1.26 | 1.04 · +33 % · 5 | 0.92 · −45 % · 4 |
+| no ATR5 | 35,824 | 1.542 | — | 3.2 | +199 | 1.48 | 1.52 | 1.26 | 1.04 · +33 % · 5 | 0.80 · −126 % · 5 |
+| no ATR5, rng2 < 6 | 35,096 | 1.546 | 1.538–1.549 | 2.8 | +192 | 1.49 | 1.59 | 1.18 | 1.12 · +81 % · 3 | 0.91 · −45 % · 3 |
+| no ATR5, rng2 < 4 | 33,758 | 1.557 | 1.532–1.555 | 2.4 | +183 | 1.54 | 1.62 | 1.11 | 1.25 · +142 % · 1 | 0.91 · −43 % · 3 |
+| no ATR5, rng2 < 3 | 31,819 | 1.546 | 1.529–1.559 | 2.2 | +165 | 1.52 | 1.59 | 1.01 | 1.30 · +151 % · 1 | 0.94 · −25 % · 2 |
+| no ATR5, rng2 < 2.5 | 29,647 | 1.537 | 1.524–1.564 | 1.9 | +148 | 1.55 | 1.49 | 0.98 | 1.31 · +136 % · 1 | 1.02 · +7 % · 2 |
+| no ATR5, rng2 < 2 | 25,610 | 1.510 | 1.516–1.572 | 1.9 | +118 | 1.50 | 1.37 | 0.84 | 1.29 · +109 % · 1 | 0.96 · −14 % · 1 |
+
+(ATR5 + rng2 < X = no ATR5 + rng2 < X to within 15 trades: rng2 subsumes ATR5.)
+
+The window's death spirals: WFF 10-14 rng2 14.4 (ATR5 7.18 — the one ATR5 catches) · RETO 09-16 59.6 (ATR5 0.32) · WFF
+10-13 8.9 (0.71) · SXTC 10-07 8.1 · MSGY 09-28 5.8 · IMCC 09-18 5.3 · CHSN 11-04 4.7 · AEHL 10-14 3.7 · ZTG 3.5 — but
+RAYA 11-06 2.3, AMOD 1.9, BRAI 1.8, XHLD 1.5 (quiet yesterday, the collapse came from inside the day).
+
+- **ATR5 is inert historically** (29 trades, PF 1.542 → 1.544); its whole value is WFF 10-14. rng2 sees TODAY's pump as
+  well as yesterday's, so it catches WFF on both days, RETO, SXTC, MSGY, IMCC — the class ATR5 was meant for.
+- **The tail rate climbs steeply with the range** (1.0 → 18 per 1,000) while the mean also rises — the usual variance
+  trade, but above ~4 the PF bends (4 … 6: 1.40, 2025 1.01).
+- **rng2 < 6:** PF neutral (1.546), tails −10 %, Σreturn −3.5 %; the pre-live window +33 → +81 %. **rng2 < 4:** PF 1.557
+  (at the random band's edge), tails −23 %, Σreturn −8 %, 2026 Jan–May 1.52 → 1.62 but Jun–Aug 1.26 → 1.11; pre-live
+  +142 %. Either replaces ATR5 outright. Neither catches RAYA or AMOD.
+- **Candidate, not built:** a strict superset of ATR5's job. The live port is cheap (yesterday's H/L/n from the reference
+  dailies, as Reference.atr5s; sess_high/sess_low already in the engine).
+
+## V2-35 — 6-month momentum: the share of days below the 40-day SMA (2026-11-07, user)
+
+**User:** "calculating the daily 40d moving average and calculating how many days the stock has been below it in the
+last 6 months. I wonder if stocks which have strongly negative momentum based on that measure would be poorer dip buys.
+Maybe we could at least filter out low volume < 250k stocks with persistently negative 6-month momentum?"
+`scripts/equity/flushfaderv2_below40.py` (V2-30's harness; control 35,795): close × n (causal scale), SMA40, `below6m` =
+the share of the 126 sessions BEFORE D closing under their SMA40 (≥ 60 rows, else NaN = passes; 91 % covered, median
+0.60); thin = V2-33's med60 < 250k shares.
+
+| below6m | all: trades · mean · PF · ≤ −20 %/1,000 | 2026 Jan–Aug PF | thin: trades · mean · PF · ≤ −20 %/1,000 | thin 2026 Jan–Aug PF | live (all) n · PF · Σret |
+|---|---|---|---|---|---|
+| < 30 % | 3,601 · +0.35 % · 1.37 · 3.3 | 1.02 | 465 · +0.67 % · 1.55 · 8.6 | 2.47 | 14 · 1.25 · +2 % |
+| 30 … 50 % | 7,764 · +0.54 % · 1.60 · 1.5 | 0.75–1.14 | 1,465 · +0.79 % · 1.68 · 2.0 | 0.78–2.20 | 57 · 1.29 · +18 % |
+| 50 … 70 % | 10,275 · +0.54 % · 1.53 · 2.5 | 1.37–1.53 | 3,399 · +0.76 % · 1.62 · 4.7 | 1.27–1.77 | 78 · 1.53 · +34 % |
+| 70 … 80 % | 4,422 · +0.70 % · 1.68 · 2.7 | 1.55 | 2,013 · +0.93 % · 1.77 · 2.5 | 1.61 | 60 · 0.64 · −55 % |
+| 80 … 90 % | 3,895 · +0.66 % · 1.60 · 4.6 | 1.69 | 1,990 · +0.86 % · 1.71 · 5.0 | 1.73 | 40 · 0.90 · −9 % |
+| ≥ 90 % | 2,714 · +0.73 % · 1.59 · 7.0 | 1.70 | 1,690 · +0.84 % · 1.62 · 8.3 | 1.60 | 27 · 0.78 · −17 % |
+
+| gate (greedy re-run) | trades | PF | random same-n | ≤ −20 %/1,000 | Σret (units) | 2026 Jan–May | Jun – 08-21 | 08-24 … 10-09 PF · Σret | live PF · Σret · big |
+|---|---|---|---|---|---|---|---|---|---|
+| none | 35,795 | 1.544 | — | 3.1 | +199 | 1.52 | 1.26 | 1.04 · +33 % | 0.92 · −45 % · 4 |
+| below6m < 90 % | 33,081 | 1.539 | 1.533–1.556 | 2.8 | +179 | 1.46 | 1.19 | 0.97 · −20 % | 0.94 · −28 % · 3 |
+| below6m < 80 % | 29,186 | 1.530 | 1.525–1.565 | 2.6 | +153 | 1.33 | 1.18 | 0.90 · −52 % | 0.95 · −19 % · 2 |
+| below6m < 70 % | 24,764 | 1.502 | 1.512–1.575 | 2.5 | +122 | 1.24 | 1.11 | 0.59 · −166 % | 1.17 · +36 % · 1 |
+| thin ∧ ≥ 90 % off | 34,105 | 1.539 | 1.534–1.555 | 2.9 | +185 | 1.49 | 1.20 | 0.99 · −6 % | 0.95 · −21 % · 3 |
+| thin ∧ ≥ 80 % off | 32,115 | 1.526 | 1.530–1.557 | 2.7 | +168 | 1.42 | 1.16 | 0.93 · −39 % | 1.02 · +8 % · 2 |
+| thin ∧ ≥ 70 % off | 30,102 | 1.506 | 1.524–1.563 | 2.8 | +149 | 1.36 | 1.11 | 0.67 · −142 % | 1.19 · +51 % · 1 |
+| thin ∧ ≥ 60 % off | 28,013 | 1.500 | 1.520–1.567 | 2.5 | +134 | 1.32 | 1.16 | 0.83 · −47 % | 1.16 · +40 % · 1 |
+
+The window's losers: RAYA 1.00 (10k sh), IMCC 0.97, AMOD 0.87, DCOY 0.85, BRAI 0.84, CHSN 0.76, MSGY 0.74, AEHL 0.71 —
+but RETO 0.67, SXTC 0.65, ZTG 0.58, WFF 10-13 0.49, XHLD 0.48.
+
+- **The user's picture of the live losers is right** (most were persistent downtrenders, several thin), and persistent
+  downtrend does carry 2× the tail rate (≥ 80 %: 4.6–7 per 1,000 vs 1.1–1.9 at 30–60 %).
+- **But persistent downtrenders are better dip buys, not worse:** mean +0.66–0.73 % vs +0.35 % for the strongest names
+  (< 30 %), and in 2026 Jan–Aug the ≥ 70 % bands are the BEST (PF 1.55–1.70); thin downtrenders likewise (1.60–1.73).
+  A dip in a stock that is always falling is a sharper overreaction, the MR thesis itself.
+- Every gate falls under the random band or onto its edge and costs 7–53 % of Σreturn; each one HURTS the 7 pre-live
+  weeks (+33 % → −6 … −166 %) while helping the live 4 — the same live-only inversion as the dslo band and med60
+  (V2-33). **Not adopted.**
+
+## V2-36 — the range over TWO prior days + the session; the range gates at production size (2026-11-07, user)
+
+**User:** "What do you mean by total return being down 8%?" / "Is the range >= 6 really profitable?" / "What about
+range >= 10?" / "let's try 2-day high/low combined with the session's high/low. Will our conclusions change?"
+`flushfaderv2_range2.py --prior-days 2` (k = 1 reproduces V2-34's rows exactly): `max(H[D−1], H[D−2], sess_high) /
+min(L[D−1], L[D−2], sess_low)`. ⚠ V2-34's "Σret" is EQUAL-unit (no sizing); at production size (the V2-25 book,
+V2-26's % of equity, the gated trades removed without replacement) the gated bands are worth MORE, because the sizing
+model sizes wide ranges up:
+
+| gated band (production book, 2020-01 … 2026-08-21) | trades | ticker-days | mean | median | PF | ≤ −20 % | % eq | share of +2,716 |
+|---|---|---|---|---|---|---|---|---|
+| 1 prior day, ≥ 4 | 2,047 | | | | | | +387.5 | 14.3 % |
+| 1 prior day, ≥ 6 | 711 | 239 | +1.05 % | +2.21 % | 1.53 | 12 | +161.0 | 5.9 % |
+| 1 prior day, ≥ 10 | 138 | 54 | +1.69 % | +3.56 % | 1.67 | 2 | +53.2 | 2.0 % |
+| 2 prior days, ≥ 4 | 3,323 | 1,244 | +0.81 % | +1.83 % | 1.50 | 38 | +518.5 | 19.1 % |
+| 2 prior days, ≥ 6 | 1,361 | 500 | +0.75 % | +1.87 % | 1.40 | 21 | +220.4 | 8.1 % |
+| 2 prior days, ≥ 10 | 358 | 139 | +1.03 % | +2.23 % | 1.49 | 4 | +91.8 | 3.4 % |
+
+The 1-day ≥ 6 band is genuinely profitable (median +2.2 %, 70 % winners, +129 without its 10 best trades; positive
+every year but 2023's −0.4) — the gate is insurance (16.9 vs 2.8 big losers per 1,000), not an edge. 1-day 6–10 holds
+10 of its 12 big losers.
+
+The harness at k = 2 (equal units, greedy re-run; k = 1 in brackets):
+
+| variant | trades | PF | random same-n | ≤ −20 %/1,000 | Σret | 08-24 … 10-09 Σret · big | live PF · Σret · big |
+|---|---|---|---|---|---|---|---|
+| no ATR5, < 10 | 35,448 | 1.545 (1.543) | 1.539–1.548 | 3.0 (3.1) | +196 (+197) | +85 % · 4 (+80 · 4) | 0.94 · −33 % · 3 (0.90 · −54 % · 4) |
+| no ATR5, < 6 | 34,440 | **1.557** (1.546) | 1.534–1.553 | 2.6 (2.8) | +190 (+192) | +88 % · 3 (+81 · 3) | 0.91 · −45 % · 3 (same) |
+| no ATR5, < 4 | 32,474 | 1.559 (1.557) | 1.528–1.558 | 2.2 (2.4) | +174 (+183) | +131 % · 1 (+142 · 1) | 0.93 · −31 % · 3 (0.91 · −43 % · 3) |
+
+- **The conclusions hold, slightly strengthened.** Two prior days see a pump that started the day before yesterday:
+  WFF 10-13 8.9 → 28.9, WFF 10-14 14.4 → 46.8 — so **< 10 now catches WFF on both days and RETO** (the 1-day < 10 only
+  WFF 10-14 and RETO). The gated band is weaker per trade (≥ 6 PF 1.40 vs 1.53; ≥ 10 1.49 vs 1.67), so each big loser
+  removed costs less: ≥ 6 removes 21 of the book's 110 big losers for 8.1 % of the profit (1-day: 12 for 5.9 %), and the
+  < 6 harness PF clears the random band (1.557 vs ≤ 1.553). RAYA (2.3), AMOD (1.9), BRAI (2.6) still pass.
+- Candidate, not built: 2-prior-day range < 10 as ATR5's replacement (≈ 3.4 % of the profit; WFF ×2 + RETO), or < 6 as
+  the stronger insurance (≈ 8 %).
+
+**Higher thresholds (2 prior days, production size, user "What about ≥ 15 or ≥ 20?"):** ≥ 15: 111 trades / 41
+ticker-days, median +2.56 %, PF 1.42, 2 big losers (TDIC −84 %, CWD −20 %), +40.6 % eq = 1.5 % of the profit (top 5 trades
++14.8) · ≥ 20: 54 / 23, PF 1.15, 2 big losers (the same), +24.0 = 0.9 % · ≥ 25: 25 / 14, PF 1.62, 1, +16.6 = 0.6 %. The
+window's three death spirals are all above 25 (WFF 10-13 28.9, WFF 10-14 46.8, RETO 59.6) and nothing else in the
+window is above 8.1 (SXTC), so every threshold from 10 to 25 removes exactly those three; the higher the threshold, the
+less history it gives up and the more it relies on the next spiral being as extreme.
+
+## V2-37 — YANG-ZHANG volatility (plain, and with today's session) as the death-spiral gate (2026-11-07, user)
+
+**User:** "Instead of using ATR, what if we tried the Yang Zhang realized volatility estimator? Could we also combine it
+with the current session's data assuming the close is the current price?" `scripts/equity/flushfaderv2_yangzhang.py`
+(V2-30's harness; header has the formula): `yzN` over the N sessions before D, `yzN_s` adds today's partial day (D's
+open, the session high / low at the signal, the signal vwap as the close). Daily σ, not annualized. Cut at the book's top
+q. Coverage ≥ 98.4 %; Spearman with ATR5: yz5 0.94, yz10 0.91, yz20 0.83, the `_s` versions 0.53–0.60.
+
+Production book cut (book-only, production size; the book total +2,716 % eq):
+
+| gate | threshold (daily σ) | cut: trades · PF · ≤ −20 % · % eq · share | harness PF (random) | live Σret · big |
+|---|---|---|---|---|
+| yz5 top 1 % | 0.72 | 358 · 1.29 · 2 · +33.9 · 1.2 % | 1.546 (1.539–1.548) | −33 % · 3 |
+| yz5 top 2 % | 0.63 | 719 · 1.41 · 4 · +67.5 · 2.5 % | 1.548 (1.538–1.550) | −33 % · 3 |
+| yz5 top 5 % | 0.47 | 1,788 · 1.45 · 14 · +209.3 · 7.7 % | 1.554 (1.534–1.554) | −29 % · 3 |
+| yz5_s top 1 % | 0.72 | 358 · 1.54 · 3 · +64.6 · 2.4 % | 1.544 (1.539–1.548) | −33 % · 3 |
+| yz5_s top 2 % | 0.64 | 716 · 1.76 · 5 · +135.6 · 5.0 % | 1.539 (1.537–1.550) | −33 % · 3 |
+| yz5_s top 5 % | 0.53 | 1,790 · 1.53 · 19 · +271.9 · 10.0 % | 1.548 (1.534–1.555) | −47 % · 3 |
+| yz10 top 5 % | 0.38 | 1,788 · 1.43 · 14 · +181.9 · 6.7 % | 1.555 (1.534–1.553) | −16 % · 3 |
+| yz20 top 5 % | 0.31 | 1,762 · 1.52 · 12 · +184.5 · 6.8 % | 1.548 (1.532–1.555) | −6 % · 2 |
+| for comparison: 2-day range ≥ 15 | | 111 · 1.42 · 2 · +40.6 · 1.5 % | | (WFF ×2 + RETO) |
+| 2-day range ≥ 10 | | 358 · 1.49 · 4 · +91.8 · 3.4 % | 1.545 (1.539–1.548) | −33 % · 3 |
+| 2-day range ≥ 6 | | 1,361 · 1.40 · 21 · +220.4 · 8.1 % | 1.557 (1.534–1.553) | −45 % · 3 |
+| ATR5 ≥ 400 % (production) vs none | | 29 trades in the harness | 1.544 vs 1.542, Σret +199 both | −45 % vs −126 % |
+
+Percentile in the book: WFF 10-14 yz5 99.8 / yz5_s 99.7 · WFF 10-13 99.5 / 99.3 · **RETO 97.4 / 99.1** · MEDS 99.3 /
+98.6 · SXTC 80.6 / 97.6 · AEHL 35.0 / 92.3 · RAYA 40.2 / 60.6 · AMOD 68.6 / 68.9. The book's 10 worst trades at
+production size sit at yz5 p11–p97 (GME 2021-01-28 p96.5, BLUW p11.5).
+
+- **ATR5 ≈ yz5** (ρ 0.94); ATR5 ≥ 400 % is a top-0.1 % cut of the same thing. Historically it is NEUTRAL (29 trades,
+  Σreturn unchanged), not net-cutting losers; its value is WFF 10-14.
+- **Plain YZ cuts cheaper per trade than the range** (yz5 top 1 %: 358 trades for 1.2 % of the profit, PF 1.29 in the
+  cut set) but misses RETO (p97.4) until the top 2.6 %.
+- **Adding today's session makes YZ a WORSE gate:** the `_s` cut sets have PF 1.5–1.8 (the session's own flush range is
+  the opportunity), so each costs about twice the profit for the same count; it does rank RETO / SXTC / AEHL higher.
+- No YZ variant clears the random band except yz10 top 5 % at its edge (1.555 vs 1.553). **The 2-prior-day range ≥ 15
+  remains the cheapest gate that removes all three spirals (1.5 %)**; yz5 top 2 % (σ ≥ 0.63, 2.5 %) is the volatility
+  equivalent. Not built.
+
+**Tighter YZ5 cuts (user: "What about YZ5 top 0.5% or even less?"; scratch yz5_top.py, thresholds = the harness's):**
+top 0.5 % σ ≥ 0.796: 179 trades / 97 ticker-days, PF 1.43, 1 big loser (TOP 2023-05-04 −60 %), +22.4 % eq = 0.8 % ·
+top 0.25 % σ ≥ 0.90: 90 / 48, PF 2.47, 0, +13.2 = 0.5 % · top 0.1 % σ ≥ 1.15: 38 / 17, PF 4.47, 0, 0.2 % · top 0.05 %:
+21 / 11, PF 3.78, 0. The spirals: WFF 10-14 0.916, WFF 10-13 0.804, MEDS 09-18 0.744, RETO 0.584. So top 0.5 % catches
+both WFF days (10-13 by 0.008) and nothing else in the window; top 0.25 % only WFF 10-14 (= ATR5's job); tighter catches
+none. The very top of the volatility distribution is the book's best region (PF 2.5–4.5, no big losers) — every cut
+above 0.5 % removes winners only.
+
+**Tighter cuts WITH today's session (yz5_s; scratch yz5s_top.py, thresholds = the harness's):** top 1.5 % σ ≥ 0.673:
+537 trades, PF 1.61, 5 big losers, 3.6 % of the profit (WFF ×2, RETO, MEDS) · top 1 % σ ≥ 0.720: 358, PF 1.54, 3,
+2.4 % (WFF ×2 + RETO 0.729) · top 0.75 % σ ≥ 0.746: 269, PF 1.49, 3, 2.0 % (WFF ×2) · top 0.5 % σ ≥ 0.809: 179, PF 1.56,
+2, 1.3 % (WFF 10-14 only) · top 0.25 %: 90, PF 1.89, 0.8 %, none · top 0.1 %: 36, PF 2.71, none. Including the session
+LOWERS the spirals' readings (WFF 10-13 0.804 → 0.764, 10-14 0.916 → 0.892: a sixth, partial observation dilutes the five
+wild days) and raises the flush days': at every count the cut set is better than plain YZ5's, so the session version
+costs more for the same protection. Ranking for "remove WFF ×2 + RETO": 2-day range ≥ 15 (1.5 %) < yz5_s top 1 % (2.4 %);
+for WFF ×2 only: yz5 top 0.5 % (0.8 %) < yz5_s top 0.75 % (2.0 %).
+
+## V2-38 — THE ATR5 GATE REMOVED (2026-11-07, user) — sealed
+
+**User:** "all of this convinced me that I am misguided in putting in the ATR 5 filter. If pretty much every volatility
+estimate is telling me that more is better as far as mean reversion is concerned, then we're making a mistake having it
+in. We'll accept the WFF loss and remove the ATR 5 gate."
+
+- **What it costs (2020-01 … 2026-08-21):** the gate blocked 29 book trades (equal units: Σreturn unchanged, PF 1.542 →
+  1.544, V2-34). **At production size they lost −11.1 % of equity** (+2,716.3 → +2,705.2, 0.4 %), almost all ONE trade:
+  OCG 2025-12-12 −41.7 % (ATR5 7.08, −12.4 % eq); the other 28 net +1.3. Live: WFF 10-14 (−\$953 at the 8k sizing) is
+  the class accepted.
+- **The production reference, ATR5 off:** `flushfaderv2_reference.py --coef models/flushfaderv2/v2_coefficients.json
+  --max-atr5 inf` (the V2-25 coefficients APPLIED, no refit) → book 35,796 (+29, none removed), sized PF 1.823 (was
+  1.830); engine-level trips 196,474. Swapped into `data/flushfaderv2/flushfaderv2_reference_{book,trips}.parquet` /
+  `.md`; the V2-25 files are in `pre_noatr5_2026-11-07/`. The script's `--max-atr5` now defaults to inf. ⚠ Its FIT-mode
+  defaults therefore no longer reproduce `v2_coefficients.json` byte for byte (that fit saw the ATR5-gated set; pass
+  `--max-atr5 4` to reproduce it).
+- **SEALED:** the private Oms with `MaxAtr5 = +infinity` (the knob kept; ATR5 still recorded) — `parity trips -s 2020-01-02
+  -e 2026-08-21 --from-bars --system flushfader --min-barnum 11` (71.6 min, peak 1.96 GB): **book 35,796 = 35,796 zero-diff**
+  (every column exact but pf1_model / pf1_fitted 3.3e-15 and the multiplier 3.9e-15 relative), **trips 196,474 = 196,474
+  zero-diff** (`scanner_diff.py --rtol 1e-12`).
