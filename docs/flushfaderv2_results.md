@@ -1701,3 +1701,70 @@ in. We'll accept the WFF loss and remove the ATR 5 gate."
   -e 2026-08-21 --from-bars --system flushfader --min-barnum 11` (71.6 min, peak 1.96 GB): **book 35,796 = 35,796 zero-diff**
   (every column exact but pf1_model / pf1_fitted 3.3e-15 and the multiplier 3.9e-15 relative), **trips 196,474 = 196,474
   zero-diff** (`scanner_diff.py --rtol 1e-12`).
+
+## V2-39 — the time from the 20m high to the signal (2026-11-08, user)
+
+**User:** "a breakdown of the time from 20m high to the signal. I wonder if faster signals have a higher EV? Given how
+bounces from 20m low to 5m behaved, there might be something to it." `scripts/equity/flushfaderv2_since_high.py`: the
+production book (35,796, ATR5 off) joined to base_v24's `bars_since_high` (present 1s bars since the last new 20m high —
+a vwap above the prior 1,200-present-bar max; median 1,377, p10 620, p90 3,058) and `secs_since_first_low`.
+
+| bars from the 20m high | trades | mean | median | PF | PF trim 5 % | ≤ −20 %/1,000 | % eq | bp eq / trade | 2020–22 | 2023–24 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| < 180 | 107 | −0.14 % | +0.49 % | 0.93 | | 0 | −0.6 | −0.5 | | | | |
+| 180–299 | 398 | +0.18 % | +0.97 % | 1.12 | 2.02 | 2.5 | +12 | +3.0 | 1.44 | 1.16 | 0.83 | 0.85 |
+| 300–449 | 1,090 | +0.40 % | +1.03 % | 1.34 | 2.44 | 1.8 | +49 | +4.5 | 1.24 | 1.26 | 2.34 | 1.05 |
+| 450–599 | 1,723 | +0.70 % | +1.20 % | 1.70 | 3.24 | 1.7 | +139 | +8.0 | 1.82 | 1.70 | 1.72 | 1.33 |
+| 600–899 | 4,715 | +0.63 % | +1.23 % | 1.63 | 3.34 | 2.8 | +373 | +7.9 | 1.88 | 1.65 | 1.29 | 1.31 |
+| 900–1199 | 5,766 | +0.68 % | +1.19 % | 1.74 | 3.59 | 2.3 | +542 | +9.4 | 1.83 | 1.68 | 1.74 | 1.49 |
+| ≥ 1,200 | 21,997 | +0.60 % | +1.18 % | 1.59 | 3.28 | 3.6 | +1,591 | +7.2 | 1.73 | 1.39 | 1.52 | 1.55 |
+
+(< 180 = 107 trades: 30–59 9 trades PF 0.12, 60–119 20 PF 0.85, 120–179 77 PF 1.17.)
+
+By the seconds since the leg's first low: 0–29 s PF 1.73 (2,091) · 30–59 1.56 · 1–2 min 1.67 · 2–3 min 1.94 · 3–5 min
+1.67 · 5–10 min 1.63 · 10–20 min 1.95 · ≥ 20 min **1.46** (17,449, 4.1 big losers per 1,000) — flat but for the long legs.
+
+- **No: FAST signals are the WEAKER ones.** A flush that reaches a new 20m low within 7½ minutes of a 20m high (4.5 % of
+  the book) earns +0.2–0.4 % a trade at PF 1.12–1.34 against +0.6–0.7 % at 1.6–1.7 for the rest, in most periods. The
+  quickest drops are knife-like: the bounce has not been prepared by a slide. Beyond 7½ minutes the time does not matter
+  (450 … ∞ all PF 1.59–1.74); the longest declines (≥ 20 min, 61 % of the book) carry the highest tail rate.
+- Not a candidate to build (user 11-07: no more FlushFader tinkering); the sub-450 band is 4.5 % of the trades and +2 %
+  of the profit, so a gate there would be nearly inert.
+
+## V2-40 — the 20m standard deviation against volat_20m (2026-11-08, user)
+
+**User:** "Suppose we compared 20m standard deviation to the 20m volatility feature we're using based on 30s slot
+absolute log returns. What would the correlation between them be. Is there any signal to be found when those measures
+diverge significantly?" … "we should compare the stddev calculated using the same half life and EWMA then."
+`scripts/equity/flushfaderv2_sd_vs_volat.py` (formulas in its header), every production book trade (35,796) recomputed
+from the 1s bars FROM 09:30 (the engine's SessionStartSec — premarket bars misalign the slots: the first pass was off
+3.4 % median). **Control: the recomputed volat = base_v24's volat_20m on 100 % of the trades, exactly.**
+
+- **The same-EWMA std (hl 40 slots, centered, signed slot returns) IS volat_20m:** Spearman 0.975, log-Pearson 0.980.
+  The ratio k_slot = σ / mean|r| has median 1.32 (p5 1.20, p95 1.54) — above the Gaussian √(π/2) = 1.25: slot returns
+  are fat-tailed. The other readings are different things: the 1s-return std × √30 (Spearman 0.69; k_1s median 1.90 —
+  within-slot noise ~3.6× the variance of a random walk) and the std of ln price over 1,200 bars (0.68; k_px median 3.11).
+- **The ratios are nearly independent of the existing gates** (|ρ| ≤ 0.19 with coil, |eff10|, volat; k_px 0.40 with
+  |eff10| and rng_20m).
+
+| k_slot band | range | trades | mean | PF | PF trim 5 % | ≤ −20 %/1,000 | % eq | 2020–22 | 2023–24 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| p0–5 (smooth) | 0.85–1.20 | 1,790 | +0.42 % | 1.44 | 3.00 | 3.9 | +54 | 1.65 | 0.97 | 1.46 | 1.55 |
+| p5–10 | 1.20–1.23 | 1,790 | +0.42 % | 1.47 | 2.88 | 2.2 | +69 | 1.69 | 1.06 | 2.09 | 0.67 |
+| p10–25 | 1.23–1.27 | 5,369 | +0.58 % | 1.67 | 3.33 | 1.3 | +327 | 1.95 | 1.33 | 1.52 | 1.20 |
+| p25–50 | 1.27–1.32 | 8,949 | +0.62 % | 1.67 | 3.38 | 2.5 | +671 | 1.85 | 1.62 | 1.49 | 1.23 |
+| p50–75 | 1.32–1.39 | 8,949 | +0.64 % | 1.61 | 3.36 | 3.7 | +774 | 1.73 | 1.43 | 1.53 | 1.71 |
+| p75–90 | 1.39–1.47 | 5,369 | +0.71 % | 1.67 | 3.31 | 3.5 | +497 | 1.51 | 1.84 | 1.60 | 1.97 |
+| p90–95 | 1.47–1.54 | 1,790 | +0.57 % | 1.46 | 2.90 | 5.0 | +167 | 1.55 | 1.53 | 1.16 | 1.63 |
+| p95–100 (jumpy) | 1.54–5.02 | 1,790 | +0.51 % | 1.36 | 2.86 | 5.6 | +146 | 1.60 | 1.17 | 1.81 | 0.98 |
+
+k_1s: p0–5 (ratio < 1.13: the 1s path as smooth as the slots — trending inside them) PF 1.37, 4.5 big losers per 1,000;
+the rest 1.53–1.70, flat. k_px: p0–10 (< 2.06: the price has hardly travelled against its step — chop) PF 1.34–1.35;
+p95–100 (> 5.67: a long one-way slide) PF 1.43 with 8.4 big losers per 1,000 (the tail rate climbs with k_px from 1.1
+at p25–50); the middle 1.51–1.74.
+
+- **Little signal in the divergence.** Each ratio has weaker EXTREMES (about a tenth of the book each side, PF 1.34–1.47
+  against ~1.6–1.7 in the middle) and no monotone effect; the extremes swap rank between periods (k_slot p0–5: 0.97 in
+  2023–24, 1.55 in 2026; p95–100: 1.81 in 2025, 0.98 in 2026). Jumpy slot returns and long one-way slides carry more
+  big losers (5–8 per 1,000), consistent with V2-30 / V2-39 (cascades), but the sizing model already gives them their
+  higher mean. Not a candidate (steady path, user 11-07).
