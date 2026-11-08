@@ -1294,6 +1294,251 @@ type FloatOls(windowSize: int) =
     inherit OlsRoll<float>(windowSize)
     override _.Project v = v
 
+// =============================================================================
+// TimeOlsSlopeMa / TimeOlsRoll — the rolling OLS slope against a TIMESTAMP
+// =============================================================================
+//
+// ⭐ FlushFaderV2 V2-45 (user, 2026-11-08): the 20m price slope regressed on each
+// bar's TIME instead of its push index, over the same last-N present bars. A fall
+// that stretches over thin, silent seconds then reads as the slower fall it is
+// (+0.010 PF−1 out of sample against the index slope, V2-45 `span 1`).
+//
+// The same five running sums as OlsSlopeMa — the closed form needs nothing else:
+//   slope m = (n·Σxy − Σx·Σy) / (n·Σx² − (Σx)²)
+// so it is ONLINE, amortized O(1) per push, exactly like the index form. The only
+// difference: x is no longer derivable from a counter, so the Ma form stores it
+// (a queue of (x, y)), and the IRoll form recomputes it from the evicted element
+// (`ProjectX`), as it already recomputes y.
+//
+// ⚠ x SHOULD BE AN INTEGER COUNT (seconds since a session anchor). Then Σx and Σx²
+// are EXACT in double (1,200 × 23,400² ≈ 6.6e11 ≪ 2^53), so the denominator carries
+// no rounding at all and eviction subtracts exactly what was added. Only Σy, Σxy,
+// Σy² round. UNITS: y-per-x-unit (per second for seconds).
+//
+// ⚠⚠ ARITHMETIC ORDER = OlsSlopeMa's, term for term (remove before add; sx, sy,
+// sxx, sxy, syy in that order), so fed x = 0, 1, 2, … it reproduces OlsSlopeMa BIT
+// FOR BIT (TimeOls_Test.fsx checks it), and the Ma and IRoll forms equal each
+// other bit for bit. The Python reference (flushfaderv2_tslope.py) replays the
+// same sequence of operations.
+// Read `.State` BEFORE pushing the current point for a strictly-prior value.
+
+/// The slope against a pushed x. A window of the last `windowSize` points.
+[<Sealed>]
+type TimeOlsSlopeMa(windowSize: int) =
+    let q = Queue<struct (float * float)>(windowSize)
+    let mutable sx  = 0.0
+    let mutable sy  = 0.0
+    let mutable sxx = 0.0
+    let mutable sxy = 0.0
+    let mutable syy = 0.0
+
+    member _.Count = q.Count
+    member _.WindowSize = windowSize
+
+    /// OLS slope (y per x unit), or ValueNone with < 2 points or no x spread.
+    member _.Slope : float voption =
+        let n = float q.Count
+        let dxx = n * sxx - sx * sx
+        if q.Count >= 2 && dxx > 0.0 then ValueSome ((n * sxy - sx * sy) / dxx) else ValueNone
+
+    member this.State = this.Slope
+
+    /// R² ∈ [0,1], or ValueNone with < 2 points, no x spread or a flat window.
+    member _.R2 : float voption =
+        let n = float q.Count
+        let dxx = n * sxx - sx * sx
+        let dyy = n * syy - sy * sy
+        if q.Count >= 2 && dxx > 0.0 && dyy > 0.0 then
+            let dxy = n * sxy - sx * sy
+            ValueSome (dxy * dxy / (dxx * dyy))
+        else ValueNone
+
+    /// Push the point (x, y), evicting the oldest when full (REMOVE BEFORE ADD).
+    member _.Push (x: float, y: float) =
+        if q.Count = windowSize then
+            let struct (ox, oy) = q.Dequeue()
+            sx <- sx - ox; sy <- sy - oy
+            sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+        q.Enqueue (struct (x, y))
+        sx <- sx + x; sy <- sy + y
+        sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+
+    member _.Reset () =
+        q.Clear()
+        sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
+
+/// The IRoll form of TimeOlsSlopeMa over a shared WindowRoller ring: x and y are
+/// both PROJECTIONS of the element, so nothing is stored here. Same arithmetic,
+/// same order (see OlsRoll for the ONE-definition rule of Add/Remove/Roll).
+[<AbstractClass>]
+type TimeOlsRoll<'T>(windowSize: int) =
+    let mutable sx  = 0.0
+    let mutable sy  = 0.0
+    let mutable sxx = 0.0
+    let mutable sxy = 0.0
+    let mutable syy = 0.0
+    let mutable n = 0
+
+    /// The element's x (an integer count, see the header).
+    abstract ProjectX : 'T -> float
+    /// The element's y.
+    abstract Project : 'T -> float
+
+    member _.Count = n
+    member _.WindowSize = windowSize
+
+    member _.Slope : float voption =
+        let fn = float n
+        let dxx = fn * sxx - sx * sx
+        if n >= 2 && dxx > 0.0 then ValueSome ((fn * sxy - sx * sy) / dxx) else ValueNone
+
+    member this.State = this.Slope
+
+    member _.R2 : float voption =
+        let fn = float n
+        let dxx = fn * sxx - sx * sx
+        let dyy = fn * syy - sy * sy
+        if n >= 2 && dxx > 0.0 && dyy > 0.0 then
+            let dxy = fn * sxy - sx * sy
+            ValueSome (dxy * dxy / (dxx * dyy))
+        else ValueNone
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private this.AddPoint (b: 'T) =
+        let x = this.ProjectX b
+        let y = this.Project b
+        sx <- sx + x; sy <- sy + y
+        sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private this.RemovePoint (b: 'T) =
+        let ox = this.ProjectX b
+        let oy = this.Project b
+        sx <- sx - ox; sy <- sy - oy
+        sxx <- sxx - ox * ox; sxy <- sxy - ox * oy; syy <- syy - oy * oy
+
+    interface IRoll<'T> with
+        member _.WindowSize = windowSize
+        member this.Add b    = this.AddPoint b; n <- n + 1
+        member this.Remove b = this.RemovePoint b; n <- n - 1
+        // ⚠ REMOVE BEFORE ADD. n nets out, so it is not touched.
+        member this.Roll (a, b) = this.RemovePoint a; this.AddPoint b
+        member _.Reset () =
+            sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0; n <- 0
+
+// =============================================================================
+// GridTimeOlsRoll — the OLS slope of ln(SLOT vwap) on the slot's time, over FIXED-GRID time slots of a bar window
+// =============================================================================
+//
+// ⭐ FlushFaderV2 V2-47/V2-49 (user, 2026-11-08): the 20m price slope on 60s CANDLES — the window is the last N
+// present bars (the engine's ring); its bars fall into fixed grid slots g = sec / slotSecs (sec = seconds since a
+// session anchor, so 60s slots are the chart's minutes); each slot is ONE regression point, x = g × slotSecs,
+// y = ln(Σ vwap·vol / Σ vol) of the window's bars in it. The newest slot is PARTIAL (up to the newest bar) and the
+// oldest holds only the window's bars — both kept (V2-49: dropping them loses).
+//
+// ONLINE, O(1) per bar: a bar only ever changes the NEWEST slot (Add) or the OLDEST (Remove), so each changes at most
+// one point: subtract the point's old contribution, update the slot, add the new one — or open / close the slot.
+// The five running sums are OlsRoll's, in its order (sx, sy, sxx, sxy, syy; remove before add). A slot keeps the y
+// it last added, so a point leaves the sums exactly as it entered. x = g × slotSecs is an integer: Σx, Σx² exact.
+//
+// ⚠⚠ THE OPERATION ORDER IS THE SPEC (the Python reference, flushfaderv2_pgrid.py, replays it bit for bit):
+//   Add b:    g = sec b / slotSecs (integer division)
+//             g = the newest slot's  -> RemovePoint(x, y_old); V += vol; DV += dv; n += 1; y = ln(DV / V); AddPoint(x, y)
+//             else                   -> open a slot (V = vol, DV = dv, n = 1); y = ln(DV / V); AddPoint(x, y)
+//   Remove b: the OLDEST slot        -> RemovePoint(x, y_old); n −= 1;
+//             n = 0 -> close the slot; else V −= vol; DV −= dv; y = ln(DV / V); AddPoint(x, y)
+// `Count` = the BARS in the window (the engine's full-window test); `Slope` needs >= 2 slots (y per second).
+[<AbstractClass>]
+type GridTimeOlsRoll<'T>(windowSize: int, slotSecs: int) =
+    do if slotSecs <= 0 then invalidArg (nameof slotSecs) "slotSecs must be > 0"
+    let cap = windowSize + 1                 // a slot per bar at worst, + the one a Roll opens before the Remove closes
+    let sg : int[] = Array.zeroCreate cap    // the slot's grid index
+    let sv : float[] = Array.zeroCreate cap  // Σ vol
+    let sd : float[] = Array.zeroCreate cap  // Σ vwap·vol
+    let sn : int[] = Array.zeroCreate cap    // bars in the slot
+    let syv : float[] = Array.zeroCreate cap // the y the slot's point currently holds in the sums
+    let mutable head = 0                     // the oldest slot's position
+    let mutable slots = 0
+    let mutable bars = 0
+    let mutable sx  = 0.0
+    let mutable sy  = 0.0
+    let mutable sxx = 0.0
+    let mutable sxy = 0.0
+    let mutable syy = 0.0
+
+    /// The bar's time: an INTEGER count of seconds since the session anchor (as a float).
+    abstract SecOf : 'T -> float
+    abstract VolOf : 'T -> float
+    /// vwap × volume
+    abstract DvOf  : 'T -> float
+
+    member _.Count = bars
+    member _.Slots = slots
+    member _.WindowSize = windowSize
+    member _.SlotSecs = slotSecs
+
+    member _.Slope : float voption =
+        let fn = float slots
+        let dxx = fn * sxx - sx * sx
+        if slots >= 2 && dxx > 0.0 then ValueSome ((fn * sxy - sx * sy) / dxx) else ValueNone
+
+    member this.State = this.Slope
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private _.AddPoint (x: float, y: float) =
+        sx <- sx + x; sy <- sy + y
+        sxx <- sxx + x * x; sxy <- sxy + x * y; syy <- syy + y * y
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member private _.RemovePoint (x: float, y: float) =
+        sx <- sx - x; sy <- sy - y
+        sxx <- sxx - x * x; sxy <- sxy - x * y; syy <- syy - y * y
+
+    member private this.AddBar (b: 'T) =
+        let g = int (this.SecOf b) / slotSecs
+        let vol = this.VolOf b
+        let dv = this.DvOf b
+        let newest = (head + slots - 1) % cap
+        if slots > 0 && sg.[newest] = g then
+            let x = float (g * slotSecs)
+            this.RemovePoint(x, syv.[newest])
+            sv.[newest] <- sv.[newest] + vol; sd.[newest] <- sd.[newest] + dv; sn.[newest] <- sn.[newest] + 1
+            let y = log (sd.[newest] / sv.[newest])
+            syv.[newest] <- y
+            this.AddPoint(x, y)
+        else
+            let p = (head + slots) % cap
+            sg.[p] <- g; sv.[p] <- vol; sd.[p] <- dv; sn.[p] <- 1
+            let y = log (sd.[p] / sv.[p])
+            syv.[p] <- y
+            slots <- slots + 1
+            this.AddPoint(float (g * slotSecs), y)
+        bars <- bars + 1
+
+    member private this.RemoveBar (b: 'T) =
+        let x = float (sg.[head] * slotSecs)
+        this.RemovePoint(x, syv.[head])
+        sn.[head] <- sn.[head] - 1
+        if sn.[head] = 0 then
+            head <- (head + 1) % cap
+            slots <- slots - 1
+        else
+            sv.[head] <- sv.[head] - this.VolOf b; sd.[head] <- sd.[head] - this.DvOf b
+            let y = log (sd.[head] / sv.[head])
+            syv.[head] <- y
+            this.AddPoint(x, y)
+        bars <- bars - 1
+
+    interface IRoll<'T> with
+        member _.WindowSize = windowSize
+        member this.Add b = this.AddBar b
+        member this.Remove b = this.RemoveBar b
+        // ⚠ REMOVE BEFORE ADD (the ring's order; the Python replay's)
+        member this.Roll (a, b) = this.RemoveBar a; this.AddBar b
+        member _.Reset () =
+            head <- 0; slots <- 0; bars <- 0
+            sx <- 0.0; sy <- 0.0; sxx <- 0.0; sxy <- 0.0; syy <- 0.0
+
 /// ⭐ Exponentially weighted OLS slope of a raw float stream vs push index
 /// (S43cg; user, 2026-08-29) — the EWMA counterpart of FloatOls: no hard
 /// window, every observation weighted λ^age, so the read is established within

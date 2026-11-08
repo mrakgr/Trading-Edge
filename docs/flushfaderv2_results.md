@@ -1991,3 +1991,222 @@ draws), re-run the same way.
 - **SEALED:** `parity trips` as above (71.3 min, peak 2.0 GB): **book 35,519 = 35,519 zero-diff** (25 columns, pf1 to
   4e-15 relative, the multiplier 5e-15), **trips 194,598 = 194,598 zero-diff** (14 columns, bars_since_high exact; its
   minimum 300) against `vlog_ref/gate300/`.
+
+## V2-45 — the price and volume slopes from 2s / 5s / 10s / 15s SLOTS, bar clock vs wall clock (2026-11-08, user)
+
+**User:** "research if using 2s, 5s, 10s or 15s slots for the price and volume slope works better than using 1s bars …
+both in bar clock and wall clock time. In bar clock time, the slots should not contain 1s bars with 0 volume, but in
+wall clock time they could, but otherwise in both cases we should filter out the slots that have volume of 0."
+`scripts/equity/flushfaderv2_slot_slopes.py` (→ `data/flushfaderv2/slot_slopes.parquet`; logs/slot_slopes*.log), on the
+V2-44 reference book (35,519), k ∈ {1, 2, 5, 10, 15}:
+- **bar** = k consecutive PRESENT 1s bars per slot, counted back from the signal bar, window = the last 1,200 present
+  bars (production's). `bar1` IS production: control = s20 to 4e-9 (running-sum vs exact OLS), vlog to 6e-14.
+- **wall** = k-second slots ending at the signal second over the last 1,200 WALL seconds (not before 09:30); silent
+  seconds inside a slot allowed, zero-volume slots dropped (≥ 10 slots; 100 % coverage).
+- **span** = wall-clock slots over the SAME span the 1,200 present bars cover (the first of them … the signal) — the
+  clock without the window change.
+Slot price = its vwap (volume-weighted), slot volume = its sum; OLS of ln(slot vwap) / ln(slot volume) on the slot's
+index (bar) or its time (wall, span); unweighted. Each variant REPLACES s20, vlog, or both in the production design
+(s20 + CUSUM + vlog), V2-42's holdout harness (fwd 2020–23 → 2024–26, mirror the reverse; units clip(PF−1, 0.125, 2));
+A = production refit the same way: sized PF−1 fwd 0.7754, mirror 0.9526, net 18,690 units·%. Δ vs A, paired day bootstrap:
+
+| variant | price slope replaced: Δ PF−1 [90 %] · share > 0 · Δ net | volume slope replaced: Δ PF−1 [90 %] · share > 0 · Δ net |
+|---|---|---|
+| bar 2 | +0.0001 · 99 % · +1 | −0.0026 [−0.0045, −0.0005] · 2 % · −48 |
+| bar 5 | +0.0001 · 91 % · +1 | −0.0048 [−0.0083, −0.0012] · 1 % · −95 |
+| bar 10 | +0.0002 · 92 % · +2 | −0.0067 [−0.0111, −0.0022] · 1 % · −131 |
+| bar 15 | +0.0004 · 96 % · +5 | −0.0105 [−0.0154, −0.0054] · 0 % · −212 |
+| wall 1 | −0.0008 [−0.0148, +0.0131] · 45 % · +37 | −0.0151 [−0.0249, −0.0050] · 1 % · −278 |
+| wall 5 | +0.0010 [−0.0128, +0.0146] · 53 % · +77 | −0.0175 · 0 % · −354 |
+| wall 15 | +0.0007 [−0.0133, +0.0149] · 52 % · +87 | −0.0254 · 0 % · −539 |
+| **span 1** | **+0.0100 [+0.0008, +0.0188] · 96 % · +224** | +0.0009 [−0.0005, +0.0023] · 86 % · +9 |
+| span 2 | +0.0104 [+0.0012, +0.0193] · 96 % · +236 | −0.0020 · 13 % · −40 |
+| span 5 | +0.0113 [+0.0020, +0.0203] · 97 % · +257 | −0.0094 · 0 % · −223 |
+| span 10 | +0.0118 [+0.0025, +0.0209] · 98 % · +270 | −0.0156 · 0 % · −394 |
+| span 15 | +0.0119 [+0.0024, +0.0211] · 98 % · +275 | −0.0163 · 0 % · −402 |
+
+(wall 2 / 10 sit between their neighbours; both-replaced = the price column's span gain with the volume column's loss:
+span 1 +0.0101, span 15 +0.0007, bar k −0.0025 … −0.0100, wall k −0.014 … −0.024.) Span price by period (2020–21 ·
+2022–23 · 2024 · 2025 · 2026, Δ net units·%): span 1 +29 · +29 · +73 · +27 · +67; span 15 +52 · +37 · +74 · +34 · +78.
+
+- **Slots do not help.** The PRICE slope is aggregation-invariant in bar clock (Spearman with s20 1.000 at every k; Δ
+  ≤ +0.0004). The VOLUME slope gets monotonically WORSE with every coarsening, in every clock and every period: the 1s
+  bar's own volume (how big each print burst is) is the information, and summing seconds throws it away.
+- **The 20-wall-minute window is noise for price and worse for volume.** It changes WHICH trades the slope sees as
+  steep (Spearman 0.65 with s20) without predicting better.
+- **⭐ One real finding — the CLOCK of the price slope's x-axis.** Regressing ln price on each bar's TIME instead of its
+  INDEX, over the same 1,200 present bars (`span`), adds +0.010 … +0.012 PF−1 out of sample (96–98 % of resamples, every
+  period positive, +224 … +275 units·% ≈ +1.2 … 1.5 % of the net). The slot size inside it barely matters (span 1 +0.0100
+  … span 15 +0.0119, within noise of each other). So the time-indexed slope wins: a fall over a stretch of thin
+  seconds counts as a slower fall than the same fall over 1,200 busy ones (Spearman with s20 0.86; median −13.6 vs −22.9
+  bp/min). Its size is a quarter of vlog's (+0.044, V2-42).
+- 45 variants were looked at, but the span-price family is ONE construction (five slot sizes, ρ ≥ 0.98 with each other)
+  and the price-in-bar-clock / volume rows behave as controls (zero / monotone). If built: `span 1` = OLS of ln(vwap) on
+  the bar's second over the last 1,200 present bars — no slots, a sequential sum at signal time like vlog — replacing
+  s20, a refit, a parity seal. Not built: the user's call.
+
+## V2-46 / V2-47 — the TIME-indexed slopes: the port started, the volume RATE, and 1s vs coarser grid slots by year (2026-11-08, user)
+
+**User:** "Let's do it. We'll aim to replace the bar indexed price slope over the last 1,200 bars with a timestamp indexed
+one." Then: "we might as well make [the volume slope time-indexed] to make them symmetric with price slopes. Should we
+maybe use 15s slots for the price slope? … Could we compare 1s with 15s bars on a yearly basis?"
+- **V2-46 built (uncommitted):** RollingMa `TimeOlsSlopeMa` / `TimeOlsRoll<'T>` (the five running sums with x pushed /
+  projected: online, O(1) per bar; `TimeOls_Test.fsx`: fed x = 0, 1, 2 … = OlsSlopeMa bit for bit, the two forms bit for
+  bit, vs a two-pass OLS 3.5e-10 bp/min — below the index OLS's own 1.4e-9); `scripts/equity/flushfaderv2_tslope.py`
+  (the canonical ts20, the Oms's running sums replayed; = V2-45's two-pass `span 1` to 3e-9 bp/min on 194,598 trips);
+  the reference's `--s20 time|index` (the coefficients' `s20_x`; applying the production file reproduces the reference
+  bit for bit, every book and trips column); the Oms's `TimeLogPxOls 1200` on the engine ring (RollBar.Sec = seconds
+  since 09:30), `TSlope1200`. Superseded in design by V2-47 before the refit was pasted.
+- **V2-47** (`scripts/equity/flushfaderv2_tslot_years.py`, logs/tslot_years*.log): the window = the span of the last
+  1,200 present bars; price slots ANCHORED at the signal second (V2-45's) or on the FIXED session GRID floor((sec − 34200) /
+  k) (what an online implementation computes); the volume slope as a per-second RATE, `tvlog` = OLS of ln(1s volume) on
+  the bar's second × 1,200. ⚠ V2-45's `span 1` volume multiplied by the SPAN's seconds — the fitted change across the
+  window, ≈ vlog (Spearman 0.998), hence its +0.0009; the RATE is a different quantity (Spearman 0.975 with vlog).
+  Holdout harness as V2-42 (each year out of sample exactly once), on the V2-44 book.
+
+| model (all with CUSUM) | OOS sized PF−1 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | Δ vs P1V [90 %] |
+|---|---|---|---|---|---|---|---|---|---|
+| A production (index s20, index vlog) | 0.8576 | 1.304 | 1.011 | 0.630 | 0.605 | 0.885 | 0.690 | 0.787 | −0.0268 [−0.038, −0.015] |
+| P1 time s20 1s, index vlog | 0.8676 | 1.335 | 1.021 | 0.662 | 0.612 | 0.896 | 0.684 | 0.803 | −0.0168 [−0.023, −0.011] |
+| **P1V time s20 1s, time vlog RATE** | 0.8844 | 1.377 | 1.041 | 0.679 | 0.621 | 0.907 | 0.696 | 0.822 | — |
+| 5s grid, time vlog | 0.8859 | 1.381 | 1.041 | 0.681 | 0.621 | 0.908 | 0.697 | 0.825 | +0.0016 [+0.0005, +0.0027] |
+| 15s grid | 0.8867 | 1.383 | 1.041 | 0.683 | 0.620 | 0.909 | 0.697 | 0.827 | +0.0023 [+0.0009, +0.0038] |
+| 30s grid | 0.8879 | 1.386 | 1.041 | 0.683 | 0.621 | 0.910 | 0.699 | 0.827 | +0.0036 [+0.0018, +0.0055] |
+| **60s grid** | 0.8906 | 1.392 | 1.043 | 0.684 | 0.621 | 0.913 | 0.704 | 0.828 | **+0.0062 [+0.0036, +0.0089]** |
+| 90s grid | 0.8900 | 1.391 | 1.043 | 0.684 | 0.619 | 0.914 | 0.700 | 0.832 | +0.0056 [+0.0028, +0.0085] |
+| 120s grid | 0.8921 | 1.398 | 1.042 | 0.686 | 0.615 | 0.916 | 0.706 | 0.833 | +0.0077 [+0.0039, +0.0114] |
+| 180s grid | 0.8910 | 1.382 | 1.045 | 0.684 | 0.628 | 0.916 | 0.702 | 0.834 | +0.0066 [+0.0027, +0.0104] |
+| 300s grid | 0.8891 | 1.375 | 1.048 | 0.686 | 0.607 | 0.914 | 0.708 | 0.826 | +0.0047 [−0.0015, +0.0108] |
+
+- **⭐ The volume slope as a per-second RATE is the big step:** +0.0168 PF−1 over the time price slope alone (0 % of
+  resamples ≤ 0), +0.0268 [+0.015, +0.038] over production together, better than production in all 7 years. (It folds
+  in how thin the tape is: 1,200 bars over more seconds = a smaller rate.)
+- **Coarser grid slots help the PRICE slope, to a plateau at 60–180 s,** then fade (300 s: the interval crosses 0).
+  60 s is the plateau's cleanest point: net positive in all 7 years, ahead of 1s by PF in 7/7, the tightest interval;
+  120 s is nominally best but 2023 falls below 1s. The differences inside the plateau are noise (10 slot sizes looked at).
+- **Grid beats anchored at every slot size** (15 s +0.0023 vs +0.0017; 60 s +0.0062 vs +0.0032) — and the grid is the
+  online one.
+
+## V2-48 — thinness (gap_1200) as a sizing term, and grid slots for the volume RATE (2026-11-08, user)
+
+**User:** "The old FlushFader had a gap_1200 feature which is probably the thinness check you're looking for. We should
+consider adding it as a sizing feature, in the old system we used it as a gate, and it was a major one." + "Do the
+coarser slots help the volume slope after the fixes or not?" `scripts/equity/flushfaderv2_thin.py` (logs/thin*.log), the
+V2-44 book, V2-47's harness. gap_1200 = the engine's GapCounter(1200) (missing seconds among the last 1,200 wall seconds,
+base_v24's column: p10 / 50 / 90 = 5 / 349 / 850); spangap = the 1,200 bars' span − 1,200 (Spearman 0.992 with gap_1200);
+both as z(ln(1 + x)). B = V2-47's best (60s grid price slope + the 1s volume rate). Control: vr_g1 = V2-47's tvlog (3e-15).
+
+| model (all with CUSUM) | OOS sized PF−1 | Δ vs production [90 %] | Δ vs B [90 %] | the last term's L × per SD (fwd; mirror) |
+|---|---|---|---|---|
+| A production | 0.8576 | — | −0.0330 [−0.045, −0.021] | |
+| A + gap_1200 | 0.8432 | −0.0143 [−0.024, −0.005] | −0.0473 | 1.144; 1.004 |
+| A + spangap | 0.8448 | −0.0128 [−0.021, −0.005] | −0.0458 | 1.153; 1.009 |
+| **B** 60s price + 1s volume rate | **0.8906** | **+0.0330 [+0.021, +0.045]** | — | |
+| 60s price + index vlog + gap_1200 | 0.8583 | +0.0007 | −0.0323 [−0.042, −0.023] | 1.161; 1.005 |
+| B + gap_1200 | 0.8767 | +0.0192 | −0.0138 [−0.022, −0.006] | 1.137; 0.992 |
+| B + spangap | 0.8795 | +0.0219 | −0.0111 [−0.019, −0.003] | 1.157; 1.003 |
+| 60s price + volume rate, 5s grid | 0.8895 | +0.0320 | −0.0010 [−0.007, +0.005] | |
+| … 15s grid | 0.8871 | +0.0296 | −0.0034 [−0.010, +0.003] | |
+| … 30s grid | 0.8834 | +0.0258 | −0.0072 [−0.015, +0.001] | |
+| … 60s grid | 0.8810 | +0.0234 | −0.0096 [−0.020, +0.000] | |
+| … 120s grid | 0.8782 | +0.0206 | −0.0124 [−0.025, −0.001] | |
+
+(Volume per COVERED second of a slot — the partial first / last slots — is no better: 30s −0.0048, 60s −0.0122.)
+- **Thinness HURTS as a sizing term, out of sample, on every base** (−0.011 … −0.014). Its effect is not stable between
+  the eras: the 2020–23 fit makes thin tape LOSE more (L × 1.14–1.16 per SD), the 2024–26 fit finds nothing (× 1.00), so
+  each half's fit mis-sizes the other's. It is also NOT what the volume rate carries (Spearman 0.38; replacing the rate by
+  index vlog + gap_1200 loses −0.032).
+- **Coarser slots do NOT help the volume rate:** 1s is best; every coarsening loses, monotonically. The price slope wants
+  60s slots, the volume slope wants 1s bars.
+- ⏭ Recommendation: B = the 60s grid time price slope + the 1s time volume rate; gap_1200 not as a size term (a GATE is
+  a different test — V2-44's re-run method — if wanted).
+
+## V2-49 — B on top of vlog? and PARTIAL candles in the 60s price slope (2026-11-08, user)
+
+**User:** "Is the B = 60s grid price slope + 1s volume rate result on top of what vlog was already giving us?" + "So,
+we'll actually allow partial candles for this feature?" `scripts/equity/flushfaderv2_partial.py` (logs/partial*.log),
+V2-47's harness on the V2-44 book. Control: the kept-both slope = V2-47's p_g60 exactly. Windows hold 21 / 28 / 66
+minute slots (p10 / 50 / 90); the newest (partial) minute carries 3.0 % of the window's volume (median).
+
+| model (all with CUSUM) | OOS sized PF−1 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 | 2026 | Δ vs no volume term | Δ vs B [90 %] |
+|---|---|---|---|---|---|---|---|---|---|---|
+| V2-25 design (index s20, no volume term) | 0.8143 | 1.265 | 0.979 | 0.563 | 0.550 | 0.846 | 0.667 | 0.714 | — | −0.0763 |
+| A production (+ index vlog) | 0.8576 | 1.304 | 1.011 | 0.630 | 0.605 | 0.885 | 0.690 | 0.787 | +0.0433 | −0.0330 [−0.045, −0.021] |
+| **B** (60s grid price + 1s volume rate) | **0.8906** | 1.392 | 1.043 | 0.684 | 0.621 | 0.913 | 0.704 | 0.828 | **+0.0763** | — |
+| B + index vlog | 0.8860 | 1.385 | 1.040 | 0.680 | 0.617 | 0.912 | 0.710 | 0.803 | +0.0717 | −0.0046 [−0.011, +0.002] |
+| B, newest partial minute dropped | 0.8880 | 1.381 | 1.042 | 0.682 | 0.621 | 0.905 | 0.706 | 0.826 | +0.0738 | −0.0025 [−0.0043, −0.0007] |
+| B, oldest partial minute dropped | 0.8876 | 1.389 | 1.042 | 0.682 | 0.621 | 0.918 | 0.696 | 0.821 | +0.0733 | −0.0030 [−0.0060, +0.0000] |
+| B, both partial minutes dropped | 0.8851 | 1.378 | 1.041 | 0.680 | 0.620 | 0.910 | 0.698 | 0.819 | +0.0709 | −0.0054 [−0.0083, −0.0024] |
+
+- **B is ON TOP of vlog:** the chain no-volume → vlog → B is 0.814 → 0.858 → 0.891, so B adds +0.033 beyond what vlog
+  gave, +0.076 over the pre-vlog design, better than production in every year. vlog adds NOTHING on top of B (−0.0046):
+  the volume rate REPLACES it.
+- **Keep the partial candles.** Dropping the newest (the minute the signal is in) costs −0.0025 (99 % of resamples),
+  both −0.0054: the partial minute is the most recent information.
+- ⏭ BUILT next (user: "We definitely want this"): the 60s grid price slope + the 1s volume rate, online.
+
+## V2-50 — WHERE a slot sits on the time axis: its start vs its bars' volume-weighted mean time (2026-11-08, user)
+
+**User:** "Yeah, we should try it for both the price and volume slopes." `scripts/equity/flushfaderv2_slot_time.py`
+(logs/slot_time*.log); the V2-47 harness on the V2-44 book; control: the start-time 15s / 60s slopes = V2-47's to 9e-14.
+- **It makes no difference.** Start vs volume-weighted mean time correlate ≥ 0.9998 at every slot size, both slopes. The
+  60s price slope at the mean time: −0.0003 PF−1 vs the start (0 % of resamples better); 15 / 30 / 120s and every volume
+  slot size move by ≤ 0.0005 between the two placements. With 21–66 slots per window, shifting the two partial end
+  slots by under a minute cannot move the regression.
+- The slot-size ranking is unchanged (price: 15s −0.0039, 30s −0.0026, 120s +0.0015 [−0.0007, +0.0038] vs 60s; volume:
+  1s best, coarser loses). ⏭ The build stays: 60s grid, the minute's START, + the 1s volume rate.
+
+## V2-49 BUILT — the 60s-candle s20 + the volume rate, sealed (2026-11-08)
+
+- **RollingMa** `GridTimeOlsRoll<'T>(windowSize, slotSecs)`: the OLS of ln(slot vwap) on the slot's start over fixed-grid
+  slots of a bar window, ONLINE (a bar changes only the newest slot on Add, the oldest on Remove: subtract the point,
+  update the slot, add it back, or open / close the slot), the five sums in OlsRoll's order; `GridTimeOls_Test.fsx`
+  (brute force at all 20,000 pushes 1.2e-10 bp/min, slot counts equal, a planted line exact, ≠ the 1s time slope). The
+  volume rate = `TimeOlsRoll` on ln volume. `scripts/equity/flushfaderv2_pgrid.py`: the canonical pgrid60 + vrate, the
+  Oms's running sums replayed (= V2-47's two-pass to 7e-9 bp/min / 3e-11). The reference: `--s20 grid60 --vol vrate`
+  (the defaults; the coefficients carry s20_x = "grid60" and vrate_*; applying the V2-43 file still reproduces the V2-44
+  reference bit for bit). The refit (the V2-44 gated book): s20 odds ×0.912 per SD, vrate p / W / L ×0.959 / 1.072 /
+  1.146, ln volat W^0.721 L^0.579, BasePf1 0.682; in-sample sized PF 1.875 -> 1.910. Promoted to
+  `models/flushfaderv2/v2_coefficients.json`; the reference swapped (the V2-44 files in `pre_pgrid_2026-11-08/`).
+- **The Oms:** `GridLogPxOls(1200, 60)` + `TimeLogVolOls 1200` on the engine's 1,200-bar ring (RollBar.Sec = seconds
+  since 09:30, RollBar.LogVol); `PGrid60`, `VRate1200` on every position; Sizing's s20 = PGrid60 × 6e5, the 10th term
+  vrate = VRate1200 × 1200 (vlog still recorded). Tests 229/229 (HUT 07-27: pf1 0.4185366612657122, pgrid60 and vrate
+  bit for bit).
+- **SEALED:** `parity trips -s 2020-01-02 -e 2026-08-21 --from-bars --system flushfader --min-barnum 11` (77.7 min, peak
+  1.97 GB): **book 35,519 = 35,519 zero-diff** (25 columns; s20, vrate exact; pf1 4e-15), **trips 194,598 = 194,598
+  zero-diff** (16 columns; pgrid60, vrate_1200 exact on every trip).
+- **Replays** (the captured live days, `--broker fake`, 8k sizing) vs ff3bf1a: 10-14 −248 → −219 (AEHL −410 → −378;
+  3 TooSmall refusals → 0); 11-06 −237 → −350 (RAYA sized up 1,910 → 2,428 shares, −488 → −597). No gate changed: the
+  signal-count differences are FlushFader's want re-emissions (an episode re-emits only when a later signal's pf1 tops
+  its max), which move with every size. Two days check the plumbing, not the edge.
+
+## V2-51 — the VOLATILITY and COIL slots: present-bar vs 30s GRID, complete vs + the partial slot (2026-11-08, user)
+
+**User:** "What I am wondering isn't only whether we should include partial bars, but also whether we should grid align
+them much like we'll be doing the price slope." `scripts/equity/flushfaderv2_slot_clock.py` (logs/slot_clock*.log):
+487,916 candidates (base_v24's trips passing every production gate but volat >= 40, rule140 and coil); four
+constructions (bar = production's 30-present-bar slots; + the partial current slot; 30s wall-clock grid, empty slots
+absent; grid + partial), volat's EWMA half-life 40 slots throughout. Controls: production's construction = base_v24's
+volat to 1e-13 and coil to 1e-8; production's gates on the candidates rebuild the B reference (194,598 trips, book
+35,519, keys identical). Spearman with production: volat 0.999 (+partial) / 0.92 (grid); coil 0.90 / 0.59 / 0.49.
+
+**(1) Sizing only** (B's book, the ln volat term swapped; OOS sized PF−1, Δ vs production [90 %]): + partial +0.0000
+[−0.0013, +0.0014]; grid −0.0032 [−0.0068, +0.0004]; grid + partial −0.0027.
+
+**(2) The system** (each construction's gates, the greedy book, B refit out of sample):
+
+| construction | thresholds | engine trips | book | book PF | OOS sized PF−1 | OOS net units·% |
+|---|---|---|---|---|---|---|
+| **production (bar)** | 40 bp / 0.22 | 194,598 | 35,519 | 1.612 | **0.8906** | **+19,342** |
+| bar + partial | raw | 204,640 | 37,289 | 1.597 | 0.8702 | +19,152 |
+| bar + partial | matched 40.6 bp / 0.206 | 194,873 | 35,519 | 1.602 | 0.8782 | +18,821 |
+| grid | raw | 143,475 | 22,800 | 1.679 | 0.9643 | +17,598 |
+| grid | matched 30.4 bp / 0.250 | 197,252 | 34,589 | 1.616 | 0.8612 | +18,438 |
+| grid + partial | raw | 152,825 | 24,340 | 1.668 | 0.9349 | +17,937 |
+| grid + partial | matched 31.1 bp / 0.235 | 197,967 | 34,665 | 1.615 | 0.8613 | +18,563 |
+
+- **Production's construction wins.** Every alternative earns less out of sample. The partial slot changes nothing as a
+  size term and lets in weaker trades as a gate; the grid's raw thresholds make a smaller, cleaner book (PF 1.68) that
+  earns −1,744 less (−9 %), and at matched thresholds it is worse on both PF and net. Unlike the price slope (V2-47),
+  the volatility and coil gates want the PRESENT-bar clock: on a thin name 30 wall seconds hold a few prints, and a
+  coil on them reads noise (Spearman 0.59). Nothing to build.
