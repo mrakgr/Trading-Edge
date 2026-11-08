@@ -20,6 +20,10 @@ not inherit that. Here every input comes from the base parquets in double:
        YOUNG_SCALE (0.8) × the model's PF−1 (the young sized PF−1 0.59 vs 0.73). The model is FIT on the barnum >= 22 book
        only (the fit, BasePf1 and the pins are V2's as they were); pf1_model = the model, pf1_fitted = what production
        emits (× YOUNG_SCALE when young).
+  ⭐ V2-43 (2026-11-08): a TENTH sizing term, vlog (the 20m ln-volume slope, --vlog-trips; scripts/equity/flushfaderv2_vlog.py),
+       fit on the ATR5-off book. ⭐ V2-44 (2026-11-08): an ENGINE gate, bars_since_high >= 300 (--min-bars-since-high); the
+       production reference APPLIES the V2-43 coefficients (fit ungated) to the gated book:
+           ... --coef models/flushfaderv2/v2_coefficients.json   (--min-bars-since-high 0 = the V2-43 reference)
   ⭐ ATR5 GATE — REMOVED 2026-11-07 (user, V2-34..V2-38: --max-atr5 defaults to inf; the production fit's coefficients
        are unchanged). Was (user 2026-10-18, V2-12/V2-13, after WFF 10-14): no trade on a ticker-day whose 5-day ATR % (the 5 daily
        rows before D, scripts/equity/atr5_candidates.py) is >= MAX_ATR5 (4.0 = 400 %); a NaN ATR5 is not gated.
@@ -69,6 +73,13 @@ ap.add_argument("--barnum-fallback", default="",
                      "ticker-days the 10-19 production fit had (630 base_v19 trips, 7 book trades); '' = no fallback (fails) — the "
                      "default since V2-25 (base_v24 is built on the rebuilt candidates: nothing to fill)")
 ap.add_argument("--no-cusum", action="store_true", help="fit mode: the model WITHOUT the CUSUM term (the pre-V2-24 production fit)")
+ap.add_argument("--vlog-trips", default="data/flushfaderv2/vlog/vlog_trips.parquet",
+                help="V2-43 (user 2026-11-08): the canonical vlog per reference trip (scripts/equity/flushfaderv2_vlog.py: the OLS slope of "
+                     "ln(bar volume) over the last 1,200 present bars × 1,200), joined on symbol / trade_date / signal_sec")
+ap.add_argument("--no-vlog", action="store_true", help="fit mode: the model WITHOUT the vlog term (the V2-25 design)")
+ap.add_argument("--min-bars-since-high", type=int, default=300,
+                help="V2-44 (user 2026-11-08): an ENGINE gate, bars_since_high >= this (present bars since the bar after the last new "
+                     "20m high, the signal bar included). 300 = production since 2026-11-08; 0 = off (the V2-43 reference)")
 ap.add_argument("--mem", default="8GB")
 args = ap.parse_args()
 T0 = time.time()
@@ -89,7 +100,7 @@ D = con.execute(f"""
     SELECT symbol, trade_date::VARCHAR AS trade_date, signal_sec, entry_sec, exit_sec, entry_px, exit_px, ret_exit, signal_vwap,
            volat_20m * 1e4 AS volat, gap_60, halts_today AS ht, secs_since_halt AS ssh,
            chg_since_run_first_low AS crf, consol_5m_lag1m, lows_since_first_low_600 AS l600, bars_since_first_low_600 AS b600,
-           lows_since_first_low_300 AS l300, lows_since_first_low_180 AS l180, abs(eff_10m) AS eff10a,
+           lows_since_first_low_300 AS l300, lows_since_first_low_180 AS l180, abs(eff_10m) AS eff10a, bars_since_high,
            vol_10_bar, vol_60_bar, vol_1200_bar, dlv_1200, dlv2_1200, dv_0945_tape, sess_low, ols_slope_1200
            , c.barnum, x.atr5
     FROM read_parquet({args.trips}) t
@@ -102,6 +113,12 @@ D = con.execute(f"""
 cus_src = " UNION ALL ".join(f"SELECT symbol, trade_date::VARCHAR AS trade_date, signal_sec, cusr_dn_k025 FROM read_parquet('{g}')" for g in args.cus_trips)
 CU = con.execute(f"SELECT * FROM ({cus_src})").df()
 D = D.merge(CU, on=["symbol", "trade_date", "signal_sec"], how="left")
+if os.path.exists(args.vlog_trips):
+    VL = con.execute(f"SELECT symbol, trade_date::VARCHAR AS trade_date, signal_sec, vlog FROM read_parquet('{args.vlog_trips}')").df()
+    D = D.merge(VL, on=["symbol", "trade_date", "signal_sec"], how="left")
+else:  # vlog is a production term since V2-43: a missing file would silently score every trip at z = 0
+    assert args.no_vlog, f"no {args.vlog_trips} (scripts/equity/flushfaderv2_vlog.py writes it); --no-vlog for the V2-25 design"
+    D["vlog"] = np.nan; log(f"no {args.vlog_trips}: vlog NaN everywhere (--no-vlog)")
 log(f"{len(D):,} rows after the integer pre-filters; cusr_dn_k025 joined on {D.cusr_dn_k025.notna().sum():,} (NaN {D.cusr_dn_k025.isna().sum():,})")
 if args.barnum_fallback and D.barnum.isna().any():
     # the ATR5 table was rebuilt from the same candidates (2026-10-25): those ticker-days' ATR5 comes from the file too
@@ -142,8 +159,11 @@ M &= ~(nz(D.volat.values >= 140) & nz(D.gap_60.values >= 4))            # rule14
 M &= ~(nz(D.ht.values >= 4) & nz(D.ssh.values < 300))                    # the WAIT
 n_broad = int(M.sum())
 M &= ~(nz(dslo > NEAR_LOW_LO) & nz(dslo <= NEAR_LOW_HI))                 # ⭐ V2: the near-low gate
+n_v2 = int(M.sum())
+if args.min_bars_since_high > 0:
+    M &= nz(D.bars_since_high.values >= args.min_bars_since_high)        # ⭐ V2-44: the decline has lasted (a NaN fails)
 T = D[M].copy().reset_index(drop=True); T["rate600"] = rate600[M]; T["z20"] = z20[M]; T["v10r"] = v10r[M]; T["dslo"] = dslo[M]; T["s20"] = s20[M]
-log(f"engine-level trips: broad {n_broad:,} -> V2 {len(T):,} (near-low gate removes {n_broad - len(T):,}); NaN dslo {np.isnan(T.dslo.values).sum()}, NaN s20 {np.isnan(T.s20.values).sum()}")
+log(f"engine-level trips: broad {n_broad:,} -> V2 {n_v2:,} (near-low gate removes {n_broad - n_v2:,}) -> {len(T):,} (bars_since_high >= {args.min_bars_since_high} removes {n_v2 - len(T):,}); NaN dslo {np.isnan(T.dslo.values).sum()}, NaN s20 {np.isnan(T.s20.values).sum()}")
 
 # ---- the book: raw $1 floor + per-ticker-day mc=1 greedy in signal order
 px_ok = nz(T.entry_px.values >= 1.0)
@@ -177,15 +197,21 @@ def zcus(x, c):
     """V2-24: the CUSUM level (bp), winsorised at the fit set's 1 % / 99 % and standardised; a NaN enters as z = 0 (the mean)"""
     z = (np.clip(x, c["cus_lo"], c["cus_hi"]) - c["cus_mean"]) / c["cus_sd"]
     return np.where(np.isnan(x), 0.0, z)
+def zvlog(x, c):
+    """V2-43: the 20m ln-volume slope, winsorised at the fit set's 1 % / 99 % and standardised; a NaN enters as z = 0 (the mean)"""
+    z = (np.clip(x, c["vlog_lo"], c["vlog_hi"]) - c["vlog_mean"]) / c["vlog_sd"]
+    return np.where(np.isnan(x), 0.0, z)
 def design(c):
     # ⭐ V2-24: the CUSUM term only when the coefficient file has it (an older file gives exactly the older model)
     return np.column_stack([np.ones(len(B)), gap_band == 1, gap_band == 2] + volat_cols(c)
                            + [fast, tier, flag, zs20(B.s20.values, c)]
-                           + ([zcus(B.cusr_dn_k025.values.astype(float), c)] if "cus_lo" in c else [])).astype(float)
+                           + ([zcus(B.cusr_dn_k025.values.astype(float), c)] if "cus_lo" in c else [])
+                           + ([zvlog(B.vlog.values.astype(float), c)] if "vlog_lo" in c else [])).astype(float)
 def names(c):
     v = ["ln volat (clip 40-250 bp)"] if c.get("volat_shape", "bands") == "log" else ["volat 60-90", "volat 90-140", "volat 140-250", "volat 250+"]
     return (["1", "gap 1-3", "gap 4-39"] + v + ["rate600 fast", "S tier", "dslo >= 4%", "s20 (standardised)"]
-            + (["CUSUM dn k0.25 (standardised)"] if "cus_lo" in c else []))
+            + (["CUSUM dn k0.25 (standardised)"] if "cus_lo" in c else [])
+            + (["vlog (standardised)"] if "vlog_lo" in c else []))
 
 def fit_logistic(X, y, it=50):
     b = np.zeros(X.shape[1])
@@ -221,6 +247,10 @@ else:
         cu = B.cusr_dn_k025.values.astype(float)[OLD]; cu = cu[~np.isnan(cu)]
         clo, chi = np.quantile(cu, [0.01, 0.99]); cc = np.clip(cu, clo, chi)
         C.update({"cus_k_bp": 0.25, "cus_lo": float(clo), "cus_hi": float(chi), "cus_mean": float(cc.mean()), "cus_sd": float(cc.std())})
+    if not args.no_vlog:
+        vl = B.vlog.values.astype(float)[OLD]; vl = vl[~np.isnan(vl)]
+        vlo, vhi = np.quantile(vl, [0.01, 0.99]); vc = np.clip(vl, vlo, vhi)
+        C.update({"vlog_window": 1200, "vlog_lo": float(vlo), "vlog_hi": float(vhi), "vlog_mean": float(vc.mean()), "vlog_sd": float(vc.std())})
     X = design(C)[OLD]; RO = R[OLD]; win = RO > 0
     C.update({"beta_p": [float(v) for v in fit_logistic(X, win.astype(float))],
               "beta_w": [float(v) for v in fit_loglink(X[win], RO[win])],
@@ -230,7 +260,8 @@ X = design(C); pf1_model = pf1_of(X, C)
 pf1 = np.where(young, args.young_scale * pf1_model, pf1_model)        # ⭐ the young trades at YOUNG_SCALE
 mult = np.clip(pf1 / C["base_pf1"], 0.25, 4.0)
 B["gap_band"] = gap_band; B["volat_band"] = volat_band; B["rate600_fast"] = fast; B["s_tier"] = tier; B["dslo_flag"] = flag
-B["s20_z"] = X[:, names(C).index("s20 (standardised)")]; B["cus_z"] = X[:, -1] if "cus_lo" in C else np.nan; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
+B["s20_z"] = X[:, names(C).index("s20 (standardised)")]; B["cus_z"] = X[:, names(C).index("CUSUM dn k0.25 (standardised)")] if "cus_lo" in C else np.nan
+B["vlog_z"] = X[:, names(C).index("vlog (standardised)")] if "vlog_lo" in C else np.nan; B["young"] = young; B["pf1_model"] = pf1_model; B["pf1_fitted"] = pf1; B["multiplier"] = mult
 log(f"multiplier mean {mult.mean():.4f}, range {mult.min():.3f}-{mult.max():.3f}, at the 0.25 floor {(mult <= 0.25).mean()*100:.1f}%")
 
 def pf(r):
@@ -250,12 +281,16 @@ if not args.coef:
     if "cus_lo" in C:
         rows += [f"CUSUM dn k0.25: winsorise [{C['cus_lo']:.6f}, {C['cus_hi']:.6f}] bp, mean {C['cus_mean']:.6f}, SD {C['cus_sd']:.6f}; "
                  f"NaN in the book {int(np.isnan(B.cusr_dn_k025.values.astype(float)).sum())}"]
+    if "vlog_lo" in C:
+        rows += [f"vlog (1200 bars): winsorise [{C['vlog_lo']:.6f}, {C['vlog_hi']:.6f}], mean {C['vlog_mean']:.6f}, SD {C['vlog_sd']:.6f}; "
+                 f"NaN in the book {int(np.isnan(B.vlog.values.astype(float)).sum())}"]
     # the PIN TABLE: 200 book trades spread over the multiplier range, inputs at full precision
     # (from the barnum >= 22 book only: the pins carry no barnum, so a young pin would not reproduce in the F# test)
     oi = np.flatnonzero(OLD)
     idx = oi[np.unique(np.argsort(mult[oi], kind="stable")[np.linspace(0, len(oi) - 1, 200).astype(int)])]
     C.update({"model": "FlushFaderV2 (A3 + dslo >= 4% + s20), docs/flushfaderv2_results.md V2-7" + (", ln volat V2-14/V2-16" if args.volat == "log" else "")
-                       + ("" if args.no_cusum else ", + the CUSUM level dn k0.25 V2-21/V2-24"),
+                       + ("" if args.no_cusum else ", + the CUSUM level dn k0.25 V2-21/V2-24")
+                       + ("" if args.no_vlog else ", + the 20m ln-volume slope vlog V2-42/V2-43"),
               "fit": f"all years, V2 book n={int(OLD.sum()):,}, credit ${args.credit}/sh/side, from {args.trips[0]}",
               "design": names(C), "gap_edges": [0, 1, 4, 40], **({} if args.volat == "log" else {"volat_edges_bp": [40, 60, 90, 140, 250]}), "rate600_fast_threshold": 0.07,
               "s_tier": "halts_today >= 1 and 300 <= secs_since_halt < 2400", "near_low_gate": [NEAR_LOW_LO, NEAR_LOW_HI],
@@ -265,6 +300,7 @@ if not args.coef:
                         "signal_vwap": float(B.signal_vwap.values[i]), "sess_low": float(B.sess_low.values[i]),
                         "ols_slope_1200": float(B.ols_slope_1200.values[i]),
                         **({"cusum_dn_k025": float(B.cusr_dn_k025.values[i])} if "cus_lo" in C else {}),
+                        **({"vlog": float(B.vlog.values[i])} if "vlog_lo" in C else {}),
                         "pf1": float(pf1[i]), "multiplier": float(mult[i])}
                        for i in idx]})
     jp = os.path.join(args.out_dir, "v2_coefficients.json"); json.dump(C, open(jp, "w"), indent=1); log(f"wrote {jp} ({len(idx)} pins)")

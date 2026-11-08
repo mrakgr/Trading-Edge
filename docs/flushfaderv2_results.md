@@ -1768,3 +1768,226 @@ at p25–50); the middle 1.51–1.74.
   2023–24, 1.55 in 2026; p95–100: 1.81 in 2025, 0.98 in 2026). Jumpy slot returns and long one-way slides carry more
   big losers (5–8 per 1,000), consistent with V2-30 / V2-39 (cascades), but the sizing model already gives them their
   higher mean. Not a candidate (steady path, user 11-07).
+
+## V2-41 — the AVERAGE 1m–5m slope over the last 20m / since the first low, on top of the leg counters (2026-11-08, user)
+
+**User:** "Instead of using leg counters it might be worth it to use the average 1m-5m slope over the last 20m or since the
+first 20m low … Not the total slope, but a short-term average of it. The leg counters might be sensitive to spikes … We
+should try breaking down the average slope on top of them." `scripts/equity/flushfaderv2_avg_slope.py` (formulas in its
+header): every production book trade (35,796, ATR5 off) recomputed from the 1s bars from 09:30. The rolling OLS slope of
+ln vwap over w = 60/120/180/300 present bars is averaged over the last 1,200 present bars (`_20`) and over the leg since its
+first 20m low (`_fl`, base_v24's `bars_since_first_low`; 98.8 % of the trades). **Control: the rolling 60/300 slopes =
+base_v24's ols_slope_60/300 on 100 % of the trades (|rel| < 1e-6; the engine's running sums differ at 1e-10).**
+
+⚠ **The signed average IS the total slope, by construction.** An OLS slope's weights sum to zero, so in a window's average
+of rolling slopes every interior price cancels: what remains is the window's end-to-end change, with its ends smoothed
+over w bars. Measured: avg60_20 vs ols_slope_1200 Spearman 0.74, avg60_fl vs ols_slope_since_flow 0.74 (and their band
+tables match the totals' tables below). Two readings that do not cancel were added: the mean |slope| (`aabs`, path
+speed) and the share of bars with a falling slope (`fneg`).
+
+| feature (Spearman) | 20m OLS slope | slope since first low | lows300 | lows600 | volat_20m |
+|---|---|---|---|---|---|
+| avg60_20 (mean 1m slope, 20m) | +0.74 | +0.10 | −0.38 | −0.51 | −0.39 |
+| avg300_20 (mean 5m slope, 20m) | +0.69 | −0.03 | −0.41 | −0.59 | −0.24 |
+| avg60_fl (mean 1m slope, leg) | +0.09 | +0.74 | +0.06 | +0.19 | −0.43 |
+| aabs60_20 (mean \|1m slope\|, 20m) | −0.39 | −0.29 | −0.15 | −0.12 | **+0.92** |
+| fneg60_20 (share falling, 20m) | −0.42 | +0.02 | +0.42 | +0.51 | −0.14 |
+
+**Mean 1m slope over the last 20m** (bp/min; same pattern for the 5m slope and the 20m OLS slope itself):
+
+| band | range | trades | mean | median | PF | PF trim 5 % | ≤ −20 %/1,000 | % eq | bp eq / trade | 2020–22 | 2023–24 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| p0–10 (steep) | −902 … −58 | 3,580 | +1.16 % | +2.21 % | 1.74 | 3.96 | 11.5 | +665 | +18.6 | 1.89 | 1.57 | 1.80 | 1.70 |
+| p10–25 | −58 … −40 | 5,369 | +0.71 % | +1.49 % | 1.61 | 3.31 | 5.4 | +494 | +9.2 | 1.72 | 1.51 | 1.66 | 1.40 |
+| p25–50 | −40 … −26 | 8,949 | +0.67 % | +1.24 % | 1.74 | 3.60 | 2.0 | +700 | +7.8 | 1.93 | 1.52 | 1.62 | 1.64 |
+| p50–75 | −26 … −15 | 8,949 | +0.44 % | +1.02 % | 1.48 | 2.87 | 1.5 | +425 | +4.8 | 1.72 | 1.36 | 1.20 | 1.28 |
+| p75–90 | −15 … −7 | 5,369 | +0.38 % | +0.94 % | 1.44 | 2.70 | 0.7 | +241 | +4.5 | 1.47 | 1.36 | 1.37 | 1.55 |
+| p90–100 (flat) | −7 … +55 | 3,580 | +0.47 % | +0.93 % | 1.50 | 2.85 | 1.7 | +181 | +5.1 | 1.57 | 1.35 | 1.81 | 1.15 |
+
+Since the first low (avg60_fl) the same direction: p0–10 +0.98 % · PF 1.72 → p90–100 +0.35 % · 1.42, tail 4.5 → 1.4.
+Mean |1m slope| (= volatility, ρ 0.92): p0–10 +0.25 % · PF 1.35 → p90–100 +1.41 % · 1.88 (tail 0.3 → 10.3) — V2-34…38's
+"more volatility is better" again. Share falling: flat but for p90–100 of the 20m window (≥ 66 % of bars falling: PF 1.27,
+6.3 big losers per 1,000 — a steady staircase); over the leg it ties at 1.0 on short legs, no effect.
+
+**On top of the leg counters** (terciles of the average WITHIN each lows300 band):
+
+| lows300 | steep tercile n · mean · PF · big/1,000 | mid | flat |
+|---|---|---|---|
+| 6–9 | 4,311 · +0.91 % · 1.77 · 4.2 | +0.54 % · 1.55 · 1.4 | +0.48 % · 1.49 · 1.9 |
+| 10–19 | 4,251 · +0.94 % · 1.82 · 5.2 | +0.57 % · 1.65 · 2.4 | +0.41 % · 1.51 · 0.5 |
+| 20–39 | 2,341 · +0.93 % · 1.71 · 9.4 | +0.54 % · 1.63 · 1.7 | **+0.19 % · 1.21 · 0.4** (2023–24 0.88, 2026 1.00) |
+| ≥ 40 | 1,030 · +0.53 % · 1.32 · **12.6** | +0.47 % · 1.57 · 3.9 | +0.25 % · 1.32 · 1.0 |
+
+(avg300_20 and avg60_fl give the same shape; the flat 20–39 cell is PF 1.27 / 1.46 there.)
+
+⚠ **The 20m OLS slope is ALREADY a sizing term** (`s20` = ols_slope_1200 × 6e5, winsorised −107 … +10.6 bp/min,
+`TradingEdge.Oms/Engine/Sizing.fs`; its weight is small, hence Spearman −0.13 with pf1_fitted). The steep tercile's higher
+mean within every pf1_fitted quintile (q5: +1.50 % vs +0.77 %) comes with 3–6× the flat tercile's tail rate: more mean AND
+more loss, so PF−1 — what production sizes by — is close to what the model expects. **Head to head with s20** (user: "are
+you suggesting we replace it?"), terciles of one within quintiles of the other:
+
+| | steep tercile | mid | flat |
+|---|---|---|---|
+| avg60_20 within s20 q1 (−719 … −41) | +1.23 % · 1.76 · 12.6 | +0.90 % · 1.77 · 6.3 | +0.88 % · **1.88** · 3.4 |
+| avg60_20 within s20 q2 … q5 | PF 1.53 / 1.71 / 1.60 / 1.43 | 1.89 / 1.44 / 1.59 / 1.31 | 1.41 / 1.57 / 1.58 / 1.43 |
+| s20 within avg60_20 q1 | +1.25 % · **1.81** · 12.1 | +0.85 % · 1.68 · 6.3 | +0.73 % · 1.53 · 8.4 |
+| s20 within avg60_20 q2 … q5 | PF 1.89 / 1.57 / 1.61 / 1.54 | 1.67 / 1.55 / 1.56 / 1.48 | 1.64 / 1.62 / 1.30 / 1.42 |
+
+(cells: mean · PF · ≤ −20 % per 1,000; Spearman 0.74, Pearson 0.81.) With s20 held, the averaged slope adds mean but no PF
+and mostly tail; with the averaged slope held, s20 still separates PF in most quintiles. **s20 is the better form; nothing
+to replace.**
+
+- **The averaged slope is the 20m (or leg) slope**, not a new measure, and that slope carries real information the leg
+  counters do not: a steep fall in the last 20m (or since the first low) means a bigger bounce in
+  every lows300 band and most periods (exceptions: 2025 at lows300 10–19, flat 1.87 vs steep 1.84; 2026 at 20–39,
+  steep only 1.08) — the familiar higher-mean / higher-tail shape of a deeper flush (V2-30, V2-31).
+  The counters do not hide a spike problem: many lows on a SHALLOW slope (lows300 ≥ 20, the flat tercile — a slow
+  staircase) is the one weak cell (PF 1.21–1.32), and many lows on a steep slope (≥ 40) is the tail-heavy one.
+- The non-cancelling readings add nothing new: the mean |slope| is volatility (ρ 0.92, the same "more is better"), and
+  the share of falling bars is flat but for its top decile.
+- **Nothing to build:** the information is the 20m slope, already in the sizing model as s20, which beats the averaged
+  form head to head. (The old slope20 gate, `MaxSlope20Bpm`, dropped in §S49, pointed the same way.)
+
+## V2-42 — a 20m OLS slope of VOLUME as a sizing term (2026-11-08, user)
+
+**User:** "Would a 20m OLS slope of volume rather than price make any difference in sizing on top of what we currently
+have?" The production model has no volume term (`rate600` is lows per bar). `scripts/equity/flushfaderv2_vol_slope.py`
+(formulas in its header): at every production book trade's signal bar (35,796, ATR5 off), from the 1s bars from 09:30:
+**vlog** = the OLS slope of ln(bar volume) over the last 1,200 present bars × 1,200 (the fitted ln change across 20m;
+median −0.35, p10 −1.49, p90 +0.65), **vrel** = the slope of bar volume over its mean, **vwall** = 20 wall-clock minute bins
+(silence counts as zero), **v5_20** = ln(vol_300_bar / vol_1200_bar) (the cheap control). Controls: the 1,200-bar volume =
+base_v24's vol_1200_bar on 100 %; production refitted on the full book reproduces the book's pf1_model to a median 0.003
+(max 0.11: the production coefficients were fitted on the ATR5-on book, 35,767). Nearly independent of the model's terms
+(vlog Spearman: s20 +0.12, cus −0.05, volat −0.25, dslo −0.17).
+
+**The production model's predictions against what happened, by vlog band** (non-young):
+
+| vlog band | range | trades | win % real / model | mean win real / model | mean loss real / model | PF−1 real | model PF−1 | sized net / trade |
+|---|---|---|---|---|---|---|---|---|
+| p0–10 (volume dying) | −4.50 … −1.49 | 3,521 | 72.0 / 69.9 | 2.74 / 2.89 | 3.02 / **3.72** | **1.335** | 0.855 | +1.110 |
+| p10–25 | −1.49 … −0.92 | 5,280 | 70.1 / 69.0 | 2.45 / 2.56 | 3.01 / 3.28 | 0.900 | 0.749 | +0.753 |
+| p25–50 | −0.92 … −0.35 | 8,804 | 68.3 / 68.0 | 2.26 / 2.34 | 2.98 / 3.11 | 0.634 | 0.633 | +0.482 |
+| p50–75 | −0.35 … +0.16 | 8,820 | 66.5 / 67.6 | 2.19 / 2.20 | 3.03 / 3.01 | 0.433 | 0.567 | +0.319 |
+| p75–90 | +0.16 … +0.65 | 5,282 | 66.9 / 67.5 | 2.25 / 2.18 | 3.24 / 3.06 | 0.407 | 0.536 | +0.304 |
+| p90–100 (volume climbing) | +0.65 … +7.04 | 3,508 | 67.2 / 67.8 | 2.72 / 2.25 | **4.11** / 3.17 | **0.351** | 0.539 | +0.324 |
+
+vwall and v5_20 show the same shape, weaker (p0–10 PF−1 1.19 / 1.25 against a model 0.85 / 0.89).
+
+**Holdout** (V2-20/25's harness: fit 2020–23 → 2024–26 and the mirror; young × 0.8; production units clip(PF−1, .125, 2);
+net and DD in % of one unit):
+
+| model | sized PF−1 fwd | mirror | **mean** | net sum | unit-trades | net / unit-trade | max DD fwd / mirror | new term p / W / L × per SD (fwd; mirror) |
+|---|---|---|---|---|---|---|---|---|
+| A production (s20 + cus) | 0.726 | 0.896 | **0.811** | 17,400 | 21,892 | 0.795 | 103 / 106 | — |
+| **+ vlog** | 0.769 | 0.942 | **0.855** | **18,517** | 22,883 | 0.809 | 79 / 121 | .941 / 1.083 / 1.120; .981 / 1.068 / 1.163 |
+| + vrel | 0.747 | 0.915 | 0.831 | 18,044 | 22,620 | 0.798 | 93 / 124 | .962 / 1.113 / 1.130; 1.000 / 1.095 / 1.177 |
+| + vwall | 0.741 | 0.911 | 0.826 | 17,866 | 22,504 | 0.794 | 80 / 125 | .984 / 1.104 / 1.143; .986 / 1.104 / 1.163 |
+| + v5_20 | 0.738 | 0.907 | 0.823 | 17,738 | 22,257 | 0.797 | 88 / 114 | .968 / 1.102 / 1.129; 1.012 / 1.091 / 1.146 |
+
+Paired day-bootstrap against A (2,000 resamples): vlog **Δ PF−1 +0.0445 [+0.031, +0.059], Δ net +1,118 [+915, +1,317]**,
+100 % of resamples > 0; vrel +0.021 / +644; vwall +0.016 / +466; v5_20 +0.012 / +338 (all 100 %). By period (Δ net, A's
+own net in brackets): 2020–21 +387 (6,996) · 2022–23 +243 (1,934) · 2024 +147 (3,102) · 2025 +157 (3,314) · **2026 +183
+(2,054)** — positive in every period. For scale: the CUSUM term adopted in V2-25 gained +0.014 PF−1 / +263 units.
+
+- **Yes — and it is the largest sizing gain the V2 model has seen.** A flush on DYING volume (the 20m ln-volume slope in
+  its bottom decile) loses less than the model expects (mean loss 3.02 % vs 3.72 %) and earns PF−1 1.34 against a
+  predicted 0.86; a flush on CLIMBING volume loses more (4.11 % vs 3.17 %) at PF−1 0.35 against 0.54. The fit reads it
+  as mostly a LOSS-size term (L × 1.12–1.16 per SD of rising volume, W × 1.07–1.08, odds × 0.94–0.98): climbing volume
+  into a new low is selling being accepted (the same thing the old price-acceptance stops looked for), dying volume is
+  exhaustion.
+- The log slope beats the linear (vrel) and wall-clock versions and the 5m-share shortcut: ln damps the 1s volume
+  spikes. It is not volatility or the price slope in disguise (|ρ| ≤ 0.25 with every model term).
+- ⚠ Before production: (1) the sized-UP trades are the dying-tape ones — where L2's TooSmall/cap refusals and unfilled
+  maker entries bite (V2-26/28: 90 % of the missed model profit was unfilled maker entries); the gain is model-units, not
+  verified fills. (2) Max DD improves fwd (103 → 79) but worsens mirror (106 → 121). (3) Building it = a new engine
+  feature (an OLS roller on ln volume, `OlsSlopeMa` exists), a refit of the reference, a parity re-seal. User's call
+  (steady path, 11-07).
+
+## V2-43 — vlog into production: the canonical feature and the refit (2026-11-08, user) — sealed
+
+**User:** "I like this a lot … we absolutely need to put this feature into the production system. Let's do it."
+- **The canonical feature** (`scripts/equity/flushfaderv2_vlog.py`): `vlog = (S / 143999900) × 1200`, S = Σ_{j=0..1199}
+  (j − 599.5) · ln(vol_j) summed sequentially oldest first, over the last 1,200 present bars ending at the signal bar
+  (NaN when the window is not full). THE OPERATION ORDER IS THE SPEC: the Oms runs the same loop (`FlushFader.vlogOf`,
+  computed only when a signal is born) and Python's math.log and .NET's Math.Log are both glibc's, so the two agree bit
+  for bit. All 196,474 reference trips: no NaN; = V2-42's vectorised vlog to 6e-14 (summation order).
+- **The reference** (`flushfaderv2_reference.py --vlog-trips`, a tenth standardised term; `--no-vlog` = the V2-25
+  design). Controls: applying the production coefficients reproduces the current reference book bit for bit. Refitted on
+  the ATR5-off book (35,796; the V2-25 coefficients were fit with the gate on). Without vlog the refit lands on the
+  production coefficients (volat^0.637 / ^0.428 vs 0.635 / 0.429); with it:
+
+| term (per SD) | p (odds ×) | W (×) | L (×) |
+|---|---|---|---|
+| ln volat (power) | 0.915 | volat^0.707 | volat^0.548 |
+| s20 | 0.918 | 0.972 | 0.961 |
+| CUSUM dn k0.25 | 1.001 | 1.076 | 1.169 |
+| **vlog** | **0.958** | **1.076** | **1.141** |
+
+  In-sample sized PF 1.823 → 1.864 (net 28,631 → 29,083 units·%), BasePf1 0.634 → 0.658. The volatility exponents rise
+  because high-volatility flushes come on dying volume (ρ −0.25): the volatility term was absorbing the smaller losses
+  that vlog now carries; part of the CUSUM's loss effect moves to vlog too (L 1.206 → 1.169). The holdout (V2-42)
+  validated the combined model. Promoted to `models/flushfaderv2/v2_coefficients.json` with the Oms port.
+- **SEALED (vlog alone, before the V2-44 gate):** the private Oms (`FlushFader.vlogOf` on a 1,200-bar volume ring;
+  `Sizing.Dim = 10`) — `parity trips -s 2020-01-02 -e 2026-08-21 --from-bars --system flushfader --min-barnum 11`: **book
+  35,796 = 35,796 zero-diff** (25 columns; vlog and vlog_z exact, pf1 to 4e-15 relative), **trips 196,474 = 196,474
+  zero-diff** (vlog exact on every trip) against `vlog_ref/fit_vlog/` (`scanner_diff.py --rtol 1e-12`).
+
+## V2-44 — a GATE on the time since the last 20m high, re-run as a gate (2026-11-08, user) — built, sealed
+
+**User:** "consider adding a gate for the time since last 20m high. Maybe adding a gate that the decline should last 3.5m
+would push some of those earlier marginal trades into the stronger buckets and not even lower our net profit. We need to
+test out how the actual gates would affect the results rather than just using the feature as a filter."
+`scripts/equity/flushfaderv2_since_high_gate.py`: the gate refuses SIGNALS (all 196,474 V2 engine-level trips), then the
+book is re-run as the reference builds it ($1 floor, mc=1 greedy per ticker-day — a refused early signal frees the
+ticker-day for a later one), sized with the V2-43 model, scored at production size (V2-26's % eq). `bars` = present bars
+since the last new 20m high (V2-39's bars_since_high); `secs` = wall-clock seconds from that high's bar. Controls: the
+ungated re-run = the V2-43 reference book (keys identical, pf1 to 7e-16); a same-count RANDOM refusal of signals (40
+draws), re-run the same way.
+
+| gate | signals refused | book | mean | PF | ≤ −20 %/1,000 | % eq | Δ % eq | random drop: PF · Δ % eq (p5–p95) | 2020–22 · 2023–24 · 2025 · 2026 % eq |
+|---|---|---|---|---|---|---|---|---|---|
+| none (production) | 0 | 35,796 | +0.605 % | 1.600 | 3.1 | +2,851 | — | — | 1,451 · 621 · 474 · 305 |
+| bars ≥ 180 | 370 | 35,744 | +0.606 % | 1.602 | 3.1 | +2,852 | +1 | 1.599–1.600 · −5 … +2 | 1,452 · 623 · 473 · 303 |
+| bars ≥ 210 (3.5 m) | 581 | 35,713 | +0.608 % | 1.604 | 3.1 | +2,854 | +4 | 1.598–1.600 · −6 … +1 | 1,455 · 623 · 473 · 304 |
+| bars ≥ 240 | 887 | 35,666 | +0.609 % | 1.607 | 3.1 | +2,855 | +4 | 1.599–1.601 · −6 … +3 | 1,455 · 623 · 474 · 303 |
+| **bars ≥ 300** | 1,876 | 35,519 | +0.613 % | **1.612** | 3.1 | **+2,861** | **+11** | 1.598–1.602 · −12 … +2 | 1,452 · 625 · 480 · 305 |
+| bars ≥ 450 | 6,035 | 34,759 | +0.620 % | 1.622 | 3.1 | +2,851 | +1 | 1.596–1.605 · −28 … −3 | 1,446 · 624 · 473 · 308 |
+| secs ≥ 210 | 363 | 35,749 | +0.608 % | 1.604 | 3.1 | +2,858 | +7 | 1.598–1.601 · −4 … +2 | 1,455 · 624 · 474 · 304 |
+| secs ≥ 300 | 1,143 | 35,640 | +0.610 % | 1.607 | 3.1 | +2,860 | +9 | 1.598–1.601 · −8 … +1 | 1,455 · 623 · 478 · 304 |
+| secs ≥ 450 | 3,397 | 35,268 | +0.611 % | 1.610 | 3.1 | +2,847 | −3 | 1.598–1.603 · −16 … +1 | 1,448 · 621 · 472 · 307 |
+
+(bars ≥ 120 / secs ≥ 120: +1, inert.)
+
+- **The user's hypothesis holds — but the effect is small.** A 3.5–5 minute minimum decline lifts PF above the random
+  band (1.604–1.612 vs ≤ 1.602) and does NOT lower the production-size profit: the re-run replaces most refused
+  signals with later ones (bars ≥ 300 refuses 1,876 signals and loses only 277 book trades), and the profit rises by
+  +4 … +11 % eq — against the random drop's −12 … +2. But +11 is 0.4 % of the book's +2,851 over 6.6 years (≈ +1.7 % eq
+  a year), every period moves by 0–6, and 2026 by 0. Fast signals are rare at the SIGNAL level (bars < 210: 0.3 % of
+  signals; V2-39's 4.5 % of the book was < 450).
+- The best cell is bars ≥ 300 (5 present-bar minutes): PF +0.012, +11 % eq, no period negative; beyond it (≥ 450) the
+  refusals start costing profit. Wall-clock seconds are no better than present bars.
+- **By year** (bars ≥ 300 vs ungated, both with the V2-43 coefficients): PF better in ALL 7 years (+0.005 … +0.027),
+  production-size % eq better in 6 of 7:
+
+| year | PF ungated → gated | Δ % eq |
+|---|---|---|
+| 2020 | 1.864 → 1.879 | +0.4 |
+| 2021 | 1.804 → 1.811 | −0.3 |
+| 2022 | 1.414 → 1.419 | +0.7 |
+| 2023 | 1.340 → 1.367 | +3.0 |
+| 2024 | 1.543 → 1.551 | +1.0 |
+| 2025 | 1.532 → 1.545 | +5.5 |
+| 2026 (to 08-21) | 1.459 → 1.468 | +0.7 |
+
+  By month a coin flip: 40 of 80 better, 40 worse (worst −1.5, 2024-06; best +2.1, 2023-04). A cleaner book, not a
+  profit lever.
+- **BUILT (user 2026-11-08: "Let's do it."), bars ≥ 300.** The reference: `flushfaderv2_reference.py
+  --min-bars-since-high 300` (now the default; 0 = off) with the V2-43 coefficients APPLIED (not refitted: the gate
+  changes 0.8 % of the book) → engine-level trips 194,598, book 35,519, PF 1.612, sized 1.875. Swapped into
+  `data/flushfaderv2/flushfaderv2_reference_{book,trips}.parquet` / `.md`; the ATR5-off files (V2-38) are in
+  `pre_vlog_2026-11-08/`. The Oms: `IntradayConfig.MinBarsSinceHigh = 300` (Parity's engine-level `baseConfig` = 0);
+  the counter = research's `olsSinceHigh.Count` (+1 on every bar, reset at the end of a bar whose vwap tops the
+  strictly-prior 1,200-bar entry-channel max); recorded on every position (`BarsSinceHigh`, the trips' `bars_since_high`).
+- **SEALED:** `parity trips` as above (71.3 min, peak 2.0 GB): **book 35,519 = 35,519 zero-diff** (25 columns, pf1 to
+  4e-15 relative, the multiplier 5e-15), **trips 194,598 = 194,598 zero-diff** (14 columns, bars_since_high exact; its
+  minimum 300) against `vlog_ref/gate300/`.
