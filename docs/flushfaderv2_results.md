@@ -2210,3 +2210,43 @@ volat to 1e-13 and coil to 1e-8; production's gates on the candidates rebuild th
   earns −1,744 less (−9 %), and at matched thresholds it is worse on both PF and net. Unlike the price slope (V2-47),
   the volatility and coil gates want the PRESENT-bar clock: on a thin name 30 wall seconds hold a few prints, and a
   coil on them reads noise (Spearman 0.59). Nothing to build.
+
+## V2-52 — is the volume rate's effect captured by its LINEAR term? (2026-11-09, user)
+
+**User:** "Given the large difference between exhaustion and acceleration, I feel that the improvement in the overall
+profit factor of the system should have been more significant than the 10% we're getting currently. Is the current profit
+factor right, or is the linear model feature not doing a good enough job of predicting the profit factor?"
+`scripts/equity/flushfaderv2_vrate_shape.py` (logs/vrate_shape.log), the V2-49 reference book (35,519), V2-42's harness.
+
+**A. By vrate decile** (realized at equal size, net of the maker credit; predicted = the OOS mean per-trade PF−1):
+
+| decile (vrate) | win % | mean win / loss % | ≤ −20 % per 1,000 | realized PF | realized PF−1 | predicted: no volume term | predicted: B |
+|---|---|---|---|---|---|---|---|
+| 1 (≤ −1.28, dying) | 72.3 | 2.74 / 3.09 | 2.3 | 2.322 | 1.322 | 1.013 | 1.415 |
+| 2 | 71.3 | 2.49 / 2.96 | 2.0 | 2.088 | 1.088 | 0.826 | 1.009 |
+| 3 | 70.0 | 2.41 / 2.89 | 0.8 | 1.946 | 0.946 | 0.738 | 0.830 |
+| 4 | 67.1 | 2.30 / 3.02 | 2.3 | 1.560 | 0.560 | 0.625 | 0.665 |
+| 5 | 67.6 | 2.20 / 3.04 | 3.7 | 1.509 | 0.509 | 0.570 | 0.574 |
+| 6 | 65.9 | 2.18 / 3.01 | 2.5 | 1.399 | 0.399 | 0.513 | 0.495 |
+| 7 | 66.4 | 2.14 / 3.09 | 3.7 | 1.366 | 0.366 | 0.454 | 0.422 |
+| 8 | 66.8 | 2.17 / 3.01 | 3.1 | 1.449 | 0.449 | 0.456 | 0.402 |
+| 9 | 66.9 | 2.35 / 3.30 | 4.2 | 1.439 | 0.439 | 0.496 | 0.401 |
+| 10 (≥ +0.36, climbing) | 67.6 | 2.64 / 4.04 | 6.5 | 1.365 | 0.365 | 0.600 | 0.372 |
+
+**B. The shape out of sample** (Δ sized PF−1 vs B's linear z, [90 %]): + z² +0.0016 [−0.003, +0.006]; winsor 5 / 95 %
++0.0011 [−0.002, +0.004]; winsor 0.1 / 99.9 % −0.0026; hinges at p10 / 50 / 90 −0.0068; decile dummies −0.0273; × ln
+volat −0.0020. The volume term itself: +0.0479 [+0.033, +0.063] (0.843 -> 0.891).
+
+**C. The ceiling** (in-sample): sizing by each vrate decile's own REALIZED PF−1 (the best any function of vrate ALONE can
+do) gives sized PF 1.772 (PF−1 × 1.26 over equal size); B out of sample 1.891 (× 1.46); without the volume term 1.843.
+
+- **The PF is right and the linear term is not the bottleneck.** B tracks the realized curve across the deciles (1.415
+  vs 1.322 dying, 0.372 vs 0.365 climbing); no flexible shape beats it out of sample (z² and a tighter winsor are noise,
+  dummies and hinges overfit).
+- **Why the gain is modest though the extremes differ a lot:** (1) the effect lives in the DYING tail — deciles 1–3 are
+  PF 1.95–2.32, but deciles 4–10 (70 % of the book) are a flat 1.37–1.56, and sizing can only reweight; (2) the other
+  terms already carried a third of it — without the volume term the model already predicts decile 1 at 1.01 vs the
+  average 0.63 (volatility, CUSUM and the slope correlate with dying volume); what vrate adds is 1.01 -> 1.42 at the bottom
+  and 0.60 -> 0.37 at the top; (3) even a perfect vrate-only weighting reaches only PF−1 × 1.26.
+- The acceleration side is a LOSS-size effect: the climbing decile's mean loss is 4.04 % (vs ~3.0) and ≤ −20 % trades
+  6.5 per 1,000 (vs 2.3): what B sizes down.
