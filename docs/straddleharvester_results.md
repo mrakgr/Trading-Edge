@@ -486,3 +486,16 @@ alphabetically. The recent years — the most useful ones — land first.
 - **Chunks per year:** 2026 28.4k · 2025 31.5k · 2024 34.7k · 2023 37.7k · 2022 53.3k (two ranges split at 2022-11-09)
   · 2021 41.7k · 2020 40.8k · 2019 39.4k · 2018 32.0k · 2017–2013 25–27k each · 2012 17.8k.
 - **The key names (`ROOT__chunkstart`) are unchanged,** so the done records on both machines stay valid.
+
+## SH-17 — the data lives on the SHARE sub-account, `options/`; both machines log in by KEY (2026-11-11)
+
+- **The user moved the box folders** (as master) from the VPS's backup sub-account to the share: `options/market_full`,
+  `options/pilot_2026-10_all`, `options/universe_2022_2026_dte90`. The VPS backup folder keeps only its own `out/`.
+- **Password logins to the share failed** from the PC and the VPS alike, over ports 22 and 23, even after a reset. So
+  both machines now use KEYS: the share's `.ssh/authorized_keys` holds the PC's `~/.ssh/storagebox_pc_ed25519.pub` (new)
+  and the VPS's `~/.ssh/storagebox_ed25519.pub`. No password sits on the VPS.
+- **`pc_pull.sh`** reads the share's user and host from `~/.config/hetzner-storage-box/credentials-share` (kept out of
+  this public repo) and passes `--key ~/.ssh/storagebox_pc_ed25519`.
+- **`te-options.service`** uses `--dest <share>:options/market_full/ --key ~/.ssh/storagebox_ed25519`.
+- **Restarted 07:03 ET:** the PC resumed from `done.tsv` (2,388 chunks already final). `done_pc.tsv` and `jobs.tsv`
+  survived the move. The VPS is enabled again and blocked until 16:30 ET.

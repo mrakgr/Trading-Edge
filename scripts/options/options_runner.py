@@ -7,7 +7,8 @@ ONE job list, TWO machines, NEVER at the same time (one Theta Terminal per key):
               block end − 2 min, then EXITS. Keeps its files (the backtests run on the PC) and uploads COPIES.
   --mode vps  runs only OUTSIDE the block (nights, weekends, holidays) as te-options.service, sleeping through blocks.
               Uploads and DELETES (the VPS disk floor: oms_day.ps1 deletes captures under 40 GB free).
-THE SHARED STATE on the storage box, in the run's folder (--dest):
+THE SHARED STATE on the storage box, in the run's folder (--dest; since 2026-11-11 the SHARE sub-account's options/<name>/,
+reached by KEY from both machines — share/.ssh/authorized_keys holds the PC's and the VPS's public keys):
   jobs.tsv         the job list (built once by whichever machine has none, from build_market_jobs.py, then uploaded)
   done_<mode>.tsv  each machine's resume record; before every window a machine downloads the OTHER's and passes it to
                    eod_pull.py --also-done, so nothing on the box is downloaded twice
@@ -125,7 +126,7 @@ def main():
     ap.add_argument('--reference', required=True); ap.add_argument('--calendar-file', required=True)
     ap.add_argument('--max-dte', type=int)
     ap.add_argument('--workers', type=int, default=8)
-    ap.add_argument('--key', help='VPS: the storage-box ssh key')
+    ap.add_argument('--key', help='the storage-box ssh key (both machines since 2026-11-11: the share, sub3, by key)')
     ap.add_argument('--password-file', default='~/.config/hetzner-storage-box/credentials', help='PC: the box login')
     ap.add_argument('--block-start', default='07:00')
     ap.add_argument('--order', choices=['file', 'newest'], default='newest', help='the chunk order (eod_pull.py --order)')
@@ -140,7 +141,7 @@ def main():
     done_mine, done_other = os.path.join(out, 'done.tsv'), os.path.join(out, f'done_{other}.tsv')
     cal = MarketCalendar(a.timezone_fs, block_start=a.block_start)
     term = Terminal(a.thetadata_dir, os.path.join(a.logs, 'thetaterminal.log'))
-    box = Box(a.dest, key=a.key if a.mode == 'vps' else None, password_file=a.password_file)
+    box = Box(a.dest, key=a.key, password_file=a.password_file)          # a key when given, else the password
     remove = a.mode == 'vps'
     stale = 0
     if os.path.exists(os.path.join(out, 'DONE')):

@@ -11,11 +11,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."                       # research/
 NAME=${1:-market_full}
-CRED="$HOME/.config/hetzner-storage-box/credentials"   # the box login stays out of the (public) repo
+CRED="$HOME/.config/hetzner-storage-box/credentials-share"   # the SHARE sub-account; its name stays out of the public repo
 BOX="$(sed -n 's/^USERNAME=//p' "$CRED")@$(sed -n 's/^HOSTNAME=//p' "$CRED")"
 MAXDTE=${2:-}                                    # "" = every expiry
 nohup setsid python3 scripts/options/options_runner.py --mode pc --name "$NAME" \
-    --dest "$BOX:te-vps/options/$NAME/" \
+    --dest "$BOX:options/$NAME/" --key "$HOME/.ssh/storagebox_pc_ed25519" \
     --out-root data/options --logs logs --thetadata-dir "$HOME/thetadata" --python python3 \
     --timezone-fs TradingEdge.Orb/Timezone.fs --reference data/options/massive_root_days.parquet \
     --calendar-file data/options/trading_days.txt ${MAXDTE:+--max-dte $MAXDTE} ${START_NOW:+--start-now} >> logs/options_runner_pc.log 2>&1 < /dev/null &
