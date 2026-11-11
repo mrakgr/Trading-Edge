@@ -61,3 +61,48 @@ chains and open interest for a first study. Decide on any live feed only after t
   [FlashAlpha, best options data APIs 2026](https://flashalpha.com/articles/best-options-data-apis-2026) ·
   [ThetaData reviews (Trustpilot)](https://au.trustpilot.com/review/thetadata.net) ·
   [Polygon reviews (Trustpilot)](https://au.trustpilot.com/review/polygon.io)
+
+---
+
+# Update 2026-11-11 — after the ThetaData cancellation (StraddleHarvester)
+
+Context: sharing the trading partner's keys keeps colliding (he cancelled ThetaData mid-pull; Massive throttles his
+~10 TB/month quote pull to ~5 MB/s while he builds 1-minute bars). The user wants a source of OUR OWN. Needs:
+(1) EOD NBBO per strike for the IV-vs-RV backtests, as far back as possible; (2) later, 1-minute NBBO for fill sims and
+intraday entries. Figures are from the vendors' own pages, fetched 2026-11-11; confirm before buying.
+
+| vendor / product | what | history | delivery | individual price |
+|---|---|---|---|---|
+| ⭐ **ORATS Near-EOD** | every strike × expiry, ~6,000 symbols (delisted included): NBBO bid/ask for calls and puts at **~15:46 ET**, bid/mid/ask IV, smoothed IV, greeks | **2007 →** | one-time S3 download (~500 GB, 14-day window); daily FTP for new data | **\$599 one-time** history; \$99/mo for new days |
+| ⭐ **ORATS 1-Minute** | every option, **every minute 09:30–16:15**: NBBO bid/ask + sizes, IVs, greeks, volume, OI | **2020-08 →** | Parquet in ORATS's S3 (query in place, or copy — **Requester Pays**, so a full copy out of AWS costs egress); hard drive available | **\$1,999 one-time** all symbols, then \$199/mo (1 symbol \$599, 10 symbols \$999) |
+| Databento OPRA `cbbo-1m` | NBBO + last sale at 1-minute intervals | 2013-04 → | API / batch files | ⚠ L1 history (CBBO incl. cbbo-1m, trades) is **12 months on usage-based / Standard (\$199/mo)**, 3 years on Plus (\$1,750/mo, annual), 13 years only on **Unlimited (\$4,500/mo, annual)** |
+| ThetaData Options Standard / Pro | per-root REST (EOD with closing NBBO, tick trades and quotes, IV, greeks) | 2016 / 2012-06 → | local Terminal, 4 / 8 concurrent; flat files Pro-only, 7 days (older = sales) | \$80 / \$160 per month |
+| Massive Options Advanced | quotes REST per contract-day; quote flat files ~135 GB/day | quotes 2022-03-07 → | REST ~100 req/s ceiling (one contract-day per request); S3 throttled | \$199/mo |
+| historicaloptiondata.com L1 HDALL | EOD prices with bid/ask at the close, no IV/greeks | 2002-02 → | download | price not confirmed |
+| Cboe DataShop Option EOD Summary | NBBO snapshots at **15:45** and at the close, every series | 2004 → | files | quote-based (academic: 50% off, \$500 minimum) — likely the most expensive |
+
+**Notes:**
+- **ORATS's underlying price is derived from put-call parity** ("not stock prices"). Use our own stock data for the
+  underlying.
+- **ORATS sells an individual, single-user license.** Raw-data redistribution is not allowed, so the user and the
+  partner each need their own — which is the point.
+- **The 15:46 snapshot is a feature, not a flaw** for an EOD system: it is a time we can actually trade at, before the
+  close's quote deterioration (Cboe uses 15:45 for the same reason).
+
+**Recommendation:**
+
+1. **ORATS Near-EOD history (\$599 one-time, 2007 →)** covers StraddleHarvester and the calendar study end to end:
+   every strike and expiry, IV included, across ~19 years and several volatility regimes (2008, 2020, 2022).
+2. **ORATS 1-Minute (\$1,999 one-time, 2020-08 →)** is the cheap answer to the partner's 1-minute-bar project. It is
+   already 1-minute NBBO per option, so there is no 10 TB/month tick conversion. It is worth telling him about either
+   way.
+3. **Databento cbbo-1m** reaches 2013, but deep L1 history costs \$4,500/mo on an annual contract — not worth it at this
+   stage.
+
+Sources: [ORATS near-EOD](https://orats.com/near-eod-data) · [ORATS one-minute](https://orats.com/one-minute-data) ·
+[Databento pricing](https://databento.com/pricing) · [Databento OPRA catalog](https://databento.com/catalog/opra/OPRA.PILLAR) ·
+[Databento OPRA docs](https://databento.com/docs/datasets/opra-pillar) · [ThetaData pricing](https://www.thetadata.net/pricing) ·
+[ThetaData flat files](https://docs.thetadata.us/Flat-Files/Getting-Started.html) ·
+[Massive options quotes](https://massive.com/docs/rest/options/trades-quotes/quotes) ·
+[historicaloptiondata.com](https://historicaloptiondata.com/historical-options-prices/) ·
+[Cboe DataShop EOD summary](https://datashop.cboe.com/end-of-day-options-summary)

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- StraddleHarvester: the first of the HARVESTER family, the options systems that sell volatility (user 2026-11-10).
+       Sell the ~30-day ATM straddle on an INDIVIDUAL STOCK when its implied volatility is above the Yang-Zhang realized
+       volatility, never holding through earnings or another scheduled corporate event. Unhedged first, then a daily
+       delta hedge. Options data: ThetaData (local Theta Terminal v3, Options STANDARD, from 2016-01-04).
+       The study: docs/straddleharvester_results.md. -->
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Argu" Version="6.2.5" />
+    <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
+  </ItemGroup>
+
+</Project>

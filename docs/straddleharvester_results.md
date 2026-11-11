@@ -1,0 +1,476 @@
+# StraddleHarvester — selling single-stock straddles when IV > RV
+
+The first system of the **Harvester** family: options systems that sell volatility and harvest the volatility risk
+premium (user, 2026-11-10). Branch `options`, project `TradingEdge.StraddleHarvester`. Sections are numbered `SH-n`.
+
+## SPEC v0 (user, 2026-11-10)
+
+| | |
+|---|---|
+| Underlyings | **Individual stocks**, not indices. (MiFID / PRIIPs bars the user from *buying* US ETF shares, not from trading options on them, but the line starts on single names.) |
+| Signal | ATM implied volatility at the target expiry **>** realized volatility, the gap above a threshold. Every input known at entry. |
+| Realized vol | **Yang-Zhang** (open-to-close + overnight + Rogers-Satchell), not close-to-close. Window to be set (20 days to start). |
+| Trade | Sell the ATM straddle about 30 days out; hold to expiry, or close at about 21 days left — both to be tested. |
+| Events | **Never hold through earnings** or another scheduled corporate event. |
+| Fills | **Leeway for now**: we assume the straddle can be legged into rather than crossing both spreads. A fill sim comes later. Report results at the mid *and* at the bid/ask so the gap between them is visible from the start. |
+| Hedge | v1 unhedged; v2 with a daily delta hedge. |
+
+## SH-1 — the data (2026-11-10)
+
+### ThetaData has intraday option history, trades AND quotes (checked on the local Terminal)
+
+Malcolm's mixed signals settled with one query each on our Options STANDARD account (AAPL calls):
+
+| query | 2016-02-03 (AAPL 95C Feb-16) | 2025-02-03 (AAPL 230C Feb-21) |
+|---|---|---|
+| `option/history/trade` | ✅ every trade, **ms** timestamps (652 trades) | ✅ ms |
+| `option/history/quote` (default interval) | 23,402 rows = **one NBBO snapshot per second** | the same, 1 s |
+| `option/history/quote?interval=tick` | ✅ every NBBO change (267,694), but timestamps **truncated to the second** | ✅ every change (669,634), **ms** timestamps |
+| `option/history/quote?interval=1m` | ✅ minute snapshots | ✅ |
+| `option/history/trade_quote` | — | ✅ each trade paired with the NBBO at that moment |
+
+- **Read:** yes — tick-level option trades and quotes from 2016-01-04 (earlier needs PRO).
+- **One caveat:** before some date the quote timestamps are whole seconds, so ordering trades against quotes within the
+  same second is ambiguous in the early years. Find the cutover date before any intraday fill sim.
+- Also available: EOD rows carrying the closing NBBO, open interest, IV and first-order greeks (`history/implied_volatility`,
+  `history/greeks/...`), and the flat files. ThetaData's docs list a calendar (market hours and holidays) but
+  **nothing for earnings, dividends, splits or corporate actions**.
+
+### Earnings dates: neither vendor, on our plans
+
+| source | what | status |
+|---|---|---|
+| ThetaData | — | no corporate-events endpoint |
+| Massive `/benzinga/v1/earnings` | historical and upcoming earnings, confirmed vs projected | **403 — not entitled** (Benzinga partner add-on) |
+| Massive `/tmx/v1/corporate-events` | Wall Street Horizon events (earnings, dividends, …) from 2018 | **403 — not entitled** (TMX partner add-on) |
+| Massive `/v3/reference/dividends`, `/v3/reference/splits` | ex-dates, splits | ✅ on our plan (already behind `daily_adjusted`) |
+| **SEC EDGAR** 8-K **Item 2.02** ("Results of Operations") | the earnings release itself, with the acceptance timestamp (before the open vs after the close) | ✅ free, every US filer, back to 2004 |
+
+**Proposal:**
+
+1. **Earnings: EDGAR 8-K Item 2.02 filings.** The release date of record is causal, and the acceptance time tells
+   pre-market from after-close.
+   - This is a historical record, so it is not an upcoming calendar. For the backtest that is fine: the dates of the
+     next report are announced weeks ahead, and the rule "no expiry past the next report" needs only a projection.
+     The projection would be the last report + ~91 days, confirmed against the actual date.
+   - For a live system, a real calendar is needed later. Options include Nasdaq's, a vendor's, or IBKR's
+     Wall Street Horizon feed.
+   - EDGAR asks automated clients for a User-Agent with contact details, so that needs the user's choice first.
+2. **The options themselves as the event detector (a cross-check).** A scheduled event shows up as a kink in the
+   ATM IV term structure: the expiry straddling the event carries far more IV than the one before it.
+   - The implied event move can be backed out of the two IVs. This also catches events EDGAR does not list, such as
+     FDA dates, investor days and votes.
+   - It costs nothing beyond the chain we pull anyway.
+3. **Ex-dividend dates** from Massive. Large dividends matter for early exercise of the short call.
+4. **Pending M&A** (a stock pinned to a deal price) needs a separate filter. It can be detected from the options too
+   (IV collapsed, price flat), or from 8-K Item 1.01 / DEFM14A filings.
+
+Sources: [ThetaData docs](https://thetadata.net/docs/operations/calendar_on_date.html) ·
+[Massive Benzinga earnings](https://massive.com/docs/rest/partners/benzinga/earnings) ·
+[Massive TMX corporate events](https://massive.com/blog/build-a-corporate-events-calendar-using-massive-tmx-wall-street-horizon)
+
+**Earnings source — decided (user, 2026-11-10):** EDGAR 8-K Item 2.02, with the same User-Agent as
+`scripts/equity/download_float.py`.
+
+## SH-2 — the universe and the cost of the chain pull (2026-11-10)
+
+**Universe (user, after Volatility Vibes):** the name's option volume averages **≥ 25,000 contracts a day** over the
+**20 trading days BEFORE day D**. That is calls + puts, every expiry, and day D excluded (rule 2 of the lookahead
+protocol: `20 PRECEDING AND 1 PRECEDING`).
+
+### Where the per-name option volume can come from
+
+| source | result |
+|---|---|
+| ThetaData `option/flat_file/eod` (whole market per day) | ❌ PRO tier, and only the last 7 days |
+| ThetaData `option/history/eod?symbol=*` | ❌ "Cannot specify '*' for the symbol" |
+| Massive options flat files (`us_options_opra/day_aggs_v1`) | ❌ listing works, download **403** (not on our plan) |
+| Massive options REST aggregates | ❌ only ~2 years back (2016 and 2022 both refused) |
+| **ThetaData `option/history/eod?symbol=X&expiration=*`** | ✅ every contract of one root per day: OHLC, volume, trade count, and the closing NBBO |
+
+### Measured throughput (Options STANDARD, 4 concurrent)
+
+| request | rows | bytes (csv) | time |
+|---|---|---|---|
+| AAPL, Jan 2016, all expiries | 23,909 | — (8.3 MB ndjson) | 4.0 s |
+| AAPL, Jan 2025 | 46,981 | 6.4 MB | 8–15 s |
+| F, Jan 2025 | ~12k | 1.6 MB | 1.9 s |
+| AAPL+TSLA+NVDA+AMZN, Jan 2025, 4 in parallel | 303,362 | — | 18.7 s (**~16k rows/s**) |
+
+- **The whole market is too much.** The listing has 15,853 option roots. Whole-market EOD is ~150 MB a day (ThetaData's
+  figure), i.e. on the order of 1M+ contract rows a day. At ~16k rows/s, 2016 → 2026 is roughly **two days of pulling**.
+- **Not wasted for the universe names.** Their chains are the backtest's own input: the EOD rows carry the closing
+  NBBO, which gives the ATM straddle's bid, ask and mid every day. Only the roots that never pass the screen are wasted.
+
+**Proposal — a superset prefilter by STOCK liquidity, then the exact causal screen on the options:**
+
+- The prefilter decides only what to *download*, never what to *trade*. Even using the whole period it is harmless,
+  as long as it is a superset of every name that ever passes the 25k screen.
+- Validate it on a recent pilot year: pull every root, then check that no name passing the screen falls outside the
+  prefilter.
+
+## SH-3 — earnings dates from EDGAR, built (2026-11-10)
+
+`scripts/options/edgar_earnings.py`: for each ticker, every 8-K / 8-K/A carrying Item 2.02, with the acceptance time in
+ET and its session — **BMO** (before 09:30: hits day D's open), **RTH**, **AMC** (16:00+: hits the next open).
+
+- **Ticker → CIK comes from Massive**, `/v3/reference/tickers/X?date=D`. That lookup is point in time: FB on 2020-06-01
+  and TWTR on 2021-06-01 both resolve.
+- **No contact details are sent.** `data.sec.gov` serves a generic User-Agent, but `www.sec.gov` (where
+  `company_tickers.json` lives) **403s** it. So the user's email is not needed: the float scraper's header is kept out
+  of this script.
+- **acceptanceDateTime is real UTC.** AAPL's releases land at 20:30Z in July and 21:30Z in January, both 16:30 ET.
+- **Test (AAPL, TSLA, NVDA, BRK.B, FB as of 2020):** 273 filings since 2015-07, sessions AMC 212 · BMO 45 · RTH 16.
+  - **TSLA has 95, not ~45.** Tesla files its quarterly DELIVERY numbers under Item 2.02 too (early in the quarter's
+    first month, BMO). Those move the stock as well, so excluding them errs on the safe side.
+  - Other Item 2.02 filings that are not the quarterly report (preliminary results, guidance updates) will likewise
+    count as events. That is conservative for a short-volatility system.
+- **⚠ The 8-K can trail the press release** (minutes, occasionally a day). The cross-check is the options' IV term
+  structure.
+
+## SH-4 — the Massive OPTIONS plan (user, 2026-11-10)
+
+The user added a Massive options key, `~/.config/massive-options/credentials` (JSON: API key + S3 keys; chmod 600
+done). Measured:
+
+| what | access |
+|---|---|
+| Options flat files, `day_aggs_v1` / `minute_aggs_v1` / `trades_v1` | ✅ **from 2022-11-09** — a ROLLING 4-year window (2022-11-08 refused; binary search over the day files) |
+| Options flat files, `quotes_v1` (135 GB a day) | ❌ not on the plan |
+| REST aggregates, 2016 and 2022-11-01 | ❌ "plan doesn't include this data timeframe" |
+| REST quotes | ❌ |
+| REST chain snapshot | ✅ live only |
+
+- **A whole-market day is one ~4 MB file in ~1.4 s.** The 2022-11-09 → today window (1,003 days) downloads in minutes
+  (`scripts/options/massive_options_day_aggs.py` -> `data/options/massive_day_aggs/`). The equivalent ThetaData pull,
+  one root per request, is about an hour per MONTH.
+- **It agrees with ThetaData.** On 2026-10-15, across the 315 roots both had: **91% of roots identical**; Massive's
+  total is 1% lower (AAPL −2.2%, ANET −5.6%) — it drops some trade conditions. That is immaterial at a 25k threshold.
+- **⚠ No bid/ask.** Day aggregates carry trades only (OHLC, volume, transactions). The straddle's prices, and so the
+  backtest's fills, still need ThetaData's EOD NBBO — but only for the universe's names.
+
+**The plan this suggests:**
+
+1. **Phase 1, 2022-11 → today.** Screen the universe from Massive (minutes). Then pull ThetaData EOD chains for the
+   names that pass (hours, not days). Run the first backtest on those 4 years.
+2. **Phase 2, 2016 → 2022-11, only if Phase 1 earns it.** A ThetaData-only screen, cut down by the stock-liquidity
+   prefilter that the October pilot calibrates.
+
+## SH-5 — the universe, 2022-11 → 2026-11 (Massive day aggregates)
+
+`scripts/options/universe_screen.py` -> `data/options/universe_daily.parquet`, log `logs/options_universe_screen.log`.
+1,003 Massive days (2022-11-09 → 2026-11-09, 9,443 option roots).
+
+- **Rule:** the underlying's STANDARD option contracts average ≥ 25,000 a day over the 20 prior trading days; single
+  stocks only (ticker_reference type CS or ADRC).
+- **Adjusted roots are dropped** from the screen and the book (1,438 roots, 0.10% of all contracts). These are
+  corporate-action contracts with a digit appended (CMCS1, WOLF1; WOLF1 averaged 86k a day after the restructuring).
+  They deliver non-standard packages, so their prices are not straddles on the stock.
+- **Passing the volume bar on any day, by type:** CS 492 · ETF 83 · ADRC 38 · ETV 12 · ETS 1 · untyped 8. The untyped
+  are all indices: SPXW, VIX, SPX, XSP, NDXP, RUTW, VIXW, RUT.
+
+| | |
+|---|---|
+| single stocks ever in the universe | **530** (38 of them ADRs) |
+| names per evaluable day | min 122 · **median 162** · max 242 |
+| in on ≥ 950 of 983 evaluable days | 61 names |
+| days in the universe per name | median 148; 90 names < 20 days |
+
+Names per day by quarter: 138–142 through 2023, 148–180 in 2024–25H1, 197–218 in 2025H2–2026H1, 171 in 2026Q4.
+
+- **The top by median 20-day average (thousands of contracts a day):** NVDA 2,613 · TSLA 2,300 · AAPL 980 · SPCX 912
+  (from 2026-06) · AMZN 688 · AMD 605 · PLTR 491 · MSTR 467 · META 435 · GOOGL 367 · MSFT 361 · INTC 338.
+- **At the bar on 2026-11-09:** ACHR, DJT, AXTI, DVN, SCHW, TEM, GM, RBLX, all at 25.1–26.0k.
+
+⏭ **Next: the ThetaData EOD chains for these 530 names** — the closing bid/ask for the straddles, per name over its
+universe span plus the holding period.
+
+## SH-6 — the universe's EOD chains from ThetaData (launched 2026-11-10)
+
+- **Expiries ≤ 90 days** (`max_dte=90`). The user raised the cap from 60 so the same data serves a later
+  CALENDAR-SPREAD study.
+- **Per name:** from its first universe day to 90 days after its last, capped at 2026-11-09. That is
+  `data/options/universe_jobs.tsv` (530 names, ~12,500 name-months), cut into calendar-quarter requests.
+- **Output:** `data/options/eod_universe/<ROOT>__<chunkstart>.parquet`; `done.tsv` is the resume record. Log
+  `logs/options_eod_universe.log`.
+- **It starts when the October pilot ends,** chained on the pilot's PID (`logs/options_eod_universe_launch.sh`) and
+  detached with nohup.
+- **Measured on AAPL 2025-01:**
+
+  | filter | rows | time |
+  |---|---|---|
+  | none | 46,981 | 9.2 s |
+  | `max_dte=60` | 16,541 | 4.6 s |
+  | `max_dte=60` + `strike_range=10` | 5,921 | 33.5 s |
+
+  `strike_range` is ~7× SLOWER: ThetaData looks up the stock price per day server-side. So every strike is kept and
+  trimmed locally.
+- **Size:** parquet runs ~11.5 bytes a row (the pilot: 17M rows in 195 MB), so this is a few GB at most.
+- **Time:** roughly 3–4 h is expected.
+- **ThetaData Pro** is under discussion with the user's trading partner, to cut download times. ⚠ Pro does NOT bring
+  bulk history. The flat files cover *"the 7 most recent calendar days"* only
+  ([Flat Files](https://thetadata.net/docs/Flat-Files/Getting-Started.html),
+  [Option Flat File EOD](https://thetadata.net/docs/operations/option_flat_file_eod.html); older history is a separate
+  deal with sales). What Pro adds for history: **8 concurrent requests instead of 4** (≈ half the time, if the limit is
+  per request) and **options history from 2012-06**. The docs say "professional users" — confirm with ThetaData that
+  this means the Pro tier, not commercial-user status.
+
+## SH-7 — the October 2026 pilot: every ThetaData root, one month (done 2026-11-10)
+
+`scripts/options/eod_pull.py` over all 15,852 listed roots, 2026-10-01 → 11-06, every expiry →
+`data/options/eod_pilot_2026-10/` (626 MB). Analysis: `scripts/options/universe_pilot.py`, log
+`logs/options_universe_pilot.log`.
+
+**The pull:** 61.7 min · **0 errors** · 6,349 roots with rows, 9,503 with none (HTTP 472) · **55.3M rows** (~2M
+listed contracts a day) · 14,900 rows/s.
+
+**⭐ ThetaData and Massive give the SAME universe.** On 2026-11-06 the single-stock universe has **184 names from each
+source, and they are the same 184**. The ~1% volume gap measured in SH-4 flips no name. So the Massive screen (SH-5)
+stands as the universe for 2022-11 →.
+
+**The stock-liquidity prefilter, for a later 2016 → 2022-11 ThetaData-only screen:**
+
+- Of the 193 single names that pass on any of the 7 evaluable days, the lowest stock 20-prior-day dollar volume is
+  **\$37.6M** (LCID). Next: HTZ 39.3 · QUBT 43.9 · NN 44.7 · MPT 47.3 · TE 50.9.
+- Most pass with far more: the median is \$795M.
+
+| stock dv20 floor | stock tickers kept (2026-11-06) | passing single names lost |
+|---|---|---|
+| \$5M | 4,550 | 0 |
+| \$20M | 2,943 | 0 |
+| \$30M | 2,533 | 0 |
+| \$50M | 2,003 | 5 |
+
+- **⚠ Calibrated on ONE recent month.** The contracts-per-dollar ratio of 2016 is unknown. Single-stock option volume
+  grew a lot after 2020, so the same 25k bar should need MORE stock liquidity back then — which makes the floor
+  conservative. Check it on one 2016 pilot month before relying on it.
+- **⚠ The prefilter saves little.** Even \$30M keeps 2,500 tickers. The rows are in the big chains, which pass anyway.
+  The real saving for 2016 → 2022 is `max_dte` (SH-6).
+
+## SH-8 — universe size vs the contract bar (Massive, 2022-11 → 2026-11, single stocks)
+
+| 20-day avg contracts ≥ | names ever | names / day (median) | name-days |
+|---|---|---|---|
+| **25,000** (SPEC) | **530** | **162** | 165k |
+| 15,000 | 736 | 231 | 236k |
+| 10,000 | 960 | 297 | 300k |
+| 5,000 | 1,484 | 439 | 439k |
+| 2,500 | 2,044 | 646 | 648k |
+| 1,000 | 2,937 | 1,033 | 1.03M |
+
+**User, 2026-11-10: stay at 25k for now; widening is for later.** The plan for widening:
+
+- Report the first backtest by liquidity bucket.
+- If the edge holds toward the bar, extend to 10k (+430 names, ~1–1.5 h of ThetaData).
+- Measure the quoted spread against the premium collected, since the legging assumption gets more optimistic in thinner
+  chains.
+
+## SH-9 — Yang-Zhang realized volatility for the universe (2026-11-10)
+
+`scripts/options/yz_vol.py` -> `data/options/yz_vol.parquet` (log `logs/options_yz_vol.log`). Covers all 530 names,
+528k bars, 2022-06-01 → **2026-10-30** (`daily_adjusted` ends there; refresh before the last week is used).
+
+- **Prices:** from `daily_adjusted`. The overnight return is the only term that crosses days, so it alone uses the
+  causal `n` and `cum_div`: `ln((O_t·n_t + C_t − C_{t−1}) / (Cl_{t−1}·n_{t−1}))`. The open→close and Rogers-Satchell
+  terms use the same day's raw prices. NVDA's 10:1 split (2024-06-10) passes through cleanly.
+- **Columns:** `yz10`, `yz20`, `yz60` (annualized ×252), `cc20` (close-to-close), the daily `r_on` / `r_oc`, and two
+  flags per window: the largest calendar gap and the largest |overnight| return.
+- **⚠ Knowability:** yz_N on day t INCLUDES day t's bar, so it is known at t's 16:00 close. It is valid for an entry at
+  t's closing option quotes only; for anything earlier, use the previous row.
+
+| | |
+|---|---|
+| yz20 across all name-days | p5 0.19 · median **0.48** · p95 1.29 · max 17.6 |
+| yz20 / cc20 | median **1.048** |
+| NVDA, 2026-10-30 | yz20 0.324 vs cc20 0.325 |
+| AAPL, 2026-10-30 | yz20 **0.251** vs cc20 **0.145** |
+
+**AAPL's gap is real, not a bug.** Over those 20 days its overnight and open→close returns are correlated **−0.49**
+(gap-and-fade): std overnight 0.153, std intraday 0.134, but std of their sum only 0.145. Yang-Zhang ADDS the component
+variances, i.e. it assumes they are independent. **When they offset, YZ overstates the close-to-close variance** — the
+variance a straddle held between closes is actually exposed to.
+
+⏭ **To test, not assume:** which of yz20 / cc20 / yz60 better forecasts the variance realized over the straddle's
+holding period. That is the comparison the IV is really being made against.
+
+**Flags to exclude from the book (reused tickers, data holes):**
+
+- `gap_days_20 > 5`: 269 rows on 14 tickers — B, BBBY, BBIG, COHR, CORZ, FIG, FISV, GOLD, PARA, SI, SPWR, **SPCX**,
+  VG, SATS. SPCX's rows before its 2026-06 listing belong to an ETF that used the ticker.
+- `max_on_20 > ln 2` (an overnight move of ±100%, with splits already adjusted): 1,196 rows on 50 tickers — mostly
+  genuine biotech and meme jumps (REPL, CAPR, ABVX, BYND, AMC…), but a reused ticker or a missed split would also land
+  here. Review before use.
+
+## SH-10 — earnings dates for the universe (EDGAR, 2026-11-10)
+
+`scripts/options/edgar_earnings.py --tickers-file data/options/universe_tickers.tsv` ->
+`data/options/earnings_8k202.parquet` (log `logs/options_edgar_earnings.log`). Each name is looked up as of its last
+universe day.
+
+**Result:** **16,182 Item 2.02 filings on 444 of the 530 names**, 2015-06 →. Sessions: AMC 9,048 · BMO 6,692 · RTH 442.
+
+**Two bugs found and fixed on the first run** (that run had 419 names):
+
+1. **De-duplication by accession alone dropped a ticker's whole history** when two tickers share a CIK: GOOG/GOOGL, and
+   GPS/GAP (Gap's 2024 ticker change). The fix de-duplicates per ticker + accession: GOOG 46, GOOGL 46, GPS 55, GAP 55.
+2. **22 delisted or renamed tickers got no CIK** (SQ, ATVI, X, WBD, PARA, SAVE…). Massive's point-in-time
+   `/v3/reference/tickers/X?date=` 404s for them. The fallback is the ticker SEARCH with `active=false` → 0 missing.
+
+**86 names have NO Item 2.02 filings** (38 ADRs + 48 others). These are foreign private issuers, which report earnings
+on **Form 6-K** (no item codes) or 40-F: BABA, TSM, ASML, NVO, SHEL, SPOT, UBS, DB, NU, GRAB, ONON, NBIS, STLA, the
+Canadian miners and energy names (AG, KGC, PAAS, CCJ, NXE, DNN, SU, TECK), and others. FRC is different: a bank, it
+filed with the FDIC, not the SEC. **They have no earnings source yet.**
+
+- **v1 proposal:** leave these 86 out of the book.
+- **v2:** detect their events from the options themselves — the IV term-structure kink: the first expiry after an event
+  carries much more IV than the one before it.
+
+**Cadence, 2023 →:** median **4.15** filings a year per name. 12 names file more than 6 a year: LCID 9.3, TSLA 8.3,
+ABBV 8.3, EQT 8.3, OXY 7.5, HOOD 7.0, APO 6.5, ASTS 6.5. These are deliveries, preliminary results and operating
+updates under 2.02 — all are treated as events (the conservative side). 66 names file fewer than 3 a year, mostly partial
+periods (IPOs, delistings). Check a sample before trusting a gap between filings as "no event".
+
+## SH-11 — ⚠ ThetaData returned CUT-OFF data; the pull now verifies every chunk (2026-11-10)
+
+**The problem.** From about 16:25 CET the Terminal began logging `Internal server error: Corrupt FIT data … HTTP 500`
+(121 occurrences by 17:15).
+
+- **Sometimes the client gets the 500.**
+- **Sometimes the response simply ENDS EARLY with HTTP 200**, and the old script saved it as complete. Rows come ordered
+  by date, so a cut-off chunk is just missing its later days. GOOGL 2024Q1 was saved with **one day (2024-01-02, 1,112
+  rows)** against ~59,500 for the full quarter.
+- **The cut can REPEAT across attempts.** For a while every 2024Q1 chunk ended in its first week, and two attempts
+  agreed. So "two attempts agree = a genuine end (delisting)" — the first fix — accepted 13 cut chunks.
+- **It is random per request.** Single days that failed succeeded on the next try. 2024Q1 is by far the worst hit; a
+  quarter-long request (~60 days) almost never got through.
+
+**The fix** (`scripts/options/eod_pull.py`):
+
+1. **Completeness is checked against an INDEPENDENT source.** A chunk must reach the last day Massive's whole-market day
+   files have the root within the chunk's range (`data/options/massive_root_days.parquet`: 9,443 roots, 4.3M root-days).
+   Genuine ends pass: ATVI 2023-10-12, DWAC 2024-03-25, FRC 2023-04-28, GPS 2024-08-21.
+2. **Bisect on failure.** A piece that fails 3 times is split in half, recursively, down to single days (8 attempts
+   each), and the pieces are reassembled. GOOGL 2024Q1 came back complete in 4.1 min: 61 days, 59,500 rows, no
+   duplicate contract-days.
+3. **Only complete chunks are final.** Anything else writes no file and is retried by a rerun. Files are written via
+   `.part` + rename.
+4. **`--validate`** re-checks every saved chunk and moves the cut ones to `data/options/eod_universe_quarantine/`
+   (`done.tsv.bak` is kept).
+
+**The damage, and where it stands:** of 1,985 chunks saved by then, **41 were cut**: 28 found by the calendar check, 13
+more wrongly accepted by the agreement rule. All 41 are quarantined and are being re-pulled. Every other chunk reaches
+Massive's last day for its root. The pull restarted at 17:20 CET. The 2024Q1 chunks now take minutes each while the
+server is degraded.
+
+**Not yet re-checked:** the October pilot (`eod_pilot_2026-10`, pulled 14:05–15:09, before the errors began). Its
+single-stock universe matched Massive's exactly (SH-7), so the screen is unaffected.
+
+## SH-12 — ⛔ ThetaData cancelled; the downloads stopped (2026-11-10, 17:4x CET)
+
+The user's trading partner asked ThetaData to cancel the subscription and refund it. The universe pull, its queued retry
+pass and the Theta Terminal were all stopped.
+
+**What was downloaded:**
+
+| | |
+|---|---|
+| `data/options/eod_universe/` | **2,450 of 4,753 chunks complete** (52%), 88.8M rows, 1.2 GB. **283 of 530 names fully pulled** (alphabetically A → ~LUNR, partially beyond). Every chunk verified complete against Massive (SH-11). |
+| `data/options/eod_universe_quarantine/` | the 41 cut-off chunks (2.6 MB) — not usable |
+| `data/options/eod_pilot_2026-10/` | every root, 2026-10-01 → 11-06, 55.3M rows, 626 MB (pulled before the errors began; not re-validated) |
+
+- **The pull is resumable** if a subscription returns: `done.tsv` + `logs/options_eod_universe_launch.sh`.
+- **⚠ Check ThetaData's terms** on keeping and using data from a refunded subscription before building on these files.
+- **Massive (SH-4) is unaffected:** day / minute aggregates and trades from 2022-11-09 — but **no quotes** on that plan.
+  So the straddle's bid/ask would need a different source.
+
+## SH-13 — ThetaData PRO; the 2012–2022 whole-market history moves to the VPS (2026-11-11)
+
+**PRO bought by the user** (`Options: PROFESSIONAL`, 8 concurrent, history from 2012-06). The 2022-11+ universe pull
+resumed on the PC with 8 workers: ~12.5k rows/s at first, ~19.7k later, zero server errors. It is not 2× the 4-worker
+rate, so the server sets the pace.
+
+**The 2012-06-01 → 2022-11-08 history runs on the VPS, outside trading hours only** (user: no overnight noise at home).
+It covers EVERY root and EVERY expiry — the user: "we'll get all of it". From 2022-11-09 on, Massive gives the screen.
+
+- **The window** (`scripts/options/market_calendar.py`, parsing `TradingEdge.Orb/Timezone.fs`): BLOCKED on trading days
+  **07:00**–16:30 ET (13:30 on early closes); OPEN all day on weekends and holidays. The user said 08:00; 07:00 is used
+  because `te-oms.timer` fires at **07:30 ET** — to be confirmed with the user. The OMS ended at 16:17 ET on 11-10.
+- **`te-options.service`** (enabled, `Restart=on-failure`, `MemoryMax=5G`) runs `scripts/options/vps_runner.py`:
+  1. Sleeps through blocks.
+  2. Starts the Terminal, bound to 127.0.0.1.
+  3. Builds the job list on the first window (`build_market_jobs.py`: every listed root, its window = [first expiry −
+     3 y, last expiry] ∩ the range).
+  4. Runs `eod_pull.py --deadline` (no new request in the last 20 min before a block; a watchdog stops it 2 min before).
+  5. Every 5 min, `rsync --remove-source-files` to the storage box at
+     the storage box's VPS sub-account, `te-vps/options/<run>/`.
+  6. Stops the Terminal.
+  7. Writes `DONE` when every chunk is final, or `ALERT` after 3 passes with no progress.
+
+  `--not-before 2026-11-11 16:30 ET`, so it cannot run a second Terminal on the key while the PC pull is running.
+- **⚠ The VPS disk floor:** `oms_day.ps1` deletes the oldest captures while < 40 GB is free, and 38–39 GB was free on
+  11-11. So nothing accumulates on the VPS: files leave every 5 min.
+
+**Completeness before 2022-11** (Massive does not reach back): each piece must reach the last TRADING day of its range
+(`data/options/trading_days.txt`, from `daily_prices`, 2012 → 2026-10-30). When a response stops early, ONE request for
+the rest of the range decides:
+
+- **472 there** = the root's genuine end (accept).
+- **Rows there** = a cut (retry, then bisect).
+
+TWTR 2022Q4 (delisted 2022-10-27) settles in 9 s; bisecting it took 177 s. AAPL 2013Q1: 156,748 rows, 60 days, every
+expiry (max 745 DTE).
+
+**⏭** Tonight's first window opens at 16:30 ET (22:30 CET). Things to check: `~/te/options/logs/runner.log`, the
+job-build log, and the first uploads on the box.
+
+## SH-14 — the universe pull is DONE; the whole-market priorities; PC by day, VPS by night (2026-11-11)
+
+**The 2022-11+ universe is complete.** All 4,753 chunks are final (4,721 with data, 32 with none); 0 errors on the PRO
+key; the last session ran at ~24.8k rows/s. It is uploaded to the box at `te-vps/options/universe_2022_2026_dte90/`
+(4,723 files, 2.47 GB, in 43 s) and kept locally. The October pilot is also on the box, at
+`te-vps/options/pilot_2026-10_all/` (642 MB).
+
+**The user's priorities for everything else:**
+
+1. 2022-11-09 → 2026-11-10, every root outside the universe's spans, ≤ 90 DTE.
+2. 2012-06-01 → 2022-11-08, every root, ≤ 90 DTE.
+3. Later: the > 90 DTE remainder of the whole history. ThetaData has `max_dte` but no minimum, so the remainder means
+   per-expiry requests (monthlies, LEAPS) — or a full re-pull at ~2× the cost. To be designed.
+
+**Priorities 1 and 2 = ONE run, `market_dte90`.** The job list is
+`build_market_jobs.py --ranges 2022-11-09:2026-11-10,2012-06-01:2022-11-08 --exclude-file data/options/universe_jobs.tsv`:
+15,853 roots looked up, 0 errors; 12,192 lines for range 1 then 14,851 for range 2; ~487k quarter requests, many of
+them empty quarters of dead roots (a fast 472). AAPL, for example, gets only the gaps around its universe span, then
+2012–2022.
+
+**Both machines share it through the box** (`te-vps/options/market_dte90/`: `jobs.tsv`, `done_pc.tsv`,
+`done_vps.tsv`, the parquet):
+
+- **The PC** (`scripts/options/pc_pull.sh`, started by hand each trading day) pulls 07:03 → 16:10 ET and keeps its
+  files.
+- **The VPS** (`te-options.service`, `scripts/options/options_runner.py --mode vps`) pulls outside those hours and
+  deletes after upload.
+- **Before each window,** a machine downloads the other's `done_*.tsv` and passes it to `eod_pull.py --also-done`, so a
+  chunk on the box is never pulled twice.
+- **Never at the same time:** one Terminal per key; the runner refuses to start if port 25503 is taken.
+
+**Estimates:** ~2–3B rows for priorities 1 + 2 at ~20k rows/s — ~2–3 days of calendar time with both machines, then
+~55–70 GB on the box with priority 3 included.
+
+## SH-15 — the plan changed: EVERY expiry in one run, `market_full` (user, 2026-11-11)
+
+ThetaData's EOD endpoint has `max_dte` but no minimum, so "≤ 90 DTE first, the rest later" would re-pull the ≤ 90 rows.
+Measured on the October pilot (55.3M rows, every root, every expiry): **56.0% of the rows are ≤ 90 DTE** (45.9% ≤ 60).
+So the capped-first plan costs ~2.8× the data of a single full pull at ~1.8×.
+
+- **Switched before a single `market_dte90` chunk was pulled.** `market_dte90` is removed (locally and on the box).
+- **The run is `market_full`:** `build_market_jobs.py --ranges 2022-11-09:2026-11-10,2012-06-01:2022-11-08`, with no
+  universe exclusion and no `max_dte`. 26,513 job lines (11,662 + 14,851), ~490.5k quarter requests.
+- **The 530 universe names are re-pulled in full,** so the whole dataset comes from one consistent run (their ≤ 90 DTE
+  rows twice: ~170M rows, ~2.5 h).
+- **`universe_2022_2026_dte90` stays,** for the first backtest.
+- **Both machines point at `te-vps/options/market_full/`:** `pc_pull.sh` defaults to it, and `te-options.service` was
+  updated. The box holds `market_full/`, `pilot_2026-10_all/`, `universe_2022_2026_dte90/`.
+
+**Estimate:** ~4–4.6B rows, ~55–62 GB; at ~20k rows/s ~55–65 pull-hours, i.e. ~3.5–4 calendar days with the PC by day
+and the VPS by night.
