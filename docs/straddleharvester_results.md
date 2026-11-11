@@ -499,3 +499,88 @@ alphabetically. The recent years — the most useful ones — land first.
 - **`te-options.service`** uses `--dest <share>:options/market_full/ --key ~/.ssh/storagebox_ed25519`.
 - **Restarted 07:03 ET:** the PC resumed from `done.tsv` (2,388 chunks already final). `done_pc.tsv` and `jobs.tsv`
   survived the move. The VPS is enabled again and blocked until 16:30 ET.
+
+## SH-18 — the Volatility Vibes baseline: three features, every straddle and calendar, held to expiry (2026-11-11)
+
+User: test VV's three features (IV30/RV30, term-structure slope front→45 DTE, 30-day average volume) on earnings AND
+non-earnings plays. Sell every ATM straddle and buy every ATM calendar, hold to expiry (the calendar's back leg is sold
+when the front expires), then do a decile breakdown per feature; gating comes next. Analysis in SQL on the trade files.
+
+- `scripts/options/vv_backtest.py` -> `data/options/vv/{features,straddles,calendars}.parquet` (40 s, 6 workers):
+  259k name-days, **1.98M straddles** (every expiry 1-90 DTE), **1.60M calendars** (every front up to 60 DTE, back = the
+  expiry closest to front+30 within [+21,+45]). The docstring has the definitions. In short: ATM = nearest the
+  regular-session close (Massive day bars; checked: NVDA 2024-08-28 close 125.61 is the 16:00 print, not after-hours).
+  IV = Black-Scholes r=q=0 vol of the straddle mid, linear in DTE. rv30 = Yang-Zhang 30 (`yz_vol.py` now also writes
+  yz30). The calendar strike = the nearest to spot quoted in BOTH expiries (weekly half-strikes are not listed in the
+  monthly back: AAPL 207.5). Earnings reaction day: BMO/RTH = that day, AMC = the next.
+- `scripts/options/vv_deciles.py` (log `logs/options_vv_deciles.log`). Samples: **EARN** = entry the day before the
+  reaction, front = the first expiry holding the event. **NON30 / NON7** = no event in the hold, straddle/calendar
+  front nearest 30 / 7 DTE, entered every day (holds overlap). Exclusions: split in hold, not in universe,
+  gap_days_30 > 5, 6-K filers (no earnings source).
+- P&L in bp of spot. mid = in and out at the mid; nat = sell at the bid, buy at the ask; legs at expiry settle at
+  intrinsic.
+
+**Totals (mid / nat, bp of spot):**
+
+| sample | straddle n | straddle mid | straddle nat | win | calendar mid | calendar nat |
+|---|---|---|---|---|---|---|
+| EARN (dte 2.7) | 2,299 | **+52.9** (t 3.1) | +2.7 | 59% | +8.1 | −373 |
+| NON30 (dte 25) | 138k | +17.5 | −88 | 60% | +16.3 | −362 |
+| NON7 (dte 7) | 138k | +15.1 | −32 | 60% | +11.8 | −313 |
+
+**Deciles, the shape:**
+
+- **ts_slope_0_45 is the strongest and it is monotone.** EARN straddle D1 (most inverted, < −0.041) **+316 bp**,
+  D10 (≈ flat, > −0.003) **−155**. Calendar mid D1 +58 / D10 −119. NON30 straddle D1 +186 / D7-10 ≤ 0, calendar
+  +70 → −61. NON7 the same shape. (EARN decile SE ≈ 55 bp.)
+- **iv30_rv30: no clean monotone.** EARN: D10 (> 1.71) +208, but D1-D3 (< 1.11) +55-69 too. NON30: D1 (IV well
+  BELOW RV, < 0.68) is the best straddle decile (+98): RV right after a jump mean-reverts.
+- **avg_vol30: the top decile is best** (EARN straddle +165, calendar +95; NON30 straddle +116). Otherwise flat.
+  VV's 1.5M floor binds on almost nothing in this universe (min ≈ 0.5M, D1 tops out at 4.5M).
+- **VV's published gates** (avg_vol ≥ 1.5M, iv30/rv30 ≥ 1.25, slope ≤ −0.00406) on EARN: 1,097 trades, straddle
+  **+80 mid / +36 nat**, t 3.3; the rejected half +28 / −28. Calendar +13 mid.
+
+**⚠ Before reading nat numbers:** the calendar's natural P&L is catastrophic everywhere (−300 to −2,000 bp). Six
+crossings of the EOD (16:00) NBBO, which is wide at the close (AAPL 2025-07-31, Aug-22 205C 7.05 × 9.80). Median
+calendar half-spread cost ≈ 100-135 bp vs a median debit ≈ 400-650 bp. The real fill lies between mid and nat; that is
+the fill sim's job. Straddle means are tail-dominated: median return on credit +17-30%, but the means are small.
+
+## SH-19 — VV earnings play, crush exit + fill fractions (scripts/options/vv_crush.py, logs/options_vv_crush.log)
+
+EARN events (entry at the close the day before the reaction), 2,288 with all reaction-day quotes. Exit at the REACTION
+day's close NBBO (EOD data has no morning quote) vs hold to expiry. Fill: each leg at mid ∓ f·half-spread, in and out.
+Returns are per-trade means as % of credit (straddle) / debit (calendar).
+
+| | f=0 (mid) | f=0.25 | f=1 (natural) |
+|---|---|---|---|
+| straddle crush, all / VV gate | −1.7 / +2.0 | −5.2 / −0.6 | −17.8 / −9.8 |
+| straddle to expiry, all / VV gate | +0.2 / +3.4 | −1.2 / +2.5 | −6.4 / −0.8 |
+| calendar crush, all / VV gate | +3.4 / +3.8 | −14.1 / −15.9 | −47.1 / −52.4 |
+
+Crush exit, quintile 5 (most selective): slope (most negative) straddle +9.6% mid / +6.9% f=.25; fwd_ratio (iv_front /
+forward vol front→back, = the event premium: the event variance cancels in the forward) calendar +18.0% mid / −10.1%
+f=.25, straddle +6.3% mid. VV's ~10%/trade is reproducible only at MID fills on the selective bucket.
+Why calendars die on costs: back-month call spread median 76bp of S (11% of its price) vs front 23bp (5.9%), and the
+cost is charged against a NET debit (4.9% of S) instead of a gross credit (8.3% of S): entry cost = 24% of the debit
+vs 3.3% of the straddle credit.
+
+### SH-19b — single-side calendars (same events, 2,255 with both legs' debit > 0.25% of S)
+
+The 'both' calendar = call calendar + put calendar at the same ATM K; by put-call parity the two are nearly the same
+position (C−P is a forward; the front and back forwards nearly cancel), so 'both' only doubles the legs.
+% of debit, per-trade mean:
+
+| | both mid | call mid | put mid | both f=.25 | call f=.25 | put f=.25 |
+|---|---|---|---|---|---|---|
+| crush exit | +1.1 | +3.1 | +5.0 | −14.5 | −12.1 | −15.2 |
+| to expiry | +4.4 | +5.5 | +10.9 | −8.8 | −7.6 | −7.0 |
+| crush, fwd_ratio Q5 | +11.3 | +14.1 | +17.5 | −11.4 | −7.2 | −14.4 |
+
+fwd_ratio quintiles (crush, mid) rise monotonically for every variant: call −4.6/−1.3/+1.4/+5.9/+14.1.
+Entry cost (natural − mid) median: call 20% of debit, put 25%, both 24%. Use the OTM side: strike ≥ spot -> call
+calendar costs 18% vs put 27%; strike < spot -> ~equal (22% / 23%). Mid looks better for puts, but put spreads are
+wider so their mid is the less trustworthy price. Conclusion: one side (the OTM one) suffices; every calendar variant
+is negative at f=.25 even in Q5 -> viable only with maker fills at/inside mid (needs intraday quotes to model:
+fill-at-mid is conditional on the price moving against us).
+⚠ VV's slope as implemented: ts_slope_0_45 = (iv45 − iv_front)/(45 − dte_front), vol (not variance) linear in DTE —
+from memory of his published script, unverified. fwd_ratio (variance-based forward) is our addition.
