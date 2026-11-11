@@ -23,13 +23,22 @@ import pandas as pd
 
 UA = 'TradingEdge-research edgar-client'
 PAUSE = 0.15                                          # SEC's fair-access limit is 10 requests/s
+import threading
+_sec_lock = threading.Lock(); _sec_last = [0.0]
+
+
+def _sec_wait():  # one global pacer across threads: >= PAUSE between SEC requests
+    with _sec_lock:
+        dt_ = _sec_last[0] + PAUSE - time.time()
+        if dt_ > 0: time.sleep(dt_)
+        _sec_last[0] = time.time()
 
 
 def get(url, ua):
     for attempt in range(4):
         try:
+            _sec_wait()
             with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': ua}), timeout=60) as r:
-                time.sleep(PAUSE)
                 return json.load(r)
         except urllib.error.HTTPError as e:
             if e.code == 404:
@@ -71,24 +80,59 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--since', default='2015-06-01', help='drop filings before this date')
     ap.add_argument('--user-agent', default=UA)
+    ap.add_argument('--cache-dir', default='', help='RESUME: per-(ticker,date) CIK + per-CIK filings cached here')
+    ap.add_argument('--workers', type=int, default=1, help='threads (SEC requests stay globally paced)')
     a = ap.parse_args()
     tickers = sorted({tuple(l.strip().split('\t')) for l in open(a.tickers_file) if l.strip()})
     mkey = json.load(open(os.path.expanduser('~/.config/massive/credentials')))['massive_api_key']
+    cd = a.cache_dir
+    if cd: os.makedirs(f'{cd}/sec', exist_ok=True)
+    ck_path = f'{cd}/cik_map.tsv' if cd else None
+    ckmap = {}
+    if ck_path and os.path.exists(ck_path):
+        for l in open(ck_path):
+            t_, d_, c_ = l.rstrip('\n').split('\t'); ckmap[(t_, d_)] = int(c_) if c_ else None
+    lock = threading.Lock(); cik_locks = {}
+
+    def filings(cik):
+        fn = f'{cd}/sec/{cik}.json' if cd else None
+        with lock: cl = cik_locks.setdefault(cik, threading.Lock())
+        with cl:
+            if fn and os.path.exists(fn): return json.load(open(fn))
+            s = get(f'https://data.sec.gov/submissions/CIK{cik:010d}.json', a.user_agent)
+            got = item202_rows(s['filings']['recent']) if s else []
+            for f in (s['filings'].get('files', []) if s else []):
+                if f['filingTo'] >= a.since:
+                    got += item202_rows(get(f"https://data.sec.gov/submissions/{f['name']}", a.user_agent))
+            if fn:
+                json.dump(got, open(fn + '.tmp', 'w')); os.replace(fn + '.tmp', fn)
+            return got
+
+    def one(td):
+        try: return one_(td)
+        except Exception as ex_:
+            print(f'ERROR {td}: {ex_!r}', flush=True); return td[0].upper(), '', None, []
+
+    def one_(td):
+        t, *d = td; t = t.upper(); dd = d[0] if d else ''
+        if (t, dd) in ckmap: cik = ckmap[(t, dd)]
+        else:
+            cik = massive_cik(t, dd or None, mkey)
+            if ck_path:
+                with lock, open(ck_path, 'a') as fh: fh.write(f"{t}\t{dd}\t{cik or ''}\n")
+        if cik is None: return t, dd, None, []
+        return t, dd, cik, filings(cik)
+
+    import concurrent.futures as cf
     rows, missing = [], []
-    for n, (t, *d) in enumerate(tickers, 1):
-        t = t.upper()
-        cik = massive_cik(t, d[0] if d else None, mkey)
-        if cik is None:
-            missing.append(t); continue
-        s = get(f'https://data.sec.gov/submissions/CIK{cik:010d}.json', a.user_agent)
-        got = item202_rows(s['filings']['recent'])
-        for f in s['filings'].get('files', []):
-            if f['filingTo'] >= a.since:
-                got += item202_rows(get(f"https://data.sec.gov/submissions/{f['name']}", a.user_agent))
-        rows += [dict(ticker=t, cik=cik, **r) for r in got]
-        if n % 25 == 0 or n == len(tickers):
-            print(f"{n}/{len(tickers)} tickers, {len(rows):,} Item 2.02 filings, {len(missing)} without a CIK", flush=True)
+    with cf.ThreadPoolExecutor(a.workers) as ex:
+        for n, (t, dd, cik, got) in enumerate(ex.map(one, tickers), 1):
+            if cik is None: missing.append(t)
+            else: rows += [dict(ticker=t, cik=cik, query_date=dd, **r) for r in got]
+            if n % 250 == 0 or n == len(tickers):
+                print(f"{n}/{len(tickers)} tickers, {len(rows):,} Item 2.02 filings, {len(missing)} without a CIK", flush=True)
     df = pd.DataFrame(rows)
+    if df.empty: print('no filings'); return 1
     df = df[df.filing_date >= a.since].copy()
     df['accept_et'] = (pd.to_datetime(df.accept_utc, utc=True).dt.tz_convert('America/New_York').dt.tz_localize(None))
     hm = df.accept_et.dt.hour * 60 + df.accept_et.dt.minute

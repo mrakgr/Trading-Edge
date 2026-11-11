@@ -584,3 +584,101 @@ is negative at f=.25 even in Q5 -> viable only with maker fills at/inside mid (n
 fill-at-mid is conditional on the price moving against us).
 ⚠ VV's slope as implemented: ts_slope_0_45 = (iv45 − iv_front)/(45 − dte_front), vol (not variance) linear in DTE —
 from memory of his published script, unverified. fwd_ratio (variance-based forward) is our addition.
+
+## SH-20 — event variance: implied earnings move vs history, LONG (k=10) and SHORT (k=1) straddles (user 2026-11-11)
+
+Scripts `scripts/options/event_vol.py` (trades, `data/options/event_vol/trades.parquet`), `event_vol_report.py`,
+`event_vol_short.py`; logs `logs/options_event_vol*.log`. 2022-12 -> 2026-10, ~370 names.
+Decomposition per day: E1 = first expiry >= reaction day R, E2 = next (<= 45 days later, before the next event);
+w_i = iv_i^2 T_i (T in TRADING days/252) = sa2 T_i + se2 (event = a jump): sa2 = forward variance, imp_move = sqrt(se2).
+hist_rms = RMS of the stock's previous 4-8 reaction-day moves (known at entry); ratio = imp_move / hist_rms; se2 <= 0 ->
+ratio 0 ('no event priced'). Cross-check: the pre-event weekly's IV / forward vol median 0.97, corr of the two implied
+moves 0.83.
+
+**Calibration (k=10, deciles of ratio)**: realized/implied RMS move falls monotonically 1.43 -> 1.09 -> 0.97 ... 0.62 ->
+0.26; P(real > implied) 56% -> 3%. The ratio PREDICTS which events are under/over-priced.
+
+**LONG straddle, k=10 entry (unhedged, % of premium; A = R-1 close, B = R close, C = expiry)**: only the cheapest
+decile (ratio ~0.5) is positive: B +5.4% at mid (sd 79%, t 1.0, median -24%), +1.6% at f=.25, -2.0% at f=.5. All
+events: A +0.2 / B -1.3 / C -4.0 at mid, -3.6 / -4.9 / -5.5 at f=.25. The ratio-target exit (D) and the +25% P&L target
+(E) do not change that. Delta-hedged: same picture, smaller. By year (deciles 1-2, B f=.25): 2023 -2.2, 2024 +7.7,
+2025 -11.5, 2026 -5.5.
+
+**SHORT straddle, k=1 (VV's entry, R-1 close; % of credit, f=.25)**: B (crush) / C (expiry): all -7.5 / -3.5; VV gate
+-1.7 / +1.65; ratio top 10% +1.1 / +8.3 (t 0.3); VV gate & ratio top 20% -3.3 / +3.9. Deciles 2-10 are not monotone.
+ratio is nearly independent of VV's features (spearman 0.24 with fwd_ratio, -0.11 with the slope, 0.03 with IV/RV).
+
+**⚠ 'No event priced' (se2 <= 0) is mostly a DATA artifact, not a signal**: 392 events at k=10, 163 at k=1. LONG: +9.8%
+(B) / +15.3% (C) at f=.25; SHORT: -60% / -54% of credit (worst -3956%: tiny 2-day credits vs surprise moves). These are
+often NOT scheduled earnings: Item 2.02 also covers deliveries/production updates, preliminary results and
+pre-announcements (LCID 2026-10-06, FCX 2024-07-02, OXY 2024-07-11); only 46% (k=1) have a regular 70-110 day gap to the
+previous filing vs 82% otherwise. A trader cannot know an unscheduled event is coming (and before the company confirms
+the date, neither can the market): LOOKAHEAD. The same events also sit in the SH-18/19 EARN samples, where they were
+losses for the short.
+Next: a SCHEDULED-earnings filter (cadence 70-110 days and/or the market pricing an event at entry, se2 > 0 — both
+live-knowable); ideally a real earnings calendar with announcement dates.
+
+### SH-20b — fwd_ratio on the long side, why the short fails, and an audit of 'no event priced' (user 2026-11-11)
+
+- **ThetaData has no earnings calendar** (v3 docs: stock / option / index / rate / MARKET calendar only; every
+  earnings path 404s on the Terminal).
+- **fwd_ratio = iv_front / forward vol (se2 > 0 only), LONG**: k=10 decile 1 (fwd ~1.05, the event barely priced)
+  A/B/C at f=.25 = +3.1 / +6.1 / +2.5% of premium (B t 0.6); deciles 2-10 mostly negative. k=5 decile 1 +1.4% (B).
+  Same picture as the history ratio: only the cheapest decile, not significant after costs.
+- **Same events at k=10 vs R-1** (k=10 ratio deciles): the implied move converges toward history by R-1 (decile 1:
+  6.0% -> 10.1%; decile 10: 9.2% -> 6.4%); real/imp at R-1 is 0.95 (d1) .. 0.54 (d10). The run-up that exit A wants
+  happens, but the front's ambient variance decays over the same days (w1 = sa2 T1 + se2 roughly unchanged), so the
+  straddle's value barely moves.
+- **Why the SHORT fails (k=1, expiry, f=.25)**: in EVERY ratio decile the median trade wins +12..+30% of credit and
+  56-64% win, but 8-15% of trades lose > 100% of credit and the worst 5% average -175..-264%, which takes the mean to
+  -8..+8%. The ratio raises the median (decile 10: +29.9%) but does not lower the tail frequency (10.3%). History does
+  not predict the jumps; the market at R-1 already prices the event about right on average. Short by fwd_ratio: decile 1
+  (event cheap at R-1) -18% (avoid), deciles 7-10 ~ +1..+2% (B).
+- **Audit of 12 random 'no event priced' events (k=1, se2 <= 0), from the 8-K exhibits**: 7-8 are NOT scheduled
+  earnings (ENVX strategic realignment, C3 AI preliminary results + CEO change, NCLH operations update, ABBV IPR&D
+  guidance update, TSLA deliveries, RILY delayed 10-Q / preliminary, CRWD layoff memo, ASST); 2 are scheduled earnings
+  on low-event names (AGNC, NEE); **2 are TICKER-MAPPING ERRORS in earnings_8k202** (GOLD 2023 = Barrick's prices with
+  A-Mark/Gold.com's filings — the ticker moved in 2025; PARA 2025-04 carries a Banzai filing). The 444-ticker file
+  resolved each ticker's CIK at TODAY's date: reused tickers need the point-in-time fix (done for the md500k pull).
+
+## SH-21 — scheduled earnings only: EDGAR releases matched to 10-Q/10-K, the audit, event-vol rerun (2026-11-11)
+
+**Earnings dates: what we pull.** Only EDGAR's filing INDEX (form, date, acceptance time to the second, item numbers,
+report period), never the reports. The Item 2.02 8-K's acceptance time IS the release time (BMO/RTH/AMC). Since
+2026-11-11 the whole index comes from the SEC's nightly bulk `submissions.zip` (1.6 GB, ~1M company files; 30 s
+download; `scripts/options/sec_bulk.py` -> `data/sec/filings.parquet` in 70 s: Item 2.02 8-Ks + 10-Q/10-K/10-KT,
+532k filings, 14.6k CIKs, 2015 ->) instead of an hour of per-company requests. www.sec.gov needs a contact email in
+the User-Agent (the user's, 2026-11-11). Ticker -> CIK on a date still needs Massive (the SEC knows current tickers only).
+
+**Scheduled = the quarterly results release** (`scripts/options/earnings_scheduled.py`; `--bulk` = no requests): for
+each 10-Q/10-K (period end P, filed F) the release is the LAST Item 2.02 8-K in (P, F]; if none, the FIRST in
+(F, F+3]. (An extra 2.02 the day after the release is common - SAVE 2023-02-07, UAMY 2026-05-15 - so the slack is only
+a fallback; the first version took the last in (P, F+3] and lost those two releases.) Labelled per ACCESSION (GOOG and
+GOOGL share a CIK - the first version labelled only one of them). The 10-Q date only says WHICH 8-K was the release;
+live, the earnings calendar announces it weeks ahead. 444 option names: 91% of Item 2.02 filings are releases;
+release-to-release gap median 91 d (5-95%: 70-112). md500k universe: 222,942 of 249,673 (89%).
+
+**Audit** (`scripts/options/earnings_audit.py`, logs/options_earnings_audit.log: exhibit headline + full-text markers),
+2023 ->, 15 random each:
+- DROPPED (559 filings): 13/15 are not scheduled results - AEO 'expects Q2 above guidance', APA supplemental info,
+  ASTS / MULN / SPWR (CSLR) / WAL preliminary results, OXY 'earnings considerations', CVX 2024-01-02, NKLA deliveries,
+  SAVE investor update, MDB CEO change + prelim, IBRX revenue update, HOOD order-routing report. 2/15 were real
+  releases (SAVE 2023-02-06, UAMY 2026-05-14) -> the rule fix above; both are now labelled releases.
+- RELEASE chosen among > 1 candidates (488): 15/15 the real 'Reports Qn Results'.
+- RELEASE alone (control, 5,689): 15/15 real results releases.
+
+**Event-vol rerun on releases only** (`event_vol.py --earnings data/options/earnings_sched.parquet --releases-only`
+-> data/options/event_vol_sched/; logs/options_event_vol_sched_{report,short}.log):
+- 'No event priced' (se2 <= 0) at k=1: 163 -> 70; at k=10: 392 -> 317. Their LONG 'edge' was the unscheduled events:
+  B/C at f=.25 +9.8 / +15.3% -> **-0.6 / -0.1%**. Confirmed lookahead, gone.
+- LONG (k=10): still nothing after costs. Cheapest ratio decile B f=.25 -2.0% (was +1.6). Calibration unchanged
+  (real/imp RMS 1.42 -> 0.33 across the ratio deciles).
+- **SHORT (k=1, R-1 close, held to the E1 expiry, median 2 days), % of credit at f=.25:** all 2,586: +1.3 (t 0.8; was
+  -3.5). Ratio deciles 4-10: +4.0 (t 2.35); deciles 1-3: -5.3. **Decile 10 (ratio >= 2.3): +12.9% (t 2.76), +10.1% at
+  f=.5, median +31.6%, positive every year (2023 +9.1, 2024 +14.7, 2025 +10.3, 2026 +16.5)**; 9.7% of its trades still
+  lose > 100% of credit. Decile 9 alone is weak (deciles 9-10 +5.4, t 1.7) -> partly a threshold on noise, and one of
+  many cuts looked at.
+- ⚠ Decile 10 is mostly cheap stocks: S < $10 +24.5% (n 88, entry spread 10% of mid), $10-30 +5.4 (n 109), > $30 +9.4
+  (n 62); S >= $10: +6.9% (t 1.2), negative at natural fills (f=1). Concentrated: 85 names, AMC / LUMN / AGNC / MPW /
+  RIG ~10 events each; without the best 5 names +7.4%. Largely short-dated options on low-priced, high-IV names priced
+  off a wide spread - the fill assumption decides it.
