@@ -233,6 +233,8 @@ def main():
                     help='trading days, one per line: the completeness reference before Massive starts')
     ap.add_argument('--also-done', nargs='*', default=[],
                     help="other machines' done.tsv files (from the storage box): their final keys are skipped too")
+    ap.add_argument('--order', choices=['file', 'newest'], default='file',
+                    help="newest = every root's most recent chunk first, then the one before, ... (user 2026-11-11)")
     ap.add_argument('--deadline', help='UTC ISO time: no NEW request after it; in-flight ones finish (exit 3 if work remains)')
     ap.add_argument('--validate', action='store_true', help='check the saved chunks, quarantine the cut-off ones, exit')
     a = ap.parse_args()
@@ -270,6 +272,8 @@ def main():
             print(f"{f}: {len(got):,} final keys done elsewhere", flush=True)
             done |= got
     todo = [j for j in jobs if j[0] not in done]
+    if a.order == 'newest':                           # by chunk start, newest first; stable (roots alphabetical within)
+        todo.sort(key=lambda j: j[2], reverse=True)
     print(f"{len(jobs):,} requests, {len(done):,} already done, {len(todo):,} to pull, max_dte {a.max_dte}, "
           f"{a.workers} workers -> {a.out}", flush=True)
     t0, n, rows, bad = time.time(), 0, 0, 0

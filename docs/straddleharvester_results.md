@@ -474,3 +474,15 @@ So the capped-first plan costs ~2.8× the data of a single full pull at ~1.8×.
 
 **Estimate:** ~4–4.6B rows, ~55–62 GB; at ~20k rows/s ~55–65 pull-hours, i.e. ~3.5–4 calendar days with the PC by day
 and the VPS by night.
+
+## SH-16 — newest first (user, 2026-11-11)
+
+The chunks are pulled **newest period first**, across all roots: every root's 2026Q4 chunk, then 2026Q3, …, back to
+2012-06 (`eod_pull.py --order newest`; `options_runner.py` passes it by default). Within a period the roots run
+alphabetically. The recent years — the most useful ones — land first.
+
+- **The chunks stay calendar QUARTERS.** Months would triple the requests (~490k → ~1.5M), mostly quick 472s for dead
+  roots, ~10 h of extra overhead.
+- **Chunks per year:** 2026 28.4k · 2025 31.5k · 2024 34.7k · 2023 37.7k · 2022 53.3k (two ranges split at 2022-11-09)
+  · 2021 41.7k · 2020 40.8k · 2019 39.4k · 2018 32.0k · 2017–2013 25–27k each · 2012 17.8k.
+- **The key names (`ROOT__chunkstart`) are unchanged,** so the done records on both machines stay valid.

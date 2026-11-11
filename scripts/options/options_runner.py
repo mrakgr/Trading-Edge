@@ -128,6 +128,9 @@ def main():
     ap.add_argument('--key', help='VPS: the storage-box ssh key')
     ap.add_argument('--password-file', default='~/.config/hetzner-storage-box/credentials', help='PC: the box login')
     ap.add_argument('--block-start', default='07:00')
+    ap.add_argument('--order', choices=['file', 'newest'], default='newest', help='the chunk order (eod_pull.py --order)')
+    ap.add_argument('--start-now', action='store_true',
+                    help="PC: don't wait for the block to open (only when the VPS is not pulling, e.g. its --not-before)")
     ap.add_argument('--not-before', help='ET "YYYY-MM-DD HH:MM": idle until then')
     a = ap.parse_args()
     other = 'vps' if a.mode == 'pc' else 'pc'
@@ -160,7 +163,7 @@ def main():
             b = cal.block(now.date())
             if b is None or now >= b[1] - MARGIN - dt.timedelta(minutes=10):
                 log('not a PC window (the PC pulls only during trading hours): exiting'); return 0
-            if now < b[0] + START_AFTER:
+            if now < b[0] + START_AFTER and not a.start_now:
                 log(f"waiting for the PC window at {b[0] + START_AFTER:%H:%M %Z}")
                 time.sleep((b[0] + START_AFTER - now).total_seconds()); continue
             stop_at = b[1]
@@ -196,7 +199,8 @@ def main():
             th = threading.Thread(target=uploader, daemon=True); th.start()
             cmd = [a.python, os.path.join(a.scripts, 'eod_pull.py'), '--jobs-file', jobs, '--out', out,
                    '--workers', str(a.workers), '--reference', a.reference, '--calendar-file', a.calendar_file,
-                   '--deadline', deadline.astimezone(dt.timezone.utc).isoformat(), '--also-done', done_other]
+                   '--deadline', deadline.astimezone(dt.timezone.utc).isoformat(), '--also-done', done_other,
+                   '--order', a.order]
             if a.max_dte:
                 cmd += ['--max-dte', str(a.max_dte)]
             log(f"window open until {stop_at:%Y-%m-%d %H:%M %Z} (no new requests after {deadline:%H:%M}); pulling")
