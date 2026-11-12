@@ -780,3 +780,9 @@ direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats
   the gate: no consistent help (calls: LOW aligned momentum better; p25: high aligned 126d better, +10.2 t 2.6). Not VV's
   reported effect on this sample.
 - ⚠ 4 years; the four legs overlap (the same root/expiry); results before the 2012-> pull are provisional.
+- **The SHORT side (user: sell ATM, buy the wing when the skew is flat / inverted)**: return on capital at risk
+  (width - credit), f=.25, no earnings. Skew > 0 (wing IV below ATM) is common: 37% of all spreads, 7-11% above +0.05.
+  Absolute: all short verticals -0.5..-3.5; skew z >= 1.2: c25 -0.5, c15 -1.6, **p25 +4.4 (t 1.7; +1.1 at f=.5)**, p15
+  +2.5; the mirror gate ATM > RV20 > wing: c25 +2.9, c15 +1.3, p25 +2.5, **p15 +7.6 (t 3.2)** but -0.7..-6.7 at f=.5.
+  Excess over the same leg/expiry: z >= 1.2 +1.1..+3.7 (t 1.8-3.4), mirror gate +3.9..+11.5 (t 2.3-3.7), positive in
+  most years. Real relative signal, but after the doubled spread cost the absolute edge is ~0 except put credit spreads.
