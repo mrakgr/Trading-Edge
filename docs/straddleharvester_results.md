@@ -800,3 +800,11 @@ direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats
   Gate & margin top 2/3: short wing c25 +29.9 (t 3.9), c15 +20.2 (t 4.4), p15 +18.7 (t 5.6); p25 long +18.8 (t 2.9).
   -> mostly the SHORT RICH WING carries it (the 'wing IV > RV' half of the gate); the long ATM leg is mainly the hedge,
   except the 25-delta put spreads where the cheap ATM put pays. Outside the gate both legs are ~0 hedged.
+- **Skew z ALONE, no RV gate (user)**: deciles of the own-side skew z, no earnings. Vertical excess (f=.25): the flat end
+  is reliably bad (d10 c25 -5.6 t -3.8, c15 -4.0 t -2.4, p25 -5.4 t -3.3, p15 -3.2 t -2.2); the steep end is weak and
+  noisy (d1 +6.9 t 0.2 / +2.4 t -1.5 / +4.5 t 2.3 / +0.4 t 0.9; spearman -0.002..-0.035). Raw put spreads stay negative
+  (market drift). BUT the hedged SHORT WING (mid, % of the spread debit) at the steep end: **p25 d1 +20.0 (t 5.7), z <=
+  -1.5 +24.2 (t 5.5); p15 d1 +10.9 (t 5.3), z <= -1.5 +11.9 (t 5.1)**; calls weaker (c25 z <= -1.5 +12.3 t 2.0, c15 +7.2
+  t 1.8). The hedged long ATM leg at the steep end is negative (p25 d1 -8.1, c15 -4.8) and cancels it inside the vertical.
+  -> steep put skew vs its own history marks an overpriced put WING; the vertical is the wrong wrapper for it -> next:
+  the short wing alone (delta-hedged, capped farther out), with costs.
