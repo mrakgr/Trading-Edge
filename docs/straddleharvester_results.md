@@ -833,3 +833,14 @@ costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades
   flat 2.11 / 1.30 (half-spread 29% of mid; worst trade -59x the premium). Calls: unhedged PF < 1 everywhere (the
   2023-26 rally), hedged c25 / c15 / c05 steep 1.15 / 1.10 / 1.14, else ~0.85-1.08. Unhedged short puts ride the
   rally (win 80-98%); the hedged PF is the skew premium: > 1.3 only when put skew is steep vs its history.
+- ⚠ **CORRECTION (user's question: why don't short calls have PF > 1 if the vertical's call wing made money?)** The
+  SH-23 numbers were per trade in % of the SPREAD DEBIT, equal weight. A few verticals had a debit far below fair
+  (debit/width < 0.1 for a 50/25-delta spread: 5% of c25 gate trades, 11% of c15, vs ~0-2% overall; e.g. LW 2024-07-09
+  debit $0.05 vs a $1.00 wing) - stale / bad mids - and returned 10-20x, dominating the means. The c25 gate wing
+  '+20.4% of debit (t 3.9)' is +8.1% of its own premium (median +46%, PF 1.13) and a dollar PF of 0.74; without the top
+  1% it is +9.9% of debit. **The verticals without the top 1% of trades** (excess f=.25, date-t): c25 gate +0.5 (-0.1),
+  c15 +4.6 (0.8), p25 +4.8 (1.1), p15 +2.7 (0.1); with debit/width >= 0.15 instead: +4.8 (0.5) / +8.2 (1.3) / **+7.6
+  (2.1)** / +4.2 (0.5). -> the SH-23 gate edge is mostly those outliers; only the p25 gate survives, weakly. Short
+  CALL wings, PF on their own premium: all hedged 0.93 / 0.95 (c25 / c15), gate 1.02 / 1.12, steep z 1.15 / 1.10.
+  The put-wing results (SH-24, % of the wing's own premium) are not affected by this denominator problem. Rule from
+  here: report medians / PF / a debit-to-width floor next to every mean of a ratio.
