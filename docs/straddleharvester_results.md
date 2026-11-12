@@ -720,3 +720,10 @@ Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected
   iv - last_rv_win +0.86% (t 1.15) vs -1.84%, difference t 2.18; iv - hist_avg_rv_win +0.53 vs -1.61, diff t 1.74.
   The low bucket beats the rest in 7 of 8 year x feature cells, but is itself negative in 2025/2026 (the whole trade
   decays: the 'rest' falls from +3.3 in 2024 to -3 / -5). 'pre' versions and rv30 are weaker (|spearman| <= 0.07, rv30 +).
+- **The six combined (user)**: implied/hist-avg-implied, implied/last-implied, iv vs last / hist-avg rv_win (ratio and
+  gap). 3,003 events have all six. Spearman: the two implied ratios 0.70 with each other, ~0 with the four IV-vs-RV (which
+  are 0.4-0.9 among themselves) = two independent families. Gate 'all six in the cheapest q' (full-sample percentiles):
+  q=10% n=11 (-3.3 f=.25), 20% n=38 (-1.4), 30% n=108 (+2.0), 40% n=205 (+3.9, t 1.96), **50% n=358 +6.7 mid / +4.0 f=.25
+  (t 2.53) / +1.4 f=.5, by year +4 / +11 / +0 / +2**. Composite = mean percentile of the six: spearman -0.100, decile 1
+  +7.5 mid / +4.4 f=.25 (t 2.38) but 2025/2026 ~0; deciles 2-10 ~flat to negative (d7 -5.3, t -3.9). The edge is in the
+  cheap tail only, and thin after costs. ⚠ Percentile thresholds are full-sample; a live gate needs expanding thresholds.
