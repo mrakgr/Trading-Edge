@@ -827,3 +827,9 @@ costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades
 - -> the skew premium sits in the far OTM puts, more so the farther out; it is a crash-risk premium. Capping with the
   next strike out buys back the richest piece. Open: wider / cheaper caps (1-2 delta, or a put-spread ratio), portfolio-
   level tail hedges instead of per-trade caps, and the 2012-> data (2018 / 2020 / 2022 drawdowns) before any sizing.
+- **Profit factors of SELLING the OTM options (user)**, per trade in % of the mid premium, equal weight, f=.25, hedged =
+  entry delta in stock. Puts, unhedged / hedged PF: p25 all 1.08 / 0.95, steep z <= -1.5 **1.46 / 1.38**, flat 1.18 / 0.88;
+  p15 all 1.13 / 1.01, steep **1.53 / 1.35**, flat 1.30 / 0.99; p05 (the ~5-delta) all 1.48 / 1.21, steep **2.48 / 1.74**,
+  flat 2.11 / 1.30 (half-spread 29% of mid; worst trade -59x the premium). Calls: unhedged PF < 1 everywhere (the
+  2023-26 rally), hedged c25 / c15 / c05 steep 1.15 / 1.10 / 1.14, else ~0.85-1.08. Unhedged short puts ride the
+  rally (win 80-98%); the hedged PF is the skew premium: > 1.3 only when put skew is steep vs its history.
