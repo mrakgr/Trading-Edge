@@ -682,3 +682,28 @@ release-to-release gap median 91 d (5-95%: 70-112). md500k universe: 222,942 of 
   (n 62); S >= $10: +6.9% (t 1.2), negative at natural fills (f=1). Concentrated: 85 names, AMC / LUMN / AGNC / MPW /
   RIG ~10 events each; without the best 5 names +7.4%. Largely short-dated options on low-priced, high-IV names priced
   off a wide spread - the fill assumption decides it.
+
+## SH-22 — VV pre-earnings LONG vol, his four features (scripts/options/vv_long.py, vv_long_report.py; user 2026-11-12)
+
+Spec from the VV video: entry = session closest to (announcement - 14 cal days, +-4), exit R-1 close (before the
+announcement), ATM straddle of the first MONTHLY expiry >= R, scheduled releases only (earnings_sched is_release).
+Implied move with the event = ONE trading day: iv1^2 T1 = s_amb^2 (T1 - 1/252) + v_ev; ambient = the IV of the last
+pre-event expiry (>= 3 td) if any (VV's preference, 99% of events) else the forward vol E1->E2; iem = sqrt(2/pi) sqrt(v_ev)
+= expected |reaction-day move|. Realized = |V_R/V_{R-1} - 1|. Features: iem / iem(prev event), iem / mean(iem all prev),
+iem - real(prev), iem - mean(real all prev; EDGAR history from 2015). iem_pre vs iem_fwd corr 0.69, median ratio 1.03.
+
+**Sample: 3,450 events, 416 names, 2023-01 -> 2026-10** (eod_universe is only partly pulled for ~half the names).
+Baseline: mean +2.7% mid / -0.7% f=.25 / -3.8% f=.5, median -5.0% (VV: +0.30% mean, -6.3% median on 21k trades). Median
+half-spread 2.5% of mid. Calibration: mean iem 7.8% vs mean realized 7.1%, P(real > iem) 37%.
+
+| feature | spearman / pearson (ret mid) | decile 1 mid / f=.25 | decile 10 mid / f=.25 |
+|---|---|---|---|
+| implied_hist_avg_implied_ratio | -0.016 / -0.020 | +9.2 / +2.6 | +0.9 / -2.9 |
+| gap_implied_hist_avg_realized | -0.041 / +0.025 | +1.6 / -2.9 | +6.8 / +1.0 |
+| implied_to_last_implied_ratio | -0.005 / +0.002 | +10.5 / +4.5 | +1.7 / -2.1 |
+| gap_implied_last_realized | -0.067 / +0.003 | +4.7 / +1.3 | +3.2 / -0.9 |
+
+The two implied-ratio features have VV's shape at the cheap end only (decile 1 ~+10% mid, t < 1 at f=.25) and it is
+year-unstable: deciles 1-2 at f=.25 +5/+15 in 2023/2024, -8/-4 in 2025/2026. The gap features show nothing. None
+reaches VV's |r| 0.05-0.10. Underpowered (3.4k vs 21k, 4 years): rerun on the full-market pull (VPS, 2012 ->).
+Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected date status) — NOT in our plan.
