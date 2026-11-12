@@ -786,3 +786,10 @@ direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats
   +2.5; the mirror gate ATM > RV20 > wing: c25 +2.9, c15 +1.3, p25 +2.5, **p15 +7.6 (t 3.2)** but -0.7..-6.7 at f=.5.
   Excess over the same leg/expiry: z >= 1.2 +1.1..+3.7 (t 1.8-3.4), mirror gate +3.9..+11.5 (t 2.3-3.7), positive in
   most years. Real relative signal, but after the doubled spread cost the absolute edge is ~0 except put credit spreads.
+- **Why the skew z is not a lever inside the gate (user)**: the gate already selects steep skew (median own skew -0.087
+  vs -0.015 overall for c25; z median -0.52), and z is 0.64-0.71 rank-correlated with the skew level. Gate x z quartile
+  (excess, f=.25): c25 +19.2 / +1.7 / +11.9 / **-6.3**; c15 +11.4 / +13.8 / +13.0 / **+5.6**; p25 +8.8 / +11.6 / +9.3 /
+  **+4.3**; p15 +7.1 / +11.8 / +11.3 / **+1.0** -> z works as a VETO (the flattest quartile is the worst on every leg),
+  not as a booster (Q1 ~ Q2 ~ Q3). The z tail is noisy (the 60d std of a 10-DTE skew can be tiny: z down to -118).
+  The gate MARGIN = min(RV/iv_long - 1, iv_short/RV - 1) is the better lever: c15 terciles -0.6 / +15.0 / +20.1, c25 -10.3
+  / +16.8 / +13.0, p15 +3.8 / +4.4 / +15.3 (p25 flat +7.2 / +10.3 / +8.3).
