@@ -851,3 +851,5 @@ costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades
   0.98 / 1.05; c25 steep 1.21 +16.7bp (t 2.4, 2026 -9); c05 gate 1.69 (t 3.4, n 953); flat call skew is bad (c25 0.77,
   c05 0.53). Unhedged short puts: steep p25 PF 1.76, p05 2.88 (the 2023-26 drift helps). Worst single trades -15..-45x
   the premium (puts), calls up to -860% of notional (see the check below) -> naked sizing needs a hard tail rule.
+  Check: the -860% are WOLF 2025-09-23 -> 10-03 ($2.01 -> $24.37 across its Chapter 11 exit = a share exchange, not a
+  move; an artifact to exclude), then CGC 2024-03 ($2.9 -> $7.7, -110%), MRNA 2026-08 ($61 -> $145, -106%): real call tails.
