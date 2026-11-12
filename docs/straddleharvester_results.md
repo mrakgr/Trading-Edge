@@ -710,3 +710,13 @@ Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected
 - **Ratios instead of gaps (user)**: iem / mean(real all prev): spearman -0.034, deciles not monotone, decile 1 (< 0.73)
   -4.2% f=.25, decile 10 (> 2.3) +2.9%. iem / real(prev): spearman -0.053 (the closest to VV's range), but again not
   monotone: decile 2 +2.8% (t 1.8), decile 8 -5.9%, decile 10 (> 8.5, a near-zero last move) +3.5%. No edge at the cheap end.
+- **The other reading of VV's realized features (user): IV vs realized VOL.** iv_em = the traded straddle's IV at entry;
+  realized vol of each event's own trade window (entry = ann - 14d -> the monthly expiry >= R, incl. the reaction day,
+  'win'; or entry -> R-1, 'pre'), annualized RMS of daily log returns, daily_adjusted 2015 ->; last = previous event, hist
+  = mean of all previous; plus rv30 at entry. Medians: iv_em 0.57, rv_win 0.44, rv_pre 0.32-0.34, rv30 0.35.
+  **The window version is the first feature with VV's correlation**: spearman(ret mid) iv - hist_avg_rv_win -0.104,
+  iv - last_rv_win -0.097, ratios -0.082 / -0.075; negative in every year (2023 -.08, 2024 -.14/-.12, 2025 -.13/-.13,
+  2026 -.02/-.06). Pearson is ~-0.01 (the right tail of the long straddle's returns). Bottom 40% vs the rest at f=.25:
+  iv - last_rv_win +0.86% (t 1.15) vs -1.84%, difference t 2.18; iv - hist_avg_rv_win +0.53 vs -1.61, diff t 1.74.
+  The low bucket beats the rest in 7 of 8 year x feature cells, but is itself negative in 2025/2026 (the whole trade
+  decays: the 'rest' falls from +3.3 in 2024 to -3 / -5). 'pre' versions and rv30 are weaker (|spearman| <= 0.07, rv30 +).

@@ -17,7 +17,14 @@ print('iem_pre vs iem_fwd: corr %.2f, median ratio %.2f, pre available %.0f%%' %
     T[['iem_pre', 'iem_fwd']].corr().iloc[0, 1], (T.iem_pre / T.iem_fwd).median(), 100 * T.iv_pre.notna().mean()))
 T['ratio_implied_last_realized'] = T.iem / T.last_real.where(T.last_real > 0)
 T['ratio_implied_hist_avg_realized'] = T.iem / T.hist_avg_real.where(T.hist_avg_real > 0)
-FEAT = ['ratio_implied_hist_avg_realized', 'ratio_implied_last_realized', 'implied_hist_avg_implied_ratio', 'gap_implied_hist_avg_realized', 'implied_to_last_implied_ratio',
+for nm, rv in [('last_win', 'last_rv_win'), ('hist_win', 'hist_avg_rv_win'), ('last_pre', 'last_rv_pre'),
+               ('hist_pre', 'hist_avg_rv_pre'), ('rv30', 'rv30')]:
+    T[f'ivr_{nm}'] = T.iv_em / T[rv].where(T[rv] > 0)
+    T[f'ivg_{nm}'] = T.iv_em - T[rv]
+print('iv_em median %.3f; rv medians: ' % T.iv_em.median() + ', '.join(f'{c} {T[c].median():.3f} (n {T[c].notna().sum()})' for c in
+      ['last_rv_win', 'hist_avg_rv_win', 'last_rv_pre', 'hist_avg_rv_pre', 'rv30']))
+FEAT = [f'iv{k}_{nm}' for nm in ['last_win', 'hist_win', 'last_pre', 'hist_pre', 'rv30'] for k in 'rg']
+FEAT += ['ratio_implied_hist_avg_realized', 'ratio_implied_last_realized', 'implied_hist_avg_implied_ratio', 'gap_implied_hist_avg_realized', 'implied_to_last_implied_ratio',
         'gap_implied_last_realized', 'iem', 'iv1']
 for ft in FEAT:
     d = T[np.isfinite(T[ft])].copy()

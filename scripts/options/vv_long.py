@@ -98,6 +98,15 @@ def is_monthly(x):
     return False
 
 
+def monthly_after(R):
+    """the standard monthly (3rd Friday) on/after R, as datetime64[D]"""
+    d = pd.Timestamp(R)
+    for k in range(3):
+        m = (d + pd.offsets.MonthBegin(k)) if k else d.replace(day=1)
+        m = m.replace(day=1); f = m + pd.Timedelta(days=(4 - m.weekday()) % 7 + 14)
+        if f >= d: return np.datetime64(f.date(), 'D')
+
+
 def run(root):
     t = ROOT2T.get(root, root)
     if t not in SPOT or t not in EARN or t not in VADJ: return []
@@ -124,6 +133,19 @@ def run(root):
         j = np.searchsorted(vi, R)
         if j < len(vi) and vi[j] == R and j > 0: mv[R] = abs(vv[j] / vv[j - 1] - 1)
     splits = SPL.get(t, np.array([], 'datetime64[D]'))
+    # realized VOL of every event's own trade window (daily_adjusted, 2015 ->; no options needed): entry = session closest
+    # to ann - offset, window (t0, monthly expiry >= R] incl. the reaction day ('win') and (t0, R-1] ex-event ('pre')
+    lr = np.diff(np.log(vv)); RV = {}
+    for R, ann in zip(R_all, ANN):
+        tg = ann - np.timedelta64(a.offset, 'D')
+        j0 = np.searchsorted(vi, tg); cj = [j for j in (j0 - 1, j0) if 0 <= j < len(vi) and abs((vi[j] - tg).astype(int)) <= 4]
+        jR = np.searchsorted(vi, R)
+        if not cj or jR >= len(vi) or vi[jR] != R: continue
+        j0 = min(cj, key=lambda j: (abs((vi[j] - tg).astype(int)), j))
+        jE = np.searchsorted(vi, monthly_after(R), 'right') - 1
+        if jR - j0 < 2 or jE < jR: continue
+        rw = lr[j0:jE]; rp = lr[j0:jR - 1]
+        RV[R] = (np.sqrt(252 * np.mean(rw ** 2)), np.sqrt(252 * np.mean(rp ** 2)) if len(rp) else np.nan)
 
     def decomp(d, R, Rnext):
         g = A.get(pd.Timestamp(d))
@@ -178,11 +200,18 @@ def run(root):
         dX = decomp(TD[iX], R, Rnext)
         prev_R = R_all[:n_]
         reals = [mv[x] for x in prev_R if x in mv]
+        rvw = [RV[x][0] for x in prev_R if x in RV]; rvp = [RV[x][1] for x in prev_R if x in RV and np.isfinite(RV[x][1])]
+        lj = np.searchsorted(vi, t0, 'right') - 1; r30 = lr[max(lj - 21, 0):lj]
         row = dict(root=root, ticker=t, R=pd.Timestamp(R), ann=pd.Timestamp(ann), t0=pd.Timestamp(t0), exit=pd.Timestamp(TD[iX]),
                    cal_days=int((ann - t0).astype(int)), n_td=int(iX - j0), EM=EM, E1=d0['e1'], K=K, S0=S0, SX=px.S,
                    ent_bid=pe.bid_c + pe.bid_p, ent_ask=pe.ask_c + pe.ask_p, x_bid=px.bid_c + px.bid_p, x_ask=px.ask_c + px.ask_p,
                    real_move=mv.get(R, np.nan), last_real=mv.get(prev_R[-1], np.nan) if len(prev_R) else np.nan,
                    hist_avg_real=np.mean(reals) if reals else np.nan, n_real=len(reals),
+                   iv_em=g0.loc[EM].iv, rv30=np.sqrt(252 * np.mean(r30 ** 2)) if len(r30) >= 15 else np.nan,
+                   last_rv_win=RV[prev_R[-1]][0] if len(prev_R) and prev_R[-1] in RV else np.nan,
+                   hist_avg_rv_win=np.mean(rvw) if rvw else np.nan, n_rv=len(rvw),
+                   last_rv_pre=RV[prev_R[-1]][1] if len(prev_R) and prev_R[-1] in RV else np.nan,
+                   hist_avg_rv_pre=np.mean(rvp) if rvp else np.nan,
                    iem_x=dX['iem'] if dX else np.nan, iv1_x=dX['iv1'] if dX else np.nan,
                    prev_R=pd.Timestamp(prev_R[-1]) if len(prev_R) else pd.NaT,
                    split_in_hold=bool(((splits > t0) & (splits <= TD[iX])).any()),
