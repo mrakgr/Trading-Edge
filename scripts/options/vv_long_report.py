@@ -15,7 +15,9 @@ print('implied vs realized (calibration): mean iem %.3f  mean real %.3f  corr %.
     T.iem.mean(), T.real_move.mean(), T[['iem', 'real_move']].corr().iloc[0, 1], 100 * (T.real_move > T.iem).mean()))
 print('iem_pre vs iem_fwd: corr %.2f, median ratio %.2f, pre available %.0f%%' % (
     T[['iem_pre', 'iem_fwd']].corr().iloc[0, 1], (T.iem_pre / T.iem_fwd).median(), 100 * T.iv_pre.notna().mean()))
-FEAT = ['implied_hist_avg_implied_ratio', 'gap_implied_hist_avg_realized', 'implied_to_last_implied_ratio',
+T['ratio_implied_last_realized'] = T.iem / T.last_real.where(T.last_real > 0)
+T['ratio_implied_hist_avg_realized'] = T.iem / T.hist_avg_real.where(T.hist_avg_real > 0)
+FEAT = ['ratio_implied_hist_avg_realized', 'ratio_implied_last_realized', 'implied_hist_avg_implied_ratio', 'gap_implied_hist_avg_realized', 'implied_to_last_implied_ratio',
         'gap_implied_last_realized', 'iem', 'iv1']
 for ft in FEAT:
     d = T[np.isfinite(T[ft])].copy()

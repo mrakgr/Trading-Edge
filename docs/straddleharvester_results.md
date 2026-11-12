@@ -707,3 +707,6 @@ The two implied-ratio features have VV's shape at the cheap end only (decile 1 ~
 year-unstable: deciles 1-2 at f=.25 +5/+15 in 2023/2024, -8/-4 in 2025/2026. The gap features show nothing. None
 reaches VV's |r| 0.05-0.10. Underpowered (3.4k vs 21k, 4 years): rerun on the full-market pull (VPS, 2012 ->).
 Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected date status) — NOT in our plan.
+- **Ratios instead of gaps (user)**: iem / mean(real all prev): spearman -0.034, deciles not monotone, decile 1 (< 0.73)
+  -4.2% f=.25, decile 10 (> 2.3) +2.9%. iem / real(prev): spearman -0.053 (the closest to VV's range), but again not
+  monotone: decile 2 +2.8% (t 1.8), decile 8 -5.9%, decile 10 (> 8.5, a near-zero last move) +3.5%. No edge at the cheap end.
