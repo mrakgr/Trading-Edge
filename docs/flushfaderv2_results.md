@@ -2250,3 +2250,39 @@ do) gives sized PF 1.772 (PF−1 × 1.26 over equal size); B out of sample 1.891
   and 0.60 -> 0.37 at the top; (3) even a perfect vrate-only weighting reaches only PF−1 × 1.26.
 - The acceleration side is a LOSS-size effect: the climbing decile's mean loss is 4.04 % (vs ~3.0) and ≤ −20 % trades
   6.5 per 1,000 (vs 2.3): what B sizes down.
+
+## V2-53 — the 20m z score as a SIZING term on top of its gate (2026-11-11, user)
+
+**User:** "We have it set so that it acts as a gate <= -1.5. I wonder if going a step further and turning it as a sizing
+feature for values below 1.5 would give us a benefit?" `scripts/equity/flushfaderv2_z20.py` (logs/z20_sizing.log), the
+V2-49 reference book (35,519; z20 max −1.5007 = the gate), V2-48's harness (each era predicted by the other's fit, the
+paired day bootstrap). The gate stays; z20 enters on top of the production terms (A3 common + s20 60s grid + CUSUM +
+vrate). Spearman z20 ~ s20 −0.38, rate600 −0.25, dslo −0.23, crf +0.21, vrate +0.12, CUSUM +0.07.
+
+| z20 octile | range | n | realized PF−1 | 2020–23 | 2024–26 | production predicted (mean) | mean multiplier |
+|---|---|---|---|---|---|---|---|
+| 1 | [−6.55, −2.87) | 4,440 | 0.665 | 0.842 | 0.470 | 0.637 | 0.941 |
+| 2 | [−2.87, −2.63) | 4,440 | 0.747 | 0.742 | 0.754 | 0.682 | 1.004 |
+| 3 | [−2.63, −2.47) | 4,440 | 0.651 | 0.745 | 0.545 | 0.689 | 1.013 |
+| 4 | [−2.47, −2.33) | 4,439 | 0.651 | 0.636 | 0.670 | 0.698 | 1.027 |
+| 5 | [−2.33, −2.19) | 4,440 | 0.580 | 0.707 | 0.429 | 0.695 | 1.022 |
+| 6 | [−2.19, −2.05) | 4,440 | 0.613 | 0.650 | 0.565 | 0.710 | 1.043 |
+| 7 | [−2.05, −1.87) | 4,440 | 0.581 | 0.626 | 0.525 | 0.688 | 1.012 |
+| 8 | [−1.87, −1.50) | 4,440 | **0.407** | 0.493 | 0.311 | 0.655 | 0.962 |
+
+| model | OOS sized PF−1 | Δ vs production [90 %] · share > 0 | z20 term p / W / L × per unit (fit 2020–23; fit 2024–26) |
+|---|---|---|---|
+| production (V2-49) | 0.8903 | — | |
+| + z20 linear | 0.8962 | +0.0058 [−0.004, +0.016] · 82 % | 0.939 / 0.887 / 0.919; 1.022 / 0.925 / 0.988 |
+| + top-octile flag (z ≥ −1.88) | 0.8966 | +0.0062 [−0.000, +0.012] · 94 % | 0.885 / 0.862 / 0.886; 0.968 / 0.908 / 1.012 |
+| + hinge above −2.27 | 0.8992 | +0.0088 [−0.000, +0.018] · 95 % | 0.878 / 0.842 / 0.882; 0.985 / 0.902 / 0.991 |
+
+- **The model misses the weak-dip band:** z20 ∈ [−1.87, −1.5) realizes PF−1 0.41 (both eras the worst band) while
+  production predicts 0.66 and sizes it at 0.96×. The rest of the book is flat at 0.58–0.75: the effect is a STEP near
+  the gate, not a slope (the earlier V2-2 read "weak", ρ −0.03, is the same thing).
+- **But it buys little out of sample: +0.006 (linear) to +0.009 (hinge), ≈ +1 % of PF−1, the 90 % intervals touching
+  zero.** The flag and the hinge cut points come from this table (in-sample) — the linear term (+0.006, 82 %) is the clean
+  read. Mechanism: a weak dip bounces LESS (W × 0.84–0.93 per unit) but also loses less (L × 0.88–0.99), so p·W/L moves
+  only a little; and the band is 12.5 % of the book, so even a correct size-down reweights little.
+- Compare: the volume rate was +0.048 (V2-49), thinness −0.012 (V2-48). ⏭ Not a deploy on its own (steady path); a
+  candidate to fold into the next scheduled refit, as the linear term.
