@@ -727,3 +727,7 @@ Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected
   (t 2.53) / +1.4 f=.5, by year +4 / +11 / +0 / +2**. Composite = mean percentile of the six: spearman -0.100, decile 1
   +7.5 mid / +4.4 f=.25 (t 2.38) but 2025/2026 ~0; deciles 2-10 ~flat to negative (d7 -5.3, t -3.9). The edge is in the
   cheap tail only, and thin after costs. ⚠ Percentile thresholds are full-sample; a live gate needs expanding thresholds.
+- **Four instead of six (user: drop the IV/RV ratios)**: the 2 implied ratios + the 2 IV-RV gaps. Barely changes the
+  gates (ratio and gap are 0.9 correlated, so gating both cost little): all four in the cheapest 40% n=240, +7.5 mid /
+  +4.6 f=.25 (t 2.47) / +1.8 f=.5, by year +8 / +9 / +0 / +1; 50% n=440 +3.2 (t 2.36). Gaps beat the ratios (ratio set:
+  40% +4.2 t 2.11, 50% +2.6 t 1.89). Composite spearman: 4-gap -0.087, 4-ratio -0.072, all six -0.100.
