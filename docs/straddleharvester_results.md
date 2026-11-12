@@ -808,3 +808,22 @@ direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats
   t 1.8). The hedged long ATM leg at the steep end is negative (p25 d1 -8.1, c15 -4.8) and cancels it inside the vertical.
   -> steep put skew vs its own history marks an overpriced put WING; the vertical is the wrong wrapper for it -> next:
   the short wing alone (delta-hedged, capped farther out), with costs.
+
+## SH-24 — the short wing on its own (skew_vert.py -> wings.parquet, skew_wing_report.py; user 2026-11-12)
+
+Same entries as SH-23 (DTE ~10, held to expiry, no earnings). Sell the ~25 / ~15-delta wing, buy a ~5-delta cap farther
+out (delta .01-.09), delta-hedge in stock: daily at the close (BS delta at the entry IVs) or static at entry; stock
+costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades lose 10-25x the credit.
+- **Capped, daily-hedged, % of the net credit**: all p25 -7.3 mid / -13.0 f=.25, p15 -12.1 / -25.1, c25 -4.5 / -10.0,
+  c15 -10.5 / -22.8. Steep put skew (z <= -1.5): p25 +9.9 mid / +3.8 f=.25 (t 0.2), p15 +1.0 / -11.5. Flat skew: -15..-21
+  mid. The gate (ATM < RV20 < wing) does not help here (p25 -13.2 f=.25). **The capped short wing does not pay.**
+- **Why: the 5-delta cap is the most overpriced option of all.** Static-hedged, at mid, the long cap loses 29% of its
+  premium overall (p25, t -3.9) and **50-55% when the put skew is steep (z <= -1; t -5.5..-5.9)**, ~10-19% of the wing's
+  premium -> it eats the wing's edge. Call caps are ~-12..-28% (t ~0).
+- **The short wing ALONE** (static hedge, % of its premium): p25 z <= -1 +14.6 mid / **+11.7 f=.25 (t 2.4)**, z <= -1.5
+  +20.9 / +17.4 (t 1.9); p15 z <= -1 +19.9 / **+16.1 (t 2.0)**, z <= -1.5 +25.5 / +21.5 (t 1.7); unconditional p25 -1.0, p15
+  +4.4 mid; flat skew negative. Calls: c25 z <= -1.5 +13.0 mid (t 1.9), otherwise ~0. Uncapped tails: worst single
+  trade -14x (p25) / -24x (p15) its premium; the sample includes April 2025.
+- -> the skew premium sits in the far OTM puts, more so the farther out; it is a crash-risk premium. Capping with the
+  next strike out buys back the richest piece. Open: wider / cheaper caps (1-2 delta, or a put-spread ratio), portfolio-
+  level tail hedges instead of per-trade caps, and the 2012-> data (2018 / 2020 / 2022 drawdowns) before any sizing.

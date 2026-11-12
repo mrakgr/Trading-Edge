@@ -109,17 +109,17 @@ def ols(x, y):
 
 def run(root):
     t = ROOT2T.get(root, root)
-    if t not in SPOT or t not in DA: return [], []
+    if t not in SPOT or t not in DA: return [], [], []
     fs = sorted(glob.glob(f'{a.eod}/{root}__*.parquet'))
     q = duckdb.sql(f"""select distinct cast(date as date) date, cast(expiration as date) exp, strike K, "right" r, bid, ask
                        from read_parquet({fs}) where ask > 0 and bid > 0 and ask >= bid
                        and expiration - date between 1 and 25""").df()
-    if q.empty: return [], []
+    if q.empty: return [], [], []
     q['date'] = pd.to_datetime(q.date); q['exp'] = pd.to_datetime(q.exp)
     s = SPOT[t]; q['S'] = q.date.map(s); q = q.dropna(subset=['S'])
     q = q[(q.K / q.S > 0.4) & (q.K / q.S < 2.0)].copy()
     q['ti'] = tdi(q.date.values); q['tdte'] = tdi(q.exp.values) - q.ti; q = q[q.tdte >= 1].copy()
-    if q.empty: return [], []
+    if q.empty: return [], [], []
     q['cdte'] = (q.exp - q.date).dt.days
     q['T'] = q.tdte / 252; q['mid'] = (q.bid + q.ask) / 2; q['hs'] = (q.ask - q.bid) / 2
     ic = (q.r == 'C').values
@@ -137,7 +137,7 @@ def run(root):
         rec = dict(date=d, exp=ex, cdte=g.cdte.iat[0], tdte=g.tdte.iat[0], S=S, atm=atm,
                    c25=interp_delta(gc, .25), p25=interp_delta(gp, .25), c15=interp_delta(gc, .15), p15=interp_delta(gp, .15))
         SK[(d, ex)] = rec; rows_s.append(rec)
-    if not rows_s: return [], []
+    if not rows_s: return [], [], []
     sk = pd.DataFrame(rows_s)
     sk['call_skew'] = (sk.atm - sk.c25) / sk.atm; sk['put_skew'] = (sk.atm - sk.p25) / sk.atm
     # the daily 10d series: the expiry with cdte closest to 10 in [5, 20]
@@ -157,7 +157,7 @@ def run(root):
     ent = sk[(sk.cdte >= 5) & (sk.cdte <= 15)].copy(); ent['dd'] = (ent.cdte - 10).abs()
     ent = ent.sort_values(['exp', 'dd', 'date']).drop_duplicates('exp')
     Q = {k: g for k, g in q.groupby(['date', 'exp'])}
-    trades = []
+    trades = []; wings = []
     for _, en in ent.iterrows():
         d, ex = en.date, en.exp; g = Q.get((d, ex))
         if g is None: continue
@@ -204,15 +204,41 @@ def run(root):
                     else: fair = (bs_call(en.S, KL, T, sg) + KL - en.S) - (bs_call(en.S, KS_, T, sg) + KS_ - en.S)
                     r[f'edge_{rvn}'] = fair / mid - 1
                 trades.append(r)
-    return trades, s10.reset_index().to_dict('records')
+            # SHORT WING (user 2026-11-12): sell the ~25 / ~15-delta wing, buy a ~5-delta cap farther out, delta-hedge in
+            # stock: daily at the close (BS delta at each leg's ENTRY IV, remaining trading days) and static (entry only)
+            for nm, tgt, tol in ((f'{side.lower()}25', .25, .10), (f'{side.lower()}15', .15, .07)):
+                W = gs.iloc[(gs.ad - tgt).abs().argsort()[:1]]
+                if W.empty or abs(W.ad.iat[0] - tgt) > tol: continue
+                KW = W.K.iat[0]
+                cand = gs[(gs.K > KW) if side == 'C' else (gs.K < KW)]
+                cand = cand[(cand.ad >= .01) & (cand.ad <= .09)]
+                if cand.empty: continue
+                Cp = cand.iloc[(cand.ad - .05).abs().argsort()[:1]]; KC = Cp.K.iat[0]
+                pw = max(SE - KW, 0) if side == 'C' else max(KW - SE, 0)
+                pc = max(SE - KC, 0) if side == 'C' else max(KC - SE, 0)
+                # spot path t0 .. E (unadjusted closes; split_in_life rows are dropped in the report)
+                path = s[(s.index >= d) & (s.index <= pd.Timestamp(TD[jE]))]
+                Sp = path.values; tl_ = (jE - tdi(path.index.values.astype('datetime64[D]'))) / 252
+                def dlt(K, iv):
+                    tt = np.maximum(tl_, 1e-6); sT = iv * np.sqrt(tt)
+                    dd = ndtr((np.log(Sp / K) + 0.5 * sT * sT) / sT)
+                    return dd if side == 'C' else dd - 1
+                net = -dlt(KW, W.iv.iat[0]) + dlt(KC, Cp.iv.iat[0])          # option delta of short wing + long cap
+                dSp = np.diff(Sp)
+                wings.append(dict(f, side=side, leg=nm, KW=KW, KC=KC, dW=W.delta.iat[0], dC=Cp.delta.iat[0],
+                                  iv_w=W.iv.iat[0], iv_c=Cp.iv.iat[0], iv_atm_long=L.iv.iat[0], mid_w=W.mid.iat[0],
+                                  hs_w=W.hs.iat[0], mid_c=Cp.mid.iat[0], hs_c=Cp.hs.iat[0], pay_w=pw, pay_c=pc,
+                                  width=abs(KC - KW), hedge_daily=float(np.sum(-net[:-1] * dSp)) if len(dSp) else 0.0,
+                                  hedge_static=float(-net[0] * (SE - Sp[0])) if len(Sp) else 0.0, n_path=len(Sp)))
+    return trades, s10.reset_index().to_dict('records'), wings
 
 
 if __name__ == '__main__':
     os.makedirs(a.out, exist_ok=True)
-    out, s10 = [], []
+    out, s10, wg = [], [], []
     with Pool(a.workers) as pool:
-        for i, (r, s_) in enumerate(pool.imap_unordered(run, roots), 1):
-            out += r; s10 += s_
+        for i, (r, s_, w_) in enumerate(pool.imap_unordered(run, roots), 1):
+            out += r; s10 += s_; wg += w_
             if i % 25 == 0 or i == len(roots): print(f'{i}/{len(roots)} roots, {len(out)} trades, {time.time() - t0_:.0f}s', flush=True)
     T = pd.DataFrame(out)
     for f in FS:
@@ -220,4 +246,6 @@ if __name__ == '__main__':
         T[f'ret_{int(f * 100)}'] = T.payoff / deb - 1
     T.to_parquet(f'{a.out}/trades.parquet', index=False)
     pd.DataFrame(s10).to_parquet(f'{a.out}/skew10.parquet', index=False)
+    pd.DataFrame(wg).to_parquet(f'{a.out}/wings.parquet', index=False)
+    print(f'wrote {len(wg)} short-wing trades -> {a.out}/wings.parquet')
     print(f'wrote {len(T)} trades -> {a.out}/trades.parquet  {time.time() - t0_:.0f}s')
