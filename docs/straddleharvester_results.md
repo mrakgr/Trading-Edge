@@ -750,3 +750,33 @@ was right. Everything re-run with the causal TR index (r = [(P n)_t - (P n)_{t-1
   was +4.6, t 2.47), 50% n 397 +2.5 (t 1.85); composite -0.082. Weaker, same direction.
 - **PEAD md500k sched** (docs/pead_results.md): up5_v2.5 xs_20 +0.24 (t 1.9; was +0.32), hi52 +0.44 (t 2.4) / +0.55 at
   10d (t 3.6), gap_hold +0.61 (t 3.1; was +0.74), down5 -0.44 (was -0.32).
+
+## SH-23 — VV skew verticals (scripts/options/skew_vert.py, skew_vert_report.py; user 2026-11-12)
+
+VV (oquants skew video): buy the ~50-delta option, sell the rich ~25 / ~15-delta wing of the same expiry when ATM IV <
+RV < wing IV and the skew is steep; calls into call skew, puts into put skew; momentum layered on top. Ours: one
+entry per (root, expiry) at the session with calendar DTE closest to 10 in [5, 15], held to expiry (intrinsic), IV per
+option from the NBBO mid (BS r=q=0, trading-day T), skew = (atm - wing25)/atm (more negative = steeper), skew z = vs
+its own previous 60 sessions (10-day constant tenor). 190k spreads, 512 roots, 2022-12 -> 2026-10; earnings inside the
+life excluded below. Return = payoff / debit - 1; f = fill fraction of both legs' half-spreads (median hs = 8-11% of
+the debit: fills dominate). 'excess' = return minus the same leg's average on the same expiry (removes the market's
+direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats clustered by expiry date.
+
+| f=.25, no earnings | n | raw | excess (date-t) |
+|---|---|---|---|
+| c25 / c15 / p25 / p15 all | 41k each | -0.8 / +2.6 / -6.1 / -4.1 | 0 |
+| **ATM < RV20 < wing** c25 | 1,363 | +0.8 | **+6.5 (1.1)** |
+| c15 | 2,993 | +13.0 | **+11.5 (2.4)**, by year +19 / +15 / +12 / +2 |
+| p25 | 3,083 | +3.0 | **+8.6 (2.4)**, by year +6 / +14 / +12 / +5 |
+| p15 | 5,659 | +3.9 | **+7.8 (1.6)** |
+| gate & skew z <= -1 | 412-813 | | c25 +15.0 (1.5), c15 +13.8 (1.7), p25 +11.3 (0.9), p15 +5.4 (0.1) |
+| skew z >= +1.2 (FLAT vs its history) | ~4k each | | **-5.6 / -4.2 / -5.1 / -2.8 (t -3.8 / -2.5 / -3.2 / -2.0)** |
+
+- **The RV gate is the signal**: positive excess on all four legs, most years. The skew LEVEL alone does nothing (its
+  steep decile is the illiquid names, hs 22% of mid); the skew z adds little on top of the gate, but its other end is
+  the cleanest single result: don't buy a vertical into a skew that is flat vs its own history.
+- f=.5 roughly halves the raw numbers (c15 gate +6.0, p25 gate -2.2): execution decides it.
+- **Momentum** (ret_63/126 aligned with the spread, OLS ln-price slope, OLS ln-volume slope on calendar time) inside
+  the gate: no consistent help (calls: LOW aligned momentum better; p25: high aligned 126d better, +10.2 t 2.6). Not VV's
+  reported effect on this sample.
+- ⚠ 4 years; the four legs overlap (the same root/expiry); results before the 2012-> pull are provisional.
