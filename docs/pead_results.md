@@ -64,3 +64,8 @@ names gave +1.46), up10_v4 +0.55, up5_v2.5 + 52w high +0.57 (t 3.1), gap_hold +0
 all -0.10. By year (all-2.02 run) up5_v2.5 swings from +2.8 (2016) to -1.6 (2021). By liquidity (md60): 0.5-5M +0.89
 (t 3.1), 5-50M -0.09, 50-200M +0.25, > 200M +0.59 - not monotone. The drift exists but is small and unstable in the
 broad market.
+
+⚠ ERRATUM 2026-11-12: returns came from the fused `close*n + cum_div` level (shrunk for dividend payers); fixed via
+scripts/options/tr_index.py and re-run (md500k sched, 20d SPY-excess): up5_v2.5 +0.24 (t 1.9; was +0.32), up5_v2.5_hi52
++0.44 (t 2.4; +0.55 t 3.6 at 10d), gap_hold +0.61 (t 3.1; was +0.74), down5 -0.44 (t -3.7; was -0.32). See
+straddleharvester_results.md ERRATUM 2026-11-12.

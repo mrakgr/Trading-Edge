@@ -27,6 +27,7 @@ writes data/options/pead/{events,options}.parquet
 """
 import argparse, glob, os, sys, time
 import duckdb, numpy as np, pandas as pd
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from tr_index import add_tr
 pd.set_option('display.width', 250); pd.set_option('display.max_columns', 40)
 ap = argparse.ArgumentParser(); ap.add_argument('--build', action='store_true')
 ap.add_argument('--earnings', default='data/options/earnings_8k202.parquet')
@@ -94,13 +95,11 @@ if a.build:
 
     def feats(d):
         d['tdi'] = d.date.map(tdi)
-        d['V'] = d.close * d.n + d.cum_div
-        d['Vo'] = d.open * d.n + d.cum_div
-        d['vol_adj'] = d.volume / d.n
+        d = add_tr(d)   # causal total-return index V, open gap, vol_adj (tr_index.py; NOT close*n + cum_div)
         g = d.groupby('ticker', sort=False)
         d['V1'] = g.V.shift(1); d['tdi1'] = g.tdi.shift(1)
         d['ret_r'] = d.V / d.V1 - 1
-        d['gap_r'] = (d.Vo - d.cum_div + g.cum_div.shift(1)) / d.V1 - 1  # open on R's share basis; dividend on R is negligible
+        d['gap_r'] = d.gap
         d['avgv30'] = g.vol_adj.transform(lambda s: s.shift(1).rolling(30, min_periods=25).mean())
         d['dvol30'] = (d.close * d.volume).groupby(d.ticker).transform(lambda s: s.shift(1).rolling(30, min_periods=25).mean())
         d['md60'] = (d.close * d.volume).groupby(d.ticker).transform(lambda s: s.shift(1).rolling(60, min_periods=40).median())
@@ -136,7 +135,7 @@ if a.build:
             ev.loc[ev[f'gapdays_{h}'] != 0, [f'r_{h}', f'xs_{h}']] = np.nan
             ev[f'exit_{h}'] = pd.to_datetime(TD[np.minimum(ev.tdi.values + h, len(TD) - 1)])
             ev.loc[ev.tdi + h >= len(TD), [f'r_{h}', f'xs_{h}']] = np.nan
-        evs.append(ev.drop(columns=[c_ for c_ in ev.columns if c_.startswith(('V_', 'tdi_', 'n_', 'gapdays_'))] + ['Vo', 'V1', 'tdi1']))
+        evs.append(ev.drop(columns=[c_ for c_ in ev.columns if c_.startswith(('V_', 'tdi_', 'n_', 'gapdays_'))] + ['V1', 'tdi1']))
         print(f'  {min(j + 500, len(tl))}/{len(tl)} tickers, {nrows:,} rows, {time.time()-t0:.0f}s', flush=True)
     ev = pd.concat(evs, ignore_index=True)
     print(f'loaded {nrows} rows, {len(e)} events', flush=True)

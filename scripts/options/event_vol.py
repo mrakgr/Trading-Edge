@@ -29,6 +29,7 @@ writes data/options/event_vol/trades.parquet (one row per event x k)
 """
 import argparse, glob, os, sys, time
 import duckdb, numpy as np, pandas as pd
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from tr_index import add_tr
 from multiprocessing import Pool
 from scipy.special import ndtr
 
@@ -59,8 +60,8 @@ spot['date'] = pd.to_datetime(spot.date)
 SPOT = {t: g.set_index('date').close.sort_index() for t, g in spot.groupby('ticker')}
 
 c = duckdb.connect('data/trading.db', read_only=True)
-da = c.sql(f"""select ticker, date, close * n + cum_div V from daily_adjusted where ticker in ({tl}) and date >= '2014-06-01'
-               order by ticker, date""").df()
+da = add_tr(c.sql(f"""select ticker, date, close, n, cum_div from daily_adjusted where ticker in ({tl}) and date >= '2014-06-01'
+               order by ticker, date""").df())   # causal total-return index (tr_index.py), NOT close*n + cum_div
 da['date'] = pd.to_datetime(da.date)
 VADJ = {t: g.set_index('date').V for t, g in da.groupby('ticker')}
 sp = c.sql(f"select ticker, execution_date from splits where ticker in ({tl}) and execution_date >= '2022-06-01'").df()
@@ -69,6 +70,7 @@ SPL = {t: np.array(pd.to_datetime(g.execution_date).values, dtype='datetime64[D]
 # reaction days: all EDGAR history (2015 ->) on the FULL session calendar (daily_adjusted SPY)
 TDALL = np.array(sorted(c.sql("select distinct date from daily_adjusted where ticker = 'SPY' and date >= '2014-06-01'").df().date),
                  dtype='datetime64[D]')
+TDALL = np.union1d(TDALL, TD)   # daily_adjusted can lag the daily aggregates by days
 e = pd.read_parquet(a.earnings)
 if a.releases_only: e = e[e.is_release]
 e = e[['ticker', 'session', 'et_date']]

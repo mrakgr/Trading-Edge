@@ -734,3 +734,19 @@ Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected
 - **Implied-move GAPS instead of ratios (user)**: iem - last_iem / iem - hist_avg_iem are 0.97 rank-correlated with the
   ratios; singly the same (spearman -0.02, cheapest 10% +3..+4% f=.25, t < 1, 2024-driven). In the 4-gate (with the IV-RV
   gaps): 40% n=245 +3.4 (t 1.92) vs the ratio version +4.6 (t 2.47); 50% +3.4 (t 2.46) vs +3.2. Keep the ratios.
+
+## ⚠ ERRATUM 2026-11-12 — returns from the fused `close*n + cum_div` level were SHRUNK (fixed: scripts/options/tr_index.py)
+
+`daily_adjusted` IS the causal table (docs/price_adjustment.md), but event_vol.py, vv_long.py, pead.py (and the new
+skew_vert.py) took returns as V_t/V_{t-1} - 1 of V = P n + C. The documented return divides by P n, not P n + C, so
+every return was scaled by P n / (P n + C), C = all dividends since the ticker's first row: median row 0.98, but 34% of
+rows have C/V > 0.1; realized vol AGNC 0.24x the truth, MPW 0.41x, RIG 0.37x, T 0.49x, MO 0.56x (AAPL 0.95x). yz_vol.py
+was right. Everything re-run with the causal TR index (r = [(P n)_t - (P n)_{t-1} + dC] / (P n)_{t-1}):
+- **SH-20/21 SHORT k=1, held to expiry**: the dividend payers' history ratio was inflated (hist_rms too small) -> they
+  filled decile 10 (AGNC / MPW / RIG / LUMN). Fixed: all +1.1% f=.25 (was +1.3); ratio top 10% (>= 1.98, was 2.3)
+  **+8.4% f=.25 (was +12.9)**, t 2.73 on n 355, by year -0.4 / +11.5 / +14.0 / +6.8; **S < $10 +23.5% (t 4.0, n 115),
+  S >= $10 +3.0% (t 0.7)** -> it is the cheap-stock effect, not the event ratio. Top names now FHN / CHPT / PCG / ALB.
+- **SH-22 VV long**: IV-RV gaps spearman -0.089 / -0.087 (was -0.097 / -0.104); 4-gate 40% n 211 +2.8% f=.25 (t 1.77;
+  was +4.6, t 2.47), 50% n 397 +2.5 (t 1.85); composite -0.082. Weaker, same direction.
+- **PEAD md500k sched** (docs/pead_results.md): up5_v2.5 xs_20 +0.24 (t 1.9; was +0.32), hi52 +0.44 (t 2.4) / +0.55 at
+  10d (t 3.6), gap_hold +0.61 (t 3.1; was +0.74), down5 -0.44 (was -0.32).
