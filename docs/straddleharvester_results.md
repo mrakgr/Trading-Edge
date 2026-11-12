@@ -844,3 +844,10 @@ costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades
   CALL wings, PF on their own premium: all hedged 0.93 / 0.95 (c25 / c15), gate 1.02 / 1.12, steep z 1.15 / 1.10.
   The put-wing results (SH-24, % of the wing's own premium) are not affected by this denominator problem. Rule from
   here: report medians / PF / a debit-to-width floor next to every mean of a ratio.
+- **Sized by NOTIONAL (user: risk-based sizing; for now P&L in bp of the stock price per short option = equal
+  notional)**, f=.25, entry-delta hedged, t by expiry date. Puts: p25 all PF 1.02 (+1.6bp), **steep z <= -1.5 PF 1.58,
+  +35bp per ~10-day trade (t 3.3), every year + (+33 / +8 / +59 / +37)**, flat 0.93; p15 all 1.08, steep 1.52 +21.7bp (t
+  2.7); p05 all **1.33 +6.7bp (t 3.8)**, steep **1.84 +12.0bp (t 4.7)**, every year +. Calls: c25 / c15 / c05 all 0.94 /
+  0.98 / 1.05; c25 steep 1.21 +16.7bp (t 2.4, 2026 -9); c05 gate 1.69 (t 3.4, n 953); flat call skew is bad (c25 0.77,
+  c05 0.53). Unhedged short puts: steep p25 PF 1.76, p05 2.88 (the 2023-26 drift helps). Worst single trades -15..-45x
+  the premium (puts), calls up to -860% of notional (see the check below) -> naked sizing needs a hard tail rule.
