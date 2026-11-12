@@ -793,3 +793,10 @@ direction: raw call spreads won 2023-25 and lost 2026, puts the mirror); t-stats
   not as a booster (Q1 ~ Q2 ~ Q3). The z tail is noisy (the 60d std of a 10-DTE skew can be tiny: z down to -118).
   The gate MARGIN = min(RV/iv_long - 1, iv_short/RV - 1) is the better lever: c15 terciles -0.6 / +15.0 / +20.1, c25 -10.3
   / +16.8 / +13.0, p15 +3.8 / +4.4 / +15.3 (p25 flat +7.2 / +10.3 / +8.3).
+- **Which leg makes the money (user)**: leg prices at mid from the leg IVs (reconstruct the quoted mid exactly), P&L in
+  % of the spread debit, 'hedged' = each leg's entry delta hedged in stock to expiry (removes direction). In the gate
+  (ATM < RV20 < wing), hedged: c25 long -1.6 / **short wing +20.4 (t 3.9)**; c15 long +5.3 (t 0.8) / **short +11.6
+  (t 2.0)**; p15 long +7.3 (t 1.6) / **short +14.0 (t 4.9)**; p25 **long ATM put +15.9 (t 2.3)** / short +3.1 (t 0.5).
+  Gate & margin top 2/3: short wing c25 +29.9 (t 3.9), c15 +20.2 (t 4.4), p15 +18.7 (t 5.6); p25 long +18.8 (t 2.9).
+  -> mostly the SHORT RICH WING carries it (the 'wing IV > RV' half of the gate); the long ATM leg is mainly the hedge,
+  except the 25-delta put spreads where the cheap ATM put pays. Outside the gate both legs are ~0 hedged.
