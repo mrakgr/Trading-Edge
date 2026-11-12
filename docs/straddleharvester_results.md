@@ -731,3 +731,6 @@ Earnings calendar: Massive has a Benzinga earnings endpoint (confirmed/projected
   gates (ratio and gap are 0.9 correlated, so gating both cost little): all four in the cheapest 40% n=240, +7.5 mid /
   +4.6 f=.25 (t 2.47) / +1.8 f=.5, by year +8 / +9 / +0 / +1; 50% n=440 +3.2 (t 2.36). Gaps beat the ratios (ratio set:
   40% +4.2 t 2.11, 50% +2.6 t 1.89). Composite spearman: 4-gap -0.087, 4-ratio -0.072, all six -0.100.
+- **Implied-move GAPS instead of ratios (user)**: iem - last_iem / iem - hist_avg_iem are 0.97 rank-correlated with the
+  ratios; singly the same (spearman -0.02, cheapest 10% +3..+4% f=.25, t < 1, 2024-driven). In the 4-gate (with the IV-RV
+  gaps): 40% n=245 +3.4 (t 1.92) vs the ratio version +4.6 (t 2.47); 50% +3.4 (t 2.46) vs +3.2. Keep the ratios.
