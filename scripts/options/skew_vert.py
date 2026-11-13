@@ -35,42 +35,53 @@ ap.add_argument('--eod', default='data/options/eod_universe')
 ap.add_argument('--out', default='data/options/skew_vert')
 ap.add_argument('--roots', default='')
 ap.add_argument('--workers', type=int, default=6)
+ap.add_argument('--full', action='store_true', help='market_full 2012-> with the PIT universe (survey_inputs.py)')
 ap.add_argument('--earnings', default='data/options/earnings_sched.parquet')
 a = ap.parse_args()
 FS = [0, 0.25, 0.5, 1]
 
 t0_ = time.time()
-tick = sorted({l.split('\t')[0].strip() for l in open('data/options/universe_tickers.tsv') if l.strip()})
-ROOT2T = {t.replace('.', ''): t for t in tick}
-roots = sorted({os.path.basename(f).split('__')[0] for f in glob.glob(f'{a.eod}/*.parquet')})
-if a.roots: roots = a.roots.split(',')
+if a.full:
+    from survey_inputs import load
+    globals().update(load(a.eod, a.roots, da_cols=('close', 'n', 'cum_div', 'volume')))
+    DA = {r: g.set_index('date')[['V', 'vol_adj']].rename(columns={'vol_adj': 'vol'}) for r, g in da.groupby('ticker')}
+else:
+    tick = sorted({l.split('\t')[0].strip() for l in open('data/options/universe_tickers.tsv') if l.strip()})
+    ROOT2T = {t.replace('.', ''): t for t in tick}
+    roots = sorted({os.path.basename(f).split('__')[0] for f in glob.glob(f'{a.eod}/*.parquet')})
+    if a.roots: roots = a.roots.split(',')
 
-agg_files = sorted(f for f in glob.glob('data/daily_aggregates/*.csv.gz') if os.path.basename(f)[:10] >= '2022-06-01')
-TD = np.array(sorted(os.path.basename(f)[:10] for f in agg_files), dtype='datetime64[D]')
-tl = ','.join(f"'{t}'" for t in tick)
-spot = duckdb.sql(f"""select ticker, cast(regexp_extract(filename, '(\\d{{4}}-\\d{{2}}-\\d{{2}})', 1) as date) as date,
-                      close from read_csv({agg_files}, filename=true, columns={{'ticker':'VARCHAR','volume':'DOUBLE',
-                      'open':'DOUBLE','close':'DOUBLE','high':'DOUBLE','low':'DOUBLE','window_start':'BIGINT',
-                      'transactions':'BIGINT'}}, header=true) where ticker in ({tl})""").df()
-spot['date'] = pd.to_datetime(spot.date)
-SPOT = {t: g.set_index('date').close.sort_index() for t, g in spot.groupby('ticker')}
-c = duckdb.connect('data/trading.db', read_only=True)
-da = add_tr(c.sql(f"""select ticker, date, close, n, cum_div, volume from daily_adjusted
-               where ticker in ({tl}) and date >= '2021-06-01' order by ticker, date""").df()).rename(columns={'vol_adj': 'vol'})
-da['date'] = pd.to_datetime(da.date)
-DA = {t: g.set_index('date')[['V', 'vol']] for t, g in da.groupby('ticker')}
-sp = c.sql(f"select ticker, execution_date from splits where ticker in ({tl}) and execution_date >= '2022-06-01'").df()
-SPL = {t: np.array(pd.to_datetime(g.execution_date).values, dtype='datetime64[D]') for t, g in sp.groupby('ticker')}
-TDALL = np.array(sorted(c.sql("select distinct date from daily_adjusted where ticker = 'SPY' and date >= '2014-06-01'").df().date),
-                 dtype='datetime64[D]')
-TDALL = np.union1d(TDALL, TD)   # daily_adjusted can lag the daily aggregates by days
-e = pd.read_parquet(a.earnings); e = e[e.is_release]
+    agg_files = sorted(f for f in glob.glob('data/daily_aggregates/*.csv.gz') if os.path.basename(f)[:10] >= '2022-06-01')
+    TD = np.array(sorted(os.path.basename(f)[:10] for f in agg_files), dtype='datetime64[D]')
+    tl = ','.join(f"'{t}'" for t in tick)
+    spot = duckdb.sql(f"""select ticker, cast(regexp_extract(filename, '(\\d{{4}}-\\d{{2}}-\\d{{2}})', 1) as date) as date,
+                          close from read_csv({agg_files}, filename=true, columns={{'ticker':'VARCHAR','volume':'DOUBLE',
+                          'open':'DOUBLE','close':'DOUBLE','high':'DOUBLE','low':'DOUBLE','window_start':'BIGINT',
+                          'transactions':'BIGINT'}}, header=true) where ticker in ({tl})""").df()
+    spot['date'] = pd.to_datetime(spot.date)
+    SPOT = {t: g.set_index('date').close.sort_index() for t, g in spot.groupby('ticker')}
+    c = duckdb.connect('data/trading.db', read_only=True)
+    da = add_tr(c.sql(f"""select ticker, date, close, n, cum_div, volume from daily_adjusted
+                   where ticker in ({tl}) and date >= '2021-06-01' order by ticker, date""").df()).rename(columns={'vol_adj': 'vol'})
+    da['date'] = pd.to_datetime(da.date)
+    DA = {t: g.set_index('date')[['V', 'vol']] for t, g in da.groupby('ticker')}
+    sp = c.sql(f"select ticker, execution_date from splits where ticker in ({tl}) and execution_date >= '2022-06-01'").df()
+    SPL = {t: np.array(pd.to_datetime(g.execution_date).values, dtype='datetime64[D]') for t, g in sp.groupby('ticker')}
+    TDALL = np.array(sorted(c.sql("select distinct date from daily_adjusted where ticker = 'SPY' and date >= '2014-06-01'").df().date),
+                     dtype='datetime64[D]')
+    TDALL = np.union1d(TDALL, TD)   # daily_adjusted can lag the daily aggregates by days
+e = E_RAW.copy() if a.full else pd.read_parquet(a.earnings); e = e[e.is_release]
 ed = np.array(pd.to_datetime(e.et_date).values, dtype='datetime64[D]')
 ii = np.where(e.session.values == 'AMC', np.searchsorted(TDALL, ed, 'right'), np.searchsorted(TDALL, ed, 'left'))
 ok = ii < len(TDALL); e = e[ok].copy(); e['R'] = TDALL[ii[ok]]
 EARN = {t: np.unique(g.R.values.astype('datetime64[D]')) for t, g in e.groupby('ticker')}
 print(f'inputs {time.time() - t0_:.0f}s: {len(roots)} roots, TD {TD[0]}..{TD[-1]}', flush=True)
 
+
+
+def RSQL(r):   # --full: the root's universe window (RAM)
+    if not a.full: return ''
+    return f"cast(date as date) between '{WIN[r][0]}' and '{WIN[r][1]}' and "
 
 def bs_call(S, K, T, v):
     sT = v * np.sqrt(T); d1 = (np.log(S / K) + 0.5 * sT * sT) / sT
@@ -112,7 +123,7 @@ def run(root):
     if t not in SPOT or t not in DA: return [], [], []
     fs = sorted(glob.glob(f'{a.eod}/{root}__*.parquet'))
     q = duckdb.sql(f"""select distinct cast(date as date) date, cast(expiration as date) exp, strike K, "right" r, bid, ask
-                       from read_parquet({fs}) where ask > 0 and bid > 0 and ask >= bid
+                       from read_parquet({fs}) where {RSQL(root)}ask > 0 and bid > 0 and ask >= bid
                        and expiration - date between 1 and 25""").df()
     if q.empty: return [], [], []
     q['date'] = pd.to_datetime(q.date); q['exp'] = pd.to_datetime(q.exp)

@@ -853,3 +853,36 @@ costs ignored. Median credit (wing - cap) = 8% of the width, so the worst trades
   the premium (puts), calls up to -860% of notional (see the check below) -> naked sizing needs a hard tail rule.
   Check: the -860% are WOLF 2025-09-23 -> 10-03 ($2.01 -> $24.37 across its Chapter 11 exit = a share exchange, not a
   move; an artifact to exclude), then CGC 2024-03 ($2.9 -> $7.7, -110%), MRNA 2026-08 ($61 -> $145, -106%): real call tails.
+
+## SH-25 — the 2012 -> 2026 survey of the three VV systems on market_full (user 2026-11-13)
+
+Data: the complete ThetaData EOD pull (`market_full`, every root and expiry, 2012-06 -> 2026-11, 312,743 chunk files),
+the point-in-time universe (`universe_full.py`: SH-5's rule, >= 25k contracts/day avg20, CS/ADRC, episodes at > 45-day
+gaps; 46-243 names a day) and Item 2.02 releases from 2011 (`earnings_full.py` + `earnings_scheduled.py`). The three
+scripts gained `--full` (`survey_inputs.py`: inputs keyed by option ROOT, the stock series cut at > 45-day gaps; per-root
+reads limited to the universe window, earnings scripts to +-event windows: RAM), run by `survey_run.sh`, reported by
+`survey_report.py` (logs/options_survey_report.log). A trade counts when its root is in the universe on the entry day.
+**P&L is in % of the trade's own premium** (credit / debit; user: not the stock notional); PF = sum of winning returns /
+|sum of losing returns|. **Gates are causal**: thresholds = percentiles of all trades entered before the entry's month
+(>= 300). ⚠ ThetaData has no data 2019-12-12..2020-03-06 for 186 roots (mostly L*/M*). ⚠ `vv_long.py` fix: before
+2015-02 the monthlies are dated the SATURDAY after the 3rd Friday (it started in 2014-10 before the fix).
+Checked against the 2022-> runs on TSLA: identical prices / strikes / IVs; only the history features changed (longer).
+
+**A  Straddle Harvester (short ATM straddle, R-1 close -> E1 expiry; 5,052 events, 447 names):**
+all +3.7% mid / **+2.4% f=.25 (t 2.2, PF 1.08, median +20.5, win 60%)** / +0.9% f=.5. By year (f=.25): 2012-2019 ~0
+(-3..+1 except 2016 +8), 2020 +11.4, 2021 +4.5, 2022-2024 ~0, 2025 +4.7, 2026 +6.3. The ratio gate (implied/historic
+event move >= expanding p90, n 331): +6.2% f=.25 (t 1.5, PF 1.23), S >= $10 +4.2 (t 0.9); negative in 2015/16/21/22.
+-> the SH-21 'top decile' edge (2023-26) is not a stable historical effect; the plain short is a thin, regime-dependent
+positive that the f=.5 fill erases.
+
+**B  VV pre-earnings long straddle (~14 d before -> R-1; 4,943 events, 458 names):** all +2.2% mid / +0.2% f=.25 (PF
+1.02) / -1.8% f=.5, median -6.7%; by year f=.25 between -3 and +3 except 2022 +6.2. The four-feature gate (cheapest 40%
+on all four, expanding; n 202, mostly 2021): +6.7 mid / **+3.9% f=.25 (t 1.5, PF 1.47, median -3.9)** / +1.3 f=.5.
+-> VV's long play is ~break-even before costs over 14 years; the gate's edge is small and not significant.
+
+**C  Skew verticals (~10 DTE, held to expiry, no earnings in the life; 258,890 spreads, 735 names):** raw returns follow
+the market's direction (put spreads lost 2012-14 and 2019/21, won 2018/22/23). Gate (ATM < RV20 < wing) & not flat,
+f=.25: c25 -3.1 (t -0.9), c15 +4.0 (t 1.5, PF 1.07), p25 -0.2, p15 0.0. Excess over the same leg/expiry (removes
+direction), f=.25: c25 +0.9 / c15 +3.0 / p25 +3.8 / p15 +2.7 (date-clustered t 1.6-1.7) — the RV gate's selection
+survives, weakly. **The flat-skew veto (own skew z >= 1.2) holds on all four legs over 14 years: excess -6.5 / -5.5 /
+-3.7 / -2.3 (date-t -6.0 / -4.5 / -3.5 / -2.5)** — the most robust result of the survey.
