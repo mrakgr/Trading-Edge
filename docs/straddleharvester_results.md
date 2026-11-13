@@ -886,3 +886,28 @@ f=.25: c25 -3.1 (t -0.9), c15 +4.0 (t 1.5, PF 1.07), p25 -0.2, p15 0.0. Excess o
 direction), f=.25: c25 +0.9 / c15 +3.0 / p25 +3.8 / p15 +2.7 (date-clustered t 1.6-1.7) — the RV gate's selection
 survives, weakly. **The flat-skew veto (own skew z >= 1.2) holds on all four legs over 14 years: excess -6.5 / -5.5 /
 -3.7 / -2.3 (date-t -6.0 / -4.5 / -3.5 / -2.5)** — the most robust result of the survey.
+
+## SH-26 — where option volume trades, and does activity at entry move the systems? (user 2026-11-13)
+
+`activity.py` (market_full, universe names on in-universe days, rows with volume > 0; delta from the mid IV) ->
+data/options/activity/{profile,root_day}.parquet; `activity_report.py`, `activity_link.py` (logs/options_activity_*.log).
+
+**Where it trades** (share of contracts / of premium $; 2012-15 -> 2023-26):
+- Volume x5 (4.2bn -> 21.6bn contracts per 4 years), trades x10; contracts per trade 12 -> 6 (retail).
+- |delta| .15-.45 OTM = ~38% of contracts (the 25-delta wing the verticals sell is the busiest bucket); ATM .45-.55 10-11%;
+  the < .05 tail 8% -> 16% of contracts but 0.4% of premium; deep ITM > .85 = 5% of contracts, 23-25% of premium.
+- DTE <= 7: 32% -> 50% of contracts (0-DTE 5% -> 12%); premium is spread evenly over tenors (91-365 DTE ~21%).
+- Calls ~62% of contracts, puts 43% of premium.
+
+**Activity at entry vs the systems' returns** (features at the entry close: 20d option volume, today / 20d, 5d / 20d,
+ATM share, put/call, contracts per trade; C also the own wing's volume vs its 20d and the 5-day skew change): **nothing.**
+Spearman |r| <= 0.03 on A and C, <= 0.06 on B (trade size, B: small trades better, d1 +1.9 vs d10 -0.7). Deciles noisy.
+- C, 'skew pushed by flow' (steepening = 5-day skew change in its bottom 20%, split by the wing's volume vs its 20d):
+  heavy wing volume (>= 1.5x) is NOT better - excess -0.2..-1.9 on all legs; low-volume steepening p25 +2.7 (t 2.3).
+  The strong cell is the flat side again: c25 call skew flattening over 5 days (d10) -12.3% excess (t -9.1).
+- ⚠ EOD volume has no aggressor side: buyer- vs seller-initiated needs ThetaData trade_quote (each trade with the NBBO).
+
+**Activity at the NAME level does matter (A, short straddle at R-1):** the same trade on names OUTSIDE the universe
+(< 25k contracts/day avg, 8,094 events): +0.3% mid / -2.5% f=.25 (t -2.6) / -5.8% f=.5, negative at every spread
+level and in most years; inside (5,079): +3.7 / +2.4 / +0.9. Inside, the tightest entries (half-spread <= 2% of mid,
+1,078) keep +3.1% at f=.5 (PF 1.11). Within the universe the name's liquidity level (20d volume deciles) is flat.
