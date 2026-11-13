@@ -1053,3 +1053,15 @@ at every cutoff (top 10% -11.1%); hedged, they earn.
   2016 -32%, 2026 -12%. fslope adds little.
 - Weaker than the put side (puts top 10%: stocks +15.7% PF 1.58, ETFs +21.0% PF 1.90) but nearly disjoint from it
   (2% of call-signal stock trades also carry a top-10% put skew; 0% on ETFs): a second, independent book.
+
+## SH-35 — the 52-week high on the skew shorts (user 2026-11-13)
+
+`skew_52w.py` (logs/options_skew_52w.log). Split-adjusted close vs the previous 252 closes (gaps > 45 days cut).
+**Calls: the 52w high is where NOT to sell the call** (the breakout earns its call skew):
+- stocks, call skew top 5%: at the high +1.0% PF 1.02 (955) vs not +17.0% PF 1.52 t 7.3 (8,487); by distance below
+  the high: 0..-5% +1.9% PF 1.04, -5..-15% +10.4% 1.27, -15..-30% +19.6% 1.64 (13/14 yrs), < -30% +20.9% 1.72.
+  Top 10% the same shape (at the high +0.3% vs +10.3%). At-high names: AMD TSLA NFLX NVDA AAPL SNAP HOOD.
+- ETFs, call skew top 10%: at the high +4.8% PF 1.13 (worst yr -97%) vs not +10.1% PF 1.33 (12/14, worst -3%);
+  best -5..-30% below the high (+12-13%, PF 1.4-1.5); top 5% at -5..-15%: +18.4% PF 1.67.
+**Puts: no such veto.** Stocks, put skew top 10%: at the high +12.6% PF 1.41 (323), not +16.2% 1.60; best band
+-15..-30% below the high +21.0% PF 1.88, 14/14 years. ETFs: at the high +28.3% PF 2.28 (SPY near highs; 2016 -105%).
