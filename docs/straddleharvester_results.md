@@ -911,3 +911,18 @@ Spearman |r| <= 0.03 on A and C, <= 0.06 on B (trade size, B: small trades bette
 (< 25k contracts/day avg, 8,094 events): +0.3% mid / -2.5% f=.25 (t -2.6) / -5.8% f=.5, negative at every spread
 level and in most years; inside (5,079): +3.7 / +2.4 / +0.9. Inside, the tightest entries (half-spread <= 2% of mid,
 1,078) keep +3.1% at f=.5 (PF 1.11). Within the universe the name's liquidity level (20d volume deciles) is flat.
+
+## SH-27 — resting a limit at yesterday's closing mid: how often does it fill? (user 2026-11-13)
+
+`fill_study.py` -> data/options/fills/fills.parquet, `fill_report.py` -> logs/options_fill_report.log. Every universe
+contract-day t (DTE 1-90, two-sided NBBO, mid M >= $0.05), the SAME contract on the next trading day from the EOD OHLC:
+short fill = high(t+1) >= M, long = low(t+1) <= M. Fill price = M, or the open when the option gapped through M.
+Markout = the mid at the t+1 close vs the fill, % of M, signed for the side. ⚠ Highs/lows include complex-order prints
+(an upper bound on fills); per-leg only (a straddle's combo price is not in EOD data).
+
+ATM, DTE 8-60 (8.1M contract-days): a short at M fills 51% (38% because the option OPENED through M overnight, only
+13% by an intraday touch), a long 59%. Same day (lookahead): 66% of days print above the closing mid, 65% below.
+Adverse selection is the whole story: filled shorts are -13.4% from M by the next close (-1.0% at the actual fill price,
+the gap having paid for it), and the 49% we MISS would have made +13.9% - the misses are the winners.
+Tight spreads (half-spread <= 2%): fills 64% / 70%, same pattern. 25-delta wing: fills 49%, filled -20.6% from M,
+missed +20.4%. vs crossing: half-spread 6.5% ATM (1.4% in the tight bucket).
