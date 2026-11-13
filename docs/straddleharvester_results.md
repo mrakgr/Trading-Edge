@@ -972,3 +972,16 @@ SH-28 signal (steep put skew, P25, hs <= 5%):
 - **2020 is fixed:** daily-2bp -1% (stocks) / +3% (ETFs) vs static -14% / -26% and naked -35% / -41%. Worst years now:
   stocks 2025 -6%, ETFs 2016 -5% / 2024 -2%.
 - Without the signal, every hedged short (all P25, ATM puts, 25d calls) is ~0 or negative after the stock cost.
+
+## SH-30 — VV's forward-vol slope on the short-dated shorts (user 2026-11-13)
+
+`short_dated_fwd.py` (logs/options_short_dated_fwd.log): A = the traded expiry, B = the expiry nearest 30 days;
+forward var = (ivB^2 TB - ivA^2 TA) / (TB - TA) (total variances, T in trading days / 252, as event_vol.py / vv_long.py
+already do); fslope = ivA / fwd - 1. Sold at the bid, daily hedge - 2bp. SH-28's 'slope' was ivA / iv30 (annualized
+ratio): Spearman 0.99 with fslope here (A is short, so its variance barely moves the forward).
+- Alone: no edge. Every inst's deciles are flat-to-negative after the daily hedge and costs; expanding top decile:
+  stock STR -3.7%, P25 -2.3%; ETF STR -3.2%, P25 -5.1%. Without a signal, shorts at the bid with the hedge cost lose.
+- A release between A's and B's expiry (23% of stock trades) makes the front cheap vs the forward: selling then is
+  the worst decile (P25 -12%).
+- As a second filter on the put-skew signal (top 10% skew, in-sample terciles of fslope): ETF high +29.2% PF 2.75
+  (t 11.5) vs low +5.5% PF 1.16; stocks high +13.1% PF 1.49 vs low +6.5% PF 1.19. To be tested out-of-sample.
