@@ -107,7 +107,19 @@ KEEP_OUT = ['root', 'expiration', 'strike', 'right', 'open', 'high', 'low', 'clo
 ymd = lambda d: str(d).replace('-', '')
 
 
+ENDPOINT = 'history/eod'                              # --endpoint open_interest -> 'history/open_interest'
+KEEP_OI = ['symbol', 'expiration', 'strike', 'right', 'timestamp', 'open_interest']
+KEEP_OUT_OI = ['root', 'expiration', 'strike', 'right', 'open_interest', 'date']
+
+
 def parse(body):
+    if ENDPOINT.endswith('open_interest'):            # OI is stamped ~06:30 ET of day t = the OI at t-1's close
+        df = pd.read_csv(io.BytesIO(body), usecols=KEEP_OI)
+        df['date'] = pd.to_datetime(df.timestamp.str[:10]).dt.date
+        df['expiration'] = pd.to_datetime(df.expiration).dt.date
+        df['right'] = df.right.str[0]
+        df['open_interest'] = df.open_interest.astype('int64')
+        return df.drop(columns='timestamp').rename(columns={'symbol': 'root'})
     df = pd.read_csv(io.BytesIO(body), usecols=KEEP)
     df['date'] = pd.to_datetime(df.created.str[:10]).dt.date
     df['expiration'] = pd.to_datetime(df.expiration).dt.date
@@ -145,7 +157,7 @@ def fetch_range(root, start, end, max_dte, ref, depth=0):
     for wait in (DAY_BACKOFF if single else BACKOFF):
         time.sleep(wait)
         try:
-            st, body = http('history/eod', **q)
+            st, body = http(ENDPOINT, **q)
         except Exception as ex:
             why = f"exc:{type(ex).__name__}"; continue
         if st == 472:
@@ -161,7 +173,7 @@ def fetch_range(root, start, end, max_dte, ref, depth=0):
         last = df.date.max()
         rq = dict(q, start_date=ymd(last + dt.timedelta(days=1)))
         try:
-            rst, _ = http('history/eod', **rq)
+            rst, _ = http(ENDPOINT, **rq)
         except Exception:
             rst = None
         if rst == 472:
@@ -241,6 +253,7 @@ def main():
     ap.add_argument('--roots-file', help='one root per line (default: every root ThetaData lists)')
     ap.add_argument('--jobs-file', help='ROOT<TAB>YYYY-MM-DD<TAB>YYYY-MM-DD per line: per-root ranges, quarter chunks')
     ap.add_argument('--max-dte', type=int)
+    ap.add_argument('--endpoint', default='eod', choices=['eod', 'open_interest'], help='the history endpoint (2026-11-13: OI)')
     ap.add_argument('--workers', type=int, default=4)
     ap.add_argument('--reference', default='data/options/massive_root_days.parquet')
     ap.add_argument('--calendar-file', default='data/options/trading_days.txt',
@@ -252,6 +265,10 @@ def main():
     ap.add_argument('--deadline', help='UTC ISO time: no NEW request after it; in-flight ones finish (exit 3 if work remains)')
     ap.add_argument('--validate', action='store_true', help='check the saved chunks, quarantine the cut-off ones, exit')
     a = ap.parse_args()
+    global ENDPOINT, KEEP_OUT
+    ENDPOINT = f'history/{a.endpoint}'
+    if a.endpoint == 'open_interest':
+        KEEP_OUT = KEEP_OUT_OI
     ref = Reference(a.reference, a.calendar_file)
     deadline = pd.Timestamp(a.deadline).timestamp() if a.deadline else None
     ymd = lambda d: str(d).replace('-', '')

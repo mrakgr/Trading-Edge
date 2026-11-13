@@ -926,3 +926,30 @@ Adverse selection is the whole story: filled shorts are -13.4% from M by the nex
 the gap having paid for it), and the 49% we MISS would have made +13.9% - the misses are the winners.
 Tight spreads (half-spread <= 2%): fills 64% / 70%, same pattern. 25-delta wing: fills 49%, filled -20.6% from M,
 missed +20.4%. vs crossing: half-spread 6.5% ATM (1.4% in the tight bucket).
+
+## SH-28 — short-dated selling on liquid chains: steep put skew is the edge (user 2026-11-13)
+
+User: drop the illiquid chains; liquid names (by OI - pull running, `eod_pull.py --endpoint open_interest --max-dte 60`
+-> data/options/oi_full, 911 roots), IV rich vs RV, steep term slope / skew, active or abnormal volume; short-dated.
+
+`short_dated.py` -> data/options/short_dated/trades.parquet (4.83M trades, 3.6 min): universe stocks (in-universe days)
++ 20 liquid ETFs; entry at the close, every expiry 1-10 trading days out; sold and held to expiry (intrinsic):
+ATM straddle, ATM put / call, 25-delta put / call. P&L in % of the option's own mid premium; 'hedged' = a static delta
+hedge held to expiry. Features: ATM IV / RV20, IV / IV30 (term slope), IV25p / IV_ATM (put skew), IV25c / IV_ATM,
+volume today / 20d, 5d / 20d, cross-sectional liquidity rank. `short_dated_report.py` (in-sample deciles),
+`short_dated_check.py` (top decile with EXPANDING thresholds from prior years; mid / f=.5 / sold at the BID; spread
+and liquidity cuts; by year). Logs: logs/options_short_dated_{report,check}.log.
+
+**Baseline (no earnings in hold), delta-hedged, f=.25:** ETF straddle +2.6% PF 1.09 (t 4.2), ETF 25d put +8.4% PF 1.16;
+stock straddle +0.1% (nothing), stock 25d put +4.0% PF 1.07. Naked short puts look better only because 2012-26 went up.
+Volume / abnormal volume / liquidity rank deciles: flat.
+
+**Steep put skew -> sell the 25-delta put (delta-hedged), top decile, expanding threshold, sold AT THE BID:**
+- stocks, half-spread <= 5%: 8,719 trades, +24.4% of premium, PF 1.54 (t 8.6); with liq >= .5: 4,461, +21.6%, PF 1.46.
+  By year (f=.5): positive 13 of 14 years, 2020 -11%.
+- ETFs, half-spread <= 5%: 4,665 trades, +37.8%, PF 2.16 (t 8.2); positive 13 of 14 years, 2020 -25%.
+- The rest of the puts at the bid: -3.4% (stocks), +4.7% (ETFs). The signal carries the whole edge.
+**IV/RV and term slope (top decile):** weaker, mostly ETF straddles: +5-6% at the bid, PF 1.2, t 2-3, lumpy years
+(2018, 2020, 2022, 2024 negative). Stock straddles: nothing after costs.
+**Days to expiry:** 1-DTE (entered at the close) is the best bucket for straddles (stocks +4.5% hedged PF 1.17, ETFs +4.0%).
+⚠ EOD data cannot do true 0-DTE (needs intraday quotes). Static hedge only; stock-side hedge costs ignored.
