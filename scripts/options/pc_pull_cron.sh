@@ -7,4 +7,4 @@ export PATH="$HOME/.venv/bin:/usr/local/bin:/usr/bin:/bin"
 cd "$(dirname "$0")/../.."                       # research/
 pgrep -f 'options_runner.py --mode pc' > /dev/null && exit 0
 echo "$(date '+%F %T %Z')  cron: starting pc_pull.sh" >> logs/options_runner_pc.log
-exec bash scripts/options/pc_pull.sh "${1:-market_full}"
+exec bash scripts/options/pc_pull.sh "${1:-market_full}" "${2:-}" "${3:-eod}"   # 2026-11-13 cron: oi_full 60 open_interest

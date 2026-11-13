@@ -125,6 +125,8 @@ def main():
     ap.add_argument('--timezone-fs', required=True)
     ap.add_argument('--reference', required=True); ap.add_argument('--calendar-file', required=True)
     ap.add_argument('--max-dte', type=int)
+    ap.add_argument('--endpoint', default='eod', choices=['eod', 'open_interest'],
+                    help='eod_pull.py --endpoint (2026-11-13: the OI run oi_full)')
     ap.add_argument('--workers', type=int, default=8)
     ap.add_argument('--key', help='the storage-box ssh key (both machines since 2026-11-11: the share, sub3, by key)')
     ap.add_argument('--password-file', default='~/.config/hetzner-storage-box/credentials', help='PC: the box login')
@@ -204,6 +206,8 @@ def main():
                    '--order', a.order]
             if a.max_dte:
                 cmd += ['--max-dte', str(a.max_dte)]
+            if a.endpoint != 'eod':
+                cmd += ['--endpoint', a.endpoint]
             log(f"window open until {stop_at:%Y-%m-%d %H:%M %Z} (no new requests after {deadline:%H:%M}); pulling")
             with open(os.path.join(a.logs, f'{a.name}.{a.mode}.pull.log'), 'a') as pl:
                 p = subprocess.Popen(cmd, stdout=pl, stderr=subprocess.STDOUT, start_new_session=True)
