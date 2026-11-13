@@ -1035,3 +1035,21 @@ XLF EEM HYG SMH XLE USO GDX TQQQ ARKK FXI EWZ KRE XBI), today's liquid option ET
 - **XS loses in real drawdowns:** SPY -10..-20%: -9.9% PF 0.79 (top 5%: -25.9%); best at -2..-5% (+36% PF 3.86).
   TS holds up there (+20.6% PF 1.98). By SPY 20-day return: no monotone pattern.
 - Years (XS or TS): 2016 +1.3%, 2020 +3.9%, 2024 +0.3%, 2025 +4.2%, the rest +13..+49%.
+
+## SH-34 — the call side: steep CALL skew -> sell the 25-delta call, delta-hedged (user 2026-11-13)
+
+`call_skew.py` (logs/options_call_skew.log). C25, sold at the bid, daily hedge - 2bp, hs <= 5%, no earnings, 2013+,
+call skew c = IV25c / IV_ATM, prior-year percentiles. **The hedge is what makes it work:** naked, ETF short calls lose
+at every cutoff (top 10% -11.1%); hedged, they earn.
+| call skew | stocks hedged | stocks naked | ETFs hedged | ETFs naked |
+|---|---|---|---|---|
+| all | -3.7% PF 0.91 | -10.1% | +0.2% PF 1.00 | -6.0% |
+| top 10% | +9.7% PF 1.26 t 7.5 (12/14) | +7.0% PF 1.09 | +9.6% PF 1.30 t 6.9 (12/14) | -11.1% |
+| top 5% | +15.0% PF 1.43 (13/14, worst -67%) | +11.7% | +13.2% PF 1.43 | -8.4% |
+| top 2% | +23.9% PF 1.76 (worst yr -90%) | +23.8% | +15.8% PF 1.53 | -17.7% |
+- ETFs: TS (z top 10%) +12.8% PF 1.43; inside top 10%, fslope top tercile +11.4% PF 1.37, 13/14 yrs, worst -2%.
+  Names: GLD 3,642, SLV 2,315, TLT 1,308, IWM, GDX, SPY - commodity / bond ETFs.
+- Stocks: meme / speculative names and China ADRs (GME AMC BABA TWTR NIO MARA RIOT SNAP TLRY SPCE): fat tails (p1 -555%);
+  2016 -32%, 2026 -12%. fslope adds little.
+- Weaker than the put side (puts top 10%: stocks +15.7% PF 1.58, ETFs +21.0% PF 1.90) but nearly disjoint from it
+  (2% of call-signal stock trades also carry a top-10% put skew; 0% on ETFs): a second, independent book.
