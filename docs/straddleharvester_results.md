@@ -985,3 +985,29 @@ ratio): Spearman 0.99 with fslope here (A is short, so its variance barely moves
   the worst decile (P25 -12%).
 - As a second filter on the put-skew signal (top 10% skew, in-sample terciles of fslope): ETF high +29.2% PF 2.75
   (t 11.5) vs low +5.5% PF 1.16; stocks high +13.1% PF 1.49 vs low +6.5% PF 1.19. To be tested out-of-sample.
+
+## SH-31 — the put-skew edge: timing or name selection? (user 2026-11-13)
+
+`skew_split.py` (logs/options_skew_split.log). P25, sold at the bid, daily hedge - 2bp, hs <= 5%, no earnings, 2013+.
+Per root-day skew s = mean IV25p/IV_ATM over its 1-10 day expiries; lvl = mean of s over the previous 252 rows (the
+name's usual skew), z = (s - lvl) / sd (unusual today). All thresholds = quantiles of prior years (per kind).
+
+| | stocks | ETFs |
+|---|---|---|
+| all P25 | -2.2% PF 0.94 | -0.9% PF 0.97 |
+| XS: the trade's skew top 10% (SH-28) | +15.7% PF 1.58 (12/14 yrs) | +21.0% PF 1.90 (12/14) |
+| LVL: the name's usual skew top 10% | +4.7% PF 1.15 (2018 -70%) | -0.8% PF 0.97 (SPY) |
+| TS: z top 10% | +0.5% PF 1.01 | +15.7% PF 1.61 (13/13) |
+| XS & not TS | +16.7% PF 1.70 t 8.0 (14/14) | +12.1% PF 1.48 |
+| XS & TS | +15.1% PF 1.52 | +28.5% PF 2.30 |
+| TS & not XS | -5.1% | +10.3% PF 1.38 |
+| XS & front rich vs forward (fslope top tercile) | +18.0% PF 1.73 (13/14) | +34.0% PF 3.16 t 10.6 (13/14) |
+| XS & fslope bottom tercile | +10.9% PF 1.32 | +6.1% PF 1.18 |
+
+- **Stocks: it is the ABSOLUTE skew that pays**, not either part: the steep-name level alone is weak, today's unusual
+  steepness alone is nothing; XS trades that are NOT unusual for their name do as well as those that are. 18% of the
+  XS trades are on top-10% level names, 63% have a top-10% z. TS names = volatile tech (AAPL TSLA NVDA NFLX);
+  LVL names = low-vol large caps (XOM T SBUX JPM VZ).
+- **ETFs: timing carries it** (TS alone 13/13 years; SPY's always-steep level alone earns nothing).
+- **The forward slope confirms out of sample** (prior-year terciles): inside XS the front-rich third is the best
+  third on both kinds. Its 2020: stocks -15%, ETFs -32%.
