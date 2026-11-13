@@ -66,6 +66,18 @@ class Reference:
         self.cal = sorted(pd.Timestamp(l.strip()).date() for l in open(calendar_path) if l.strip()) \
             if calendar_path and os.path.exists(calendar_path) else []
 
+    def trading_day(self, d):
+        """False only when a calendar covers d and says it is no trading day (2026-11-13: O 2013-11-02, a SATURDAY, is a
+        permanent HTTP 500 ArrayIndexOutOfBounds on ThetaData's side - a bisection down to single days must not fail on
+        a day that cannot have data)."""
+        if not hasattr(self, '_tset'):
+            self._tset = set(self.cal) | set(self.days)
+            self._lo = min(self._tset) if self._tset else None
+            self._hi = max(self._tset) if self._tset else None
+        if not self._tset or d < self._lo or d > self._hi:
+            return True
+        return d in self._tset
+
     def expected_last(self, root, start, end):
         if self.m0 is not None and end >= self.m0:    # the Massive-covered part of the range
             xs = [x for x in self.by_root.get(root, self.days) if max(start, self.m0) <= x <= end]
@@ -127,6 +139,8 @@ def fetch_range(root, start, end, max_dte, ref, depth=0):
     if max_dte:
         q['max_dte'] = max_dte
     single = s == e
+    if single and not ref.trading_day(s):
+        return pd.DataFrame(columns=KEEP_OUT), ''
     why = ''
     for wait in (DAY_BACKOFF if single else BACKOFF):
         time.sleep(wait)
