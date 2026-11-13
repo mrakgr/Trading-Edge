@@ -1011,3 +1011,14 @@ name's usual skew), z = (s - lvl) / sd (unusual today). All thresholds = quantil
 - **ETFs: timing carries it** (TS alone 13/13 years; SPY's always-steep level alone earns nothing).
 - **The forward slope confirms out of sample** (prior-year terciles): inside XS the front-rich third is the best
   third on both kinds. Its 2020: stocks -15%, ETFs -32%.
+
+## SH-32 — a stricter skew cutoff (user 2026-11-13)
+
+`skew_threshold.py` (logs/options_skew_threshold.log), same trades as SH-31, prior-year percentiles.
+- Stocks: expectancy rises with the cutoff (bands: 80-90 pct +5.0% PF 1.16, 90-95 +13.1% 1.48, 95-98 +19.5% 1.81 t 8.6
+  13/14 yrs, 98-99 +23.4% 1.84, 99-100 +26.7% 1.76) but PF plateaus at ~1.8 above the 95th, the t-stat falls (top 1%:
+  506 trades, t 1.3) and single years blow up (top 2% worst year -142%, top 1% -359%). Top 5%: +21.3% PF 1.81 13/14.
+- ETFs: rises all the way - top 5% +26.6% PF 2.28; top 2% +44.5% PF 4.16 (357 trades on 157 days); top 1% PF 4.22
+  (84 trades, 49 days). TS (z) likewise: top 1% +46.3% PF 4.45 (477 trades).
+- Total premium earned falls as the cutoff tightens (stocks: top 10% ~1,440 premium-units, top 5% ~800, top 2% ~310):
+  better = size by the percentile than cut the trades.
