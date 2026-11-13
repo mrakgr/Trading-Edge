@@ -1022,3 +1022,16 @@ name's usual skew), z = (s - lvl) / sd (unusual today). All thresholds = quantil
   (84 trades, 49 days). TS (z) likewise: top 1% +46.3% PF 4.45 (477 trades).
 - Total premium earned falls as the cutoff tightens (stocks: top 10% ~1,440 premium-units, top 5% ~800, top 2% ~310):
   better = size by the percentile than cut the trades.
+
+## SH-33 — the ETF signals: which ETFs, and when (user 2026-11-13)
+
+`etf_regime.py` (logs/options_etf_regime.log). ⚠ The ETF list is 20 HAND-PICKED tickers (SPY QQQ IWM DIA GLD TLT SLV
+XLF EEM HYG SMH XLE USO GDX TQQQ ARKK FXI EWZ KRE XBI), today's liquid option ETFs = hindsight; the universe rule
+(SH-5) admits only CS/ADRC. To do: a point-in-time ETF universe by the same volume rule.
+- Signal (XS or TS top 10%) on 55% of trading days, median 3 trades per signal day. SPY 3,861 trades, QQQ 1,748,
+  IWM 1,545, GLD 722, TLT 568, SLV 508, DIA 394; the rest < 300 (spreads > 5% or few days). Weak: GLD, SLV, SMH, GDX, TQQQ.
+- **Mostly regular trading:** 64% of the signal trades with SPY within 2% of its 1-year high (60% of all days),
+  21% at -2..-5%, 10% at -5..-10%, 5% beyond -10%. XS fires 70% near highs.
+- **XS loses in real drawdowns:** SPY -10..-20%: -9.9% PF 0.79 (top 5%: -25.9%); best at -2..-5% (+36% PF 3.86).
+  TS holds up there (+20.6% PF 1.98). By SPY 20-day return: no monotone pattern.
+- Years (XS or TS): 2016 +1.3%, 2020 +3.9%, 2024 +0.3%, 2025 +4.2%, the rest +13..+49%.
