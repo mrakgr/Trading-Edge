@@ -953,3 +953,22 @@ Volume / abnormal volume / liquidity rank deciles: flat.
 (2018, 2020, 2022, 2024 negative). Stock straddles: nothing after costs.
 **Days to expiry:** 1-DTE (entered at the close) is the best bucket for straddles (stocks +4.5% hedged PF 1.17, ETFs +4.0%).
 ⚠ EOD data cannot do true 0-DTE (needs intraday quotes). Static hedge only; stock-side hedge costs ignored.
+
+## SH-29 — daily-rebalanced delta hedge vs static (user 2026-11-13)
+
+`hedge_daily.py` -> data/options/short_dated/hedge.parquet (3.82M single-leg trades, 90 s): each day to expiry the
+hedge is reset to the option's delta from that day's closing mid IV (no IV -> -1/+1 in the money, else 0; a missing quote
+keeps the delta); self-check: the delta frozen at entry reproduces the static hedge exactly. `hedge_compare.py`
+(logs/options_hedge_compare.log): sold at the bid, % of the mid premium; daily_c = daily minus 2bp of S per share traded
+(turnover ~1.0-1.1 shares per share of option for the 25-delta put = 3-6% of its premium).
+
+SH-28 signal (steep put skew, P25, hs <= 5%):
+| | naked | static | daily | daily - 2bp |
+|---|---|---|---|---|
+| stocks (8,679) | +18.8% PF 1.32, sd 229% | +24.1% PF 1.53, sd 169% | +19.8% PF 1.78, sd 118% | +16.6% PF 1.62 t 5.8 |
+| ETFs (4,642) | +35.8% PF 1.76, sd 214% | +37.9% PF 2.16, sd 154% | +26.7% PF 2.26, sd 101% | +21.0% PF 1.90 t 5.9 |
+- Daily cuts the spread by a third and the 1% tail by half (stocks p1 -661% -> -335%); the mean drops (static keeps
+  the rebound after a dip; daily hedging pays the gamma as it goes).
+- **2020 is fixed:** daily-2bp -1% (stocks) / +3% (ETFs) vs static -14% / -26% and naked -35% / -41%. Worst years now:
+  stocks 2025 -6%, ETFs 2016 -5% / 2024 -2%.
+- Without the signal, every hedged short (all P25, ATM puts, 25d calls) is ~0 or negative after the stock cost.
