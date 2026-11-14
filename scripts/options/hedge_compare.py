@@ -8,6 +8,7 @@ Signal = SH-28: put skew (IV25p / IV_ATM) >= the 90th percentile of all prior ye
 import numpy as np, pandas as pd
 pd.set_option('display.width', 250)
 T = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; T = drop_bad(T)   # SH-36: vanished contracts (corporate actions)
 T = T[T.inst.isin(['AP', 'AC', 'P25', 'C25'])]
 H = pd.read_parquet('data/options/short_dated/hedge.parquet')
 D = T.merge(H, on=['root', 'date', 'exp', 'K', 'r', 'inst'])

@@ -9,7 +9,9 @@ absent: the increment runs to the contract's next quoted day). Hedge P&L per sha
 for the SHORT option, rebalanced at each close):  sum over d in [t, xd) of delta_d x (S(next d) - S(d)).
   hd     = that sum, per trade (same sign convention as short_dated's static dl x (Sx - S));
   hs_chk = the same with delta frozen at the entry's (= the static hedge: a self-check);
-  turn   = shares traded per share of option over the life: |delta_t| + sum |delta_d - delta_prev| + |delta_last|.
+  turn   = shares traded per share of option over the life: |delta_t| + sum |delta_d - delta_prev| + |delta_last|;
+  last_q / vanish = the contract's last day with an ask; vanish = none on the expiry day nor the day before (a corporate
+  action re-rooted it, e.g. WOLF -> WOLF1 2025-09-29: the spot-intrinsic settle is then wrong) -> sd_common drops it.
 Writes <out>/hedge.parquet keyed (root, date, exp, K, r, inst).
     cd research && python3 scripts/options/hedge_daily.py > logs/options_hedge_daily.log 2>&1
 """
@@ -79,10 +81,14 @@ def run(root):
                   from read_parquet({fy}) o join cy on cast(o.expiration as date) = cast(cy.exp as date) and o.strike = cy.K
                        and o."right" = cy.r
                   where cast(o.date as date) >= cast(cy.first as date) and cast(o.date as date) <= cast(cy.xd as date)
-                    and o.bid > 0 and o.ask >= o.bid""").df()
+                    and o.ask > 0""").df()
         con.close()
         if q.empty: continue
         for c in ('date', 'exp', 'first', 'xd'): q[c] = pd.to_datetime(q[c])
+        # the contract's LAST quoted day (any ask): a corporate action moves it to a new root (WOLF -> WOLF1) before expiry
+        lastq = q.groupby(['exp', 'K', 'r']).date.max().rename('last_q').reset_index()
+        q = q[(q.bid > 0) & (q.ask >= q.bid)]
+        if q.empty: continue
         q['S'] = q.date.map(S); q = q.dropna(subset=['S'])
         di = np.searchsorted(TD, q.date.values.astype('datetime64[D]'), 'right') - 1
         xi = np.searchsorted(TD, q.xd.values.astype('datetime64[D]'), 'right') - 1
@@ -105,11 +111,13 @@ def run(root):
         q['cturn'] = g.ddel.cumsum()
         fin = g.agg(cfin=('cum', 'last'), tfin=('cturn', 'last'), dlast=('delta', 'last')).reset_index()
         T2 = T_[T_['date'].dt.year == y].merge(q[['exp', 'K', 'r', 'date', 'cprev', 'cturn', 'delta', 'S']], on=['exp', 'K', 'r', 'date'], how='inner')
-        T2 = T2.merge(fin, on=['exp', 'K', 'r'])
+        T2 = T2.merge(fin, on=['exp', 'K', 'r']).merge(lastq, on=['exp', 'K', 'r'], how='left')
+        xi2 = np.searchsorted(TD, T2.xd.values.astype('datetime64[D]'), 'right') - 1
+        T2['vanish'] = T2.last_q.values.astype('datetime64[D]') < TD[np.maximum(xi2 - 1, 0)]   # no quote on xd nor the day before
         T2['hd'] = T2.cfin - T2.cprev
         T2['hs_chk'] = T2.delta * (T2.xd.map(S) - T2.S)
         T2['turn'] = T2.delta.abs() + (T2.tfin - T2.cturn) + T2.dlast.abs()
-        out.append(T2[['root', 'date', 'exp', 'K', 'r', 'inst', 'hd', 'hs_chk', 'turn']])
+        out.append(T2[['root', 'date', 'exp', 'K', 'r', 'inst', 'hd', 'hs_chk', 'turn', 'last_q', 'vanish']])
         del q
     return pd.concat(out, ignore_index=True) if out else None
 

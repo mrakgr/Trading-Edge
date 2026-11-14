@@ -8,6 +8,7 @@ Cuts: all, half-spread <= 5%, the more liquid half of names that day (liq >= .5)
 import numpy as np, pandas as pd
 pd.set_option('display.width', 250); pd.set_option('display.max_columns', 40)
 D = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; D = drop_bad(D)   # SH-36: vanished contracts (corporate actions)
 D['mid'] = (D.bid + D.ask) / 2
 D = D[(D.mid >= 0.05) & ~D.earn].copy()
 D['hs'] = (D.ask - D.bid) / 2 / D.mid

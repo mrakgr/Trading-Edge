@@ -50,7 +50,7 @@ if etfs:
     sp = I['c'].sql(f"select ticker, execution_date d from splits where ticker in ({tl})").df(); sp['d'] = pd.to_datetime(sp.d)
     for r, g in da.groupby('ticker'):
         SPOT[r] = g.set_index('date').close; RET[r] = g.set_index('date').r
-        SPL[r] = np.array(sp[sp.ticker == r].d.values, dtype='datetime64[D]'); KIND[r] = 'etf'
+        SPL[r] = np.sort(np.array(sp[sp.ticker == r].d.values, dtype='datetime64[D]')); KIND[r] = 'etf'
         UDAYS[r] = pd.DatetimeIndex(g.date[g.date >= '2012-06-01'].values)
 roots = sorted(KIND)
 E = I['E_RAW']

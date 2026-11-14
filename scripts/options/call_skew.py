@@ -10,6 +10,7 @@ Also the put-signal overlap: how often the same root-day carries a top-10% PUT s
 import duckdb, numpy as np, pandas as pd
 pd.set_option('display.width', 250)
 T = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; T = drop_bad(T)   # SH-36: vanished contracts (corporate actions)
 T = T[(T.inst == 'C25') & ~T.earn]
 H = pd.read_parquet('data/options/short_dated/hedge.parquet', filters=[('inst', '==', 'C25')])
 D = T.merge(H, on=['root', 'date', 'exp', 'K', 'r', 'inst'])

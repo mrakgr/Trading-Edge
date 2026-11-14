@@ -12,6 +12,7 @@ from tr_index import add_tr
 pd.set_option('display.width', 250)
 
 D = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; D = drop_bad(D)   # SH-36: vanished contracts (corporate actions)
 D['mid'] = (D.bid + D.ask) / 2
 D = D[(D.mid >= .05) & ~D.earn & (D.inst == 'P25') & (D.kind == 'stock')].copy()
 D['hs'] = (D.ask - D.bid) / 2 / D.mid; D['year'] = D.date.dt.year

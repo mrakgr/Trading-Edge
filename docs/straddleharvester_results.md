@@ -1065,3 +1065,35 @@ at every cutoff (top 10% -11.1%); hedged, they earn.
   best -5..-30% below the high (+12-13%, PF 1.4-1.5); top 5% at -5..-15%: +18.4% PF 1.67.
 **Puts: no such veto.** Stocks, put skew top 10%: at the high +12.6% PF 1.41 (323), not +16.2% 1.60; best band
 -15..-30% below the high +21.0% PF 1.88, 14/14 years. ETFs: at the high +28.3% PF 2.28 (SPY near highs; 2016 -105%).
+
+## SH-36 — ERRATA: splits and re-rooted contracts in the short-dated trades (2026-11-14)
+
+- **Splits slipped through:** survey_inputs.py built each root's split dates in database order (newest first) and
+  short_dated.py counted splits in the hold with np.searchsorted, which needs ASCENDING dates - most splits were missed
+  (TSLA 2022-08, AAPL 2020-08, NVDA 2024-06, NFLX 2025-11, GE 2021 reverse: the raw spot moved x0.1..x8 in the hold).
+  Fixed (np.sort in survey_inputs.py and short_dated.py's ETF branch): 580 trades removed. event_vol.py / skew_vert.py /
+  vv_long.py use an order-free test, so SH-25 is unaffected.
+- **Unrecorded corporate actions:** WOLF's 2025-09-29 reorganisation (no split record; the raw spot 1.21 -> 22.10) - the
+  old contracts stop under WOLF on 09-26 and continue as WOLF1. hedge_daily.py now records each contract's last quoted
+  day (any ask) and flags `vanish` = no quote on the expiry day nor the day before; sd_common.drop_bad() drops them in
+  every report (2,222 trades, mostly vendor holes - the L*/M* 2019-12..2020-03 gap - and WOLF).
+- **Effect:** conclusions unchanged, numbers a little stronger and much less noisy. SH-29 stock put signal daily-2bp:
+  +17.8% PF 1.70 t 11.6 (was +16.6% 1.62 t 5.8; the -3,942% trade was a split), 13/14 years; ETFs unchanged (+21.0% PF
+  1.90). SH-31 XS stocks +17.0% PF 1.66 (13/14). SH-32 stocks top 10% +17.8% PF 1.70. SH-34 stock calls top 10% +10.1%
+  PF 1.28. SH-35 calls not at the high (top 5%) +17.3% PF 1.53. Pre-fix logs: logs/pre_sh36/.
+
+## SH-37 — buying ATM options instead of the stock hedge, and buying them outright (user 2026-11-14)
+
+`atm_hedge.py` (logs/options_atm_hedge.log). Same root-day-expiry; the 25d short at the bid; both legs hs <= 5% (a
+stricter sample than SH-29). ratio = short 1 x 25d + long n x ATM (n = delta25/deltaATM ~0.5, bought at the ask), delta-
+neutral at entry, held to expiry; ratio_dh adds a daily stock hedge on the rest; longATM = the ATM option alone.
+| signal (skew top 10%) | stock hedge (daily) | ATM-option hedge | ratio + daily | naked short | long ATM alone |
+|---|---|---|---|---|---|
+| stock puts (12.0k) | +12.1% PF 1.45 t 7.2 | +1.3% PF 1.04 | -5.4% | +14.4% PF 1.23 (worst yr -88%) | -10.8% of its premium |
+| ETF puts (5.6k) | +19.0% PF 1.78 | +15.1% PF 1.69 (worst yr -28%) | -2.6% | +32.6% PF 1.65 (worst yr -64%) | -15.2% |
+| stock calls (29.9k) | +6.9% PF 1.19 | -2.6% | -4.8% | +1.9% | -3.7% |
+| ETF calls (9.8k) | +8.6% PF 1.27 | +0.1% | -9.1% | -11.9% | +9.4% PF 1.17 |
+- The ATM leg gives the edge back: ATM options carry their own variance premium plus the ask, so buying them to hedge
+  pays away most of what the rich 25d leg earns. The stock hedge costs ~3-6% of the premium.
+- Long ATM options lose on every put sample; ATM calls earn a little (all ETF calls +2.4%, on call-skew days +9.4%) -
+  the 2012-26 up-drift, not an option edge.

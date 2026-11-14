@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from tr_index import add_tr
 pd.set_option('display.width', 250)
 T = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; T = drop_bad(T)   # SH-36: vanished contracts (corporate actions)
 T = T[(T.inst == 'P25') & ~T.earn & (T.kind == 'etf')]
 H = pd.read_parquet('data/options/short_dated/hedge.parquet', filters=[('inst', '==', 'P25')])
 D = T.merge(H, on=['root', 'date', 'exp', 'K', 'r', 'inst'])

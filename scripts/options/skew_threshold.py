@@ -7,6 +7,7 @@ non-overlapping bands (e.g. 90-95th pct) so each band's own expectancy shows.
 """
 import numpy as np, pandas as pd
 T = pd.read_parquet('data/options/short_dated/trades.parquet')
+from sd_common import drop_bad; T = drop_bad(T)   # SH-36: vanished contracts (corporate actions)
 T = T[(T.inst == 'P25') & ~T.earn]
 H = pd.read_parquet('data/options/short_dated/hedge.parquet', filters=[('inst', '==', 'P25')])
 D = T.merge(H, on=['root', 'date', 'exp', 'K', 'r', 'inst'])
