@@ -1097,3 +1097,21 @@ neutral at entry, held to expiry; ratio_dh adds a daily stock hedge on the rest;
   pays away most of what the rich 25d leg earns. The stock hedge costs ~3-6% of the premium.
 - Long ATM options lose on every put sample; ATM calls earn a little (all ETF calls +2.4%, on call-skew days +9.4%) -
   the 2012-26 up-drift, not an option edge.
+
+## SH-38 — IV / RV and the choice of RV estimator (user 2026-11-14)
+
+`ivrv.py` (logs/options_ivrv.log). Estimators on split/dividend-continuous OHLC (x n), windows ending at t: cc10/cc20,
+Yang-Zhang 5-60, YZ with the earnings reaction days masked (yz10x, yz20x), HAR (yz5/yz20/yz60). Future RV = close-to-close
+over the hold. Trades: STR / P25 / C25, sold at the bid, daily hedge - 2bp, hs <= 5%, no earnings in hold, 2013+.
+- **Forecasting the hold's RV** (Spearman, STR trades): Yang-Zhang beats close-to-close (stocks yz20 .710 vs cc20 .688;
+  ETFs yz10 .691 vs cc20 .678); masking earnings days helps stocks most (yz20x .734, yz10x .731, best of the RVs);
+  **the ATM IV itself forecasts best** (.782 stocks, .756 ETFs). Realized over the hold runs ~13-16% below IV (median
+  log ratio -.14/-.15) and ~15-25% below trailing RV.
+- **IV/RV as a signal is weak** for these short-dated trades. The delta-hedged ATM straddle LOSES after the bid and the
+  hedge cost in every bucket (stocks all -3.5% PF 0.81; IV/RV top 10% ~0%, PF 1.0; ETFs top 10% -0.4..-3.4%): the ATM
+  premium is too small to pay ~4-6% of costs. On the 25d put it helps (stocks IV/yz20 top 10% +10.1% PF 1.33 t 4.4,
+  8/13 years) but less than the put skew (+17.8% PF 1.70). Calls: nothing.
+- **Inside the skew signal** (IV/yz20x terciles, prior years): stock puts top tercile +16.9% PF 1.65 t 10.5 vs bottom
+  +10.6% PF 1.36 (13/13 yrs); ETF puts +22.4% PF 2.00 vs +18.1% 1.70; ETF calls +12.8% 1.41 vs +8.0% 1.24. A mild filter.
+- Use yz20x (stocks) / yz10 (ETFs) when an RV is needed; the variance premium in short-dated options sits in the
+  25-delta wings, not at the money.
