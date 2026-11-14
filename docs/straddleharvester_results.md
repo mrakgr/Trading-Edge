@@ -1128,3 +1128,25 @@ over the hold. Trades: STR / P25 / C25, sold at the bid, daily hedge - 2bp, hs <
   ⚠ The stock-put 1.79 (yz20x) is NOT robust: its neighbours give 1.08-1.31 (yz10/yz20) and 0.99 (yz30x), and long windows
   flip the sign (low IV/RV better). ETF puts like a short window (yz10: t1 PF 1.39 -> t3 2.52); ETF calls a long one
   (yz30x/yz60x: t1 ~ breakeven -> t3 PF 1.42-1.49). Many variants were tried: pick per book only with an out-of-sample check.
+
+## SH-39 — robust IV features: median RV, IV vs its own history, the name's VRP history (user 2026-11-14)
+
+`ivrv2.py` (logs/options_ivrv2.log) on ivrv.py's cache (data/options/short_dated/{ivrv_trades,rv_daily}.parquet).
+IV/medRV_W = iv_atm / the rolling MEDIAN of the daily yz20x over W days; iv30/medIV_W = the ~30-day ATM IV / its median
+over the previous W days; vrph_W = the median over W days of log(iv30_d / RV of the 21 days after d), lagged 21 days.
+Inside the skew top 10%, spread = (PF_t3 - 1) / (PF_t1 - 1) of prior-year terciles (t3 = highest feature):
+| feature | stock P25 | stock C25 | ETF P25 | ETF C25 |
+|---|---|---|---|---|
+| IV/yz20x (SH-38 ref) | 1.71 | 1.10 | 1.42 | 1.72 |
+| IV/medRV 60 / 120 / 252 | 1.03 / 1.10 / 1.53 | 1.96 / 1.25 / 2.24 | 1.68 / 2.07 / 2.65 | 3.26 / 3.25 / 1.45 |
+| iv30/medIV 60 / 120 / 252 | 0.50 / 0.41 / 0.55 | 1.08 / 1.13 / 1.91 | 0.67 / 0.93 / 1.10 | 1.68 / 1.18 / 0.95 |
+| vrph 120 / 252 | 1.34 / 1.53 | 4.52 / (t1 PF 0.99) | 0.28 / 0.46 (t1 n 744/517) | 14.8 / 4.59 |
+- **The median RV is the robust IV/RV:** every window > 1 on all four books (the window sweep of SH-38 flipped sign).
+  ETF puts t3 PF 2.03-2.47 vs t1 1.55-1.61; stock calls t3 1.31-1.36 vs t1 1.16-1.25.
+- **IV vs its own history: for puts, LOW is better**, consistently (stock P25: iv30 below its usual -> +16.6-16.9%
+  PF 1.67, 12/13 yrs; above -> PF 1.27-1.33). Steep put skew in a calm market (cf. SH-33: near highs).
+- **The name's own VRP history (VV's point) is real:** stock calls t1 +3.2% PF 1.08 -> t3 +12.5% PF 1.37 (vrph120);
+  ETF calls 1.05 -> 1.77. On the ATM straddle the low-VRP decile is the worst (stocks d1 -4.9% vs d10 -1.3%; vrph252 d1
+  -5.3%) - but no decile pays the costs.
+- Candidates for SIZING (consistent across windows): ETF puts IV/medRV; stock puts low iv30/medIV; calls vrph and
+  IV/medRV. To be confirmed out-of-sample in the portfolio test.

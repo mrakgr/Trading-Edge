@@ -101,6 +101,9 @@ xc = da[['ticker', 'date', 'cum2']].rename(columns={'ticker': 'und', 'date': 'xd
 D['xd'] = pd.to_datetime(D.xd)
 D = D.merge(xc, on=['und', 'xd'], how='left')
 D['rv_fut'] = np.sqrt((D.cum2x - D.cum2).clip(lower=0) * 252 / D.tdte)
+# cache for ivrv2.py: the daily RV series (from 2011) and the trade table (all years: the prior-year quantiles need 2012)
+da[['ticker', 'date', 'r_cc', 'yz10', 'yz20', 'yz20x', 'earn']].to_parquet('data/options/short_dated/rv_daily.parquet', index=False)
+D.drop(columns=['cum2', 'cum2x']).to_parquet('data/options/short_dated/ivrv_trades.parquet', index=False)
 D = D[D.year > 2012]
 print(f'trades {len(D):,} (STR {int((D.inst == "STR").sum()):,}, P25 {int((D.inst == "P25").sum()):,}, C25 {int((D.inst == "C25").sum()):,})')
 
