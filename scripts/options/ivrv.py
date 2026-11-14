@@ -87,8 +87,8 @@ def cc(df, w):
 
 
 EST = {}
-for w in (5, 10, 20, 30, 60): EST[f'yz{w}'] = yz(da, w)
-EST['yz10x'] = yz(da, 10, da.earn); EST['yz20x'] = yz(da, 20, da.earn)
+for w in (5, 10, 20, 30, 60, 90, 120): EST[f'yz{w}'] = yz(da, w)
+for w in (10, 20, 30, 60, 90, 120): EST[f'yz{w}x'] = yz(da, w, da.earn)   # 2026-11-14: longer windows (user)
 EST['cc10'] = cc(da, 10); EST['cc20'] = cc(da, 20)
 EST['har'] = np.sqrt((EST['yz5'] ** 2 + EST['yz20'] ** 2 + EST['yz60'] ** 2) / 3)
 for k_, v in EST.items(): da[k_] = v
@@ -143,7 +143,7 @@ def st(x):
 
 
 print('\n== 2) IV/RV: top / bottom decile (prior-year quantiles per kind x inst); sold at the bid, daily hedge - 2bp')
-for nm in ['cc20', 'yz10', 'yz20', 'yz20x', 'har', 'yz60']:
+for nm in ['cc20', 'yz20', 'yz20x', 'yz60x', 'yz120x']:
     D['ivrv'] = D.iv_atm / D[nm]
     D['p'] = prior_pct(D, 'ivrv')
     print(f'-- IV / {nm}')
@@ -153,12 +153,22 @@ for nm in ['cc20', 'yz10', 'yz20', 'yz20x', 'har', 'yz60']:
             print(f'   {k_:5s} {i:4s} top10%: {st(x[x.p >= .9])} | bottom10%: {st(x[x.p < .1])} | all: {st(x)}')
 
 # ---- 3) inside the skew signals
-nm = 'yz20x'
-D['ivrv'] = D.iv_atm / D[nm]; D['p_v'] = prior_pct(D, 'ivrv')
 D['skw'] = np.where(D.inst == 'P25', D.iv25p, np.where(D.inst == 'C25', D.iv25c, np.nan)) / D.iv_atm
 D['p_s'] = prior_pct(D, 'skw')
-print(f'\n== 3) IV/{nm} terciles (prior years) inside the skew top 10%')
-for k_ in ['stock', 'etf']:
-    for i in ['P25', 'C25']:
-        x = D[(D.kind == k_) & (D.inst == i) & (D.p_s >= .9) & D.p_v.notna()]
-        print(f'   {k_:5s} {i}: ' + ' | '.join(f'ivrv t{t + 1}: {st(x[(x.p_v >= t / 3) & (x.p_v < (t + 1) / 3)])}' for t in range(3)))
+
+
+def pf(v):
+    w, l = v[v > 0].sum(), -v[v < 0].sum()
+    return w / l if l > 0 else np.nan
+
+
+print('\n== 3) IV/RV terciles (prior years) inside the skew top 10%; spread = (PF_t3 - 1) / (PF_t1 - 1)')
+for nm in ['cc20', 'yz10', 'yz20', 'yz20x', 'yz30x', 'yz60x', 'yz90x', 'yz120x', 'har']:
+    D['ivrv'] = D.iv_atm / D[nm]; D['p_v'] = prior_pct(D, 'ivrv')
+    print(f'-- IV / {nm}')
+    for k_ in ['stock', 'etf']:
+        for i in ['P25', 'C25']:
+            x = D[(D.kind == k_) & (D.inst == i) & (D.p_s >= .9) & D.p_v.notna()]
+            ts = [x[(x.p_v >= t / 3) & (x.p_v < (t + 1) / 3)] for t in range(3)]
+            p1, p3 = pf(ts[0].pl), pf(ts[2].pl)
+            print(f'   {k_:5s} {i}: t1 {st(ts[0])} | t3 {st(ts[2])} | spread {(p3 - 1) / (p1 - 1) if p1 > 1 else np.nan:5.2f}')

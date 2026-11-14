@@ -1115,3 +1115,16 @@ over the hold. Trades: STR / P25 / C25, sold at the bid, daily hedge - 2bp, hs <
   +10.6% PF 1.36 (13/13 yrs); ETF puts +22.4% PF 2.00 vs +18.1% 1.70; ETF calls +12.8% 1.41 vs +8.0% 1.24. A mild filter.
 - Use yz20x (stocks) / yz10 (ETFs) when an RV is needed; the variance premium in short-dated options sits in the
   25-delta wings, not at the money.
+- **Longer YZ windows (user 2026-11-14): no.** Forecast rho of the hold's RV peaks at 20 days ex-earnings for stocks
+  (yz20x .734 -> yz60x .728 -> yz120x .716) and at 10 days for ETFs (yz10 .691 -> yz60 .648 -> yz120 .607): more days
+  shrink the estimator's noise but vol moves, and for a 1-10 day hold the recent past wins.
+  Inside the skew signal, spread = (PF_t3 - 1) / (PF_t1 - 1) of the IV/RV terciles:
+  | IV / | cc20 | yz10 | yz20 | yz20x | yz30x | yz60x | yz90x | yz120x | har |
+  |---|---|---|---|---|---|---|---|---|---|
+  | stock P25 | 0.65 | 1.31 | 1.08 | 1.79 | 0.99 | 0.83 | 0.58 | 0.71 | 0.89 |
+  | stock C25 | 1.03 | 1.16 | 1.04 | 1.12 | 1.48 | 1.88 | 1.31 | 1.10 | 1.55 |
+  | ETF P25 | 1.59 | 3.87 | 1.43 | 1.43 | 1.13 | 1.21 | 0.97 | 1.30 | 1.49 |
+  | ETF C25 | 1.15 | 1.08 | 1.72 | 1.72 | 10.5 | 19.4 | 1.99 | 4.00 | 1.08 |
+  ⚠ The stock-put 1.79 (yz20x) is NOT robust: its neighbours give 1.08-1.31 (yz10/yz20) and 0.99 (yz30x), and long windows
+  flip the sign (low IV/RV better). ETF puts like a short window (yz10: t1 PF 1.39 -> t3 2.52); ETF calls a long one
+  (yz30x/yz60x: t1 ~ breakeven -> t3 PF 1.42-1.49). Many variants were tried: pick per book only with an out-of-sample check.
