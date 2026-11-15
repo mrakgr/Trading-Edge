@@ -2652,3 +2652,44 @@ the ≤ −10 % names, up on Nasdaq gap-down opens and down on the rest. The oth
   - Controls each fail on purpose: the market term off (3 tests), the cutoff second counted (2), QQQ never unsubscribed (1).
 - ⚠ **Replays of the captures before 2026-11-06 hold no QQQ trades.** Their market gap is nan and every open is sized as a
   normal one.
+
+## GF-68 — the 10:00 EXIT: today's maker vs the NBBO step (2026-11-14, user)
+
+**Why.** The user adopted the NBBO step for FlushFader's entries (flushfader_results.md §S49ap-2: every 5 s without a
+fill, one tick past max(our price, the visible bid); entries + 5 s, ceiling the signal + 50 bp) and asked for it as the
+DEFAULT maker, exits included — "With exits, I am more concerned with GapFader and other systems". Every maker exit is
+`MakeSpreadRthOrMoo` (a sell at the ask, following it both ways, uncapped); GapFader's 10:00 time stop uses it, and
+live those fills came late (10:01–10:20, week 11-09..13). The exit step has NO floor (user: "The exit shouldn't have a
+floor").
+
+**Data** (`scripts/equity/gapfader_exit_cache.py`): GF-54's book, the trades whose target did not fill before 10:00
+(tf_50 >= 36000): **20,081** (2016-08 … 2026-09). Massive REST quotes 09:59:50–10:30 per trade (831 MB, 35 min) plus
+the standing quote at 10:00 for the 5,438 whose window had none (`--phase pre`); the bulk tape's prints over the same
+window (`--phase prints`, 363 MB, 22 min). **Sim** (`scripts/equity/gapfader_exit_sim.py`, 14 s): the sell is run as a
+buy in negated prices through flushfader_entry_sim.py's `run`, unchanged — today's maker = its live rule with no cap,
+the step = `nbbo-step` with no ceiling. \$1,000 / the cross shares from 10:00:00 + 0.216 s to 10:30; unsold shares
+valued at the last print before 10:30. vs the model = vs the book's x_36000, net of venue fees. 20,064 simulated.
+
+| rule | fill model | sold by 10:30 (full / part / none) | median s to fill | vs model bp | p1 / p5 bp | Δ vs today \$ (t, years > 0 of 11) |
+|---|---|---|---|---|---|---|
+| maker (today) | queue | 15,639 / 348 / 4,077 | 70 | −13.9 | −595 / −287 | — |
+| step 3 s | queue | 18,598 / 279 / 1,187 | 36 | −17.0 | −457 / −169 | −\$6,142 (−0.89, 4) |
+| step 5 s | queue | 18,456 / 290 / 1,318 | 42 | −14.9 | −457 / −173 | −\$2,081 (−0.35, 5) |
+| step 10 s | queue | 18,182 / 322 / 1,560 | 54 | −12.6 | −475 / −187 | +\$2,526 (0.51, 7) |
+| **step 30 s** | queue | 17,591 / 379 / 2,094 | 71 | **−11.0** | −521 / −222 | **+\$5,621 (1.79, 9)** |
+| maker (today) | lit | 15,819 / 482 / 3,763 | 57 | −11.4 | −581 / −278 | — |
+| step 5 s | lit | 18,340 / 423 / 1,301 | 47 | −18.9 | −470 / −187 | −\$14,587 (−2.41, 1) |
+| step 30 s | lit | 17,458 / 482 / 2,124 | 65 | −13.5 | −519 / −232 | −\$4,135 (−1.66, 1) |
+
+(hidden = queue for a sell that joins and then steps inside the spread.) The price after 10:00 drifts slightly DOWN
+(the last print at 10:30 vs x_36000: mean −2.8 bp, median −6.9 bp), so a slow exit is not paid for by drift.
+
+- **For exits the step is a RISK tool, not a profit one.** It sells far more of the position by 10:30 (unsold 4,077 →
+  1,187–2,094 trades) and cuts the tail (p5 −287 → −169…−222 bp; p1 −595 → −457…−521). On the mean it costs at fast
+  steps: an exit has no "missed winner" to recover, so each step gives away a tick that today's maker, waiting at the
+  ask, might have got.
+- **Slow steps are the better trade-off.** 30 s: +\$5.6k behind a queue (+2.9 bp of the notional, 9 of 11 years), −\$4.1k
+  in the lit model; 5 s: −\$2.1k / −\$14.6k. The fill model decides the sign, as for the entries; live's late 10:00 fills
+  (median about a minute or more) sit closer to the queue model.
+- Candidate for GapFader's 10:00 exit: the step at 30 s (or 10 s), NOT the entries' 5 s. No taken shares appear in any
+  rule (the visible bid never rose onto a stepped ask before a print filled it).

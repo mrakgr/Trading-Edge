@@ -75,6 +75,7 @@ ap.add_argument("--phase", choices=("fetch", "sim", "report", "all"), default="a
 ap.add_argument("--variants", default="MAKER,REST0,REST60,RESTinf,REST60_m1,REST60_p1",
                 help="S49al-4 (user 2026-11-04): H60 / H30 = after REST60's hold, rest at the ceil of the last 60 / 30 "
                      "present bars' vwap max (re-priced every bar, never the maker); H60_0 / H30_0 = the same from T+1")
+ap.add_argument("--procs", type=int, default=1, help="chunks in parallel processes (2026-11-14)")
 ap.add_argument("--tag", default="", help="an output suffix (sim<tag>.parquet, parts<tag>/, report<tag>.md)")
 args = ap.parse_args()
 T0 = time.time()
@@ -176,9 +177,11 @@ def tape_for(d, sym, t_end_max):
     return None
 
 @njit(cache=True)
-def run(et, ets, eb, ea, eas, ep, es, elit, eauc, sched_t, sched_px, t_maker, t_end, n, tick, fm, lat, out_t, out_px, out_q):
-    """One sell order's life. et 0 = quote, 1 = print. Returns (filled, proceeds, n_fills, taker shares, crossed shares, re-pricings)."""
-    px = np.nan; pend_t = -1.0; pend_px = np.nan
+def run(et, ets, eb, ea, eas, ep, es, elit, eauc, sched_t, sched_px, t_maker, t_end, n, tick, fm, lat, out_t, out_px, out_q, step):
+    """One sell order's life. et 0 = quote, 1 = print. Returns (filled, proceeds, n_fills, taker shares, crossed shares, re-pricings).
+    step > 0 (2026-11-14, the user's NBBO step as the exit): from t_maker on, instead of the maker, every `step` s without a
+    fill the sell goes one tick below min(its price, the ask) — never at the bid, never up, held between steps."""
+    px = np.nan; pend_t = -1.0; pend_px = np.nan; t_next = 1e18
     lb = 0.0; la = 0.0; las = 0.0; qa = 0.0
     si = 0; maker = False
     got = 0.0; proc = 0.0; k = 0; taker = 0.0; crossed = 0.0; moves = 0
@@ -195,11 +198,25 @@ def run(et, ets, eb, ea, eas, ep, es, elit, eauc, sched_t, sched_px, t_maker, t_
             si += 1
         if (not maker) and ts >= t_maker:
             maker = True
-            if la > 0:
+            if step > 0:
+                t_next = t_maker + step
+                if not (px == px) and pend_t < 0 and la > 0:      # no resting order yet: join the ask
+                    pend_t = t_maker + lat; pend_px = la
+            elif la > 0:
                 cur = pend_px if pend_t >= 0 else px
                 if not (abs(la - cur) < 1e-9):
                     if pend_t < 0: pend_t = t_maker + lat
                     pend_px = la
+        if maker and step > 0:
+            while ts >= t_next:
+                cur = pend_px if pend_t >= 0 else px
+                if la > 0 and cur == cur:
+                    nx = max(min(cur, la) - tick, lb + tick)
+                    nx = round(nx / tick) * tick
+                    if nx < cur - 1e-9:
+                        if pend_t < 0: pend_t = t_next + lat
+                        pend_px = nx
+                t_next += step
         # a pending price goes live
         if pend_t >= 0 and ts >= pend_t:
             act_t = pend_t; px = pend_px; pend_t = -1.0; moves += 1
@@ -223,7 +240,7 @@ def run(et, ets, eb, ea, eas, ep, es, elit, eauc, sched_t, sched_px, t_maker, t_
                 if k < len(out_t): out_t[k] = ts; out_px[k] = px; out_q[k] = g
                 k += 1
                 break
-            if maker:
+            if maker and step <= 0:
                 cur = pend_px if pend_t >= 0 else px
                 if not (abs(la - cur) < 1e-9):
                     if pend_t < 0: pend_t = ts + lat
@@ -245,6 +262,7 @@ def run(et, ets, eb, ea, eas, ep, es, elit, eauc, sched_t, sched_px, t_maker, t_
                 g = min(f, n - got); got += g; proc += g * fpx
                 if k < len(out_t): out_t[k] = ts; out_px[k] = fpx; out_q[k] = g
                 k += 1
+                if maker and step > 0: t_next = ts + step          # the step clock restarts on a fill
     return got, proc, k, taker, crossed, moves
 
 def tick_of(p): return 0.01 if p >= 1.0 else 0.0001
@@ -322,11 +340,17 @@ def sim_trip(r, X, Q, rec, trace=False):
         if v[0] == "H":
             h, _, z = v[1:].partition("_")
             plan[v] = after(int(h), t1 if z == "0" else t1 + args.hold)
+    STEPV = {}
+    for v in VAR:
+        if v[0] == "S" and v[1:].isdigit():             # S5 = the step every 5 s from the exit signal (no 60 s wait)
+            plan[v] = (st, sp, t1); STEPV[v] = float(v[1:])
+        elif v.startswith("R60S"):                       # R60S5 = REST60's 60 s wait, then the step
+            plan[v] = (st, sp, t1 + args.hold); STEPV[v] = float(v[4:])
     plan = {v: plan[v] for v in VAR}
     out_t = np.zeros(20000); out_px = np.zeros(20000); out_q = np.zeros(20000)
     for v, (a_t, a_px, tm) in plan.items():
         for k, fm in enumerate(FM):
-            got, proc, nk, taker, crossed, mv = run(et, ets, eb, ea, eas, ep, es, elit, eauc, a_t, a_px, tm, te, n, tick_of(r.exit_px), k, args.lat, out_t, out_px, out_q)
+            got, proc, nk, taker, crossed, mv = run(et, ets, eb, ea, eas, ep, es, elit, eauc, a_t, a_px, tm, te, n, tick_of(r.exit_px), k, args.lat, out_t, out_px, out_q, STEPV.get(v, 0.0))
             key = f"{v}|{fm}"
             rec["q_" + key] = got; rec["px_" + key] = proc / got if got else np.nan
             rec["t0_" + key] = out_t[0] - t1 if nk else np.nan
@@ -360,9 +384,12 @@ if args.phase in ("sim", "all") or args.trace:
     CHUNK = 25
     lots_n = 0
     dlist = sorted(S.trade_date.unique()); nch = (len(dlist) + CHUNK - 1) // CHUNK
-    for ci in range(nch):
+    def do_chunk(ci):
+        # one chunk of days (2026-11-14: in parallel processes, --procs; each opens its own DuckDB connection)
+        global con
+        if args.procs > 1: con = duckdb.connect(); con.execute("SET memory_limit='1500MB'"); con.execute("SET threads=2")
         cp = os.path.join(pdir, f"chunk_{ci:04d}.parquet")
-        if os.path.exists(cp) and not args.trace: continue
+        if os.path.exists(cp) and not args.trace: return ci, -1
         rows = []
         for d in dlist[ci * CHUNK:(ci + 1) * CHUNK]:
             g = S[S.trade_date == d]
@@ -375,15 +402,25 @@ if args.phase in ("sim", "all") or args.trace:
                     Q = pd.concat([pd.read_parquet(os.path.join(args.quotes0, f"{r.key}.parquet")), pd.read_parquet(os.path.join(qdir, f"{r.key}.parquet"))]).dropna()
                     # zero-size quotes are not quotes (halt indications: NYCB 2024-03-06 showed 4.00 x 4.50, sizes 0, mid-halt)
                     Q = Q[(Q.bid > 0) & (Q.ask > 0) & (Q.bid_size > 0) & (Q.ask_size > 0)].sort_values("ts", kind="stable")
-                    if len(Q) and Q.bid_size.median() < 50: Q["bid_size"] *= 100; Q["ask_size"] *= 100; lots_n += 1; rec["lots"] = True
+                    if len(Q) and Q.bid_size.median() < 50: Q["bid_size"] *= 100; Q["ask_size"] *= 100; rec["lots"] = True
                     rows.append(sim_trip(r, X, Q, rec, trace=bool(args.trace)))
                 del X
         if args.trace: raise SystemExit(0)
         pd.DataFrame(rows).to_parquet(cp + ".tmp", index=False); os.replace(cp + ".tmp", cp)
-        log(f"  chunk {ci + 1}/{nch} done ({len(rows):,} trips; days {dlist[ci * CHUNK]} .. {dlist[min(len(dlist), (ci + 1) * CHUNK) - 1]})")
+        return ci, len(rows)
+    if args.procs > 1 and not args.trace:
+        from multiprocessing import Pool
+        con.close()          # a fork with DuckDB's thread pool running deadlocks the workers (2026-11-14): close it first
+        with Pool(args.procs) as pool:
+            for ci, nr in pool.imap_unordered(do_chunk, range(nch)):
+                log(f"  chunk {ci + 1}/{nch} done ({nr:,} trips)")
+    else:
+        for ci in range(nch):
+            ci, nr = do_chunk(ci)
+            log(f"  chunk {ci + 1}/{nch} done ({nr:,} trips; days {dlist[ci * CHUNK]} .. {dlist[min(len(dlist), (ci + 1) * CHUNK) - 1]})")
     R = pd.concat([pd.read_parquet(os.path.join(pdir, f"chunk_{ci:04d}.parquet")) for ci in range(nch)], ignore_index=True)
     R.to_parquet(simp, index=False)
-    log(f"simulated {len(R):,} trips (sizes in lots this pass {lots_n}); errors {R.err.value_counts().to_dict() if 'err' in R else {}}")
+    log(f"simulated {len(R):,} trips; errors {R.err.value_counts().to_dict() if 'err' in R else {}}")
 
 # ---------------------------------------------------------------- 3. the report
 if args.phase in ("report", "all"):

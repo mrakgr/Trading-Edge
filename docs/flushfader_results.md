@@ -19240,3 +19240,213 @@ fit 2020–22 / holdout 2023–26; PF per quintile, fit → holdout):
   (lows since the first low, the change from the open, the session low).
 - Like the raw CUSUM it is a candidate input for the V2 sizing fit, where a correlated feature can still add a little.
   It is not a gate, and not a reason for a new system.
+
+## S49ap — a MIDPOINT FALLBACK for the maker entry (user, 2026-11-14)
+
+**Why.** The week 2026-11-09…13 (the private repo's fill_sim_check.py): §S49ak's cap sim reproduces the live entries
+leg by leg — 78 legs, live +\$564 vs the sim +\$528 (queue) / +\$553 (lit), the same 11 winners missed by both — so the
+gap to the model (+\$1,007) is the maker RULE, not the execution. The user: "we don't want to cross the spread ever
+unless it's only a tick. I've heard that real HFT shops try to get in at the bid, and if that fails they switch to trying
+to get in at the midpoint."
+
+**The rule.** `scripts/equity/flushfader_fallback_sim.py` (the cap sim's `run` extended; quotes from its cache).
+Phase 1 = live (join the bid, follow it, never above C0 = the signal rounded UP). Phase 2, from a trigger while unfilled
+(T = 1 / 3 / 10 / 30 s, or `run` = the bid rising above C0): on 2+ tick spreads a bid at the midpoint rounded DOWN (alone
+at a new price); on a ONE-tick spread take the ask (`take`) or stay on the bid (`notake`); never above C1 (C0, + 1 / 2
+ticks, the signal + 50 / 100 bp rounded up). The broker has no midpoint-peg or hidden order type, so the midpoint is a
+displayed limit. Net of venue fees (add +0.20c, take −0.30c). **Control:** no trigger = the cap sim's "signal +1 tick" on
+all 3,475 off-grid trips, Δ 0 in every fill model.
+
+**Sample, 3,500 trips (500 a year).** Model +\$13,434 (+38.6 bp). The live rule keeps 80 % of it in the queue model
+(lit 102 %, hidden 79 %); its 175 unfilled trips carry +\$6,073 of model P&L. Spread at the signal: 1 tick on 50 % of
+trips, 2 ticks 12 %, 3+ 38 %. Δ against the live rule:
+
+| rule | queue Δ \$ (t, years > 0) | lit Δ \$ | hidden Δ \$ | taken shares (queue) |
+|---|---|---|---|---|
+| any `take` variant | −\$254 … −\$4,217 (t −1.3 … −7.9) | −\$157 … −\$4,887 | similar | 8–61 % |
+| 3 s · C0 + 2 ticks · notake | **+\$778** (1.81, 6 / 7) | +\$175 | — | 4.9 % |
+| 10 s · C0 + 2 ticks · notake | **+\$776** (2.01, 6 / 7) | **+\$446** | +\$698 | 3.7 % |
+| 3 s · C0 + 1 tick · notake | +\$703 (1.86, 6 / 7) | +\$3 | — | 4.9 % |
+| 10 s · C0 + 1 tick · notake | +\$551 (1.75, 4 / 7) | +\$295 | +\$528 | 3.7 % |
+| run · C0 + 2 ticks · notake | +\$594 (1.55, 5 / 7) | — | +\$745 | 2.2 % |
+| run · C0 · notake | +\$372 (2.44, 6 / 7) | +\$64 | +\$308 | 1.0 % |
+
+- **Taking the ask loses, even on a one-tick spread**, in every trigger, ceiling and fill model: the spread plus the
+  0.5c fee swing on every taken share costs more than the runaway winners it catches. Half the trips have one-tick
+  spreads, so `take` takes a lot (30–60 % of the shares at T ≤ 10 s).
+- **The midpoint fallback without taking is a small gain**: +\$550…780 behind the queue (+5…7 % of the live rule's P&L,
+  +4…6 % of the model), t ≈ 1.8–2.0 — suggestive, not settled at 3,500 trips. It recovers fills (unfilled
+  model P&L +\$6.1k → +\$1.6…2.5k) but pays up for them, so it keeps only about a third of what it un-misses.
+- "notake" still shows 1–6 % taken shares: a phase-2 bid the ask later fell onto.
+- ⏭ The whole book (37,253 trips; the `take` variants can be dropped) decides it. ⚠ A live version must not re-derive
+  the midpoint from a bid that is its own order (the NBBO includes us).
+
+**The whole book, 37,253 trips (2026-11-14; `take` dropped, the user's `join` added).** The user: "on the table you're
+just moving the cap up by 1-2 ticks, I don't see any results for the midpoint variants" — they WERE the midpoint (the C1
+label is the ceiling on the midpoint bid); now explicit, plus "wait a certain amount for the bid to hit otherwise lift
+the cap completely" = `join · C1` (keep joining the bid, the cap raised to C1; ∞ = lifted). Model +\$184,372 (+49.8 bp);
+**control: 36,982 off-grid trips, Δ 0 in all three fill models.** Logs: logs/flushfader_fallback_sim_all.log (two OOM
+kills on the way — other jobs' RAM, then the 2021-01-27 meme tape at a 5 G cap — so the sim is now resumable per day and
+reads the tape per trip; data/equity/flushfader_fallback_sim_all/days/). The live rule keeps 86 % of the model (queue),
+85 % (hidden), 104 % (lit). Δ against it, net of venue fees (t by day, years > 0 of 7):
+
+| rule | queue | hidden | lit | entry vs model bp (queue) |
+|---|---|---|---|---|
+| 1 s · mid · C0 | +\$8,437 (6.68, 7) | +\$9,125 (7.13, 7) | −\$4,336 (−4.92, 0) | +3.1 |
+| 1 s · mid · C0 + 1 t | +\$8,584 (5.57, 7) | **+\$9,660** (6.18, 7) | −\$5,314 (−4.60, 0) | −2.5 |
+| 3 s · mid · C0 + 1 t | **+\$8,690** (6.12, 7) | +\$9,470 (6.57, 7) | −\$1,690 (−1.60, 1) | −1.0 |
+| 3 s · mid · C0 + 2 t | +\$7,909 (5.04, 6) | +\$9,010 (5.67, 7) | −\$2,528 (−2.13, 1) | −4.2 |
+| **10 s · mid · C0 + 2 t** | **+\$7,338 (5.26, 7)** | **+\$7,653 (5.41, 7)** | **+\$567 (0.53, 3)** | −2.0 |
+| 10 s · mid · C0 + 1 t | +\$6,601 (5.42, 7) | +\$6,490 (5.32, 7) | +\$25 (0.03, 2) | +1.0 |
+| 30 s · mid · C0 + 2 t | +\$3,807 (3.22, 6) | +\$3,874 (3.24, 6) | +\$537 (0.57, 4) | +0.1 |
+| run · mid · C0 | +\$4,502 (8.46, 7) | +\$4,610 (8.46, 7) | −\$300 (−1.07, 1) | +5.8 |
+| any T · mid · ∞ | −\$2,864 … +\$2,444 | −\$1,368 … +\$3,495 | −\$2,074 … −\$13,577 | −10.5 … −11.9 |
+| 10 s · join · C0 + 2 t (the best `join`) | +\$641 (0.54, 6) | +\$803 (0.68, 6) | +\$1,416 (1.44, 5) | −0.5 |
+| any T · join · ∞ (cap lifted) | −\$2,921 … −\$5,265 (t −1.9 … −3.2) | −\$1,912 … −\$3,760 | −\$1,174 … +\$630 | −11.6 … −12.3 |
+
+- **The midpoint fallback works behind a queue; lifting the cap does not.** Every `mid` with a ceiling of C0 … C0 + 2 ticks
+  gains +\$4.4…9.7k in the queue and hidden models, t 4–8, positive in 6–7 of 7 years. Its edge is the QUEUE: a bid one
+  or more ticks above the old bid stands alone at a new price, nobody ahead. `join` keeps us behind the displayed bid at
+  a higher price — the same queue, paid more: ≈ 0 at best, and with the cap lifted (∞) it chases (−11.6…−12.3 bp) and
+  loses in every model.
+- **The ceiling matters for the midpoint too:** C0 … C0 + 2 ticks win; + 50 / 100 bp fade; ∞ gives it all back.
+- **The lit model disagrees at short T** (no queue: phase 1 already fills on every lit print at the bid, so the midpoint
+  only pays more): 1 s / 3 s lose −\$1.7…5.3k. At 10 s and 30 s it is neutral (+\$25…567). This week's live entries sat
+  closer to the queue model on fill COUNT (live 65 of 78, queue 67, lit 69).
+- **The robust choice: 10 s · mid · C0 + 2 ticks** — positive in all three models (queue +\$7,338, hidden +\$7,653, lit
+  +\$567), 7 / 7 years behind a queue. The queue-model best (3 s · mid · C0 + 1 t, +\$8,690) costs −\$1,690 if the lit
+  model is right.
+- **Size:** +\$7.3k on \$37.0M of entries = **+2.0 bp** of entry notional; the live rule's 86 % of the model → 90 %. It
+  takes back about a quarter of the maker rule's 14-point gap to the model; the rest are trips that run away from any
+  bid we would post under the ceiling. At the live book's ~\$80k of FlushFader entries a week, ~\$16 a week.
+- ⚠ Live: our midpoint bid BECOMES the NBBO bid; the rule must take "the bid" as the best bid other than our own (or
+  freeze the midpoint while ours is the top), or it ratchets against itself. The sim's quotes do not contain us, so
+  the sim cannot see this.
+
+
+### S49ap-2 — the live-visible bid, GRADUAL RATCHETING, and a fast sim (user, 2026-11-14)
+
+**The fast sim.** The user: "Could you find a way to speed up these evals?" Profiled: a trip's prints cost ~226 ms to
+read from the day's 2.5 GB bulk file, its quotes 2 ms, the simulation a few ms. `scripts/equity/flushfader_print_cache.py`
+writes every book trip's fill-eligible prints once (data/equity/flushfader_cap_sim/prints/, one parquet per day, 1.9 GB,
+37 min in 4 processes); `scripts/equity/flushfader_entry_sim.py` reads only the caches, days in 8 processes: **the whole
+book in ~30 s** (was ~2 h). Checks: the live rule = the cap sim's + 1 tick on 36,982 off-grid trips (lit exact; queue /
+hidden 5 trips, \$0.29 — the order of prints with the same timestamp, never deterministic in either); §S49ap's 168
+columns reproduced to \$13.71 in total.
+
+**The rules.** `· est` = "the bid" is the best bid OTHER than ours, as live must see it (the NBBO contains our displayed
+bid): the estimate updates only when the true bid is at or above our price, else keeps the last trusted bid — emulated
+exactly. `ratchet T` = the user's gradual ratcheting ("lifting the order above the best bid every 10s if we aren't
+getting any fills"): every T s without a fill (the clock restarts on fills) one more tick above the best other bid —
+min(C1, ask − 1 tick, bid + k ticks); never crosses. `· hold` = skip a step while we are estimated FIRST in line at our
+price (the displayed size there when we arrived, less the lit prints at our price) — the user: "we might be in front of
+the queue and giving up position". Whole book, Δ vs the live rule, net of venue fees (t by day, years > 0 of 7):
+
+| rule | queue | hidden | lit |
+|---|---|---|---|
+| 10 s · mid · C0 + 2 t (§S49ap, the TRUE bid — not achievable live) | +\$7,338 (5.26, 7) | +\$7,653 | +\$567 |
+| 10 s · mid · C0 + 2 t · est (what live would see) | +\$4,851 (3.37, 6) | +\$5,131 | −\$3,566 (−3.26) |
+| 3 s · mid · C0 + 1 t · est | +\$4,555 (3.09, 6) | +\$5,200 | −\$6,045 |
+| **ratchet 5 s · s + 100 bp · est · hold** | **+\$8,968 (5.41, 7)** | **+\$10,108 (6.01, 7)** | −\$2,533 (−1.88) |
+| ratchet 3 s · s + 100 bp · est · hold (the queue-model best) | +\$9,776 (5.65, 7) | +\$10,994 | −\$3,792 |
+| ratchet 5 s · s + 50 bp · est · hold | +\$8,742 (5.79, 5) | +\$9,390 | −\$2,107 |
+| ratchet 10 s · s + 100 bp · est · hold | +\$8,099 (5.11, 6) | +\$8,803 | −\$1,846 |
+| ratchet 10 s · C0 + 2 t · est | +\$6,455 (4.49, 7) | +\$6,776 | −\$2,765 |
+| ratchet T · ∞ · est (no ceiling) | +\$4,298 … +\$8,287 | +\$5,232 … +\$9,569 | −\$3,321 … −\$7,482 |
+
+- **The live-visible bid costs the midpoint about a third behind a queue** (+\$7.3k → +\$4.9k) and turns the lit model
+  negative: while we are alone at the top the estimate cannot see the bid under us fall, so the midpoint stays high
+  (twice the taken shares: the ask falls onto it).
+- **Gradual ratcheting beats the midpoint** with the same live-visible bid: +\$8–10k behind a queue (t 5–6, 6–7 of 7
+  years), 2.4–2.7 bp of the entry notional; the live rule's 86 % of the model → 90–91 %. `hold` adds a little at 3–5 s
+  steps (+\$0.1–1.0k; at 10–20 s it is neutral). A ceiling matters less than for the midpoint (the ratchet climbs one tick
+  at a time), but ∞ is still the worst.
+- **Every rule that helps behind a queue loses in the lit model** (no queue: the live rule already fills on every lit
+  print at the bid, so stepping up only pays more). The week's live entries sat at or below the QUEUE model on fills
+  (live 65 of 78, queue 67, lit 69; the private repo's fill_sim_check.py), so the queue model is the one to believe; the
+  lit model's −\$2.5k is the downside if it is not.
+- Candidate: **ratchet 5 s · s + 100 bp · est · hold** (queue +\$9.0k, hidden +\$10.1k, lit −\$2.5k). Not built.
+
+**k grows only when the price moves; and k = 1 always (user, 2026-11-14).** In the first ratchet, a step held back by
+the ask or the ceiling still counted (k banked: a 30 s one-tick spread made k = 6, then a wider spread jumped 6 ticks
+at once). Fixed (`eff`: k grows only when the next tick actually raises the price), and the user's "What if we just kept
+the k = 1 always?" (`k=1`: after T s unfilled, ONE tick above the best other bid, tracking it, never more). `--set
+ratchet2` (the old banked rule reruns to the dollar: +\$8,968 / +\$10,108 / −\$2,533). Δ vs the live rule:
+
+| rule (est) | queue | hidden | lit |
+|---|---|---|---|
+| ratchet 5 s · s + 100 bp · hold, k banks (S49ap-2) | +\$8,968 | +\$10,108 | −\$2,533 |
+| ratchet 5 s · s + 100 bp · hold, `eff` | +\$9,010 (5.44, 7) | +\$10,149 | −\$2,537 |
+| **k = 1 · 5 s · s + 100 bp** | **+\$8,981 (5.43, 7)** | **+\$10,114** | **−\$2,487** |
+| k = 1 · 3 s · s + 100 bp | +\$9,728 (5.69, 7) | +\$10,981 | −\$3,745 |
+| k = 1 · 10 s · s + 100 bp | +\$8,098 (5.11, 6) | +\$8,811 | −\$1,778 |
+| k = 1 · 5 s · s + 50 bp | +\$8,649 (5.73, 5) | +\$9,315 | −\$2,154 |
+| k = 1 · 5 s · ∞ | +\$7,709 | +\$8,883 | −\$3,826 |
+
+- **One tick is the whole effect.** k = 1 matches the full ratchet within ±\$0.4k in every cell (better without `hold`,
+  where the banked k hurt most: 3 s · ∞ +\$7.0k → +\$8.5k). What earns the money is getting ahead of the queue at the
+  bid; stepping further up only pays more.
+- `hold` is ±\$0.1k with k = 1 (only the first step can be held) — not worth its complexity.
+- **Candidate, simplest form: after 5 s unfilled, bid ONE tick above the best other bid; keep tracking it (bid + 1
+  tick); never at the ask (a one-tick spread stays on the bid); never above the signal + 100 bp.** 3 s is +\$0.7k more
+  behind a queue and −\$1.3k worse in the lit model; 10 s the reverse.
+
+**The NBBO step — no need to know whose bid it is (user, 2026-11-14).** The user: "How would moving the order every
+5s after not fill above the best bid regardless of whether it's ours work? I am not sure how easy it will be to figure
+out whether our bid is the best or not … If we're getting filled, we can be sure that we're near the start of the
+queue, but otherwise who knows." (The SIP's NBBO size is one venue's size at the best price, as far as we know, not
+the sum across venues; an odd lot is not in it at all; our feed does not say which venue the bid is on — so `est`'s
+"bid at our price with a larger size = others are there" is not reliable live.) `nbbo-step T · C1` (`--set nbbo`):
+phase 1 as live; every T s without a fill (the clock restarts on fills), the order goes to ONE TICK ABOVE THE NBBO BID
+AS LIVE SEES IT — max(the market's bid, our own displayed bid) — never down at a step, never at the ask, never above C1;
+between steps the price HOLDS. `· follow-up`: between steps also join a market bid that rises above us. Δ vs the live
+rule:
+
+| rule | queue | hidden | lit |
+|---|---|---|---|
+| k = 1 · 5 s · s + 100 bp · est (the reference) | +\$8,981 (5.43, 7) | +\$10,114 | −\$2,487 |
+| **nbbo-step 5 s · s + 50 bp** | **+\$9,026 (6.10, 6)** | **+\$9,369 (6.27, 6)** | **+\$331 (0.29, 4)** |
+| nbbo-step 5 s · s + 100 bp | +\$9,050 (5.56, 7) | +\$10,077 (6.10, 7) | −\$467 |
+| nbbo-step 3 s · s + 50 bp | +\$10,007 (6.39, 6) | +\$10,502 | −\$1,386 |
+| nbbo-step 10 s · s + 100 bp | +\$8,243 (5.43, 6) | +\$8,846 | +\$893 (0.73, 5) |
+| nbbo-step 10 s · s + 50 bp | +\$7,386 (5.47, 5) | +\$7,097 | +\$977 (0.91, 5) |
+| nbbo-step 5 s · ∞ | +\$7,303 | +\$8,484 | −\$2,095 |
+| any · follow-up | +\$4.0…7.0k | +\$4.9…7.8k | −\$2.8…9.0k |
+
+- **The simplest rule is the best one.** Stepping one tick above the visible bid every T s without a fill earns as much
+  as the bid-estimating rules behind a queue, and costs almost nothing in the lit model (−\$0.5k … +\$1.0k vs −\$2.5k):
+  HOLDING the price between steps is what saves it — it stops paying up for every tick the bid moves.
+- **Following a rising bid between steps HURTS in every model** (−\$2…4k behind a queue, −\$4…5k lit): it is the chase.
+  When we are alone at the top the step climbs one tick per T s, which is the same gradual ratchet the user asked for.
+- **Candidate: nbbo-step 5 s · signal + 50 bp** — positive in all three fill models (queue +\$9.0k t 6.1, hidden +\$9.4k,
+  lit +\$0.3k). It needs no identification of our own order: only our own price, the NBBO, and the time since our last
+  fill. Not built.
+
+### S49al-5 — the NBBO STEP after the exit signal instead of the 60 s wait + maker (user, 2026-11-14)
+
+The user: "once we get an exit signal, if the resting order still hasn't exited the order in full, instead of doing the
+1m wait and then doing the current sell at the best ask, we could replace it with the 5s ratchet that we'll be using for
+entries" (§S49ap-2), with NO floor. `flushfader_exit_sim.py --variants …,S3,S5,S10,S30,R60S5 --procs 4 --tag _step`
+(the harness unchanged; `run` gained `step`: from the switch on, every `step` s without a fill the sell goes one tick
+below min(its price, the ask) — never at the bid, never up, held between steps, the clock restarting on fills; `S<T>` =
+from the trigger, `R60S5` = REST60's 60 s wait, then the step; chunks in parallel processes — DuckDB's connection must be
+closed before the fork or the workers deadlock). 37,200 trips, 59 min. **Control: MAKER / REST0 / REST60 / RESTinf equal
+S49al's sim.parquet on all 37,200 trips in all four fill models.** Model +\$188,085 on \$36.95M.
+
+| rule | queue: vs model bp · Δ vs REST60 (t, years > 0) | back | hidden | lit | p1 / p5 bp (queue) |
+|---|---|---|---|---|---|
+| MAKER | −11.2 · −\$33,847 (−12.5) | −\$5,798 | −\$15,647 | −\$5,097 | −256 / −116 |
+| REST60 (today) | −2.0 · — | — | — | — | −190 / −87 |
+| S3 | −2.1 · −\$248 (−0.59, 2) | +\$1,050 | +\$177 | −\$2,833 (−6.3) | −169 / −83 |
+| S5 | −1.9 · +\$284 (0.70, 4) | +\$1,607 | +\$802 | −\$1,895 (−4.5) | −170 / −83 |
+| S10 | −1.8 · +\$919 (2.34, 5) | **+\$2,106 (3.99)** | +\$1,439 | −\$1,137 (−2.8) | −171 / −84 |
+| **S30** | **−1.7 · +\$1,046 (3.34, 5)** | +\$1,386 (3.27) | +\$1,147 (3.07) | **−\$326 (−1.13)** | −179 / −86 |
+| R60S5 | −1.8 · +\$752 (3.09, 7) | +\$617 | +\$715 | −\$629 | −184 / −87 |
+
+- **A small improvement, because the leftover is small.** The resting sell does most of the work before the signal
+  (median last fill 1 s BEFORE it); the step only handles what is left. Every step variant cuts the tail (queue p1
+  −190 → −169…−184 bp) and leaves nothing unfilled.
+- **Slow steps again** (as GF-68 for GapFader's 10:00 exit): S30 is positive in the three queue models (+\$1.0–1.4k,
+  t ≈ 3) and nearly flat in the lit model (−\$0.3k); fast steps lose in the lit model (S3 −\$2.8k, t −6.3).
+- **Candidate: S30** — the same 30 s step as GapFader's exit, so one exit rule for both: after the exit signal (or the
+  time stop), every 30 s without a fill, one tick below min(our price, the ask); no floor. Not built.
