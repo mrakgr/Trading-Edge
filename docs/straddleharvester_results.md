@@ -1217,3 +1217,19 @@ one close); P&L in % of the option's mid.
   | GLD / SLV / TLT | negative (the $0.006/share hedge is large on low-priced ETFs) | negative | negative |
   The 'cash-settled at 16:00' edge of SPY/QQQ is the premium the market charges for after-hours exercise risk: holding
   through 16:00 carries it, buying back at 15:59 pays it (the 15:59 ask still contains it). Not available as such.
+- **After-hours prices cleaned; AH hedge; the spread (2026-11-16).** The 1-second after-hours tape has stray prints
+  (QQQ 2026-11-06: 601 / 615 / 667 vs 656): zdte_trades.py now drops seconds > 0.3% from their minute's median and takes
+  the 17:30 price as the median of 17:25-17:30. This REVERSES the earlier 17:30 verdict: held to 17:30 with the 15:59
+  hedge carried, SPY C25 / P25 +9.8% PF 1.50 / +12.8% PF 1.77 (t 4.8 / 6.4), QQQ +8.1% PF 1.40 / +9.6% PF 1.51, TSLA
+  +17.9% / +14.7% - about SPXW's level. A minute-by-minute after-hours hedge (European to 17:30, previous day's AH vol,
+  $0.015/share) is much WORSE than carrying the 15:59 hedge (huge turnover near expiry): don't re-hedge after hours.
+  `zdte_spread.py` (logs/options_zdte_spread.log): minute-hedged to 15:59, % of the entry mid:
+  | 25d put | half-spread entry / exit | bid->ask | bid->mid | mid->mid | held to settlement |
+  |---|---|---|---|---|---|
+  | SPY | 1.6% / 3.3% | +4.3% PF 1.31 | +7.6% PF 1.64 t 6.5 | +9.3% PF 1.82 | +12.8% PF 1.77 (17:30) |
+  | QQQ | 1.6% / 3.9% | +3.0% PF 1.22 | +7.0% PF 1.60 t 6.5 | +8.6% PF 1.77 | +9.6% PF 1.51 (17:30) |
+  | SPXW | 1.7% / 3.8% | +3.0% PF 1.18 | +6.8% PF 1.50 t 5.6 | +8.6% PF 1.65 | +8.3% PF 1.57 (cash) |
+  | TSLA | 1.8% / 3.7% | +10.5% PF 1.88 | +14.2% PF 2.44 t 7.0 | +16.0% PF 2.72 | +14.7% PF 2.09 (17:30) |
+  Calls alike. The spread costs ~5-6% of a 25d premium round trip (entry ~1.7%, the 15:59 exit ~3.5-4%). GLD / SLV / TLT
+  (half-spreads 8-16%) and AAPL / AMZN / META / MSFT stay negative even at the mid: no edge there. Straddles: negative
+  with an ask exit, +2-3% at the mid.

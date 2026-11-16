@@ -27,11 +27,15 @@ D['settle17'] = np.where(D.right == 'C', np.maximum(D.s1730 - D.strike, 0), np.m
 D['hd17'] = D.hd + D.dlast.fillna(0) * (D.s1730 - D.close)
 D['hcost'] = D.turn * CPS
 D['static17'] = D.dl * (D.s1730 - D.S) - 2 * D.dl.abs() * CPS
+# v4 (2026-11-16): the AFTER-HOURS delta hedge 16:00 -> 17:30 (zdte_trades.py hd_ah / turn_ah); the day hedge is not closed
+# at 16:00 but rolled into it; AH shares cost $0.015 each
+D['hd_ah'] = D.hd_ah.fillna(0); D['turn_ah'] = D.turn_ah.fillna(0)
+D['cost_ah'] = (D.turn - D.dlast.abs().fillna(0)) * CPS + D.turn_ah * 0.015
 k = ['root', 'date', 'm']
 A = D[D.inst == 'AP'].set_index(k); C = D[D.inst == 'AC'].set_index(k)
 j = A.index.intersection(C.index)
 S = A.loc[j].copy()
-for c in ['bid', 'ask', 'mid', 'settle', 'hd', 'turn', 'settle17', 'hd17', 'hcost', 'static17', 'ask_x', 'hd_x']: S[c] = A.loc[j, c] + C.loc[j, c]
+for c in ['bid', 'ask', 'mid', 'settle', 'hd', 'turn', 'settle17', 'hd17', 'hcost', 'static17', 'ask_x', 'hd_x', 'hd_ah', 'cost_ah']: S[c] = A.loc[j, c] + C.loc[j, c]
 S['inst'] = 'STR'; S['iv'] = (A.loc[j, 'iv'] + C.loc[j, 'iv']) / 2
 D = pd.concat([D[D.inst.isin(['P25', 'C25'])], S.reset_index()], ignore_index=True)
 del A, C, S
@@ -49,6 +53,7 @@ D['hedged_x'] = (D.bid - D.ask_x + D.hd_x - D.hcost) / D.mid
 D['main'] = np.where(D.root == 'SPXW', D.hedged, D.hedged_x)
 # the user's question (2026-11-16): ALL treated as cash-settled on the 16:00 close (no after-hours exercise), minute-hedged
 D['hedged16'] = (D.bid - D.settle + D.hd - D.hcost) / D.mid
+D['hedged_ah'] = np.where(D.root == 'SPXW', D.hedged, (D.bid - D.settle17 + D.hd + D.hd_ah - D.cost_ah) / D.mid)
 import sys
 if len(sys.argv) > 1:                                              # e.g. `zdte_report.py hedged16`: that measure for every root
     D['main'] = D[sys.argv[1]]
@@ -70,7 +75,7 @@ def st(x, col='main'):
 
 
 print('\n== 1) baseline, sold at the bid; naked16 = settled at 16:00; naked / static / hedged = settled at 17:30 (ETFs, stocks)')
-for col in ['naked16', 'hedged16', 'naked_x', 'hedged_x', 'naked', 'hedged']:
+for col in ['naked16', 'hedged16', 'naked_x', 'hedged_x', 'naked', 'hedged', 'hedged_ah']:
     t = D.groupby(['grp', 'root', 'inst'])[[col, 'date', 'hs']].apply(lambda x: st(x, col)).unstack(-1)
     print(f'-- {col}: mean% / PF / t_day by root x inst')
     print(pd.concat({m: t[m] for m in ['mean%', 'PF', 't_day']}, axis=1).round(2).to_string())

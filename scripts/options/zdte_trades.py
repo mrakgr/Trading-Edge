@@ -16,6 +16,8 @@ ret_open, from_hi / from_lo (vs the day's high / low so far), gap (open vs the p
 vol_chain / vol_put_share (0DTE option volume so far, ohlc), vol_k (this contract's volume so far).
 EXIT BEFORE THE BELL (2026-11-16): bid_x / ask_x / m_x = the contract's last quote in 15:50..15:59, hd_x = the hedge to
 15:59 (buy the short back at ask_x; ETF / stock 0DTE options carry after-hours exercise risk to 17:30 if held).
+AFTER-HOURS HEDGE (2026-11-16): hd_ah / turn_ah = a minute delta hedge 16:00 -> 17:30 (European to 17:30, per-minute
+vol s_ah from the previous day's after-hours) for ETFs / stocks; P&L then settles at s1730.
 Writes data/options/zdte/trades/<ROOT>.parquet (one row per root-day-minute-instrument).
     cd research && python3 scripts/options/zdte_trades.py [--roots SPY] [--days 5] > logs/options_zdte_trades.log 2>&1
 """
@@ -52,11 +54,24 @@ def delta(iv, S, K, T, call):
     return np.where(call, ndtr(d1), ndtr(d1) - 1)
 
 
+DAYS_1S = sorted(os.path.basename(f)[:10] for f in glob.glob('data/intraday_1s_slim/*.parquet'))
+
+
 def spot_1s(ticker, date):
+    """1-second VWAPs 09:30-17:30, CLEANED (2026-11-16): a second more than 0.3% from its minute's median is dropped
+    (after-hours has stray prints: QQQ 2026-11-06 at 601 / 615 / 667 vs 656)."""
     f = f'data/intraday_1s_slim/{date}.parquet'
     if not os.path.exists(f): return None
     x = duckdb.sql(f"select bucket, vwap from '{f}' where ticker = '{ticker}' and bucket between 34200 and 63000 order by bucket").df()
+    if not len(x): return None
+    med = x.groupby(x.bucket // 60).vwap.transform('median')
+    x = x[(x.vwap / med - 1).abs() < 0.003]
     return x if len(x) else None
+
+
+def prev_day(date):
+    i = np.searchsorted(DAYS_1S, date)
+    return DAYS_1S[i - 1] if i > 0 else None
 
 
 def parity_spot(q0):
@@ -92,11 +107,24 @@ def run(job):
         S = parity_spot(q0).reindex(mins).ffill()
         close = S.loc[960]
         s1730 = close                                                  # SPXW: cash-settled on the official 16:00 close
+        S_ah = None
     else:
         sp = spot_1s(root, date)
         if sp is None: return None
-        ah = sp[(sp.bucket > 57600) & (sp.bucket <= 63000)]
-        s1730 = float(ah.vwap.iloc[-1]) if len(ah) else np.nan     # the exercise cut-off: holders decide on after-hours prices
+        ah = sp[(sp.bucket > 63000 - 300) & (sp.bucket <= 63000)]          # 17:25-17:30: the median, robust
+        # after-hours path per minute 16:00 .. 17:30 (for the AH delta hedge) and the PREVIOUS day's AH per-minute vol
+        ahm = sp[(sp.bucket >= 57600) & (sp.bucket <= 63000)].assign(mm=lambda z: z.bucket // 60).groupby('mm').vwap.last()
+        S_ah = ahm.reindex(np.arange(960, 1051)).ffill()
+        s_ah = np.nan
+        pdd = prev_day(date)
+        if pdd is not None:
+            pv = spot_1s(root, str(pdd))
+            if pv is not None:
+                pa = pv[(pv.bucket >= 57600) & (pv.bucket <= 63000)].assign(mm=lambda z: z.bucket // 60).groupby('mm').vwap.last()
+                pa = pa.reindex(np.arange(960, 1051)).ffill()
+                rr = np.log(pa).diff().dropna()
+                if len(rr) > 30: s_ah = float(np.sqrt((rr ** 2).mean()))
+        s1730 = float(ah.vwap.median()) if len(ah) else np.nan     # the exercise cut-off: holders decide on after-hours prices
         sp = sp[sp.bucket <= 57600].copy()
         sp['m'] = sp.bucket // 60
         S = sp.groupby('m').vwap.last().reindex(mins).ffill()        # last 1s VWAP up to the minute's end
@@ -162,6 +190,30 @@ def run(job):
     X['settle'] = np.where(X.right == 'C', np.maximum(close - X.strike, 0), np.maximum(X.strike - close, 0))
     X['close'] = close
     X['s1730'] = s1730 if np.isfinite(s1730) else close
+    # ---- AFTER-HOURS DELTA HEDGE (user 2026-11-16): 16:00 -> 17:30, the option = European expiring at 17:30 (the holder
+    # exercises if in the money then), per-minute vol s_ah from the PREVIOUS day's 16:00-17:30 (fallback: half of today's
+    # last-hour per-minute vol); the hedge starts from the 15:59 position (dlast). hd_ah = sum delta_j (S_j+1 - S_j),
+    # turn_ah = |delta_960 - dlast| + sum |d delta| + |delta_end| (shares per share of option, charged at AH cost).
+    X['hd_ah'] = 0.0; X['turn_ah'] = 0.0; X['s_ah'] = np.nan
+    if root != 'SPXW' and S_ah is not None and S_ah.notna().sum() > 30:
+        if not np.isfinite(s_ah):
+            lr = np.log(S.reindex(np.arange(900, 961))).diff().dropna()
+            s_ah = 0.5 * float(np.sqrt((lr ** 2).mean())) if len(lr) else np.nan
+        if np.isfinite(s_ah) and s_ah > 0:
+            Sa = S_ah.ffill().bfill().values                             # minutes 960..1050
+            n_left = (1050 - np.arange(960, 1051)).clip(min=1e-6)
+            u = X[['strike', 'right', 'dlast']].drop_duplicates(['strike', 'right'])
+            K = u.strike.values[None, :]; cl = (u.right.values == 'C')[None, :]
+            sd = s_ah * np.sqrt(n_left)[:, None]
+            d1 = np.log(Sa[:, None] / K) / sd + 0.5 * sd
+            dl_ah = np.where(cl, ndtr(d1), ndtr(d1) - 1)
+            dl_ah[-1] = np.where(cl, (Sa[-1] > K), -(Sa[-1] < K))[0] if False else np.where(cl[0], (Sa[-1] > K[0]).astype(float), -(Sa[-1] < K[0]).astype(float))
+            dS = np.diff(Sa)[:, None]
+            hd_ah = (dl_ah[:-1] * dS).sum(0)
+            tr = np.abs(dl_ah[0] - u.dlast.fillna(0).values) + np.abs(np.diff(dl_ah, axis=0)).sum(0) + np.abs(dl_ah[-1])
+            m_ = pd.DataFrame({'strike': u.strike.values, 'right': u.right.values, 'hd_ah': hd_ah, 'turn_ah': tr})
+            X = X.drop(columns=['hd_ah', 'turn_ah']).merge(m_, on=['strike', 'right'], how='left')
+            X['s_ah'] = s_ah
     # skew + forward
     sk = X.pivot_table(index='m', columns='inst', values='iv')
     X['iv_atm'] = X.m.map(ivatm)
@@ -207,7 +259,7 @@ def run(job):
         X = pd.merge_asof(X.sort_values('m'), vk.sort_values('m'), on='m', by=['strike', 'right'], direction='backward')
     X['root'] = root; X['date'] = pd.Timestamp(date)
     keep = ['root', 'date', 'm', 'inst', 'strike', 'right', 'S', 'bid', 'ask', 'bid_size', 'ask_size', 'iv', 'dl', 'hd', 'turn',
-            'settle', 'close', 's1730', 'dlast', 'bid_x', 'ask_x', 'm_x', 'hd_x', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
+            'settle', 'close', 's1730', 'dlast', 'bid_x', 'ask_x', 'm_x', 'hd_x', 'hd_ah', 'turn_ah', 's_ah', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
             'gap', 'mins_left', 'vol_chain', 'vol_put_share', 'vol_k']
     return X[[k for k in keep if k in X.columns]]
 
