@@ -1239,3 +1239,6 @@ one close); P&L in % of the option's mid.
   SPY P25 hold +12.8% PF 1.77 vs maker+hold +6.5% (touch) / +5.8% (through) vs mid exit +7.6% vs ask exit +4.3%;
   SPXW P25 +8.3% vs +5.5%; QQQ C25 hold +8.1% ~ maker +8.3%. The last minutes' premium is worth keeping; buying back -
   even at the bid - gives it up. Caveat: 'hold' settles at the 17:30 price; assignment is only known the next morning.
+- **Next (user 2026-11-16):** ask Lightspeed (Rob) when a short learns of an assignment (same evening?) - pin risk;
+  deeper exits below the bid from 15:55; ratchet maker orders for entries / exits / the delta hedge (enter at the ask,
+  ratchet every ~5s), which needs 1-second quotes (a selective pull: SPXW / SPY / QQQ near the money); XSP / NDXP / RUTW.
