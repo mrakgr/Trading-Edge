@@ -1233,3 +1233,9 @@ one close); P&L in % of the option's mid.
   Calls alike. The spread costs ~5-6% of a 25d premium round trip (entry ~1.7%, the 15:59 exit ~3.5-4%). GLD / SLV / TLT
   (half-spreads 8-16%) and AAPL / AMZN / META / MSFT stay negative even at the mid: no edge there. Straddles: negative
   with an ask exit, +2-3% at the mid.
+- **Maker exit (user 2026-11-16, `zdte_maker_exit.py`):** buy back with a resting bid from 15:55 (re-pegged each minute),
+  filled if the minute's trade bar prints at / below it; unfilled -> hold with the 15:59 hedge. Of the contracts that still
+  have a bid, 97-99% fill on a touch and 64-92% on a trade-through (SPXW highest). But **holding everything beats it**:
+  SPY P25 hold +12.8% PF 1.77 vs maker+hold +6.5% (touch) / +5.8% (through) vs mid exit +7.6% vs ask exit +4.3%;
+  SPXW P25 +8.3% vs +5.5%; QQQ C25 hold +8.1% ~ maker +8.3%. The last minutes' premium is worth keeping; buying back -
+  even at the bid - gives it up. Caveat: 'hold' settles at the 17:30 price; assignment is only known the next morning.
