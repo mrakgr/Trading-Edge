@@ -53,7 +53,7 @@ def delta(iv, S, K, T, call):
 def spot_1s(ticker, date):
     f = f'data/intraday_1s_slim/{date}.parquet'
     if not os.path.exists(f): return None
-    x = duckdb.sql(f"select bucket, vwap from '{f}' where ticker = '{ticker}' and bucket between 34200 and 57600 order by bucket").df()
+    x = duckdb.sql(f"select bucket, vwap from '{f}' where ticker = '{ticker}' and bucket between 34200 and 63000 order by bucket").df()
     return x if len(x) else None
 
 
@@ -86,9 +86,13 @@ def run(job):
     if root == 'SPXW':
         S = parity_spot(q0).reindex(mins).ffill()
         close = S.loc[960]
+        s1730 = close                                                  # SPXW: cash-settled on the official 16:00 close
     else:
         sp = spot_1s(root, date)
         if sp is None: return None
+        ah = sp[(sp.bucket > 57600) & (sp.bucket <= 63000)]
+        s1730 = float(ah.vwap.iloc[-1]) if len(ah) else np.nan     # the exercise cut-off: holders decide on after-hours prices
+        sp = sp[sp.bucket <= 57600].copy()
         sp['m'] = sp.bucket // 60
         S = sp.groupby('m').vwap.last().reindex(mins).ffill()        # last 1s VWAP up to the minute's end
         S.index = S.index + 1                                         # value at the START of minute m = up to m-1:59
@@ -145,6 +149,7 @@ def run(job):
     X['turn'] = X.dlh.abs() + X.tturn + X.dlast.abs()
     X['settle'] = np.where(X.right == 'C', np.maximum(close - X.strike, 0), np.maximum(X.strike - close, 0))
     X['close'] = close
+    X['s1730'] = s1730 if np.isfinite(s1730) else close
     # skew + forward
     sk = X.pivot_table(index='m', columns='inst', values='iv')
     X['iv_atm'] = X.m.map(ivatm)
@@ -190,7 +195,7 @@ def run(job):
         X = pd.merge_asof(X.sort_values('m'), vk.sort_values('m'), on='m', by=['strike', 'right'], direction='backward')
     X['root'] = root; X['date'] = pd.Timestamp(date)
     keep = ['root', 'date', 'm', 'inst', 'strike', 'right', 'S', 'bid', 'ask', 'bid_size', 'ask_size', 'iv', 'dl', 'hd', 'turn',
-            'settle', 'close', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
+            'settle', 'close', 's1730', 'dlast', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
             'gap', 'mins_left', 'vol_chain', 'vol_put_share', 'vol_k']
     return X[[k for k in keep if k in X.columns]]
 

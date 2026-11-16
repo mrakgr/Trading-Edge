@@ -1167,3 +1167,38 @@ User 2026-11-16: we will NOT trade the 1-10 day options; the focus moves to 0DTE
 - **Code / data:** scripts/options/{short_dated, hedge_daily, sd_common, hedge_compare, short_dated_fwd, skew_split,
   skew_threshold, etf_regime, call_skew, skew_52w, atm_hedge, ivrv, ivrv2}.py; data/options/short_dated/{trades,hedge,
   ivrv_trades,rv_daily}.parquet; logs/options_*.log. Every report must go through sd_common.drop_bad (SH-36).
+
+## SH-41 — 0DTE: the data, the every-minute trades, and the first results (user 2026-11-16)
+
+**Data.** `build_0dte_jobs.py` + `intraday_pull.py` (options_runner.py --puller intraday_pull.py): ThetaData 1-minute
+quotes and trade bars of the 0DTE chain and the next expiry, 13 roots (SPY QQQ SPXW IWM GLD SLV TLT TSLA NVDA AAPL AMZN
+META MSFT), 2023-11-13..2026-11-10, 5,642 root-days, 1.72bn rows, 6.0 GB (data/options/intraday_0dte, also on the box),
+114 min on the PC, 0 errors. ThetaData also serves 1s / 100ms / tick quotes and every trade with its NBBO (trade_quote);
+our plan is options-only (stock / index intraday = 403): the underlying comes from data/intraday_1s_slim (ETFs, stocks)
+and put-call parity (SPXW). Single stocks have 0DTE only on Fridays until 2026 (Mon/Wed/Fri since).
+
+**Trades.** `zdte_trades.py` -> data/options/zdte/trades (7.58M rows, 6.5 min): every minute 09:35-15:55 sell the 25d put,
+25d call, ATM put + call (STR) at the bid, held to expiry, delta re-hedged EVERY MINUTE; features at entry (skew, ATM IV
+0DTE / next, forward vol, RV since the open / last 30 min, ret since open, from the day's high / low, gap, option volume).
+`zdte_report.py` / `zdte_check.py` / `zdte_spxw.py` (logs/options_zdte_*.log): day-clustered t (all minutes of a day share
+one close); P&L in % of the option's mid.
+
+**Findings.**
+- The hedge cost decides it: at 0.5bp of S per share the minute hedge costs ~25% of a 25d premium (turnover ~3 shares
+  per share); the hedge itself is ~0 gross. Realistic: $0.006 per share traded (SPY ~0.1bp); SPXW via SPY at $0.06/unit.
+- **After-hours exercise risk:** ETF / stock 0DTE options can be exercised on after-hours prices until 17:30; settling
+  at the 17:30 price (the last hedge carried) instead of the 16:00 close cuts the naked edge (QQQ P25 +28.6% -> +0.3%,
+  SPY +27.6% -> +13.6%) - much of the late-day premium pays for that risk. 17:30 is the worst case for the seller.
+- **SPXW (cash-settled on the 16:00 close) is the clean instrument.** Minute-hedged at the bid: C25 +8.9% PF 1.62 t 6.9,
+  P25 +8.3% PF 1.57 t 5.4, STR +3.5% PF 1.52 t 6.3; positive in 2024 / 2025 / 2026 on every leg (2023 = 7 weeks);
+  every time-of-day bucket positive, rising into the close (P25 15:30-55 +17.8% PF 1.92). Minute hedge > static > naked.
+- **The features carry over (SPXW, OOS: decile edges from 2023-11..2024-12, results 2025-01..2026-11, minute-hedged):**
+  | top decile | P25 | C25 | STR |
+  |---|---|---|---|
+  | IV / RV since the open | +18.8% PF 2.76 t 8.2 (bottom -0.9%) | +20.5% PF 2.70 t 8.9 (bottom +1.1%) | +6.7% PF 2.11 t 7.9 |
+  | forward slope (0DTE rich vs next) | +19.7% PF 2.92 t 5.4 | +20.7% PF 2.94 t 6.6 (bottom +6.1%) | +7.6% PF 2.43 t 6.0 |
+  | skew (own side) | +14.2% PF 2.12 t 4.0 | +14.0% PF 2.01 t 6.0 | - |
+  | all 2025-26 | +9.7% PF 1.66 | +8.1% PF 1.53 | +3.5% PF 1.51 |
+  Within each time-of-day bucket the top decile beats the middle (P25 skew: 13-15 +20.9% vs +9.0%, 15:30-55 +43.8% vs +18.8%).
+- ⚠ Open: fills at the bid every minute assume size (bid_size kept in the table); the parity underlying adds noise to
+  the SPXW hedge; XSP / NDXP / RUTW (also cash-settled) are not downloaded yet; 1s data for a finer look.
