@@ -15,9 +15,10 @@ CRED="$HOME/.config/hetzner-storage-box/credentials-share"   # the SHARE sub-acc
 BOX="$(sed -n 's/^USERNAME=//p' "$CRED")@$(sed -n 's/^HOSTNAME=//p' "$CRED")"
 MAXDTE=${2:-}                                    # "" = every expiry
 ENDPOINT=${3:-eod}                               # open_interest for the OI run (2026-11-13: oi_full 60 open_interest)
+PULLER=${4:-eod_pull.py}                         # intraday_pull.py for the 0DTE run (2026-11-16: intraday_0dte "" eod intraday_pull.py)
 nohup setsid python3 scripts/options/options_runner.py --mode pc --name "$NAME" \
     --dest "$BOX:options/$NAME/" --key "$HOME/.ssh/storagebox_pc_ed25519" \
     --out-root data/options --logs logs --thetadata-dir "$HOME/thetadata" --python python3 \
     --timezone-fs TradingEdge.Orb/Timezone.fs --reference data/options/massive_root_days.parquet \
-    --calendar-file data/options/trading_days.txt ${MAXDTE:+--max-dte $MAXDTE} --endpoint "$ENDPOINT" ${START_NOW:+--start-now} >> logs/options_runner_pc.log 2>&1 < /dev/null &
+    --calendar-file data/options/trading_days.txt ${MAXDTE:+--max-dte $MAXDTE} --endpoint "$ENDPOINT" --puller "$PULLER" ${START_NOW:+--start-now} >> logs/options_runner_pc.log 2>&1 < /dev/null &
 echo "started the PC options runner ($NAME), pid $!; log research/logs/options_runner_pc.log"

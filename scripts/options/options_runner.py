@@ -125,6 +125,8 @@ def main():
     ap.add_argument('--timezone-fs', required=True)
     ap.add_argument('--reference', required=True); ap.add_argument('--calendar-file', required=True)
     ap.add_argument('--max-dte', type=int)
+    ap.add_argument('--puller', default='eod_pull.py', choices=['eod_pull.py', 'intraday_pull.py'],
+                    help='the pull script (2026-11-16: intraday_pull.py for the 0DTE 1-minute quotes)')
     ap.add_argument('--endpoint', default='eod', choices=['eod', 'open_interest'],
                     help='eod_pull.py --endpoint (2026-11-13: the OI run oi_full)')
     ap.add_argument('--workers', type=int, default=8)
@@ -200,7 +202,7 @@ def main():
                     if box.push_data(out, remove) and os.path.exists(done_mine):
                         box.push_file(done_mine, f'done_{a.mode}.tsv')
             th = threading.Thread(target=uploader, daemon=True); th.start()
-            cmd = [a.python, os.path.join(a.scripts, 'eod_pull.py'), '--jobs-file', jobs, '--out', out,
+            cmd = [a.python, os.path.join(a.scripts, a.puller), '--jobs-file', jobs, '--out', out,
                    '--workers', str(a.workers), '--reference', a.reference, '--calendar-file', a.calendar_file,
                    '--deadline', deadline.astimezone(dt.timezone.utc).isoformat(), '--also-done', done_other,
                    '--order', a.order]
@@ -208,6 +210,8 @@ def main():
                 cmd += ['--max-dte', str(a.max_dte)]
             if a.endpoint != 'eod':
                 cmd += ['--endpoint', a.endpoint]
+            if a.puller == 'intraday_pull.py':
+                cmd += ['--timezone-fs', a.timezone_fs]
             log(f"window open until {stop_at:%Y-%m-%d %H:%M %Z} (no new requests after {deadline:%H:%M}); pulling")
             with open(os.path.join(a.logs, f'{a.name}.{a.mode}.pull.log'), 'a') as pl:
                 p = subprocess.Popen(cmd, stdout=pl, stderr=subprocess.STDOUT, start_new_session=True)
