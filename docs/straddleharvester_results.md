@@ -1202,3 +1202,18 @@ one close); P&L in % of the option's mid.
   Within each time-of-day bucket the top decile beats the middle (P25 skew: 13-15 +20.9% vs +9.0%, 15:30-55 +43.8% vs +18.8%).
 - ⚠ Open: fills at the bid every minute assume size (bid_size kept in the table); the parity underlying adds noise to
   the SPXW hedge; XSP / NDXP / RUTW (also cash-settled) are not downloaded yet; 1s data for a finer look.
+- **Exit before the bell / treated as cash-settled (user 2026-11-16).** zdte_trades.py now records each contract's last
+  quote in 15:50..15:59 (ask_x, from the RAW rows: a first version took it from two-sided rows only, which dropped the
+  far-OTM contracts that have no bid at 15:59 = a lookahead selection; fixed) and the hedge to 15:59 (hd_x).
+  zdte_report.py [measure] (logs/options_zdte_report.log; *_cash16.log = every root as if cash-settled at 16:00).
+  | minute-hedged, $0.006/share | if cash-settled at 16:00 | bought back at the 15:59 ask | held, settled at 17:30 |
+  |---|---|---|---|
+  | QQQ C25 / P25 | +24.7% PF 3.33 t 16 / +23.4% PF 3.41 t 15 | +1.6% / +1.9% | -8.6% / -5.6% |
+  | SPY C25 / P25 | +18.6% PF 2.12 / +19.0% PF 2.42 | -2.7% / +1.2% | +4.1% / +5.4% |
+  | IWM P25 | +10.5% PF 1.74 t 7.4 | -6.9% | -2.1% |
+  | TSLA C25 / P25 | +20.0% PF 2.95 t 6.5 / +15.6% PF 2.23 | +9.6% / +6.1% | +2.5% / +10.0% |
+  | NVDA C25 / P25 | +10.3% PF 1.65 / +8.5% PF 1.48 | -2.5% / -7.8% | +3.8% / +6.1% |
+  | SPXW C25 / P25 (really cash-settled) | +8.9% PF 1.62 / +8.3% PF 1.57 | +1.7% / +3.0% | = cash |
+  | GLD / SLV / TLT | negative (the $0.006/share hedge is large on low-priced ETFs) | negative | negative |
+  The 'cash-settled at 16:00' edge of SPY/QQQ is the premium the market charges for after-hours exercise risk: holding
+  through 16:00 carries it, buying back at 15:59 pays it (the 15:59 ask still contains it). Not available as such.

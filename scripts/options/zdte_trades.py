@@ -14,6 +14,8 @@ next expiry: (ivn^2 Tn - iv0^2 T0) / (Tn - T0), Tn = rest of today + 390 per tra
 skew_p = iv(P25)/iv_atm, skew_c = iv(C25)/iv_atm, rv_open (1-min RV since 09:30, annualised), rv30 (last 30 min),
 ret_open, from_hi / from_lo (vs the day's high / low so far), gap (open vs the previous close), mins_left,
 vol_chain / vol_put_share (0DTE option volume so far, ohlc), vol_k (this contract's volume so far).
+EXIT BEFORE THE BELL (2026-11-16): bid_x / ask_x / m_x = the contract's last quote in 15:50..15:59, hd_x = the hedge to
+15:59 (buy the short back at ask_x; ETF / stock 0DTE options carry after-hours exercise risk to 17:30 if held).
 Writes data/options/zdte/trades/<ROOT>.parquet (one row per root-day-minute-instrument).
     cd research && python3 scripts/options/zdte_trades.py [--roots SPY] [--days 5] > logs/options_zdte_trades.log 2>&1
 """
@@ -78,6 +80,9 @@ def run(job):
     q['m'] = q.ts.dt.hour * 60 + q.ts.dt.minute                       # minute of day
     q = q[(q.m >= 570) & (q.m <= 960)]
     q['mid'] = (q.bid + q.ask) / 2
+    # the exit quotes from the RAW rows (any ask): a far-OTM option often has NO bid at 15:59 - taking the exit only from
+    # two-sided rows dropped exactly those trades (a lookahead selection, 2026-11-16 fix)
+    qx = q[(q.expiration == date) & (q.m >= 950) & (q.m <= 959) & (q.ask > 0)]
     q = q[(q.bid > 0) & (q.ask >= q.bid)]
     q0 = q[q.expiration == date].copy(); qn = q[q.expiration != date].copy()
     if q0.empty: return None
@@ -129,6 +134,10 @@ def run(job):
     HD = pd.DataFrame(tail, index=hp.index, columns=hp.columns).stack(['strike', 'right'], future_stack=True).rename('hd')
     TN = pd.DataFrame(turn_tail, index=hp.index, columns=hp.columns).stack(['strike', 'right'], future_stack=True).rename('tturn')
     LASTD = hp.iloc[-1].rename('dlast')
+    LASTINC = pd.Series(inc[-1], index=hp.columns).rename('inc_last')     # the 15:59 -> 16:00 hedge increment
+    # exit before the bell (2026-11-16): the contract's last quote in 15:50..15:59 (normally 15:59)
+    QX = qx.sort_values('m').groupby(['strike', 'right']).last()[['bid', 'ask', 'm']]
+    QX.columns = ['bid_x', 'ask_x', 'm_x']
     # ATM per minute and the instruments
     q0['dist'] = (q0.strike - q0.S).abs()
     both = q0.groupby(['m', 'strike']).right.transform('size') == 2
@@ -146,6 +155,9 @@ def run(job):
     X = pd.concat(sel, ignore_index=True)
     X = X[(X.m >= 575) & (X.m <= 955)]
     X = X.join(HD, on=['m', 'strike', 'right']).join(TN, on=['m', 'strike', 'right']).join(LASTD, on=['strike', 'right'])
+    X = X.join(LASTINC, on=['strike', 'right']).join(QX, on=['strike', 'right'])
+    X['hd_x'] = X.hd - X.inc_last.fillna(0)                           # the hedge closed at 15:59 with the option
+    X['ask_x'] = X.ask_x.fillna(0.0)                                  # no quote at all in 15:50..15:59 = nothing to buy back
     X['turn'] = X.dlh.abs() + X.tturn + X.dlast.abs()
     X['settle'] = np.where(X.right == 'C', np.maximum(close - X.strike, 0), np.maximum(X.strike - close, 0))
     X['close'] = close
@@ -195,7 +207,7 @@ def run(job):
         X = pd.merge_asof(X.sort_values('m'), vk.sort_values('m'), on='m', by=['strike', 'right'], direction='backward')
     X['root'] = root; X['date'] = pd.Timestamp(date)
     keep = ['root', 'date', 'm', 'inst', 'strike', 'right', 'S', 'bid', 'ask', 'bid_size', 'ask_size', 'iv', 'dl', 'hd', 'turn',
-            'settle', 'close', 's1730', 'dlast', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
+            'settle', 'close', 's1730', 'dlast', 'bid_x', 'ask_x', 'm_x', 'hd_x', 'iv_atm', 'iv_atm_n', 'fwd', 'skew_p', 'skew_c', 'rv_open', 'rv30', 'ret_open', 'from_hi', 'from_lo',
             'gap', 'mins_left', 'vol_chain', 'vol_put_share', 'vol_k']
     return X[[k for k in keep if k in X.columns]]
 
