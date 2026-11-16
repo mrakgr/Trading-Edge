@@ -1150,3 +1150,20 @@ Inside the skew top 10%, spread = (PF_t3 - 1) / (PF_t1 - 1) of prior-year tercil
   -5.3%) - but no decile pays the costs.
 - Candidates for SIZING (consistent across windows): ETF puts IV/medRV; stock puts low iv30/medIV; calls vrph and
   IV/medRV. To be confirmed out-of-sample in the portfolio test.
+
+## SH-40 — THREAD PAUSED: the short-dated skew-selling system (2026-11-16) — where to pick it up
+
+User 2026-11-16: we will NOT trade the 1-10 day options; the focus moves to 0DTE (SH-41+). State of this thread:
+- **The system (SH-28..39, after the SH-36 errata):** sell the 25-delta option of a liquid chain when its skew
+  (IV25/IV_ATM) is in the top 10% vs prior years, sold at the bid, delta-hedged DAILY with stock (SH-29: the hedge is
+  the difference; ATM-option hedges give the edge back, SH-37). Stock puts +17.8% of premium PF 1.70 t 11.6 (13/14 yrs);
+  ETF puts +21% PF 1.90; calls +10% PF 1.28 (stocks, veto a close at the 52-week high, SH-35) / +9.6% PF 1.30 (ETFs).
+- **Secondary features** (SH-30/31/38/39): forward-vol slope top tercile (best supported); IV / median(yz20x) for ETF
+  puts and calls; LOW iv30 vs its own median for stock puts; the name's own VRP history for calls. Robustness rule
+  adopted: a feature must point the same way across windows (SH-38's window sweep flipped sign; the median version did not).
+- **Not done:** the portfolio test (one position per name per day, size by skew percentile and the features above, equity
+  curve, 2020); a point-in-time ETF universe (the 20 ETFs are hand-picked, SH-33); features chosen on early years and
+  checked on later ones; OI (data/options/oi_full, 35k chunks, 2012-2026, <= 60 DTE, downloaded 2026-11-14) not used yet.
+- **Code / data:** scripts/options/{short_dated, hedge_daily, sd_common, hedge_compare, short_dated_fwd, skew_split,
+  skew_threshold, etf_regime, call_skew, skew_52w, atm_hedge, ivrv, ivrv2}.py; data/options/short_dated/{trades,hedge,
+  ivrv_trades,rv_daily}.parquet; logs/options_*.log. Every report must go through sd_common.drop_bad (SH-36).
