@@ -27,7 +27,7 @@ At the end of each window the inventory is closed taking the real book.
 
   cd research && python -u scripts/equity/mm_mbo_sim.py --ticker CBRS --date 2026-05-14 > logs/mm_mbo_sim_cbrs.log 2>&1; echo exit $?
 """
-import argparse, datetime, glob, os, time, zoneinfo
+import argparse, datetime, glob, json, math, os, time, zoneinfo
 import numpy as np, pandas as pd
 from numba import njit
 from numba import types as nbt
@@ -46,6 +46,13 @@ ap.add_argument('--cap', type=int, default=3)
 ap.add_argument('--post-only', action='store_true')
 ap.add_argument('--front', action='store_true', help='OPTIMISTIC: our order is first in line at its price')
 ap.add_argument('--out', default='data/equity/mm_sim/mbo')
+ap.add_argument('--signal', help='a JSON {"w": [6 feature weights + intercept], "thr": bp}: the predicted mid move (bp) of the '
+                'order-book signal; the rules join+sig / penny+sig pull the bid below -thr and the ask above +thr')
+ap.add_argument('--thr', type=float, help='override the signal JSON threshold (bp)')
+ap.add_argument('--momentum', action='store_true', help='SECONDARY-SYSTEM TEST (user 11-17): each time the maker inventory reaches the cap, '
+                'a taker enters AGAINST it (maker long -> sell at the bid) after --mom-lat and exits by taking after H s')
+ap.add_argument('--mom-lat', type=float, default=0.15)
+ap.add_argument('--dump-features', action='store_true', help='write the 100 ms feature grid of each window (the first rule)')
 ap.add_argument('--rl', type=int, default=100, help='the round lot (default: the 2025 tier by price; an IPO with no prior month may be 100)')
 ap.add_argument('--check-nbbo', default='data/equity/realized_spread/quotes', help='the Massive NBBO cache, to validate the rebuilt book')
 a = ap.parse_args()
@@ -82,7 +89,8 @@ INF = 1e18
 
 
 @njit(cache=True)
-def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, cap, lat, front, post_only, credit, tick_usd, base, rl):
+def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, cap, lat, front, post_only, credit, tick_usd, base, rl,
+        wsig, thr, gstep):
     """one window: the books are folded from the first record; we quote in [t0, t1). Returns the fills and the real NBBO
     (in ticks, −1 = none) after each record from t0 on."""
     lv = np.zeros((nven, 2, ntick))                       # side 0 = bid, 1 = ask
@@ -98,7 +106,20 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
     nmax = 500000
     ft = np.zeros(nmax); fs = np.zeros(nmax); fp = np.zeros(nmax); fq = np.zeros(nmax); fk = np.zeros(nmax, np.int64)  # kind 0 own 1 cross 2 take 3 flatten
     nf = 0; nact = 0
+    a0 = np.zeros(2); lvl0 = np.zeros(2); fa0 = np.zeros(nmax); flv0 = np.zeros(nmax)   # the queue ahead / the level size at placement
     rec_t = np.zeros(len(ts)); rec_b = np.full(len(ts), -1, np.int64); rec_a = np.full(len(ts), -1, np.int64); nr = 0
+    # THE ORDER-BOOK FEATURES (causal: the state after the previous record), all in [-1, 1]:
+    #  0 imb1   (B − A)/(B + A), all sizes at the protected best prices, all venues
+    #  1 imb5   the same over 5 ticks from each best
+    #  2, 3 ofi the Cont–Kukanov–Stoikov L1 order-flow imbalance, EWMA(e)/EWMA(|e|), half-life-ish τ = 1 s, 5 s
+    #  4, 5 tf  the signed aggressor volume (T records), EWMA(signed)/EWMA(total), τ = 1 s, 5 s
+    NF = 6
+    feat = np.zeros(NF); have = False
+    taus = np.array([1e9, 5e9]); e_ofi = np.zeros(2); a_ofi = np.zeros(2); e_tf = np.zeros(2); a_tf = np.zeros(2); tl = 0.0
+    pb = -1; pa = -1; pbs = 0.0; pas = 0.0
+    ng = int((t1 - t0) / gstep) + 2 if gstep > 0 else 1
+    gt = np.zeros(ng); gm = np.zeros(ng); gf = np.zeros((ng, NF)); ngr = 0; gnext = t0
+    mid_last = 0.0
 
     def nbb():
         b = -1
@@ -133,6 +154,12 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
         t = ts[i]
         if t >= t1: break
         v = ven[i]; ac = act[i]
+        while gstep > 0 and t >= gnext and gnext < t1:      # the grid samples the state BEFORE this record
+            if have and ngr < ng:
+                gt[ngr] = gnext; gm[ngr] = mid_last
+                for f in range(NF): gf[ngr, f] = feat[f]
+                ngr += 1
+            gnext += gstep
         # 1. our actions in flight landing before this record
         if t >= t0:
             for s in range(2):
@@ -158,6 +185,9 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
                     if need > 1e-9:
                         live[s] = True; lpx[s] = p; rem[s] = need; myseq[s] = seq; seq += 1
                         ahead[s] = 0.0 if front else lv[myv, s, p]
+                        a0[s] = ahead[s]
+                        lvl0[s] = 0.0
+                        for w_ in range(nven): lvl0[s] += lv[w_, s, p]
                     else:
                         live[s] = False
         # 2. the record
@@ -179,7 +209,7 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
                     if got > 0:
                         sd = 1 if s == 0 else -1
                         if nf < nmax:
-                            ft[nf] = t; fs[nf] = sd; fp[nf] = (p + base) * tick_usd; fq[nf] = got; fk[nf] = kind; nf += 1
+                            ft[nf] = t; fs[nf] = sd; fp[nf] = (p + base) * tick_usd; fq[nf] = got; fk[nf] = kind; fa0[nf] = a0[s]; flv0[nf] = lvl0[s]; nf += 1
                         q += sd * got; rem[s] -= got
                         if rem[s] <= 1e-9: live[s] = False
         elif ac == A_:
@@ -233,18 +263,56 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
             for sd in range(2):
                 for k in range(ntick): lv[v, sd, k] = 0.0
                 best[v, sd] = -1
-        if t < t0: continue
+        # the feature state
+        if t > tl:
+            for h in range(2):
+                dec = math.exp(-(t - tl) / taus[h]); e_ofi[h] *= dec; a_ofi[h] *= dec; e_tf[h] *= dec; a_tf[h] *= dec
+            tl = t
+        if ac == T_:
+            sg = 1.0 if side[i] == SB else (-1.0 if side[i] == SA else 0.0)
+            if sg != 0:
+                for h in range(2):
+                    e_tf[h] += sg * size[i]; a_tf[h] += size[i]
+        if t < t0 - 600e9: continue
         b = pnbb(); x = pnbo()
+        if b >= 0 and x > b:
+            bs = 0.0; as_ = 0.0
+            for w_ in range(nven):
+                bs += lv[w_, 0, b]; as_ += lv[w_, 1, x]
+            if pb >= 0:
+                e = 0.0
+                if b >= pb: e += bs
+                if b <= pb: e -= pbs
+                if x <= pa: e -= as_
+                if x >= pa: e += pas
+                for h in range(2):
+                    e_ofi[h] += e; a_ofi[h] += abs(e)
+            pb = b; pa = x; pbs = bs; pas = as_
+            if t >= t0:
+                b5 = 0.0; a5 = 0.0
+                for k5 in range(5):
+                    for w_ in range(nven):
+                        if b - k5 >= 0: b5 += lv[w_, 0, b - k5]
+                        if x + k5 < ntick: a5 += lv[w_, 1, x + k5]
+                feat[0] = (bs - as_) / max(bs + as_, 1.0); feat[1] = (b5 - a5) / max(b5 + a5, 1.0)
+                for h in range(2):
+                    feat[2 + h] = e_ofi[h] / a_ofi[h] if a_ofi[h] > 0 else 0.0
+                    feat[4 + h] = e_tf[h] / a_tf[h] if a_tf[h] > 0 else 0.0
+                mid_last = 0.5 * (b + x + 2 * base) * tick_usd; have = True
+        if t < t0: continue
         rec_t[nr] = t; rec_b[nr] = b; rec_a[nr] = x; nr += 1
         if b < 0 or x < 0 or x <= b: continue
         # 3. the desired quotes
         ql = q / lot
+        sig = wsig[NF]
+        for f in range(NF): sig += wsig[f] * feat[f]
         for s in range(2):
             if pend[s]: continue
             allowed = ql < cap - 1e-9 if s == 0 else ql > -cap + 1e-9
+            if mode >= 2 and ((s == 0 and sig < -thr) or (s == 1 and sig > thr)): allowed = False   # the signal pulls the side about to be run over
             want = -1
             if allowed:
-                if mode == 0: want = b if s == 0 else x
+                if mode == 0 or mode == 3: want = b if s == 0 else x
                 else:
                     if x - b >= 3: want = b + 1 if s == 0 else x - 1
                     else: want = b if s == 0 else x
@@ -264,7 +332,7 @@ def run(ts, ven, act, side, tk, size, oid, nven, ntick, t0, t1, mode, myv, lot, 
             ft[nf] = t1; fs[nf] = -1 if q > 0 else 1; fp[nf] = (k + base) * tick_usd; fq[nf] = got; fk[nf] = 3; nf += 1
             q += -got if q > 0 else got
         k += -1 if q > 0 else 1
-    return ft[:nf], fs[:nf], fp[:nf], fq[:nf], fk[:nf], nact, rec_t[:nr], rec_b[:nr], rec_a[:nr]
+    return ft[:nf], fs[:nf], fp[:nf], fq[:nf], fk[:nf], fa0[:nf], flv0[:nf], nact, rec_t[:nr], rec_b[:nr], rec_a[:nr], gt[:ngr], gm[:ngr], gf[:ngr]
 
 
 if __name__ == '__main__':
@@ -282,15 +350,24 @@ if __name__ == '__main__':
     log(f'round lot {rl} shares (the protected quote; odd lots still count for the queue, taking and the cross-venue clear test)')
     os.makedirs(a.out, exist_ok=True)
     rows = []
+    wsig = np.zeros(7); thr = 1e9
+    if a.signal:
+        S = json.load(open(a.signal)); wsig = np.array(S['w'], float); thr = S['thr']
+    if a.thr is not None: thr = a.thr
     for w in a.windows.split(','):
         s0, s1 = w.split('-'); t0 = ns_at(a.date, s0); t1 = ns_at(a.date, s1)
         for rule in a.rules.split(','):
-            mode = 0 if rule == 'join' else 1
+            mode = {'join': 0, 'penny': 1, 'penny+sig': 2, 'join+sig': 3}[rule]
             lot = max(100, 100 * round(a.lot_usd / p_ref / 100))
-            ft, fs, fp, fq, fk, nact, rt, rb, ra = run(D.ts.to_numpy(np.int64).astype(np.float64), D.ven.to_numpy(np.int64), D.act.to_numpy(np.int64),
+            ft, fs, fp, fq, fk, fa0, flv0, nact, rt, rb, ra, gt, gm, gf = run(D.ts.to_numpy(np.int64).astype(np.float64), D.ven.to_numpy(np.int64), D.act.to_numpy(np.int64),
                                                        D.side.to_numpy(np.int64), tk, D['size'].to_numpy(), D.oid.to_numpy(np.int64),
                                                        len(venues), ntick, float(t0), float(t1), mode, myv, float(lot), a.cap, a.lat * 1e9,
-                                                       a.front, a.post_only, ADD_CREDIT.get(a.venue, 0.0), tick_usd, base, float(rl))
+                                                       a.front, a.post_only, ADD_CREDIT.get(a.venue, 0.0), tick_usd, base, float(rl),
+                                                       wsig, thr, 1e8 if (a.dump_features and rule == a.rules.split(',')[0]) else 0.0)
+            if len(gt):
+                G = pd.DataFrame(gf, columns=['imb1', 'imb5', 'ofi_1', 'ofi_5', 'tf_1', 'tf_5']); G.insert(0, 'mid', gm); G.insert(0, 't', gt.astype(np.int64))
+                G.to_parquet(f'{a.out}/{a.ticker}_{a.date}_{w.replace(":", "")}_features.parquet', index=False)
+                log(f'  features: {len(G):,} grid points')
             ok = (rb >= 0) & (ra > rb)
             mt = rt[ok]; mid = 0.5 * (rb[ok] + ra[ok] + 2 * base) * tick_usd
             j = np.clip(np.searchsorted(mt, ft, 'right') - 1, 0, None); m0 = mid[j]
@@ -306,8 +383,29 @@ if __name__ == '__main__':
                              maker_sh=float(fq[maker].sum()), taker_sh=float(fq[~maker].sum()), actions=nact, net=round(net), spread=round(spread),
                              adv1=round(adv[1]), adv5=round(adv[5]), adv30=round(adv[30]), fees=round(fee),
                              net_bp=round(1e4 * net / max((fp * fq).sum(), 1), 1), med_spr_bp=round(float(np.median(1e4 * (ra[ok] - rb[ok]) * tick_usd / mid)), 1)))
-            pd.DataFrame(dict(t=ft, side=fs, px=fp, qty=fq, kind=fk)).to_parquet(f'{a.out}/{a.ticker}_{a.date}_{w.replace(":", "")}_{rule}_fills.parquet', index=False)
+            mk = {D_: mid[np.clip(np.searchsorted(mt, ft + D_ * 1e9, 'right') - 1, 0, None)] for D_ in (1, 5, 30)}
+            pd.DataFrame(dict(t=ft, side=fs, px=fp, qty=fq, kind=fk, ahead0=fa0, level0=flv0, mid0=m0, mid1=mk[1], mid5=mk[5], mid30=mk[30])).to_parquet(f'{a.out}/{a.ticker}_{a.date}_{w.replace(":", "")}_{rule}_fills.parquet', index=False)
             log(rows[-1])
+            if a.momentum:
+                o_ = np.argsort(ft, kind='stable'); qq = np.cumsum((fs * fq)[o_]); tq = ft[o_]
+                capq = a.cap * lot - 1e-9
+                prev = np.concatenate([[0.0], qq[:-1]])
+                ev = np.nonzero(((qq >= capq) & (prev < capq)) | ((qq <= -capq) & (prev > -capq)))[0]
+                evt = tq[ev]; evd = np.where(qq[ev] > 0, -1.0, 1.0)          # maker long -> the trade is SHORT
+                okq = (rb >= 0) & (ra > rb); qt_ = rt[okq]; qb_ = (rb[okq] + base) * tick_usd; qa_ = (ra[okq] + base) * tick_usd
+                def at(tt): return np.clip(np.searchsorted(qt_, tt, 'right') - 1, 0, None)
+                te = evt + a.mom_lat * 1e9; je = at(te)
+                pe = np.where(evd > 0, qa_[je], qb_[je]); me = 0.5 * (qa_[je] + qb_[je])
+                for H in (10, 30, 60, 300, 900, 1800):
+                    keep = te + H * 1e9 < min(t1, qt_[-1])
+                    jx = at(te + H * 1e9)
+                    px_ = np.where(evd > 0, qb_[jx], qa_[jx]); mx = 0.5 * (qa_[jx] + qb_[jx])
+                    fee = 2 * (COMM + TAKE)
+                    netbp = 1e4 * (evd * (px_ - pe) - fee) / pe; midbp = 1e4 * evd * (mx - me) / me
+                    if keep.sum():
+                        log(f'  MOMENTUM cap={a.cap} H={H}s: {int(keep.sum())} events, mid move with the trade {midbp[keep].mean():+.1f} bp '
+                            f'(median {np.median(midbp[keep]):+.1f}), net of the spread + fees {netbp[keep].mean():+.1f} bp, win {np.mean(netbp[keep] > 0):.0%}, '
+                            f'$ at {lot} sh {np.sum(netbp[keep] / 1e4 * pe[keep] * lot):+,.0f}')
             if rule == a.rules.split(',')[0] and a.check_nbbo and os.path.exists(f'{a.check_nbbo}/{a.ticker}_{a.date}.parquet'):
                 Q = pd.read_parquet(f'{a.check_nbbo}/{a.ticker}_{a.date}.parquet').dropna().sort_values('ts')
                 g = np.arange(t0, min(t1, rt[-1]), int(1e9))
