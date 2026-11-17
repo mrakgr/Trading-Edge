@@ -19422,6 +19422,50 @@ rule:
   lit +\$0.3k). It needs no identification of our own order: only our own price, the NBBO, and the time since our last
   fill. Not built.
 
+### S49ap-3 — wider ceilings, 3 s steps, and a take on a one-tick spread (user, 2026-11-17)
+
+**The question.** On 11-16, the first live day of the ratchet (nbbo-step 5 s · s + 50 bp, deployed 87d42d1), two
+winners went unfilled: FRMI and HIHO. Would a 3 s step and/or a 100 bp ceiling have caught them?
+
+**11-16 in the private repo's `fill_sim_check.py --wide`** (the live legs, their live windows):
+- **The queue model matches live exactly.** It fills the same 18 of 20 legs. On the four legs where the ratchet
+  stepped it gives the live prices: NUAI 3.02, BTDR 4.78, FCEL 8.76, AEHR 49.52.
+- **HIHO** (1,352 sh, signal 1.2174): one tick is 82 bp, so + 100 bp allows only 1.23, and the price never came back
+  to it. It is caught at 3 s · + 150 bp (1.24, + \$68), or at 5 s · + 200 bp.
+- **FRMI** (239 sh, signal 2.345): the spread stayed one cent while it climbed a cent at a time, so the ratchet sat
+  on the bid behind the queue. No ceiling up to + 300 bp catches it; only a TAKE on the one-tick spread does (2.35).
+  That is the user's "never cross unless it's only a tick" (11-14), which the deployed rule does not use.
+
+**The whole book** (`flushfader_entry_sim.py --set wide`, 37,253 trips, \$1,000 each, net of venue fees, Δ vs the
+pre-ratchet live rule). `nbbo-take1` = the NBBO step, but on a one-tick spread the step goes TO the ask, within the
+ceiling:
+
+| rule | queue Δ (t, years > 0) | hidden Δ | lit Δ | queue: unfilled / taken % / entry bp |
+|---|---|---|---|---|
+| **nbbo-step 5 s · s + 50 bp (deployed)** | **+\$9,026 (6.10, 6/7)** | **+\$9,369** | **+\$331** | 576 / 9 % / −1.4 |
+| nbbo-step 5 s · s + 100 bp | +\$9,050 (5.56, 7/7) | +\$10,077 | −\$467 | 252 / 10 % / −4.9 |
+| nbbo-step 5 s · s + 150 bp | +\$8,532 (5.03, 7/7) | +\$9,551 | −\$699 | 138 / 10 % / −6.5 |
+| nbbo-step 5 s · s + 200 bp | +\$8,468 (4.89, 6/7) | +\$9,594 | −\$810 | 88 / 10 % / −7.4 |
+| nbbo-step 3 s · s + 50 bp | +\$10,007 (6.39, 6/7) | +\$10,502 | −\$1,386 | 492 / 11 % / −1.8 |
+| nbbo-step 3 s · s + 100 bp | +\$9,319 (5.45, 7/7) | +\$10,418 | −\$2,959 | 208 / 12 % / −5.1 |
+| nbbo-step 3 s · s + 150 bp | +\$9,020 (5.12, 7/7) | +\$10,164 | −\$3,382 | 112 / 12 % / −6.5 |
+| nbbo-step 3 s · s + 200 bp | +\$8,893 (4.95, 7/7) | +\$10,087 | −\$3,577 | 71 / 12 % / −7.2 |
+| nbbo-take1 5 s · s + 50 … 200 bp | −\$11.0 … −14.0k (t −6.2 … −7.1, 0/7) | −\$10.2 … −12.8k | −\$15.3 … −18.9k | 283 … 11 / 39–42 % |
+| nbbo-take1 3 s · s + 50 … 200 bp | −\$15.3 … −18.1k (t −8.0 … −8.6, 0/7) | −\$14.5 … −16.9k | −\$23.3 … −27.1k | 190 … 5 / 47–50 % |
+
+- **The take on a one-tick spread is a clear loser:** −\$11 to −18k behind a queue, every year negative.
+  - It does catch nearly every trip (unfilled 576 → 11–283), FRMI-like ones included.
+  - But it takes 40–50 % of the shares, and it pays the tick and the take fee on trips the plain step fills passively a
+    few seconds later.
+- **Wider ceilings trade fills for price, a wash.**
+  - From + 50 to + 200 bp the unfilled trips fall 576 → 88, but the entry price worsens −1.4 → −7.4 bp. Behind a queue
+    the totals stay within \$0.6k of each other.
+  - In the lit model the wider ceilings lose more.
+  - HIHO is the kind of trip + 150 bp rescues. On the whole book it pays for itself only about as often as it overpays.
+- **3 s vs 5 s:** 3 s is about \$1k better behind a queue and \$1.7k worse lit, the same trade-off as §S49ap-2.
+- **Verdict: keep the deployed rule, nbbo-step 5 s · s + 50 bp.** It is the only rule positive in all three fill
+  models. 11-16's two misses are the cost it was chosen with, not a flaw: both fixes lose on the book.
+
 ### S49al-5 — the NBBO STEP after the exit signal instead of the 60 s wait + maker (user, 2026-11-14)
 
 The user: "once we get an exit signal, if the resting order still hasn't exited the order in full, instead of doing the

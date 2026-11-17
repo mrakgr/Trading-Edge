@@ -36,7 +36,7 @@ ap.add_argument("--quotes", default="data/equity/flushfader_cap_sim/quotes")
 ap.add_argument("--prints", default="data/equity/flushfader_cap_sim/prints")
 ap.add_argument("--out", required=True)
 ap.add_argument("--control", default="data/equity/flushfader_cap_sim_all/sim.parquet")
-ap.add_argument("--set", default="nbbo", choices=("s49ap", "ratchet", "ratchet2", "nbbo", "nbbo2"))
+ap.add_argument("--set", default="nbbo", choices=("s49ap", "ratchet", "ratchet2", "nbbo", "nbbo2", "wide"))
 ap.add_argument("--only", help="keep only the rules matching this regex (the live rule always)")
 ap.add_argument("--per-year", type=int, default=100000)
 ap.add_argument("--seed", type=int, default=20261030)
@@ -48,7 +48,7 @@ NY = zoneinfo.ZoneInfo("America/New_York")
 def ns_at(d, sec):
     y, m, dd = map(int, d.split("-")); return int(datetime.datetime(y, m, dd, tzinfo=NY).timestamp() * 1e9) + int(sec * 1e9)
 
-JOIN, MID, RATCHET, NBBO_STEP, OWN_STEP = 0, 1, 2, 3, 4
+JOIN, MID, RATCHET, NBBO_STEP, OWN_STEP, NBBO_TAKE1 = 0, 1, 2, 3, 4, 5
 
 @njit(cache=True)
 def run(et, ets, eb, ebs, ea, eas, ep, es, elit, i0, live_from, end, c0, c1, trig, mode, est, hold, step, kmax, eff, tick, n, fm, lat,
@@ -89,7 +89,10 @@ def run(et, ets, eb, ebs, ea, eas, ep, es, elit, i0, live_from, end, c0, c1, tri
                 # whether it's ours" — live sees max(the market's bid, our own displayed bid); never down at a step
                 ph = 2; cur = pend_px if pend_t >= 0 else px
                 # mode 4 (`own-step`, the user's min variant): one tick above OUR price, ignoring a higher bid
-                nx = min(c1, la - tick, (max(lb, cur) if mode == 3 else cur) + tick)
+                nx = min(c1, la - tick, (max(lb, cur) if mode in (3, 5) else cur) + tick)
+                # mode 5 `nbbo-take1` (2026-11-17; the user 11-14: "we don't want to cross the spread ever unless it's only a
+                # tick"): the NBBO step, but on a ONE-TICK spread the step goes to the ask — a take — within the ceiling
+                if mode == 5 and la - lb <= tick + 1e-9 and la <= c1 + 1e-9: nx = la
                 if nx > cur + 1e-9:
                     if pend_t < 0: pend_t = tdue + lat
                     pend_px = nx
@@ -185,6 +188,11 @@ def rules():
             for c in ["s+50bp", "s+100bp"]:
                 R += [(f"nbbo-step {st:g}s · {c}", st, c, NBBO_STEP, False, False, st, 10**6, True),
                       (f"own-step {st:g}s · {c}", st, c, OWN_STEP, False, False, st, 10**6, True)]
+    if args.set == "wide":   # 2026-11-17 (11-16's misses: HIHO needed + 150 bp at 3 s, FRMI a take on a one-tick spread)
+        for st in (3.0, 5.0):
+            for c in ["s+50bp", "s+100bp", "s+150bp", "s+200bp"]:
+                R += [(f"nbbo-step {st:g}s · {c}", st, c, NBBO_STEP, False, False, st, 10**6, True),
+                      (f"nbbo-take1 {st:g}s · {c}", st, c, NBBO_TAKE1, False, False, st, 10**6, True)]
     if args.only: R = [R[0]] + [r for r in R[1:] if re.search(args.only, r[0])]
     return [r if len(r) == 9 else r + (10**6, False) for r in R]    # (…, kmax, eff): the older sets bank k (unbounded, not eff)
 RULES = rules()
@@ -223,7 +231,9 @@ def sim_day(job):
         c0 = math.ceil(r.signal_vwap / tk - 1e-6) * tk
         C1 = {"C0": c0, "C0+1t": c0 + tk, "C0+2t": c0 + 2 * tk, "C0+3t": c0 + 3 * tk,
               "s+50bp": max(c0, math.ceil(r.signal_vwap * 1.005 / tk - 1e-6) * tk),
-              "s+100bp": max(c0, math.ceil(r.signal_vwap * 1.01 / tk - 1e-6) * tk), "∞": 1e9}
+              "s+100bp": max(c0, math.ceil(r.signal_vwap * 1.01 / tk - 1e-6) * tk),
+              "s+150bp": max(c0, math.ceil(r.signal_vwap * 1.015 / tk - 1e-6) * tk),
+              "s+200bp": max(c0, math.ceil(r.signal_vwap * 1.02 / tk - 1e-6) * tk), "∞": 1e9}
         n = float(max(1, math.floor(args.notional / r.signal_vwap)))
         rec.update(n=n, c0=c0, on_grid=bool(abs(r.signal_vwap / tk - round(r.signal_vwap / tk)) < 1e-6))
         for name, trig, c, mode, est, hold, step, kmax, eff in RULES:
