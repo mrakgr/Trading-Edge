@@ -1,5 +1,11 @@
 module TradingEdge.FlushFaderV2.Program
 
+// ⚠⚠ FROZEN COPY — NOT THE REFERENCE ENGINE (note 2026-11-18). This project is `TradingEdge.FlushFader` as of research
+// commit f193920 (2026-10-12), modules renamed, never changed since. The FlushFaderV2 RESEARCH (docs/flushfaderv2_results.md,
+// the linear sizing model) ran as Python over the ORIGINAL engine's trip output, and its winners went straight into the
+// Oms. The reference engine — the production books, the parity target, new recorded features (e.g. retail_share_1200,
+// 2026-11-18) — is TradingEdge.FlushFader. Do not run or extend this one by mistake.
+
 open System
 open System.Diagnostics
 open Argu

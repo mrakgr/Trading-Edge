@@ -86,11 +86,18 @@ open TradingEdge.RollingMa
 /// price × raw volume is already real dollars. Cross-day context arrives
 /// pre-converted into day D's raw scale on the Candidate. See
 /// docs/price_adjustment.md.
+///
+/// ⭐ (2026-11-18) totalVolume / retailVolume / midVolume: the corpus's SHARE columns (TradingEdge.Orb.Bars, "THE SHARE
+/// COLUMNS") — all counted prints (delayed ones too, no auction prints), the BJZZ retail and the midpoint off-exchange
+/// prints among them; a second without an in-bar print carries its share volume into this bar.
 type SecBar =
     { etSec: int
       vwap: float
       volume: float
-      tradeCount: int }
+      tradeCount: int
+      totalVolume: float
+      retailVolume: float
+      midVolume: float }
 
 /// Trip life-cycle. Exit SIGNALS are detected at a bar's close but FILL at the
 /// next present bar's vwap — PendingExit carries the reason across that bar.
@@ -498,6 +505,11 @@ type FlushPosition =
       DollarVol300Bar: float
       DollarVol600Bar: float
       DollarVol1200Bar: float
+      // ⭐ (2026-11-18, docs/buildup_results.md §6) the RETAIL SHARE: Σ retail_volume / Σ total_volume over the last 1200
+      // present bars, this bar included (nan when the window holds no counted volume). The bottom quintile (< ~0.153) is
+      // FlushFader's weakest fifth (PF ~1.06); recorded, the gate is to be fitted. mid_share_1200 = the midpoint prints'.
+      RetailShare1200: float
+      MidShare1200: float
       CumVol: float
       CumTc: float
       CumDv: float               // S40l: session Σ vwap·vol — pre-leg dv = cum_dv − dv_leg
@@ -1071,6 +1083,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
     let volSum60 = SumMa 60
     let volSum600 = SumMa 600                    // 10m volume (user, 2026-07-28)
     let volSum1200 = SumMa 1200
+    let totSum1200 = SumMa 1200                  // ⭐ 2026-11-18 the share columns' 20m sums (RetailShare1200)
+    let retSum1200 = SumMa 1200
+    let midSum1200 = SumMa 1200
     let tcSum5 = SumMa 5
     let tcSum10 = SumMa 10
     let tcSum15 = SumMa 15
@@ -1718,6 +1733,9 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
         volSum300.Push bar.volume
         volSum600.Push bar.volume
         volSum1200.Push bar.volume
+        totSum1200.Push bar.totalVolume
+        retSum1200.Push bar.retailVolume
+        midSum1200.Push bar.midVolume
         tcSum5.Push (float bar.tradeCount)
         tcSum10.Push (float bar.tradeCount)
         tcSum15.Push (float bar.tradeCount)
@@ -2812,6 +2830,12 @@ type IntradaySystem(cfg: IntradayConfig, ticker: string, day: DateOnly) =
                       DollarVol300Bar = vv dvSum300.State
                       DollarVol600Bar = vv dvSum600.State
                       DollarVol1200Bar = vv dvSum1200.State
+                      RetailShare1200 = (match retSum1200.State, totSum1200.State with
+                                         | ValueSome r, ValueSome t when t > 0.0 -> r / t
+                                         | _ -> nan)
+                      MidShare1200 = (match midSum1200.State, totSum1200.State with
+                                      | ValueSome m, ValueSome t when t > 0.0 -> m / t
+                                      | _ -> nan)
                       CumVol = cumVol
                       CumDv = cumDv
                       Vol0945Tape = vol0945Tape

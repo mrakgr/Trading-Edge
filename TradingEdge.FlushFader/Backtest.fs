@@ -396,7 +396,8 @@ CREATE TABLE trips (
     cusr_up_k0 DOUBLE, cusr_dn_k0 DOUBLE, cusr_up_age_k0 DOUBLE, cusr_dn_age_k0 DOUBLE, cusr_up_k435 DOUBLE, cusr_dn_k435 DOUBLE, cusr_up_age_k435 DOUBLE, cusr_dn_age_k435 DOUBLE, cusr_up_k10 DOUBLE, cusr_dn_k10 DOUBLE, cusr_up_age_k10 DOUBLE, cusr_dn_age_k10 DOUBLE,
     kal_slope_l0_h60 DOUBLE, kal_t_l0_h60 DOUBLE, kal_gap_l0_h60 DOUBLE, kal_slope_l0_h300 DOUBLE, kal_t_l0_h300 DOUBLE, kal_gap_l0_h300 DOUBLE, kal_slope_l0_h1200 DOUBLE, kal_t_l0_h1200 DOUBLE, kal_gap_l0_h1200 DOUBLE, kal_slope_l01_h60 DOUBLE, kal_t_l01_h60 DOUBLE, kal_gap_l01_h60 DOUBLE, kal_slope_l01_h300 DOUBLE, kal_t_l01_h300 DOUBLE, kal_gap_l01_h300 DOUBLE, kal_slope_l01_h1200 DOUBLE, kal_t_l01_h1200 DOUBLE, kal_gap_l01_h1200 DOUBLE, kal_slope_l025_h60 DOUBLE, kal_t_l025_h60 DOUBLE, kal_gap_l025_h60 DOUBLE, kal_slope_l025_h300 DOUBLE, kal_t_l025_h300 DOUBLE, kal_gap_l025_h300 DOUBLE, kal_slope_l025_h1200 DOUBLE, kal_t_l025_h1200 DOUBLE, kal_gap_l025_h1200 DOUBLE,
     cusr_up_k025 DOUBLE, cusr_dn_k025 DOUBLE, cusr_up_age_k025 DOUBLE, cusr_dn_age_k025 DOUBLE, cusr_up_k05 DOUBLE, cusr_dn_k05 DOUBLE, cusr_up_age_k05 DOUBLE, cusr_dn_age_k05 DOUBLE, cusr_up_k1 DOUBLE, cusr_dn_k1 DOUBLE, cusr_up_age_k1 DOUBLE, cusr_dn_age_k1 DOUBLE, cusr_up_k2 DOUBLE, cusr_dn_k2 DOUBLE, cusr_up_age_k2 DOUBLE, cusr_dn_age_k2 DOUBLE,
-    aslope_k025 DOUBLE, aslope_k05 DOUBLE, aslope_k1 DOUBLE, aslope_k2 DOUBLE
+    aslope_k025 DOUBLE, aslope_k05 DOUBLE, aslope_k1 DOUBLE, aslope_k2 DOUBLE,
+    retail_share_1200 DOUBLE, mid_share_1200 DOUBLE
 )"""
 
 // (right-side-of-V cont_trips sink DELETED — S39g: study closed at S26,
@@ -606,6 +607,7 @@ type TripSink(outDir: string) =
             for x in p.Kalman do f x                         // ⭐ S49ao: kal_{slope,t,gap}_<KALMAN_NAMES>
             for x in p.CusumRawLo do f x                     // ⭐ S49ap: cusr_{up,dn,up_age,dn_age}_k{025,05,1,2}
             for x in p.AnchoredSlope do f x                  // ⭐ S49aq: aslope_k{025,05,1,2}
+            f p.RetailShare1200; f p.MidShare1200            // ⭐ 2026-11-18: the retail-share gate's feature
             row.EndRow()
             total <- total + 1L
             if pnl > 0.0 then wins <- wins + 1L; grossWin <- grossWin + pnl
@@ -636,7 +638,8 @@ type SecEmitter
         // `bucket` IS seconds-since-00:00-ET (the 1s builder already did the
         // timezone work) — no window_start conversion, unlike the 1m emitters.
         sprintf """
-        SELECT ticker, bucket, vwap::DOUBLE, volume::DOUBLE, trade_count
+        SELECT ticker, bucket, vwap::DOUBLE, volume::DOUBLE, trade_count,
+               total_volume::DOUBLE, retail_volume::DOUBLE, mid_volume::DOUBLE
         FROM read_parquet('%s')
         WHERE ticker IN (%s) AND bucket >= %d AND bucket <= %d
           AND vwap > 0 AND volume > 0
@@ -670,7 +673,10 @@ type SecEmitter
                 { etSec      = reader.GetInt32 1
                   vwap       = reader.GetDouble 2
                   volume     = reader.GetDouble 3
-                  tradeCount = reader.GetInt32 4 }
+                  tradeCount = reader.GetInt32 4
+                  totalVolume = reader.GetDouble 5
+                  retailVolume = reader.GetDouble 6
+                  midVolume = reader.GetDouble 7 }
             onNext (ticker, bar)
 
 /// One day-read request to the single reader: the reply channel receives one

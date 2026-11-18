@@ -5,6 +5,10 @@
 `docs/flushfader_results.md`, is ~18,500 lines; V2's research is written here. Everything up to §S49aj (the broad
 book in the Scanner, 2026-09-09) is the starting point and lives there.
 
+⚠ **The project is a frozen copy (note 2026-11-18).** Its code never changed after 2026-10-12: the V2 studies below ran as
+Python over the trip output of the ORIGINAL engine, `TradingEdge.FlushFader`, which stays the reference (the production
+books, the parity target, new recorded features), and the winners were ported straight into the Oms.
+
 ## Where V1 left off
 
 | piece | state (V1, `docs/production_specs.md` §1) |
