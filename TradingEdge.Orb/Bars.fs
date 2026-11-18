@@ -362,19 +362,26 @@ type BarAccumulator() =
           RetailVolume = float32 ret
           MidVolume = float32 mid }
 
-    /// Push one print with its `tradeFlags` (0 = ignored). Returns the completed prior bar when an in-bar print opens
-    /// a later second.
+    /// Push one print with its `tradeFlags` (0 = ignored). Returns the completed prior bar as soon as a print of a
+    /// LATER second arrives — an in-bar one (which opens the next bar) or a counted one (carried to it).
+    /// ⭐ (2026-11-18, the user) The counted print closes the bar too: the tape is in sip-time order, so nothing more can
+    /// land in the open second. The bar's CONTENT is unchanged; it is emitted sooner (before the next in-bar print).
     member _.Push(b: int, price: float, size: float, flags: byte) : Bar1s voption =
         let counts = flags &&& FlagCounts <> 0uy
         let r = if flags &&& FlagRetail <> 0uy then size else 0.0
         let m = if flags &&& FlagMid <> 0uy then size else 0.0
         if flags &&& FlagInBar = 0uy then
-            if counts then
-                if n > 0 && b <= bucket then
-                    tot <- tot + size; ret <- ret + r; mid <- mid + m
-                else
-                    cTot <- cTot + size; cRet <- cRet + r; cMid <- cMid + m
-            ValueNone
+            if not counts then ValueNone
+            elif n > 0 && b <= bucket then
+                tot <- tot + size; ret <- ret + r; mid <- mid + m
+                ValueNone
+            else
+                cTot <- cTot + size; cRet <- cRet + r; cMid <- cMid + m
+                if n > 0 then
+                    let out = ValueSome(emit ())
+                    n <- 0                  // closed: the next in-bar print opens a new bar with the carried volume
+                    out
+                else ValueNone
         elif b = bucket && n > 0 then
             pv <- pv + price * size
             v <- v + size
