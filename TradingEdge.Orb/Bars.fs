@@ -128,6 +128,61 @@ let conditionsAndDeltaSqlAt (p: TimestampPrecision) =
 
 let conditionsAndDeltaSql = conditionsAndDeltaSqlAt Nanosecond
 
+// -----------------------------------------------------------------------------
+// ⭐ THE SHARE COLUMNS (2026-11-18, user): total_volume / retail_volume / mid_volume
+// -----------------------------------------------------------------------------
+// The FlushFader retail-share gate (docs/buildup_results.md §6) needs, per bar, the volume of ALL prints — delayed
+// ones too — and of the BJZZ retail prints among them. A print COUNTS toward the share columns iff
+//   size > 0 AND price > 0 AND no marker (15, 16) AND no auction code (17, 25, 19, 8) AND no excluded code
+// — i.e. the bar rule WITHOUT the 50 ms delay cap, and WITHOUT the auction override (an auction print says nothing
+// about who trades: the user, 2026-11-18). Among the counted prints, an off-exchange one (FINRA TRF / ADF = Massive
+// exchange 4) is classified by its SUB-TICK FRACTION f — the price's position inside its minimum tick ($0.01 at
+// >= $1, $0.0001 below: Reg NMS Rule 612 is per price, so the tick changes the moment the price crosses $1):
+//   f in (0, 0.4) or (0.6, 1)  RETAIL (BJZZ: a wholesaler's price-improved fill; Boehmer, Jones, Zhang & Zhang 2021)
+//   f in [0.4, 0.6]            MID (a midpoint cross — mostly dark-pool institutional; recorded for testing only)
+//   f = 0                      neither (an on-tick print)
+// f is computed EXACTLY in integer micro-dollars (the tape's prices carry <= 6 decimals: measured 2026-11-18).
+// ⚠ Below $1 the classification is UNVALIDATED (17.6 % of sub-$1 TRF prints are finer than $0.0001 vs 0.9 % of lit
+// ones on 2025-06-02 — the same signature, one level down — but no study has used it). FlushFader trades >= $1 only.
+// ⚠ A bar holds only seconds with an IN-BAR print. The share volume of a second without one is CARRIED to the ticker's
+// next bar (the user's rule): a delayed print never creates a bar, so every bar-count window keeps its meaning. Share
+// volume after the day's last bar is dropped.
+
+/// The FINRA TRF / ADF venue id on the Massive tape and feed.
+[<Literal>]
+let TrfExchange = 4
+
+/// A print in the bar (vwap / volume / trade_count): the 1s bar rule.
+[<Literal>]
+let FlagInBar = 1uy
+/// A print in total_volume (the share rule above).
+[<Literal>]
+let FlagCounts = 2uy
+/// A counted off-exchange print with a retail (BJZZ) fraction.
+[<Literal>]
+let FlagRetail = 4uy
+/// A counted off-exchange print with a midpoint fraction.
+[<Literal>]
+let FlagMid = 8uy
+
+/// The share rule's conditions, in SQL (size / price guarded by the row filter).
+let countsSql =
+    $"(NOT list_has_any(conditions, {markerSetSql}) AND NOT list_has_any(conditions, {openCloseSetSql}) AND NOT list_has_any(conditions, {excludeSetSql}))"
+
+/// The sub-tick fraction, in SQL. Mirrors `subTickFrac`.
+let subTickFracSql =
+    "(CASE WHEN price >= 1 THEN (CAST(round(price * 1e6) AS BIGINT) % 10000) / 10000.0 ELSE (CAST(round(price * 1e6) AS BIGINT) % 100) / 100.0 END)"
+
+/// A counted print's class, in SQL: 'R' retail, 'M' mid, NULL neither. Mirrors `shareFlags`.
+let shareClassSql =
+    $"(CASE WHEN exchange <> {TrfExchange} THEN NULL
+            WHEN {subTickFracSql} >= 0.4 AND {subTickFracSql} <= 0.6 THEN 'M'
+            WHEN {subTickFracSql} > 0 THEN 'R' END)"
+
+// -----------------------------------------------------------------------------
+// Row filter
+// -----------------------------------------------------------------------------
+
 /// Full row filter for the 1s corpus. NOTE: no trf_id clause — by design.
 let whereClauseSqlAt (p: TimestampPrecision) =
     sprintf "size > 0\n          AND price > 0\n          AND %s" (conditionsAndDeltaSqlAt p)
@@ -211,6 +266,33 @@ let inline keepByMask (mask: uint64) (sipTs: int64) (participantTs: int64)
         || (sipTs = 0L || participantTs = 0L || sipTs - participantTs <= MaxSipDeltaNs) // or if the delta between sip and participant timestamps is small enough
            && mask &&& excludeMask = 0UL) // and there are no exclude conditions
 
+/// The sub-tick fraction of a price: its position inside its tick ($0.01 at >= $1, $0.0001 below), in [0, 1).
+/// Exact: the price in integer micro-dollars. Mirrors `subTickFracSql`.
+/// ⚠ NOT `price % 0.01` (tried 2026-11-18): 0.01 and 0.0001 have no exact binary form, so the remainder of an ON-TICK
+/// price is float noise — 10.01 % 0.01 = 0.00999999999999958 (0.99999 of a tick: a retail BUY), 1.03 % 0.01 = 5e-18 (a
+/// retail SELL) — and the band edges (10.004 must be exactly 0.4: mid) land on the wrong side. The tape's prices carry
+/// <= 6 decimals, so the price in micro-dollars is an exact integer and everything after it is exact integer arithmetic.
+let inline subTickFrac (price: float) : float =
+    let m = int64 (Math.Round(price * 1e6))
+    if price >= 1.0 then float (m % 10000L) / 10000.0 else float (m % 100L) / 100.0
+
+/// The share flags of a print: FlagCounts (+ FlagRetail or FlagMid for an off-exchange one). Mirrors `countsSql` +
+/// `shareClassSql`.
+let inline shareFlags (mask: uint64) (exchange: int) (price: float) (size: float) : byte =
+    if size > 0.0 && price > 0.0 && mask &&& (markerMask ||| openCloseMask ||| excludeMask) = 0UL then
+        if exchange <> TrfExchange then FlagCounts
+        else
+            let f = subTickFrac price
+            if f >= 0.4 && f <= 0.6 then FlagCounts ||| FlagMid
+            elif f > 0.0 then FlagCounts ||| FlagRetail
+            else FlagCounts
+    else 0uy
+
+/// All of a print's flags (0 = the bars ignore it entirely). THE one classification the live path, the parity tool
+/// and (in SQL) the corpus builder share.
+let inline tradeFlags (mask: uint64) (sipTs: int64) (participantTs: int64) (exchange: int) (price: float) (size: float) : byte =
+    (if keepByMask mask sipTs participantTs price size then FlagInBar else 0uy) ||| shareFlags mask exchange price size
+
 // -----------------------------------------------------------------------------
 // Bar
 // -----------------------------------------------------------------------------
@@ -221,12 +303,17 @@ let inline keepByMask (mask: uint64) (sipTs: int64) (participantTs: int64)
 /// only the RESULT narrows.
 /// ⚠ Volume is float, never int: `size` is fractional and int truncation zeroes
 /// ~2% of bars (those summing to <1 share) despite them holding real trades.
+/// ⭐ (2026-11-18) TotalVolume / RetailVolume / MidVolume: the SHARE columns (see "THE SHARE COLUMNS" above) — this
+/// second's counted prints plus those carried from the seconds since the previous bar that had no in-bar print.
 [<Struct>]
 type Bar1s =
     { Bucket: int
       Vwap: float32
       Volume: float32
-      TradeCount: int }
+      TradeCount: int
+      TotalVolume: float32
+      RetailVolume: float32
+      MidVolume: float32 }
 
 /// Incremental 1s bar builder for ONE ticker. Push kept trades in bucket order;
 /// a completed bar is returned when the bucket advances. Call `Flush` at the end
@@ -252,24 +339,47 @@ type Bar1s =
 /// So ts == sip_timestamp, monotonic per ticker, and no buffer is required.
 /// ⚠ STILL OPEN FOR THE LIVE FEED — a WebSocket is only as ordered as the wire.
 /// Re-measure against the live Polygon stream before trusting k = 0 there.
+/// ⭐ (2026-11-18) The share columns: a counted print in the open bar's second goes into it; one in a LATER second
+/// (necessarily without an in-bar print so far — the tape is time-ordered) is CARRIED and lands in the next bar to open.
 type BarAccumulator() =
     let mutable bucket = -1
     let mutable pv = 0.0
     let mutable v = 0.0
     let mutable n = 0
+    let mutable tot = 0.0           // the open bar's share volumes (carried ones included)
+    let mutable ret = 0.0
+    let mutable mid = 0.0
+    let mutable cTot = 0.0          // counted prints after the open bar's second: the next bar's
+    let mutable cRet = 0.0
+    let mutable cMid = 0.0
 
     let emit () =
         { Bucket = bucket
           Vwap = float32 (pv / v)
           Volume = float32 v
-          TradeCount = n }
+          TradeCount = n
+          TotalVolume = float32 tot
+          RetailVolume = float32 ret
+          MidVolume = float32 mid }
 
-    /// Push one KEPT trade. Returns the completed prior bar when the bucket advances.
-    member _.Push(b: int, price: float, size: float) : Bar1s voption =
-        if b = bucket then
+    /// Push one print with its `tradeFlags` (0 = ignored). Returns the completed prior bar when an in-bar print opens
+    /// a later second.
+    member _.Push(b: int, price: float, size: float, flags: byte) : Bar1s voption =
+        let counts = flags &&& FlagCounts <> 0uy
+        let r = if flags &&& FlagRetail <> 0uy then size else 0.0
+        let m = if flags &&& FlagMid <> 0uy then size else 0.0
+        if flags &&& FlagInBar = 0uy then
+            if counts then
+                if n > 0 && b <= bucket then
+                    tot <- tot + size; ret <- ret + r; mid <- mid + m
+                else
+                    cTot <- cTot + size; cRet <- cRet + r; cMid <- cMid + m
+            ValueNone
+        elif b = bucket && n > 0 then
             pv <- pv + price * size
             v <- v + size
             n <- n + 1
+            if counts then (tot <- tot + size; ret <- ret + r; mid <- mid + m)
             ValueNone
         else
             let out = if n > 0 then ValueSome(emit ()) else ValueNone
@@ -277,12 +387,20 @@ type BarAccumulator() =
             pv <- price * size
             v <- size
             n <- 1
+            tot <- cTot + (if counts then size else 0.0)
+            ret <- cRet + r
+            mid <- cMid + m
+            cTot <- 0.0; cRet <- 0.0; cMid <- 0.0
             out
 
-    /// The final partial bar, if any.
+    /// Push one IN-BAR print with no share flags (the pre-2026-11-18 call: its share columns stay 0).
+    member this.Push(b: int, price: float, size: float) : Bar1s voption = this.Push(b, price, size, FlagInBar)
+
+    /// The final partial bar, if any. Share volume carried past it is dropped.
     member _.Flush() : Bar1s voption =
         if n > 0 then
             let out = ValueSome(emit ())
             n <- 0
+            cTot <- 0.0; cRet <- 0.0; cMid <- 0.0
             out
         else ValueNone

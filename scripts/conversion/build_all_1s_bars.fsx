@@ -132,6 +132,7 @@ type CliArgs =
     | [<AltCommandLine("-n")>] Limit of int
     | Ns_Precision
     | Stage_Dir of string
+    | Newest_First
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -140,6 +141,7 @@ type CliArgs =
             | End_Date _ -> "Last date to build (yyyy-MM-dd, inclusive). Default: latest available trades file."
             | Limit _ -> "Cap on the number of days built this run (applied after date filter). Default: no cap."
             | Stage_Dir _ -> "STAGE each day's trades file here (an SSD directory) with one sequential copy, the next day's copy running while the current day builds; each copy is deleted after use. ⭐ 2026-10-24: the trades live on a 5,400 rpm HDD behind WSL's 9P mount (/mnt/d): DuckDB's column reads get ~40 MB/s from it, a sequential copy 139 MB/s. Default: read in place."
+            | Newest_First -> "Build the most recent days first (2026-11-18: the in-place rebuild for the share columns — the days the live parity and the recent research need come first)."
             | Ns_Precision -> "Build at the tape's NANOSECOND precision. ⚠ NOT the default any more: the live feed is MILLISECOND, so an ns corpus disagrees with live by ~23k trades/day. The ns corpus was deleted 2026-08-22. Use this only to reproduce a pre-2026-08-22 result, and ALWAYS with TE_1S_OUT_DIR pointing somewhere else — mixing precisions inside one corpus is undetectable afterwards."
 
 let parser = ArgumentParser.Create<CliArgs>(programName = "build_all_1s_bars.fsx")
@@ -285,39 +287,63 @@ SET threads=6;
 SET preserve_insertion_order=false;
 SET temp_directory='{spillEscaped}';
 COPY (
-    WITH filtered AS (
+    WITH flagged AS (
         SELECT
             ticker,
             {Bars.tsExprSql} AS ts,
             price,
-            size
+            size,
+            -- DECISION 2 + 7, from TradingEdge.Orb.Bars: all venues (no trf_id filter);
+            -- opening/closing auction prints bypass BOTH the 50 ms delta cap and the
+            -- exclude-conditions test, because they disseminate late (p99 ~388 ms) and
+            -- are the session's anchor prices.
+            {Bars.conditionsAndDeltaSqlAt precision} AS inbar,
+            -- ⭐ 2026-11-18 the SHARE columns (Bars: "THE SHARE COLUMNS"): no delay cap, no auction prints
+            {Bars.countsSql} AS counts,
+            {Bars.shareClassSql} AS cls
         FROM read_parquet('{inEscaped}')
-        -- DECISION 2 + 7, from TradingEdge.Orb.Bars: all venues (no trf_id filter);
-        -- opening/closing auction prints bypass BOTH the 50 ms delta cap and the
-        -- exclude-conditions test, because they disseminate late (p99 ~388 ms) and
-        -- are the session's anchor prices.
-        WHERE {Bars.whereClauseSqlAt precision}
+        WHERE size > 0 AND price > 0
     ),
     bucketed AS (
+        SELECT ticker, {Bars.bucketExprSql baseNs} AS bucket, price, size, inbar, counts, cls
+        FROM flagged
+        WHERE (inbar OR counts)
+          AND ts >= {baseNs}
+          AND ts <  {endNsExclusive}
+    ),
+    seconds AS (
         SELECT
             ticker,
-            {Bars.bucketExprSql baseNs} AS bucket,
-            ts,
-            price,
-            size
-        FROM filtered
-        WHERE ts >= {baseNs}
-          AND ts <  {endNsExclusive}
+            bucket,
+            sum(price * size) FILTER (WHERE inbar) AS pv,
+            sum(size) FILTER (WHERE inbar)         AS v,
+            count(*) FILTER (WHERE inbar)          AS n,
+            sum(size) FILTER (WHERE counts)                  AS tot,
+            sum(size) FILTER (WHERE counts AND cls = 'R')    AS ret,
+            sum(size) FILTER (WHERE counts AND cls = 'M')    AS mid
+        FROM bucketed
+        WHERE bucket >= 0 AND bucket <= {maxBucket}
+        GROUP BY ticker, bucket
+    ),
+    -- a second without an in-bar print carries its share volume to the ticker's NEXT second with one (none: dropped)
+    carried AS (
+        SELECT *,
+               min(CASE WHEN n > 0 THEN bucket END) OVER (PARTITION BY ticker ORDER BY bucket
+                                                          ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) AS dest
+        FROM seconds
     )
     SELECT
         ticker,
-        bucket,
-        (sum(price * size) / sum(size))::FLOAT AS vwap,
-        sum(size)::FLOAT          AS volume,
-        count(*)::INTEGER         AS trade_count
-    FROM bucketed
-    WHERE bucket >= 0 AND bucket <= {maxBucket}
-    GROUP BY ticker, bucket
+        dest AS bucket,
+        (sum(pv) / sum(v))::FLOAT              AS vwap,
+        sum(v)::FLOAT                          AS volume,
+        sum(n)::INTEGER                        AS trade_count,
+        coalesce(sum(tot), 0)::FLOAT           AS total_volume,
+        coalesce(sum(ret), 0)::FLOAT           AS retail_volume,
+        coalesce(sum(mid), 0)::FLOAT           AS mid_volume
+    FROM carried
+    WHERE dest IS NOT NULL
+    GROUP BY ticker, dest
     ORDER BY ticker, bucket
 ) TO '{outEscaped}' (FORMAT PARQUET, COMPRESSION 'zstd', COMPRESSION_LEVEL 9)
 """
@@ -344,11 +370,24 @@ let availableDates =
 // ⚠ "*.parquet" does NOT match "*.parquet.tmp", so a partial write is correctly
 // ignored here — but guard the size too, so any legacy 0-byte stub from before the
 // atomic-write change is rebuilt rather than skipped forever.
+// ⭐ 2026-11-18: a day is built only if it has the SHARE columns (total_volume …): the corpus is rebuilt IN PLACE (the
+// SSD has no room for a second copy), so a day in the old 5-column schema is still to do. Read from the footers.
 let alreadyDone =
-    Directory.GetFiles(outDir, "*.parquet")
-    |> Array.filter (fun f -> FileInfo(f).Length > 0L)
-    |> Array.map Path.GetFileNameWithoutExtension
-    |> Set.ofArray
+    let present =
+        Directory.GetFiles(outDir, "*.parquet")
+        |> Array.filter (fun f -> FileInfo(f).Length > 0L)
+    if present.Length = 0 then Set.empty
+    else
+        use conn = new DuckDBConnection("DataSource=:memory:")
+        conn.Open()
+        use cmd = conn.CreateCommand()
+        let glob = Path.Combine(outDir, "*.parquet").Replace("'", "''")
+        cmd.CommandText <- $"SELECT DISTINCT file_name FROM parquet_schema('{glob}') WHERE name = 'total_volume'"
+        cmd.UseStreamingMode <- true
+        use rd = cmd.ExecuteReader()
+        let s = Collections.Generic.HashSet<string>()
+        while rd.Read() do s.Add(Path.GetFileNameWithoutExtension(rd.GetString 0)) |> ignore
+        present |> Array.map Path.GetFileNameWithoutExtension |> Array.filter s.Contains |> Set.ofArray
 
 // Sweep leftovers from any earlier killed run so they cannot accumulate.
 for stale in Directory.GetFiles(outDir, "*.parquet.tmp") do
@@ -362,6 +401,7 @@ let todo =
     availableDates
     |> Array.filter (fun d -> not (alreadyDone.Contains d))
     |> Array.filter inRange
+    |> fun arr -> if parsed.Contains Newest_First then Array.rev arr else arr
     |> fun arr ->
         match limitOpt with
         | Some n -> arr |> Array.truncate n
