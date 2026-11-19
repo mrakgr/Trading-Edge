@@ -2368,6 +2368,14 @@ position records (a NaN fails). It is stated at startup ("flushfader retail-shar
 fixture, signals at 0.0603, so production refuses it: the file's tests run the default with the gate off, and test 3e pins
 HUT's share to base_v25's value bit for bit and shows the refusal.
 
+**SEALED (2026-11-19):** `parity trips -s 2020-01-02 -e 2026-08-21 --from-bars --system flushfader --min-barnum 11`
+(96 min, peak 2.06 GB), with `MinRetailShare1200 = 0.153`: **book 28,953 = 28,953 zero-diff** (25 columns; multiplier
+1e-14), **trips 128,821 = 128,821 zero-diff** (16 columns). ⚠ `parity trips` defaults to the candidate table inside
+`data/trading.db`, an older build (10-31) than the hive `data/v2_candidates/mr_candidate_1s_v2` that base_v24/v25 were
+built from: it lacks 16,991 of cands_b11's ticker-days (median dv_0945 \$1.70M, at the floor). 450 of them carry
+reference trips (557 book trades). They were run separately (`--candidates` = those 450 hive rows) and merged. Next
+seal: pass `--candidates research/data/v2_candidates/mr_candidate_1s_v2`.
+
 ### V2-54c — the MID share: institutional, or retail-like? (2026-11-19, user)
 
 **User:** "Does the mid volume indicate institutional participation like we're assuming now, or would we be better off
