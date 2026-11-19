@@ -2290,3 +2290,124 @@ vrate). Spearman z20 ~ s20 −0.38, rate600 −0.25, dslo −0.23, crf +0.21, vr
   only a little; and the band is 12.5 % of the book, so even a correct size-down reweights little.
 - Compare: the volume rate was +0.048 (V2-49), thinness −0.012 (V2-48). ⏭ Not a deploy on its own (steady path); a
   candidate to fold into the next scheduled refit, as the linear term.
+
+## V2-54 — the RETAIL-SHARE gate (2026-11-19, user decision 2026-11-17)
+
+**User (11-17, after the buildup study, `docs/buildup_results.md` §6/§7):** gate FlushFader on the bottom quintile of the
+BJZZ retail share, maybe size the next band down. **The feature:** `retail_share_1200` = the BJZZ retail volume / all
+counted volume over the last 1,200 present 1 s bars, the signal bar included. A TRF print (exchange 4) is retail when its
+sub-tick fraction is in (0, 0.4) or (0.6, 1) of the tick: \$0.01 at ≥ \$1, \$0.0001 below. Counted volume excludes the
+markers, auctions and excluded codes, but not the 50 ms delay filter. A second with no in-bar print carries its share
+volume to the next bar. The 1 s corpus was rebuilt with `total_volume / retail_volume / mid_volume` (2,584 days,
+11-18), and the engine records the share on every trip (research 8f6b98e).
+
+**base_v25** = base_v24's run on that corpus. It was OOM-killed at 67.8 % (12.4 GB; ⚠ `/usr/bin/time -v` reported exit 0),
+then resumed from 2024-08-26 in two halves (`flushfader_run_base_v25_tail.sh`, peaks 12.0 / 13.3 GB). The checks:
+- the per-day trip counts equal base_v24 on all 1,667 days (8,440,488 trips);
+- the killed run's overlap rows are all in the tail, identical;
+- `flushfaderv2_reference.py` on base_v25 without the gate reproduces the V2-49 book exactly: 35,519 trades, the
+  multipliers and the returns bit for bit.
+
+`scripts/equity/flushfaderv2_retail_gate.py` (logs/retail_gate.log), on the V2-49 production book (35,519; PF with the
+reference's maker credit, 2 × \$0.001 / entry price — the book's PF 1.612, sized 1.910):
+
+| rshare quintile | range | n | PF | sized PF | PF 2020–23 | PF 2024–26 | mean multiplier |
+|---|---|---|---|---|---|---|---|
+| 1 | [0.005, 0.155] | 7,104 | **1.117** | 1.219 | 1.157 | **1.064** | 0.698 |
+| 2 | [0.155, 0.207] | 7,104 | 1.597 | 1.867 | 1.680 | 1.495 | 0.910 |
+| 3 | [0.207, 0.246] | 7,103 | 1.729 | 1.999 | 1.917 | 1.507 | 1.031 |
+| 4 | [0.246, 0.292] | 7,104 | 1.818 | 2.076 | 1.840 | 1.792 | 1.141 |
+| 5 | [0.292, 0.526] | 7,104 | 1.856 | 2.155 | 1.906 | 1.801 | 1.235 |
+
+**The level drifts:** the book's yearly p20 is 0.136 / 0.165 / 0.155 / 0.192 / 0.178 / 0.163 in 2020–25, and **0.115 in 2026**.
+
+| gate (drop rshare < cut), post-hoc on the book | dropped | PF | sized PF | Δ % eq | dropped PF | years better | 2026 dropped |
+|---|---|---|---|---|---|---|---|
+| none | — | 1.612 | 1.910 | — | — | — | — |
+| fixed 0.10 | 8.3 % | 1.680 | 1.966 | −10 | 0.962 | 7/7 | 15 % |
+| fixed 0.12 | 11.8 % | 1.714 | 1.993 | −23 | 0.970 | 7/7 | 22 % |
+| **fixed 0.153** | 19.4 % | 1.747 | 2.035 | −145 | 1.108 | 7/7 | 35 % |
+| trailing p20, 182 d | 20.7 % | 1.754 | 2.045 | −163 | 1.116 | 7/7 | 26 % |
+| trailing p20, 365 d | 19.6 % | 1.767 | 2.054 | −115 | 1.059 | 7/7 | 33 % |
+| trailing p25, 365 d | 24.4 % | 1.805 | 2.089 | −209 | 1.100 | 7/7 | 39 % |
+
+(trailing = the p-th percentile of the book's share over the prior N calendar days, strictly before D)
+
+**Controls for the fixed 0.153 cut:**
+- Better in every year: Δ sized PF +0.30 / +0.12 / +0.12 / +0.06 / +0.09 / +0.06 / **+0.27 (2026)**.
+- Better in every time-of-day bucket and every price bucket. The cut lands mostly on \$10+ names: 4,559 of 6,905, a
+  bucket where the kept PF rises the most.
+- Random removal of 6,905 trips × 1,000: kept PF p50 1.613, max 1.657; observed **1.747**.
+- **2026, the drifted year: the fixed cut removes 35 % of the trips, and those trips are at PF 0.929.** The kept 2026
+  book goes 1.468 → 1.779. A lower level in 2026 means more of 2026 is the no-edge tape, not a stale threshold.
+- The trailing variants are not better enough to justify a daily threshold in the live system: 365 d is +0.02 PF, and
+  its 2026 cut is the same 33 %.
+- ⚠ The first pass of this table added the maker credit as a flat +10 bp (PF q1 1.19, the cut's dropped slice 1.19); the
+  user caught it in review. Every number here is on the reference's convention; the conclusions did not move.
+
+**The gate in the engine** (`--min-rshare 0.153`, applied before the mc=1 greedy, so a refused signal frees its ticker-day):
+the book goes 35,519 → **28,953** trades; PF 1.612 → **1.745**; sized PF (V2-49 coefficients) 1.910 → **2.035**; net
+% sized 29,654 → 28,880 (−2.6 %). The dropped slice is ≈ +12 bp per trade (PF 1.11) with the maker credit and before the
+fees: live fees and slippage take it back.
+
+**The second quintile (size it down?) — NO.**
+- After the gate, the production model already prices the rest: its predicted PF−1 by rshare octile tracks the
+  realized one (bottom octile 0.57 vs 0.53, multiplier 0.84).
+- As a sizing term (`flushfaderv2_rshare_sizing.py`, V2-53's harness, out of sample by era) it loses: linear −0.006
+  [−0.012, −0.001]; a flag below 0.197 −0.001; a hinge below 0.23 −0.001.
+- **The refit on the gated book is not taken either:** the coefficients barely move, and its in-sample sized PF is
+  1.989 vs **2.035** for the V2-49 coefficients applied to the same book.
+- **Production = the V2-49 model unchanged + the gate.** `models/flushfaderv2/v2_coefficients.json` is untouched.
+
+**The reference swapped:** `data/flushfaderv2/flushfaderv2_reference_{book,trips}.parquet` = the gated book (the defaults
+are now base_v25 + `--min-rshare 0.153`; apply with `--coef models/flushfaderv2/v2_coefficients.json`). The V2-49 files
+are in `pre_rshare_2026-11-19/`.
+
+**The Oms:** `FlushConfig.MinRetailShare1200 = 0.153`, in `specOk` next to the since-high gate, on the same ratio the
+position records (a NaN fails). It is stated at startup ("flushfader retail-share gate"). HUT 2026-07-27, the FaderTests
+fixture, signals at 0.0603, so production refuses it: the file's tests run the default with the gate off, and test 3e pins
+HUT's share to base_v25's value bit for bit and shows the refusal.
+
+### V2-54c — the MID share: institutional, or retail-like? (2026-11-19, user)
+
+**User:** "Does the mid volume indicate institutional participation like we're assuming now, or would we be better off
+including it in the gate? If we gated on just the mid / total instead, what results would we get?"
+`scripts/equity/flushfaderv2_mid_share.py` (logs/mid_share.log), on the V2-49 book (35,519) with the reference's credit.
+`mid_share_1200` = TRF volume at a sub-tick fraction in [0.4, 0.6] (midpoint crosses) / all counted volume. The median
+is 0.083, the p90 0.134. Spearman with the retail share is only **+0.06**: the mid share measures something else.
+
+| mid quintile | range | n | PF | sized PF | PF 2020–23 | PF 2024–26 | after the retail gate: PF (n) |
+|---|---|---|---|---|---|---|---|
+| 1 | [0.009, 0.061] | 7,104 | 1.576 | 1.964 | 1.757 | **1.105** | 1.795 (5,550) |
+| 2 | [0.061, 0.076] | 7,104 | 1.716 | 1.986 | 1.842 | 1.531 | 1.738 (6,011) |
+| 3 | [0.076, 0.091] | 7,103 | 1.711 | 2.020 | 1.756 | 1.660 | 1.808 (5,976) |
+| 4 | [0.091, 0.112] | 7,104 | 1.654 | 1.881 | 1.728 | 1.591 | 1.771 (5,860) |
+| 5 | [0.112, 0.569] | 7,104 | 1.416 | 1.703 | **1.171** | 1.586 | 1.610 (5,217) |
+
+Retail quintile × mid tercile (PF): least retail × most mid = **0.95** (the worst cell); in retail q1–q3, high mid is
+worse than low mid; in q4–q5 it makes no difference.
+
+| gate, iso-n (drops 6,905 = retail < 0.153's count) | cut | PF kept | sized PF kept | Δ % eq | dropped PF | years better |
+|---|---|---|---|---|---|---|
+| **retail share** (production) | < 0.153 | **1.747** | **2.035** | −145 | 1.108 | 7/7 |
+| mid share, drop LOW | < 0.061 | 1.623 | 1.901 | −857 | 1.571 | 5/7 |
+| mid share, drop HIGH | > 0.113 | 1.661 | 1.962 | −666 | 1.413 | 4/7 |
+| retail + mid (mid counted as retail) | < 0.235 | 1.716 | 2.010 | −281 | 1.225 | 7/7 |
+| retail + ½ mid | < 0.195 | 1.735 | 2.021 | −210 | 1.155 | 7/7 |
+| retail − mid (mid counted as institutional) | < 0.062 | 1.742 | 2.030 | −165 | 1.110 | 7/7 |
+| retail of the non-mid volume, retail / (1 − mid) | < 0.167 | 1.747 | 2.033 | −158 | 1.113 | 7/7 |
+
+A second cut on mid inside the retail gate's survivors (the worst 10 %): drop high mid (> 0.129) → PF 1.764, sized
+2.059, better in 5/7 years; drop low mid → 1.755 / 2.031, 5/7.
+
+**Finding.**
+- **Mid volume is NOT retail-like.** Counting it as retail weakens the gate monotonically: retail 1.747 → + ½ mid 1.735
+  → + mid 1.716.
+- **It leans institutional, weakly.** Counting it against retail (retail − mid) ties the plain retail gate (1.742 vs
+  1.747), and the worst cell in the book is low retail × high mid (0.95). But the sign is not stable on its own.
+- **On its own it is not a gate.** Both tails are weak, and in different eras: high mid hurt in 2020–23 (1.17) and not
+  in 2024–26 (1.59); low mid is the reverse (1.76 vs 1.11). Every mid-only gate is better in only 4–5 of 7 years and
+  costs 4–6× the retail gate's % eq.
+- The second cut is within noise of the retail gate (+0.017 PF, 5/7 years), so it is not built.
+- **Production stays the retail share alone.** BJZZ's exclusion of the midpoint band is right for this use: those
+  prints are not the uninformed flow the fade feeds on.

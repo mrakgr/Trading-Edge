@@ -31,6 +31,11 @@ not inherit that. Here every input comes from the base parquets in double:
        × 6e5) and the volume term = the per-second volume RATE (--vol vrate, the default; vrate × 1,200) replacing vlog — both from
        --pgrid-trips (scripts/equity/flushfaderv2_pgrid.py), refit on the V2-44 book; the coefficients carry s20_x = "grid60"
        and vrate_* (vlog stays recorded).
+  ⭐ V2-54 (2026-11-19, user): the RETAIL-SHARE gate — an ENGINE gate, retail_share_1200 >= 0.153 (--min-rshare; the BJZZ
+       retail share of the last 1,200 bars' counted volume, recorded by the engine since research 8f6b98e, so --trips must be
+       base_v25 or later: the share-column corpus). The V2-49 COEFFICIENTS ARE KEPT (a refit on the gated book sizes it worse:
+       sized PF 1.989 vs 2.035; a retail-share sizing term loses out of sample — flushfaderv2_rshare_sizing.py). The production
+       reference since 2026-11-19 = the defaults + --coef models/flushfaderv2/v2_coefficients.json (28,953 trades, sized PF 2.035).
   ⭐ ATR5 GATE — REMOVED 2026-11-07 (user, V2-34..V2-38: --max-atr5 defaults to inf; the production fit's coefficients
        are unchanged). Was (user 2026-10-18, V2-12/V2-13, after WFF 10-14): no trade on a ticker-day whose 5-day ATR % (the 5 daily
        rows before D, scripts/equity/atr5_candidates.py) is >= MAX_ATR5 (4.0 = 400 %); a NaN ATR5 is not gated.
@@ -56,8 +61,8 @@ import argparse, json, os, time
 import numpy as np, pandas as pd, duckdb
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--trips", nargs="+", default=["data/equity/flushfader/base_v24/*.parquet"],
-                help="V2-25 (2026-11-05): base_v24, the marker-free base with the young trades in the same run (was base_v19 + its young)")
+ap.add_argument("--trips", nargs="+", default=["data/equity/flushfader/base_v25/*.parquet"],
+                help="V2-54 (2026-11-19): base_v25 = base_v24's run on the share-column corpus (retail_share_1200); V2-25: base_v24, the marker-free base with the young trades in the same run")
 ap.add_argument("--cands", default="data/v2_candidates/mr_candidate_1s_v2/*/*.parquet", help="the barnum source (hive)")
 ap.add_argument("--min-barnum", type=int, default=11)
 ap.add_argument("--young-below", type=int, default=22)
@@ -71,7 +76,7 @@ ap.add_argument("--volat", choices=["bands", "log"], default="log", help="fit mo
 ap.add_argument("--near-low-hi", type=float, default=0.03, help="the near-low gate drops dslo in (0, this] (0.03 = production since 2026-10-19, V2-15/V2-16; was 0.02)")
 ap.add_argument("--door", type=int, default=40)
 ap.add_argument("--credit", type=float, default=0.001)
-ap.add_argument("--cus-trips", nargs="+", default=["data/equity/flushfader/base_v24/*.parquet"],
+ap.add_argument("--cus-trips", nargs="+", default=["data/equity/flushfader/base_v25/*.parquet"],
                 help="V2-24: the corpora carrying cusr_dn_k025 (the raw downside CUSUM at k = 0.25 bp/bar, research "
                      "flushfader_results.md §S49ap), joined on symbol / trade_date / signal_sec")
 ap.add_argument("--barnum-fallback", default="",
@@ -100,6 +105,9 @@ ap.add_argument("--s20", choices=["grid60", "time", "index"], default="grid60",
 ap.add_argument("--vol", choices=["vrate", "vlog"], default="vrate",
                 help="fit mode: the volume term — vrate (V2-49, production since 2026-11-08: the per-second ln-volume slope x 1,200) or "
                      "vlog (V2-43: the bar-indexed one). Apply mode: vrate_lo in --coef -> vrate, vlog_lo -> vlog")
+ap.add_argument("--min-rshare", type=float, default=0.153,
+                help="⭐ V2-54 (user 2026-11-17/19): the RETAIL-SHARE gate — retail_share_1200 >= this (a NaN fails); 0 = off. "
+                     "Needs a base with the share columns (base_v25+). Production 0.153 since 2026-11-19")
 ap.add_argument("--mem", default="8GB")
 args = ap.parse_args()
 T0 = time.time()
@@ -122,6 +130,7 @@ D = con.execute(f"""
            chg_since_run_first_low AS crf, consol_5m_lag1m, lows_since_first_low_600 AS l600, bars_since_first_low_600 AS b600,
            lows_since_first_low_300 AS l300, lows_since_first_low_180 AS l180, abs(eff_10m) AS eff10a, bars_since_high,
            vol_10_bar, vol_60_bar, vol_1200_bar, dlv_1200, dlv2_1200, dv_0945_tape, sess_low, ols_slope_1200
+           , {"retail_share_1200" if args.min_rshare > 0 else "NULL::DOUBLE"} AS rshare
            , c.barnum, x.atr5
     FROM read_parquet({args.trips}) t
     LEFT JOIN (SELECT ticker, date, barnum FROM read_parquet('{args.cands}', hive_partitioning = true)) c
@@ -198,6 +207,10 @@ M &= ~(nz(dslo > NEAR_LOW_LO) & nz(dslo <= NEAR_LOW_HI))                 # ⭐ V
 n_v2 = int(M.sum())
 if args.min_bars_since_high > 0:
     M &= nz(D.bars_since_high.values >= args.min_bars_since_high)        # ⭐ V2-44: the decline has lasted (a NaN fails)
+n_bsh = int(M.sum())
+if args.min_rshare > 0:
+    M &= nz(D.rshare.values >= args.min_rshare)                          # ⭐ V2-54: the retail-share gate (a NaN fails)
+log(f"retail-share gate (>= {args.min_rshare:g}): removes {n_bsh - int(M.sum()):,}")
 T = D[M].copy().reset_index(drop=True); T["rate600"] = rate600[M]; T["z20"] = z20[M]; T["v10r"] = v10r[M]; T["dslo"] = dslo[M]; T["s20"] = s20[M]
 log(f"engine-level trips: broad {n_broad:,} -> V2 {n_v2:,} (near-low gate removes {n_broad - n_v2:,}) -> {len(T):,} (bars_since_high >= {args.min_bars_since_high} removes {n_v2 - len(T):,}); NaN dslo {np.isnan(T.dslo.values).sum()}, NaN s20 {np.isnan(T.s20.values).sum()}")
 
