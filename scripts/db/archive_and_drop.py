@@ -15,7 +15,9 @@ KEEP_TABLES = {
     # the back-adjusted table: the legacy 1m systems and the daily_episodes view still read it
     'split_adjusted_prices',
     # universes: legacy 1m (LowFlyer / MaxFlyer), legacy 1s, current
-    'mr_candidate', 'mr_candidate_1s', 'mr_candidate_1s_v2',
+    'mr_candidate', 'mr_candidate_1s',
+    # (mr_candidate_1s_v2 archived + dropped 2026-11-19, user: the pre-marker-free build ($2M floor on the double-counted
+    #  opening cross, through 2026-09-04) — the hive data/v2_candidates/mr_candidate_1s_v2 is the only candidate source now)
     # the reference corpora of the production specs
     'flushfader_v49tkd_cand', 'flushfader_v17tkd_cand', 'spikefader_s44_whitelist', 'lowfader_wide_whitelist',
 }

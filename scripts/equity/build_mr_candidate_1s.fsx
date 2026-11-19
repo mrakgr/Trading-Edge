@@ -358,6 +358,11 @@ match parsed.TryGetResult V2 with
     exit 0
 | None -> ()
 
+// ⭐ 2026-11-19 (user): the v1 TABLE mr_candidate_1s_v2 is retired (archived + dropped: a stale copy that a parity seal
+// read by default). The candidates are the data v2 hive only (--v2). A v1 build must name another table.
+if tbl = "mr_candidate_1s_v2" then
+    eprintfn "the trading.db table mr_candidate_1s_v2 is retired (2026-11-19): build the hive with --v2 data/v2, or pass --table <name> for a v1 experiment"
+    exit 1
 printfn "Building `%s` (dv_0945_tape >= $%.1fM AND n_bars_1s >= %d [gaps <= %d of 900]%s; CS/ADRC; NO warmup, NO price floor)"
     tbl (minDv / 1e6) minBars (900 - minBars)
     (if minNeff > 0.0 then sprintf " AND n_eff_shannon >= %.0f" minNeff else "; n_eff gate OFF (S43u)")
