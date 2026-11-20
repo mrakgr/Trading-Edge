@@ -1379,3 +1379,21 @@ P&L booked at expiry, fixed capital. 21,443 signal trades: mean $12.3 / contract
   typical year (2013-2019, 2022-2025) earns ~5-12%; 2020-2021 (high-IV, meme) make the average. Reg T margin used ~25-35%.
 - Next: an EX-ANTE filter on extreme names (e.g. IV or RV > 100-150%, price < $20 at entry), position caps by option
   volume (capacity), and the same test with the 0DTE base book alongside.
+
+## SH-50 — ratchet entries on 1-second data: no gain on SPY / QQQ (user 2026-11-20)
+
+Data: data/options/intraday_1s (1-second NBBO of the strikes the 0DTE system used +- 1, SPY / QQQ / TSLA, 2023-11..2026-11,
+1,734 root-days, 1.12bn rows) and data/options/intraday_trades (every print of those strikes, 778M rows); build_1s_jobs.py,
+intraday_pull.py --interval 1s / trade. `ratchet_sim.py` (logs/options_ratchet_{chase,hold}.log; data/options/zdte/ratchet_*.parquet):
+82,141 entries (every 15 min); offer at the ask, one tick down every 5 s ('chase' follows the ask down, 'hold' does not),
+fills on single-leg prints (18 / 95) above our price, at our price after the queue, or the bid reaching us; at the bid ->
+cross. Advantage vs selling at the bid at once = (fill - bid0) - delta x (S_fill - S0), % of premium:
+| | half-spread | passive fills | advantage chase / hold |
+|---|---|---|---|
+| SPY P25 / C25 | 1.7% / 1.9% | 75% / 74% | -0.06 / -0.00% ; -0.09 / +0.01% |
+| QQQ P25 / C25 | 1.6% / 1.8% | 79% / 78% | -0.10 / -0.06% ; -0.04 / +0.05% |
+| TSLA P25 / C25 | 1.9% / 1.8% | 86% / 86% | +0.44 / +0.51% ; +0.36 / +0.44% |
+Most passive fills are trade-throughs (the market moving toward us: -0.1..-0.4%); true maker fills at the ask after the
+queue (+2-3%) are only 4-8% of entries; ratcheting down to the bid after an adverse move costs -0.6..-0.7%. Spreads in
+these 0DTE chains are 1-2 cents: the entry spread is not where the money is. The stock hedge (~3 shares per share of
+option) is the larger execution cost left.
