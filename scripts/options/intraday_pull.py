@@ -6,6 +6,8 @@ and its next expiry, one job per (ROOT, DATE).
   -> <out>/<ROOT>__<YYYYMMDD>.quote.parquet and .ohlc.parquet (zstd; columns as ThetaData's, + 'exp' kept as expiration)
   complete = every response non-empty and its last minute >= 15:59 (12:59 on an early close, TradingEdge.Orb/Timezone.fs);
   ThetaData cuts responses at random (SH-15): a failed piece is retried (backoff), else the job is NOT final.
+--interval 1s (2026-11-20): the jobs list STRIKES (build_1s_jobs.py) - one request per strike (both rights), compact columns,
+<ROOT>__<YYYYMMDD>.q1s.parquet.
 Same CLI and done.tsv as eod_pull.py (key <ROOT>__<YYYYMMDD>, status ok / nodata, rows, seconds), so options_runner.py
 drives it with --puller intraday_pull.py: --deadline (no new request after it; exit 3 if work remains), --also-done,
 --order newest; exit 0 all final, 1 some not final. --reference / --calendar-file / --max-dte / --endpoint are accepted
@@ -30,13 +32,15 @@ def http(path, **q):
         return e.code, e.read()
 
 
-def fetch(kind, root, exp, date, last_min):
+def fetch(kind, root, exp, date, last_min, interval='1m', strike=None):
     """-> (df or None, why). 472 = no data (empty df)."""
     why = ''
+    extra = {} if strike is None else {'strike': strike, 'right': 'both'}
     for w in BACKOFF:
         time.sleep(w)
         try:
-            st, body = http(kind, symbol=root, expiration=exp.replace('-', ''), date=date.replace('-', ''), interval='1m', format='csv')
+            st, body = http(kind, symbol=root, expiration=exp.replace('-', ''), date=date.replace('-', ''), interval=interval,
+                            format='csv', **extra)
         except Exception as ex:
             why = f'exc:{type(ex).__name__}'; continue
         if st == 472:
@@ -53,6 +57,30 @@ def fetch(kind, root, exp, date, last_min):
         df = df.drop(columns=['symbol'])
         return df, ''
     return None, why
+
+
+def pull_1s(key, root, date, strikes, out, early, interval):
+    """1-second (or finer) quotes of the listed 0DTE strikes (both rights), one request per strike; compact columns:
+    sec (seconds after midnight ET, int32), strike, right (C/P), bid, ask, bid_size, ask_size."""
+    t = time.time()
+    last_min = '12:59' if date in early else '15:59'
+    dfs = []
+    for k in strikes.split(','):
+        df, why = fetch('quote', root, date, date, last_min, interval=interval, strike=k)
+        if df is None:
+            return key, f'truncated:{k}:{why}', 0, time.time() - t
+        if not df.empty: dfs.append(df)
+    if not dfs:
+        return key, 'nodata', 0, time.time() - t
+    q = pd.concat(dfs, ignore_index=True)
+    ts = pd.to_datetime(q.timestamp)
+    o = pd.DataFrame({'sec': (ts.dt.hour * 3600 + ts.dt.minute * 60 + ts.dt.second).astype('int32'),
+                      'strike': q.strike.astype('float32'), 'right': q['right'].astype('category'),
+                      'bid': q.bid.astype('float32'), 'ask': q.ask.astype('float32'),
+                      'bid_size': q.bid_size.astype('int32'), 'ask_size': q.ask_size.astype('int32')})
+    dst = os.path.join(out, f'{key}.q{interval}.parquet')
+    o.to_parquet(dst + '.part', compression='zstd', index=False); os.replace(dst + '.part', dst)
+    return key, 'ok', len(o), time.time() - t
 
 
 def pull(key, root, date, nxt, out, early):
@@ -85,6 +113,8 @@ def main():
     ap.add_argument('--deadline'); ap.add_argument('--also-done', nargs='*', default=[])
     ap.add_argument('--order', choices=['file', 'newest'], default='newest')
     ap.add_argument('--timezone-fs', default='TradingEdge.Orb/Timezone.fs')
+    ap.add_argument('--interval', default='1m', help="1m = the 0DTE + next-expiry chains (jobs ROOT DATE NEXT); 1s (or finer) = "
+                    "the listed strikes only (jobs ROOT DATE K1,K2,..., build_1s_jobs.py)")
     for ign in ('--reference', '--calendar-file', '--max-dte', '--endpoint'): ap.add_argument(ign)
     a = ap.parse_args()
     from market_calendar import MarketCalendar
@@ -120,7 +150,9 @@ def main():
             if deadline is not None and time.time() >= deadline:
                 stopped = True; return
             j = next(pending, None)
-            if j is not None: inflight.add(ex.submit(pull, *j, a.out, early))
+            if j is not None:
+                if a.interval == '1m': inflight.add(ex.submit(pull, *j, a.out, early))
+                else: inflight.add(ex.submit(pull_1s, *j, a.out, early, a.interval))
         for _ in range(a.workers): submit_next()
         while inflight:
             fin, _ = cf.wait(inflight, return_when=cf.FIRST_COMPLETED)
