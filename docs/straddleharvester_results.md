@@ -1342,3 +1342,18 @@ expiry, daily hedge at $0.006/share; margin estimates as SH-45 (PM = intrinsic-o
   QQQ P25 6-10 $85.4 PF 4.0 (463); SPY C25 4-5 $27.3 PF 2.3; TSLA C25 6-10 $110 PF 1.5. Return on margin (annualised by
   the days held): SPY P25 4-5 DTE 56% Reg T / 202% PM, 6-10 26% / 107% - vs the unfiltered 0DTE strangle 23% / 43%.
   But the signal fires on ~10% of days per leg: it needs many names to fill a book (the SH-28 universe).
+
+## SH-48 — extreme 0DTE signals, minute by minute (user 2026-11-20)
+
+`zdte_extreme.py` (logs/options_zdte_extreme.log). Every minute; thresholds = quantiles of all EARLIER days' minutes (60-day
+warm-up); per leg, all firing minutes and the FIRST firing minute of the day; accounts as SH-45.
+- **IV/RV and forward slope extremes fire at the end of the day** (median first trigger 15:35-15:50): % of premium rises
+  with the tail on ALL firing minutes (SPY C25 ivrv_open top 0.5% +41%, QQQ +53%) but those are late minutes with tiny
+  premiums; the FIRST trigger of the day is ~0 or negative (SPY / QQQ top 1%: -1..-22%). SPXW is the exception (first/day
+  ivrv_open top 5%: C25 +17.0% PF 2.51 t 6.2, P25 +13.9% PF 2.25 t 5.1).
+- **Put skew extremes are the real 0DTE signal** (first trigger of the day, midday entries): SPY P25 top 1% +21.9% PF 2.51
+  t 3.5 (244 days), QQQ P25 top 1% +22.2% PF 2.51 t 4.3 (227), TSLA C25 top 1% +32.4% PF 7.1 t 6.0 (81), SPXW C25 call skew
+  top 1% +23.4% PF 3.07 t 5.0 (306). But in dollars it is small: SPY P25 top 1% = $6.4 per contract per trigger.
+- **Triggered strangle accounts lose to the fixed 10:00 entry:** Reg T $100k ivrv30 / ivrv_open / fs triggers +3.6% to
+  -0.7%/yr vs base +10.0% (Sharpe 2.33); base + trigger +9.3..11.6% with a deeper drawdown (-10..-11%). PM $150k alike
+  (base +21.3%; base + trigger +20..25% at maxDD -24..-26%). The minute extremes raise % of premium, not dollars of margin.
