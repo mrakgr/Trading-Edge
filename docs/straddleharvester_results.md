@@ -1259,3 +1259,17 @@ one close); P&L in % of the option's mid.
   premium + the spread), so ITM / near-the-money shorts get assigned routinely; $15 a time against a 25-delta 0DTE
   premium of ~$40-60 per contract is a large tax unless waived. To ask Lightspeed (Rob): waive / cut it; is it per
   assignment or per contract; does it apply to cash-settled index options (SPXW); when is an assignment known.
+
+## SH-43 — small-notional 0DTE / weekly instruments (user 2026-11-19: one contract under $30k)
+
+`small_notional.py` -> data/options/small_notional.csv (logs/options_small_notional.log): EOD 2026Q3, weeklies on >= 90% of
+days, >= 5,000 contracts/day, parity price; then the 2026-11-16 close from the 1s data (prices fell a lot since Q3).
+- **Daily 0DTE under $30k:** IWM $273 (1.6M contracts/day, 0.7M 0DTE, ATM half-spread ~1.7%); the cash-settled minis
+  MRUT (Russell/10, ~$27k) and XND (Nasdaq-100/100, ~$24k) are daily and free of after-hours exercise but nearly untraded
+  (26 / 573 0DTE contracts a day).
+- **Mon/Wed/Fri 0DTE:** NVDA $156 (3.3M/day, hs 3.4%), AMZN $258 (0.8M, 4.1%), GOOGL $284 (0.5M, 6%), INTC $55, IBIT $37,
+  SLV $42, USO $140, TQQQ $53 / SOXL $49 (hs ~9%).
+- **Friday-only weeklies:** PLTR $160, MSTR $103, ORCL $119, NFLX $61, HOOD $72, COIN $120, BAC $50, and many smaller.
+- Just above the cap: AVGO $334, AAPL $353, GLD $353, TSLA $380; far above: QQQ $662, SPY $740, XSP $740 (= SPX/10).
+- SH-41 tested edges: SPXW / SPY / QQQ / TSLA (+8..18%); NVDA marginal (+5.6..7.9% held to 17:30); IWM ~0 held to 17:30
+  (+10% if it were settled at 16:00); AMZN, SLV, GLD, TLT none. GOOGL, INTC, IBIT, PLTR, ... untested.
