@@ -1419,3 +1419,8 @@ option) is the larger execution cost left.
 - Assignments are processed overnight; Lightspeed learns of them the next day and the account updates the next morning -
   no same-evening notice. Short assignments are allocated RANDOMLY. => SPY / QQQ near-the-money pin risk stays overnight;
   SPXW (cash) has no stock delivery but the $15 applies to its in-the-money expiries.
+- **Decision (user 2026-11-20): the 0DTE premium-selling strategy is shelved.** Physically settled 0DTE (SPY / QQQ / TSLA)
+  leaves near-the-money positions exposed to after-hours exercise with the assignment known only the next morning; at the
+  leverage needed for a worthwhile return, an unhedged overnight stock position is unacceptable - regardless of the $15
+  fee. Cash-settled index options (SPXW, XSP) avoid it but SPXW is too large and XSP untested (wider spreads). Weeklies
+  (overnight by design) are not of interest for now.
