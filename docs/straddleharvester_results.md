@@ -1323,3 +1323,7 @@ percentiles (vs all earlier days, >= 120 warm-up days) of IV/RV-since-open and t
   features add little risk-adjusted. Returns are a leverage (margin) choice on a Sharpe ~2 base (10:00 entries best).
 - The minute-level feature edge (SH-41: top decile +19-20% of premium) may need INTRADAY timing (enter when the signal
   fires) rather than a fixed-time entry; execution (~5-6% of premium in spread) is the other lever.
+- **Only when score >= .5 (user 2026-11-20):** Reg T $100k 10:00: +3.4%/yr Sharpe 1.91 (x2 size: +6.8%, maxDD -5.9%) vs
+  every day +6.4% Sharpe 2.33 (maxDD -3.9%); PM $150k 10:00: +9.7% / x2 +19.4% (maxDD -19.7%) Sharpe 1.73 vs base +16.3%
+  Sharpe 1.94. 12:00 / 14:00 alike, worse (Sharpe 0.6-0.8). The < .5 days (~3/4 of days) earn little per contract but
+  steadily: dropping them costs more Sharpe than the higher per-day mean of the rest adds.

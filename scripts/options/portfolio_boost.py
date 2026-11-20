@@ -9,7 +9,8 @@ import numpy as np, pandas as pd
 src = open('scripts/options/portfolio_filter.py').read()
 exec(src.split("def tier(p):")[0].split('"""', 2)[2])       # builds D (trades, margins, expanding score) as there
 V = {'base': lambda s: np.ones(len(s)), 'x2 if >=.8': lambda s: np.where(s >= .8, 2.0, 1.0),
-     'x2 if >=.5': lambda s: np.where(s >= .5, 2.0, 1.0), 'x3 >=.9, x2 >=.8': lambda s: np.select([s >= .9, s >= .8], [3.0, 2.0], 1.0)}
+     'x2 if >=.5': lambda s: np.where(s >= .5, 2.0, 1.0), 'x3 >=.9, x2 >=.8': lambda s: np.select([s >= .9, s >= .8], [3.0, 2.0], 1.0),
+     'only >=.5': lambda s: np.where(s >= .5, 1.0, 0.0), 'only >=.5, x2': lambda s: np.where(s >= .5, 2.0, 0.0)}   # user 2026-11-20
 for regime, cap in [('regt', 100_000), ('pm', 150_000)]:
     for t, m in TIMES.items():
         x = D[D.m == m]
