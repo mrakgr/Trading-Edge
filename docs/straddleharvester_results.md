@@ -1397,3 +1397,25 @@ Most passive fills are trade-throughs (the market moving toward us: -0.1..-0.4%)
 queue (+2-3%) are only 4-8% of entries; ratcheting down to the bid after an adverse move costs -0.6..-0.7%. Spreads in
 these 0DTE chains are 1-2 cents: the entry spread is not where the money is. The stock hedge (~3 shares per share of
 option) is the larger execution cost left.
+- **The OMS policy (user 2026-11-20):** every 5 s price = max(min(own, ask) - tick, bid + tick) - one tick UNDER the best
+  offer (alone at the front), never crossing (a 1-tick spread keeps us at the ask with our queue place). `ratchet_sim.py
+  --mode oms --deadline 60|300` (logs/options_ratchet_oms_*.log), per INTENDED entry incl. its baseline P&L held to expiry:
+  | | filled in 60 s / 300 s | adv when filled | baseline (bid at once) | ratchet, skip unfilled (60 / 300 s) | cross at deadline |
+  |---|---|---|---|---|---|
+  | SPY P25 | 96.5% / 99.7% | +0.66% | +12.01% | +12.39% / +13.11% | +12.58% / +12.60% |
+  | SPY C25 | 96.1% / 99.6% | +0.80% | +9.61% | +9.63% / +10.28% | +10.34% / +10.42% |
+  | QQQ P25 / C25 | 97.8% / 99.8% | +0.34 / +0.46% | +8.92 / +7.69% | +9.05 / +9.48% ; +7.98 / +8.23% | ~+9.2 / +8.1% |
+  | TSLA P25 / C25 | 99.7% / 99.9% | +0.58 / +0.57% | +13.61 / +17.61% | +14.25 / +14.34% ; +17.99 / +18.09% | ~+14.2 / +18.2% |
+  The OMS rule earns +0.3..0.8% of premium per fill (my first rules ~0: joining the ask queue and crossing at the bid lost
+  it) and +0.4..1.1% per intended entry. The few orders still unfilled after 5 min (79-127 per root) were bad trades
+  (puts' baseline -104..-188%): skipping them helps a little.
+
+## SH-51 — Lightspeed's answers (Rob Livson, 2026-11-20)
+
+- The $15 exercise / assignment fee is PER ASSIGNMENT (per assigned position, not per contract); it also applies to
+  cash-settled index options (SPXW). A reduction is possible, no full waiver: they ask how often we'd be assigned.
+- Options commission is tiered by monthly contracts ($0.50 < 500, $0.45, $0.35 > 2,000, $0.25 > 10,000, $0.20 > 50,000,
+  custom above 100,000 trades): they ask our expected monthly volume.
+- Assignments are processed overnight; Lightspeed learns of them the next day and the account updates the next morning -
+  no same-evening notice. Short assignments are allocated RANDOMLY. => SPY / QQQ near-the-money pin risk stays overnight;
+  SPXW (cash) has no stock delivery but the $15 applies to its in-the-money expiries.
