@@ -1291,3 +1291,21 @@ PM-only entries (13:00+): SPY +10.2% (weeks+ 75%), SPXW +10.5% (weeks+ 75%, mont
 The profile is short volatility: median > mean, 70-75% winning days, a worst day worth ~100-160 average days (SPY).
 Short-dated skew system (mean % of premium per trade, by entry period): stock puts days+ 72%, weeks+ 74%, months+ 79%,
 years+ 13/14; ETF puts 74 / 72 / 74, 12/14; stock calls 66 / 69 / 76; ETF calls 63 / 65 / 62, 12/14.
+
+## SH-45 — 0DTE portfolio test: one strangle a day, Reg T vs portfolio margin (user 2026-11-19)
+
+`portfolio_test.py` (logs/options_portfolio_test.log). One 25d strangle per 0DTE day at a fixed time (or the every-minute
+average), sold at the bid, minute-hedged, held to 17:30. Margin estimates per strangle: Reg T (15% broad-based / 20% stocks
+- OTM, 10% floor, + premium; the larger side + the other premium) ~ SPY $9.0k, QQQ $7.8k, TSLA $7.1-7.5k, NVDA $3.6-3.8k;
+PM (worst hedged loss over +-8% / +-15%) ~ SPY $4.7-5.1k, QQQ $4.0-4.3k, TSLA $5.0-5.7k, NVDA $2.7-2.9k.
+Per contract (10:00 entry): SPY +$2,030/yr (mean $8.1/day, 68% days+, worst -$840, maxDD -$1,733), QQQ +$1,546, TSLA
++$2,299 (229 days), NVDA ~0 at 10:00 (+$747 averaged over the day). Return on margin: SPY 23% (Reg T) / 43% (PM), QQQ 20 / 39%,
+TSLA 32 / 46%. Later entries collect less premium and earn less (15:00 is worst).
+Accounts, 50% of capital as margin, split SPY / QQQ / TSLA, fixed counts:
+| | contracts | %/yr | max DD | worst day | Sharpe | months+ | years |
+|---|---|---|---|---|---|---|---|
+| Reg T $100k, 10:00 | 1 / 2 / 2 | +9.7% | -6.2% | -3.1% | 2.35 | 84% | 2024 +11.3, 2025 +8.0, 2026 +8.2 |
+| Reg T $100k, all-minute avg | 1 / 2 / 2 | +8.3% | -4.2% | -3.5% | 2.39 | 86% | |
+| PM $150k, 10:00 | 5 / 6 / 5 | +20.6% | -14.6% | -7.3% | 2.23 | 86% | 2024 +26.5, 2025 +16.5, 2026 +15.4 |
+| PM $150k, all-minute avg | 5 / 5 / 4 | +15.4% | -9.0% | -7.6% | 2.19 | 86% | |
+Unfiltered baseline (no skew / IV-RV / forward-slope filter, no execution improvements); capital idle on non-TSLA days.
