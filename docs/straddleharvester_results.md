@@ -1242,3 +1242,20 @@ one close); P&L in % of the option's mid.
 - **Next (user 2026-11-16):** ask Lightspeed (Rob) when a short learns of an assignment (same evening?) - pin risk;
   deeper exits below the bid from 15:55; ratchet maker orders for entries / exits / the delta hedge (enter at the ask,
   ratchet every ~5s), which needs 1-second quotes (a selective pull: SPXW / SPY / QQQ near the money); XSP / NDXP / RUTW.
+
+## SH-42 — options commissions and exercise / assignment fees: Lightspeed vs IBKR (read 2026-11-19)
+
+- **Lightspeed** (lightspeed.com/pricing-fees/options; /pricing-fees/brokerage-fees - the table is in the page's JSON):
+  per contract by monthly volume $0.50 (< 500), $0.45 (500+), $0.35 (2,000+), $0.25 (10,000+), $0.20 (50,000+; the site
+  also shows a 100,000 row); 'contact us for customized pricing'; routing and regulatory fees extra; schedule for accounts
+  opened after 2024-03-01. **Options exercise/assignment fee $15.00; Do-not-exercise fee $15.00**; risk liquidation
+  $1.00/contract ($50 per position minimum).
+- **IBKR Pro** (interactivebrokers.com/en/pricing/commissions-options.php, /other-fees.php): <= 10,000 contracts/month
+  $0.65 (premium >= $0.10), $0.50 ($0.05-0.10), $0.25 (< $0.05); 10,001-50,000 $0.50 / $0.25 (< $0.05); 50,001-100,000
+  $0.25; > 100,000 $0.15; $1.00 minimum per order; exchange / clearing / regulatory fees passed through. **No exercise or
+  assignment fee** ('IBKR does not charge an option exercise or assignment fee'; US stock and index options), no commission
+  on US exercise / assignment, none on cabinet buy-to-close trades.
+- Why it matters (SH-41): holding the 0DTE / short-dated shorts to expiry beats buying them back (the last minutes'
+  premium + the spread), so ITM / near-the-money shorts get assigned routinely; $15 a time against a 25-delta 0DTE
+  premium of ~$40-60 per contract is a large tax unless waived. To ask Lightspeed (Rob): waive / cut it; is it per
+  assignment or per contract; does it apply to cash-settled index options (SPXW); when is an assignment known.
