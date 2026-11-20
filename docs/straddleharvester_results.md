@@ -1327,3 +1327,18 @@ percentiles (vs all earlier days, >= 120 warm-up days) of IV/RV-since-open and t
   every day +6.4% Sharpe 2.33 (maxDD -3.9%); PM $150k 10:00: +9.7% / x2 +19.4% (maxDD -19.7%) Sharpe 1.73 vs base +16.3%
   Sharpe 1.94. 12:00 / 14:00 alike, worse (Sharpe 0.6-0.8). The < .5 days (~3/4 of days) earn little per contract but
   steadily: dropping them costs more Sharpe than the higher per-day mean of the rest adds.
+
+## SH-47 — weeklies vs 0DTE: per contract and per margin (user 2026-11-20)
+
+`weekly_test.py` (logs/options_weekly_test.log). short_dated.py trades, SPY / QQQ / TSLA, 2016-2026, sold at the bid, held to
+expiry, daily hedge at $0.006/share; margin estimates as SH-45 (PM = intrinsic-only scan, i.e. optimistic -> oversizes).
+- **Unfiltered weeklies are not better:** per contract mean $2-18 with PF 1.0-1.4 (SPY C25 4-5 DTE +$11.3 PF 1.3, P25 +$7.3;
+  QQQ, TSLA ~0); the ~5-day strangle: SPY mean $15 (median $49, PF 1.21), QQQ $3, TSLA $3. A daily ~5-day strangle LADDER
+  (PM $150k, 1-2 contracts per entry) made +3.3%/yr with a -93% drawdown (2018 -13%, 2020 -7%, 2022 -49%, 2024 -16%):
+  multi-day short strangles carry overnight / gap risk the daily hedge can't stop. (The 0DTE data, 2023-11 on, never
+  saw 2020 or 2022.)
+- **With the skew signal (top 10% vs prior years) the weeklies are much better per contract and per margin:**
+  SPY P25: 1 DTE $94.5 PF 5.7 (118), 2-3 $53.9 PF 3.3, 4-5 $52.2 PF 2.9 (165), 6-10 $43.6 PF 2.3 (835);
+  QQQ P25 6-10 $85.4 PF 4.0 (463); SPY C25 4-5 $27.3 PF 2.3; TSLA C25 6-10 $110 PF 1.5. Return on margin (annualised by
+  the days held): SPY P25 4-5 DTE 56% Reg T / 202% PM, 6-10 26% / 107% - vs the unfiltered 0DTE strangle 23% / 43%.
+  But the signal fires on ~10% of days per leg: it needs many names to fill a book (the SH-28 universe).
