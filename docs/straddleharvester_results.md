@@ -1273,3 +1273,21 @@ days, >= 5,000 contracts/day, parity price; then the 2026-11-16 close from the 1
 - Just above the cap: AVGO $334, AAPL $353, GLD $353, TSLA $380; far above: QQQ $662, SPY $740, XSP $740 (= SPX/10).
 - SH-41 tested edges: SPXW / SPY / QQQ / TSLA (+8..18%); NVDA marginal (+5.6..7.9% held to 17:30); IWM ~0 held to 17:30
   (+10% if it were settled at 16:00); AMZN, SLV, GLD, TLT none. GOOGL, INTC, IBIT, PLTR, ... untested.
+
+## SH-44 — consistency: day / week / month / year results (user 2026-11-19)
+
+`period_returns.py` (logs/options_period_returns.log). 0DTE = one contract spread over the day (the mean of its minute
+entries), minute-hedged, SPXW cash-settled, ETFs / stocks held to 17:30 with the hedge carried; $ per contract.
+| 0DTE, all minutes | % of premium | days+ / weeks+ / months+ / years+ | mean / median $ per day | worst day | per year $ |
+|---|---|---|---|---|---|
+| SPY strangle | +8.3% | 72 / 75 / 84 / 4 of 4 | +6.4 / +13.1 | -1,039 | 2024 2,455, 2025 1,188, 2026 951 |
+| SPY put / call | +9.6% / +7.3% | 73 / 73 / 89 ; 67 / 70 / 81 | +4.0 / +2.7 | -590 / -449 | |
+| SPXW strangle | +7.1% | 67 / 68 / 84 / 4 of 4 | +51 / +84 | -1,884 | 13.4k, 15.2k, 9.0k (0.8 bp of notional a day) |
+| QQQ strangle | +5.1% | 71 / 72 / 76 / 3 of 4 | +4.6 / +13.9 | -1,240 | 2026 -354 (calls -3.5%) |
+| TSLA strangle (232 days) | +17.3% | 84 / 88 / 92 / 4 of 4 | +22.0 / +24.3 | -317 | 870, 1,727, 2,322 |
+| NVDA strangle (232 days) | +9.3% | 69 / 72 / 70 / 4 of 4 | +6.9 / +7.3 | -364 | 2026 +3.2% (calls -0.5%) |
+| IWM strangle | -1.4% | 60 / 58 / 57 / 2 of 4 | -0.5 / +2.9 | -812 | 2025 -798 |
+PM-only entries (13:00+): SPY +10.2% (weeks+ 75%), SPXW +10.5% (weeks+ 75%, months+ 87%), QQQ +4.4%, TSLA +13.8%.
+The profile is short volatility: median > mean, 70-75% winning days, a worst day worth ~100-160 average days (SPY).
+Short-dated skew system (mean % of premium per trade, by entry period): stock puts days+ 72%, weeks+ 74%, months+ 79%,
+years+ 13/14; ETF puts 74 / 72 / 74, 12/14; stock calls 66 / 69 / 76; ETF calls 63 / 65 / 62, 12/14.
