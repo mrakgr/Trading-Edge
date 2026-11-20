@@ -1357,3 +1357,25 @@ warm-up); per leg, all firing minutes and the FIRST firing minute of the day; ac
 - **Triggered strangle accounts lose to the fixed 10:00 entry:** Reg T $100k ivrv30 / ivrv_open / fs triggers +3.6% to
   -0.7%/yr vs base +10.0% (Sharpe 2.33); base + trigger +9.3..11.6% with a deeper drawdown (-10..-11%). PM $150k alike
   (base +21.3%; base + trigger +20..25% at maxDD -24..-26%). The minute extremes raise % of premium, not dollars of margin.
+
+## SH-49 — the weekly skew portfolio, 2013-2026 (user 2026-11-20)
+
+`weekly_portfolio.py` (logs/options_weekly_portfolio.log). The SH-28/34/35 signal across the universe (stocks + 20 ETFs), one
+trade per name / day / leg (expiry nearest 5 trading days), sold at the bid, daily hedge $0.006/share, held to expiry,
+P&L booked at expiry, fixed capital. 21,443 signal trades: mean $12.3 / contract, +15.7% of premium, PF 1.52.
+- **Margin-sized books are meaningless** (+43%/yr Reg T, +189% 'PM' with -148% drawdowns): cheap options on low-priced
+  names give many contracts per unit of margin and the intrinsic-only PM scan understates the tails.
+- **Stress-sized** (worst hedged loss over +-25% stocks / +-10% broad ETFs / +-15% other ETFs; <= 1% of capital per
+  position, <= 20% open): the P&L is the sub-$10 / sub-$20 meme names (S < $10: $320k of the 14-year $618k; AMC 2021
+  $85k from one 1,670-contract position; worst single trades LK -$27.6k, NIO, WOLF) - not a tradable book.
+- **Realistic (underlying >= $20 / $50, <= 20 contracts per position), $100k:**
+  | | %/yr | maxDD | worst month | months+ | years+ | 2013-19 typical | 2020 / 2021 |
+  |---|---|---|---|---|---|---|---|
+  | >= $20, 1% / 20% | +17.9% | -23.9% | -10.3% | 78% | 13/14 | +1..6% | +34% / +96% |
+  | >= $20, 2% / 30% | +24.8% | -22.0% | -11.9% | 78% | 13/14 | +5..12% | +61% / +106% |
+  | >= $50, 1% / 20% | +8.5% | -14.8% | -5.5% | 80% | 13/14 | +0.5..2% | +31% / +53% |
+  | >= $50, 2% / 30% | +15.3% | -19.1% | -9.5% | 75% | 14/14 | +5..7% | +48% / +71% |
+  Still concentrated: AMC, GME, CCIV, USO, GSX lead; stock calls carry most of the P&L ($94k-207k of $171-343k). The
+  typical year (2013-2019, 2022-2025) earns ~5-12%; 2020-2021 (high-IV, meme) make the average. Reg T margin used ~25-35%.
+- Next: an EX-ANTE filter on extreme names (e.g. IV or RV > 100-150%, price < $20 at entry), position caps by option
+  volume (capacity), and the same test with the 0DTE base book alongside.
