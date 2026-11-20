@@ -59,6 +59,42 @@ def fetch(kind, root, exp, date, last_min, interval='1m', strike=None):
     return None, why
 
 
+def pull_trades(key, root, date, strikes, out, early):
+    """every trade print of the listed 0DTE strikes (both rights), one request per strike; compact columns:
+    ms (milliseconds after midnight ET, int32), strike, right (C/P), size, price, condition, exchange. A day without a single
+    print on a listed strike is fine (472 = empty)."""
+    t = time.time()
+    dfs = []
+    for k in strikes.split(','):
+        why = ''
+        for w in BACKOFF:
+            time.sleep(w)
+            try:
+                st, body = http('trade', symbol=root, expiration=date.replace('-', ''), date=date.replace('-', ''), strike=k,
+                                right='both', format='csv')
+            except Exception as ex:
+                why = f'exc:{type(ex).__name__}'; continue
+            if st == 472: body = None; break
+            if st != 200: why = f'http{st}'; continue
+            break
+        else:
+            return key, f'truncated:{k}:{why}', 0, time.time() - t
+        if body:
+            df = pd.read_csv(io.BytesIO(body))
+            if not df.empty: dfs.append(df)
+    if not dfs:
+        return key, 'nodata', 0, time.time() - t
+    q = pd.concat(dfs, ignore_index=True)
+    ts = pd.to_datetime(q.timestamp)
+    o = pd.DataFrame({'ms': ((ts - ts.dt.normalize()) // pd.Timedelta(milliseconds=1)).astype('int32'),
+                      'strike': q.strike.astype('float32'), 'right': q['right'].str[0].astype('category'),
+                      'size': q['size'].astype('int32'), 'price': q.price.astype('float32'),
+                      'condition': q.condition.astype('int16'), 'exchange': q.exchange.astype('int16')})
+    dst = os.path.join(out, f'{key}.trades.parquet')
+    o.to_parquet(dst + '.part', compression='zstd', index=False); os.replace(dst + '.part', dst)
+    return key, 'ok', len(o), time.time() - t
+
+
 def pull_1s(key, root, date, strikes, out, early, interval):
     """1-second (or finer) quotes of the listed 0DTE strikes (both rights), one request per strike; compact columns:
     sec (seconds after midnight ET, int32), strike, right (C/P), bid, ask, bid_size, ask_size."""
@@ -152,6 +188,7 @@ def main():
             j = next(pending, None)
             if j is not None:
                 if a.interval == '1m': inflight.add(ex.submit(pull, *j, a.out, early))
+                elif a.interval == 'trade': inflight.add(ex.submit(pull_trades, *j, a.out, early))
                 else: inflight.add(ex.submit(pull_1s, *j, a.out, early, a.interval))
         for _ in range(a.workers): submit_next()
         while inflight:
