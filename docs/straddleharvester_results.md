@@ -1309,3 +1309,17 @@ Accounts, 50% of capital as margin, split SPY / QQQ / TSLA, fixed counts:
 | PM $150k, 10:00 | 5 / 6 / 5 | +20.6% | -14.6% | -7.3% | 2.23 | 86% | 2024 +26.5, 2025 +16.5, 2026 +15.4 |
 | PM $150k, all-minute avg | 5 / 5 / 4 | +15.4% | -9.0% | -7.6% | 2.19 | 86% | |
 Unfiltered baseline (no skew / IV-RV / forward-slope filter, no execution improvements); capital idle on non-TSLA days.
+
+## SH-46 — 0DTE portfolio with the features: filtering / tiering / boosting (user 2026-11-19)
+
+`portfolio_filter.py`, `portfolio_boost.py` (logs/options_portfolio_{filter,boost}.log). Score = the mean of the EXPANDING
+percentiles (vs all earlier days, >= 120 warm-up days) of IV/RV-since-open and the forward slope at the entry minute.
+- **Every score bucket is profitable** (SPY 10:00 per contract: < .5 $5.5 PF 1.31; .5-.8 $14.9 PF 1.89; .8-.9 $31.6; .9+
+  $23.5 - but 13-29 days in the top buckets, and QQQ .8-.9 is negative). Skipping days therefore LOSES money: Reg T $100k
+  10:00 base +8.6%/yr vs filter >= .7 +1.9%, tiers +0.6..2.0% (whole contracts: a 1/3 budget rounds to 0 in a small account).
+- **Boosting on strong days** (base counts fixed by the median margin, x2 when score >= .5): Reg T $100k 10:00 +6.4% ->
+  +9.8%/yr, Sharpe 2.33 -> 2.33, maxDD -3.9% -> -6.8%; PM $150k 10:00 +16.3% -> +26.0%/yr, Sharpe 1.94 -> 1.99, maxDD
+  -12.8% -> -22.7%, worst day -6.6% -> -13.1%. The boost scales return and risk alike: at a fixed daily entry the
+  features add little risk-adjusted. Returns are a leverage (margin) choice on a Sharpe ~2 base (10:00 entries best).
+- The minute-level feature edge (SH-41: top decile +19-20% of premium) may need INTRADAY timing (enter when the signal
+  fires) rather than a fixed-time entry; execution (~5-6% of premium in spread) is the other lever.
