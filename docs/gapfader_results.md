@@ -2693,3 +2693,51 @@ valued at the last print before 10:30. vs the model = vs the book's x_36000, net
   (median about a minute or more) sit closer to the queue model.
 - Candidate for GapFader's 10:00 exit: the step at 30 s (or 10 s), NOT the entries' 5 s. No taken shares appear in any
   rule (the visible bid never rose onto a stepped ask before a print filled it).
+
+## GF-69 — the 10:00 time-stop exit at the \$5k VWAP (2026-11-21, user)
+
+**Why.** The live review (the private repo's `exec_day.py`) moved its model fill to the **\$5k VWAP**: the 1s bars after
+the signal accumulated until their dollar volume reaches \$5k. ZSQR 2026-11-20's 10:00 exit had been modelled at 1.71,
+one 100-share print at 10:02:09, while ZSQR traded 1.63–1.68 (live sold 1.66). The user asked how the book's PF, net and
+pf1 change under the same exit.
+
+**Method** (`scripts/equity/gapfader_exit_dv5k.py` → `data/equity/gapfader/exit_dv5k.{md,parquet}`):
+- **The book:** GF-67's, which is GF-54's 38,052 trades. The 17,971 target trades are unchanged.
+- **The time-stop exits:** for the 20,081 time-stop trades, the exit is the VWAP of GF-68's cached prints. It uses
+  the 1s-bar rule `bar_ok`, from 10:00:00 until price × size ≥ \$5k, capped at 10:30.
+- **Coverage:** 20,030 reached \$5k by 10:30, 40 fell short (the VWAP of what traded), and 11 had no print (x_36000 kept).
+- **Time to \$5k from 10:00:** p50 11 s · p90 154 s · p99 765 s.
+- **pf1:** production's v3 model. The refit machinery reproduces the deployed coefficients exactly (max |Δβ| 0).
+
+**The exit's change** (new − old, bp of the entry): mean −0.3 · median +0.0 · p5 −44 · p95 +43; 2.7 % move more than 100 bp.
+
+| period | n | flat PF old → new | Σ r % old → new | units PF (deployed pf1) old → new | units PF, pf1 refit on the new exits | Σ units·r old → refit |
+|---|---|---|---|---|---|---|
+| all | 38,052 | 1.566 → 1.564 | +23,950 → +23,896 | 1.760 → 1.758 | 1.758 | +24,245 → +24,216 |
+| 2016–19 | 4,960 | 1.272 → 1.271 | +1,993 → +1,983 | 1.336 → 1.334 | 1.335 | +1,770 → +1,757 |
+| 2020 | 11,183 | 1.562 → 1.557 | +6,867 → +6,818 | 1.705 → 1.701 | 1.703 | +8,259 → +8,274 |
+| 2021–23 | 11,027 | 1.570 → 1.562 | +7,034 → +6,968 | 1.788 → 1.774 | 1.775 | +6,600 → +6,515 |
+| 2024–26 | 10,882 | 1.773 → 1.782 | +8,056 → +8,127 | 2.163 → 2.182 | 2.179 | +7,617 → +7,670 |
+
+**pf1 refit on the new exits (2021+):**
+- **Distribution:** p10 / p50 / p90 / mean go from 0.218 / 0.670 / 1.264 / 0.716 to 0.222 / 0.668 / 1.261 / 0.715.
+- **Agreement:** ρ with the deployed pf1 is 0.9997.
+- **Coefficients:** every multiplier moves by ≤ 0.005.
+
+**Reading.**
+- **No change.** The \$5k exit moves the flat PF by −0.002, the net by −0.2 %, and pf1 not at all.
+- **ZSQR's stray-print exit is rare in the book.** The \$500k dv60_med floor keeps the names liquid enough that \$5k
+  trades in 11 s at the median. The few large moves (2.7 % > 100 bp) are symmetric: p5 −44 / p95 +43 bp.
+- **Production's coefficients stand.** The 1s-vwap exit is not biasing the backtest. Thin live names like ZSQR sit in
+  the book's far tail, and the live review's \$5k model handles them.
+
+### GF-69 → production (2026-11-21, user: "put in the refit while we're at it and then deploy")
+
+`gapfader_model_v3.py` (now `--exit dv5k` by default; `--exit first-bar` gives GF-67's outcome) refits production's v3
+model on the \$5k-VWAP exits. GF-67's file is kept as `gf_coefficients_pre_gf69.json`.
+- **What moved:** the design (winsor bounds, means, SDs) is unchanged; only the betas moved, by at most 0.007.
+- **pf1:** the fit-mean PF−1 goes from 0.7158 to 0.7151. The 200 pins recompute from the JSON to 4.4e-15.
+- **The engine:** the Oms's `Engine/GapFader.fs` betas were updated, and the pins pass.
+- **AMAT 2026-10-30's NoEdge pin:** PF−1 moves from −0.0292 to −0.0203, still below 0, so still skipped (pf1 ≤ 0 → NoEdge since 2026-11-04).
+- **The standing rule from now on (user):** every modelled entry and exit fill, in every system, is the \$5k VWAP after
+  the signal. The Fader systems' existing models stay as they are.

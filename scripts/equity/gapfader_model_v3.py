@@ -11,10 +11,19 @@ OUTPUT: models/gapfader/gf_coefficients.json — production's (Engine/GapFader.f
 GF-54's production file is kept as gf_coefficients_pre_gf67.json (gapfader_model_v2.py now writes gf_coefficients_gf54.json).
 200 pins, stratified: 50 from each (deep10, QQQ ≤ −1 %) cell of the fit set.
     cd research && python3 scripts/equity/gapfader_model_v3.py > data/equity/gapfader/model_v3.md
+⭐ GF-69 (user 2026-11-21: "put in the refit"): the outcome's 10:00 time-stop exit is the $5k VWAP from 10:00:00
+(gapfader_exit_dv5k.py → exit_dv5k.parquet, r_new) instead of the 10:00:00 1s vwap; the target exits are unchanged. The
+design (winsor, means, SDs) does not depend on the outcome, so only the betas move. GF-67's file is kept as
+gf_coefficients_pre_gf69.json. --exit first-bar = GF-67's outcome (r1).
 """
-import json, os, shutil
+import argparse, json, os, shutil
 import numpy as np, pandas as pd
+ap = argparse.ArgumentParser(); ap.add_argument("--exit", choices=("dv5k", "first-bar"), default="dv5k"); EXIT = ap.parse_args().exit
 C = pd.read_parquet("data/equity/gapfader/qqq_sizing.parquet")      # GF-67's: GF-54's book + qqq_pm_gap
+if EXIT == "dv5k":                                                    # GF-69: the $5k VWAP at the 10:00 time stop
+    E = pd.read_parquet("data/equity/gapfader/exit_dv5k.parquet", columns=["ticker", "date", "r_new"])
+    C = C.merge(E, on=["ticker", "date"], how="left", validate="1:1"); assert C.r_new.notna().all()
+    C["r1"] = C.r_new
 R = C.r1.values; WIN = R > 0; YR = C.date.str[:4].astype(int).values; FIT = YR >= 2021
 deep = (C.gap_est.values <= -0.10) * 1.0; qd = (C.qqq_pm_gap.values <= -0.01) * 1.0
 RAW = {"lm60": np.log(C.dv60_med.values), "lrv60": np.log(C.rvol60.values + 0.001), "rv5_60": (C.rvol60.values < 0.005) * 1.0,
@@ -44,8 +53,10 @@ bp = irls(X[FIT], WIN[FIT] * 1.0, "logit"); bw = irls(X[FIT & WIN], R[FIT & WIN]
 p = 1 / (1 + np.exp(-(X @ bp))); mm = p / ((1 - p) * np.exp(X @ bl) / np.exp(X @ bw)) - 1
 rng = np.random.default_rng(67)
 pins_idx = np.concatenate([rng.choice(np.where(FIT & (deep == a) & (qd == b))[0], 50, replace=False) for a in (0, 1) for b in (0, 1)])
-COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/gapfader_results.md GF-67: GF-54's + deep10 + deep10 × QQQ ≤ −1 %",
-        "fit": f"2021-01 .. {C.date.max()[:7]}, n={int(FIT.sum())}; trade = LOO, ONE target at 50 % of the gap to 10:00, then the 10:00 1s vwap; 0.40c/sh",
+COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/gapfader_results.md GF-67: GF-54's + deep10 + deep10 × QQQ ≤ −1 %"
+                 + ("; GF-69: refit on the $5k-VWAP 10:00 exit" if EXIT == "dv5k" else ""),
+        "fit": f"2021-01 .. {C.date.max()[:7]}, n={int(FIT.sum())}; trade = LOO, ONE target at 50 % of the gap to 10:00, then "
+               + ("the $5k VWAP from 10:00:00" if EXIT == "dv5k" else "the 10:00 1s vwap") + "; 0.40c/sh",
         "gates": {"gap_max": -0.04, "open_min": 1.0, "dv60_med_min": 5e5, "rvol_max": 0.02, "no_early_close": True, "listings": ["XNAS", "XASE"]},
         "cap": "MaxNotional = 0.0025 × dv60_med",
         "indicator_cutoff_et": {"XNAS": "09:29:25", "XASE": "09:29:50"}, "premarket_from_et": "04:00:00",
@@ -62,8 +73,8 @@ COEF = {"model": "GapFader (weak-premarket gap-down long) PF−1 sizing, docs/ga
         "fit_mean_pf1": float(mm[FIT].mean()),
         "pins": [{"ticker": C.ticker.values[i], "date": C.date.values[i], "dv60_med": float(C.dv60_med.values[i]), "rvol": float(C.rvol60.values[i]),
                   "gap": float(C.gap_est.values[i]), "qqq_gap": float(C.qqq_pm_gap.values[i]), "pf1": float(mm[i])} for i in sorted(pins_idx)]}
-OUT, OLD = "models/gapfader/gf_coefficients.json", "models/gapfader/gf_coefficients_pre_gf67.json"
-if not os.path.exists(OLD): shutil.copyfile(OUT, OLD)       # GF-54's, kept once
+OUT, OLD = "models/gapfader/gf_coefficients.json", "models/gapfader/gf_coefficients_pre_gf69.json"
+if not os.path.exists(OLD): shutil.copyfile(OUT, OLD)       # GF-67's, kept once (GF-54's is gf_coefficients_pre_gf67.json)
 json.dump(COEF, open(OUT, "w"), indent=1)
 def pf1_from_json(q, J):
     raw = {"lm60": np.log(q["dv60_med"]), "lrv60": np.log(q["rvol"] + 0.001), "rv5_60": 1.0 * (q["rvol"] < 0.005),
@@ -74,8 +85,8 @@ J = json.load(open(OUT))
 err = max(abs(pf1_from_json(q, J) - q["pf1"]) for q in J["pins"])
 assert err < 1e-12, err
 # the control: GF-67's own fit of this model (its parquet has no per-model column; refit there = the same arithmetic) — compare the cells
-print("# GapFader model v3 (GF-67, the narrow flags) — production coefficients\n")
-print(f"fit n = {int(FIT.sum()):,} (2021-01 .. {C.date.max()}); fit-mean PF−1 {mm[FIT].mean():.4f}; wrote {OUT} (GF-54's kept as {OLD}); "
+print(f"# GapFader model v3 (GF-67, the narrow flags; exit: {EXIT}) — production coefficients\n")
+print(f"fit n = {int(FIT.sum()):,} (2021-01 .. {C.date.max()}); fit-mean PF−1 {mm[FIT].mean():.4f}; wrote {OUT} (the previous file kept as {OLD}); "
       f"200 stratified pins, recomputed from the JSON to {err:.1e}\n")
 print("| term | odds × (p) | W × | L × |\n|---|---|---|---|")
 for j, t in enumerate(["intercept"] + TERMS):
