@@ -609,6 +609,51 @@ D0930 −113, U1000 −77, D1000 −107) for 4 % of the total profit vs the cloc
 nearly free but lets the D0930 tail back to −140 %. The window trigger (ew · win) does better on the gap-downs (D0930 350:
 12,204 · −113) but misses ZJYL on U0930 (−251 %) — both sides is the one rule for all four.
 
+**GH-13d — the EWMA stop's WARM-UP** (2026-11-22, user, after PGHL: "Sure" to a shorter warm-up). `scripts/equity/gaphv_volstop3.py`
+→ `data/equity/gaphv/volstop3.{parquet,md}`. The ew · any stop needs W returns before it may fire; GH-13c's is W = 3 (the
+4th 30-present-bar slot = the 120th traded second after the entry). **PGHL 2024-11-26 halted at 09:32:44 after 119 traded
+seconds** with the EWMA already at 742 / 784 bp (slots ending 09:31:00 / 09:31:30): W = 3 armed only at the 09:42:02
+reopen. W = 3 reproduces GH-13c exactly (the control). At 350 bp (sum · worst · CVaR 1 % · PF; fired / yr, of which within
+5 min of the entry):
+
+| variant | W = 3 (GH-13c) | W = 2 (the 3rd slot) | W = 1 (the 2nd slot) |
+|---|---|---|---|
+| U0930 | 20,776 · −106 · −49.4 · 1.56; 57 (36) | 20,459 · −106 · −47.4 · 1.56; 83 (61) | 19,458 · −106 · −44.4 · 1.56; 149 (127) |
+| D0930 | 11,598 · −113 · −43.1 · 1.29; 57 (23) | 10,859 · −113 · −42.8 · 1.28; 83 (47) | 9,889 · −113 · −40.7 · 1.26; 154 (117) |
+| U1000 | 7,968 · −77 · −25.4 · 1.18; 12 (3) | 7,847 · −77 · −25.2 · 1.18; 16 (5) | 7,778 · −77 · −24.5 · 1.18; 27 (14) |
+| D1000 | 7,655 · −107 · −34.1 · 1.20; 11 (1) | 7,545 · −107 · −33.9 · 1.20; 14 (3) | 7,573 · −107 · −33.6 · 1.20; 23 (9) |
+| **all four** | **47,998 · −113** | **46,710 (−2.7 %) · −113** | **44,698 (−6.9 %) · −113** |
+
+- **The shorter warm-up costs profit and buys nothing in the backtest's tails**: the worst trade is the same in every
+  variant; CVaR 1 % improves 2–5 points on U0930 / D0930. The extra fires are the open's chop: U0930's early W = 2 fires
+  exit at −0.6 % where holding gave +3.5 %.
+- **PGHL** at 350 bp: W = 3 09:42:03 @ \$22.04 (−10 %) · W = 2 09:31:31 @ \$20.38 (−2 %, 73 s before the first halt) · W = 1
+  09:31:01 @ \$19.24 (+4 %). **ZJYL** the other way: W = 3 10:13:37 @ \$12.74 (+56 %) · W = 2 09:48:19 @ \$17.29 (+40 %) ·
+  W = 1 09:37:44 @ \$20.75 (+28 %).
+- ⚠ The backtest cannot price what W = 2 insures against: its fill takes the \$5k VWAP at the next reopen, so a position
+  trapped by a halt BEFORE the stop arms costs only the reopen's price here (PGHL −10 %, filled in an 18 s window). Live,
+  a halt into the close or a reopen that gaps up is the risk (PGHL's 09:48 halt ran to the close at 5×).
+
+**GH-13d, the other way — LONGER warm-ups** (user: "What if we ... required at least 5 slots to be filled? What if we went
+even higher?"). Same run, W = 4 … 20 (5 … 21 slots). All four at 350 bp, sum · the worst; the worst trades on U0930:
+
+| W (slots) | all four | U0930's three worst |
+|---|---|---|
+| 2 (3) | 46,710 · −113 % | KODK 2020-07-29 −106 · … |
+| **3 (4), GH-13c** | **47,998 · −113 %** | KODK −106 · JLHL 2026-08-05 −95 · PCSA 2025-12-17 −93 |
+| 4 (5) | 48,724 (+1.5 %) · −136 % | PCSA −136 · CNST 2019-11-06 −128 · KODK −106 |
+| 5 (6) | 48,936 (+2.0 %) · −251 % | **ZJYL −251** · CNST −128 · PHUN 2021-10-22 −125 |
+| 7 (8) | 49,217 (+2.5 %) · −437 % | **PGHL −437** · ZJYL −251 · PHUN −219 |
+| 10 (11) | 50,359 (+4.9 %) · −437 % | PGHL −437 · ZJYL −251 · PCSA −133 |
+| 20 (21) | 50,655 (+5.5 %) · −437 % | PGHL −437 · ZJYL −251 · PCSA −134 (D1000: COSM 2022-12-16 −362 back) |
+
+- **Every slot of warm-up past 4 trades the disasters for chop**: the profit rises steadily (the open's chop no longer
+  fires the stop — no early fires at all from W = 10), but the stocks the stop exists for move in the first minutes and
+  halt: ZJYL is never caught from W = 5 (−251 %), PGHL from W = 7 (−437 %; W = 5 fired at 09:48:02, 24 s before the
+  lock-up at 09:48:26). U0930 carries all of it; D0930 / U1000 / D1000 barely move until W = 10–20.
+- **W = 3 (4 slots) is the knee**: the most profit with every variant's worst at ≈ −113 % or better. W = 4 is +1.5 % for
+  PCSA / CNST through (−136 / −128 %); W = 2 is −2.7 % for the halt insurance the backtest cannot price (above).
+
 ## GH-14 — the ratchet cover on ZJYL: would the live exit have got out? (2026-11-21, user: "We need to do a fill sim on ZJYL. Would the FlushFader ratchet maker exits have worked to exit the trade with 3s, 5s and 30s moves?")
 
 The private Oms's `scripts/cover_ratchet_sim.py` (the live ratchet exit rule: a buy cover rests at the bid, every step →
