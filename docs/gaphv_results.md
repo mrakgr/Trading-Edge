@@ -654,6 +654,87 @@ even higher?"). Same run, W = 4 … 20 (5 … 21 slots). All four at 350 bp, sum
 - **W = 3 (4 slots) is the knee**: the most profit with every variant's worst at ≈ −113 % or better. W = 4 is +1.5 % for
   PCSA / CNST through (−136 / −128 %); W = 2 is −2.7 % for the halt insurance the backtest cannot price (above).
 
+**GH-13e — the stop ARMED FROM A CLOCK TIME** (2026-11-23, user: "whether only activating the stop after 9:40 ET makes
+things better"). `scripts/equity/gaphv_volstop4.py` → `data/equity/gaphv/volstop4.{parquet,md}`. GH-13c's ew · any stop (W =
+3, 4 slots), computed from the entry as ever, may fire only from the gate. The 10:00 variants cannot fire before 10:00: the
+gate moves U0930 / D0930 only. 09:30 reproduces GH-13d W = 3 (the control). At 350 bp (sum · worst · CVaR 1 % · PF halves;
+fired / yr):
+
+| gate | U0930 | D0930 | the two | all four |
+|---|---|---|---|---|
+| 09:30 (now) | 20,776 · −106 · −49.4 · 1.87 / 1.47; 57 | 11,598 · −113 · −43.1 · 1.33 / 1.28; 57 | 32,374 | 47,998 · −113 |
+| 09:35 | 22,507 · −128 · −51.7 · 1.93 / 1.51; 30 | 12,026 · −113 · −44.2 · 1.34 / 1.29; 42 | 34,533 (+6.7 %) | 50,157 (+4.5 %) · −128 |
+| **09:40** | 22,870 · −128 · −53.4 · 1.96 / 1.50; 20 | 12,013 · −129 · −46.4 · 1.35 / 1.28; 28 | 34,883 (+7.8 %) | 50,506 (+5.2 %) · −129 |
+| 09:45 | 23,105 · −128 · −53.9 · 1.95 / 1.52; 15 | 12,187 · −129 · −47.8 · 1.34 / 1.29; 22 | 35,292 (+9.0 %) | 50,915 (+6.1 %) · −129 |
+| 10:00 | 23,288 · −437 · −59.6 · 1.99 / 1.51; 8 | 12,222 · −129 · −48.5 · 1.34 / 1.29; 12 | 35,510 (+9.7 %) | 51,133 (+6.5 %) · −437 |
+
+- **The early fires are mostly the open's chop**: U0930's 45 / yr fires before 09:40 end at −1.0 % stopped but +3.6 % held
+  to the GH-6 exit (D0930: 38 / yr, +3.0 → +4.1 %). Gating them adds +7.8 % to the two 09:30 variants at 09:40; both
+  halves' PF rise.
+- **The price is the early disasters**: CNST 2019-11-06 −2 → −128 %, PHUN 2021-10-22 −58 → −125 % (U0930); YELL
+  2023-08-01 −30 → −129 %, ENTA 2025-09-29 −7 → −96 % (D0930). The worst trade goes −106 / −113 → −128 / −129 and CVaR 1 %
+  4 points worse. PGHL and ZJYL do not change until 09:45 (they fire at 09:42:03 / 10:13:37); 10:00 lets PGHL through
+  (−437 %).
+- **A gate beats a longer warm-up** (GH-13d): W = 5 bought +2.0 % for ZJYL through (−251 %); the 09:40 gate buys +5.2 % for
+  −129 %. ⚠ The trades it costs are the ones that move and halt in the first minutes — what the backtest's reopen fill
+  cannot price (GH-13d) — and the gate lengthens exactly that window.
+
+**GH-13f — a TWO-LEVEL threshold** (2026-11-23, user: "Good idea, let's give it a try"). `scripts/equity/gaphv_volstop5.py` →
+`data/equity/gaphv/volstop5.{parquet,md}`. Before the gate the stop fires only at E bp; from the gate at 350 (W = 3). The
+idea: the open's chop rarely reaches 600–1,000 bp, the disasters might. All four variants (the 10:00 ones at today's stop):
+
+| gate | E | all four | worst | CNST | PHUN | YELL | ENTA | PGHL | ZJYL |
+|---|---|---|---|---|---|---|---|---|---|
+| 09:30 (now) | — | 47,998 | −113 % | −2 | −58 | −30 | −7 | −10 | +56 |
+| 09:35 | 600 | 50,189 (+4.6 %) | −128 % | −128 | −58 | −30 | −96 | −10 | +56 |
+| 09:35 | ∞ | 50,157 (+4.5 %) | −128 % | −128 | −58 | −30 | −96 | −10 | +56 |
+| 09:40 | 500 | 49,838 (+3.8 %) | −129 % | −128 | −58 | −129 | −96 | −10 | +56 |
+| **09:40** | **1000** | **50,581 (+5.4 %)** | −129 % | −128 | −58 | −129 | −96 | −10 | +56 |
+| 09:40 | ∞ | 50,507 (+5.2 %) | −129 % | −128 | −125 | −129 | −96 | −10 | +56 |
+| 09:45 | 700 | 51,037 (+6.3 %) | −129 % | −128 | −58 | −129 | −96 | −10 | +56 |
+
+- **The early level rescues PHUN only** (any E ≤ 1,000: −125 → −58 %). CNST, YELL and ENTA are not caught even at 500 bp:
+  today's stop caught them before the gate at an ORDINARY level (350–500 bp), indistinguishable from the open's chop. The
+  early disasters were not extreme-volatility events in their first minutes.
+- So the two-level threshold is worth ~+0.1–0.2 % over the plain gate; **the choice is the gate itself**: +4.5–6.3 % of
+  the profit for 3 more trades at −96 to −129 % (CNST, YELL, ENTA) in ten years, and a longer window for a halt before the
+  stop can act (the risk the backtest's reopen fill does not price, GH-13d).
+
+**GH-13g — a STEPPED schedule** (2026-11-23, user: "Past 9:45 we use the 350 bp stop. Past 9:40 we'll use a higher threshold
+and past 9:35 a higher threshold still. It's going to be overfitting to some degree, but all skill is fitting").
+`scripts/equity/gaphv_volstop6.py` → `data/equity/gaphv/volstop6.{parquet,md}`. The threshold by the clock: P before 09:35
+(∞ or 1,000) · T1 09:35–09:40 · T2 09:40–09:45 (T1 ≥ T2) · 350 from 09:45; 79 schedules; each with the halves 2016–2020 /
+2021–2026 and their ranks. All four variants:
+
+| P · T1 · T2 | all four | halves (rank of 79) | worst | CVaR 1 % U0930 / D0930 |
+|---|---|---|---|---|
+| 350 · 350 · 350 (today) | 47,998 | 14,379 (#79) / 33,619 (#79) | −113 % | −49.4 / −43.1 % |
+| 1000 · 700 · 700 (the best sum) | 51,132 (+6.5 %) | 15,459 (#35) / 35,673 (#1) | −129 % | −53.3 / −46.8 % |
+| ∞ · 700 · 500 | 51,041 (+6.3 %) | 15,494 (#15) / 35,547 (#16) | −129 % | −53.2 / −46.8 % |
+| ∞ · 700 · 450 | 51,001 (+6.3 %) | 15,513 (#5) / 35,487 (#23) | −129 % | −53.0 / −46.9 % |
+| ∞ · ∞ · ∞ (GH-13e's 09:45 gate) | 50,916 (+6.1 %) | 15,343 (#73) / 35,573 (#9) | −129 % | −53.9 / −47.8 % |
+
+- **Gating the open is robust; the schedule's numbers are not**: today's stop is LAST (#79) in both halves, every gated
+  schedule beats it in both — but the halves' ranks of the 79 correlate −0.07, and NO schedule is in the top 10 of both.
+  Between schedules the differences (≤ 0.5 %) are noise; any T1 ≈ 600–700, T2 ≈ 450–700 is the same stop.
+- The early disasters are unchanged by any schedule (CNST −128, YELL −129, ENTA −96; PHUN −58 with any finite T1): GH-13f.
+
+**GH-13h — the 10:00 variants skip a stock whose stop fired before 10:00** (user: "the 10 ET variant should only make an
+entry if the volatility stop didn't trigger earlier"). `scripts/equity/gaphv_volstop7.py` → `data/equity/gaphv/volstop7.md`.
+"Fired" = the stop computed from 09:30 (by the schedule) fired before 10:00 — knowable at 10:00. The trades kept as ever:
+
+| skip if fired by | U1000 sum · PF · CVaR 1 % | skipped / yr · mean | D1000 sum · PF · CVaR 1 % | skipped / yr · mean |
+|---|---|---|---|---|
+| no filter (today) | 7,968 · 1.18 · −25.4 % | | 7,655 · 1.20 · −34.1 % | |
+| today's stop (350 from 09:30) | 6,401 · 1.16 · −23.7 % | 95 · +1.6 % | 5,883 · 1.17 · −31.9 % | 104 · +1.7 % |
+| ∞ · 700 · 500 | 7,789 · 1.18 · −24.7 % | 22 · +0.8 % | 7,091 · 1.19 · −33.2 % | 38 · +1.5 % |
+| ∞ · ∞ · ∞ | 7,747 · 1.18 · −24.7 % | 21 · +1.1 % | 7,168 · 1.19 · −33.3 % | 36 · +1.4 % |
+
+- **The filter skips PROFITABLE trades**: a stock whose early volatility tripped the stop is, at 10:00, a slightly better
+  short than average (+1.6 % / +1.7 % vs the variants' +0.35 % / +0.47 %). The worst trade does not move (−77 / −107 %, the
+  skipped ones' worst −44 / −68 %); CVaR 1 % improves 1–2 points for −20 % (today's stop) or −2 / −7 % (a gated schedule) of
+  the profit. Not a tail filter.
+
 ## GH-14 — the ratchet cover on ZJYL: would the live exit have got out? (2026-11-21, user: "We need to do a fill sim on ZJYL. Would the FlushFader ratchet maker exits have worked to exit the trade with 3s, 5s and 30s moves?")
 
 The private Oms's `scripts/cover_ratchet_sim.py` (the live ratchet exit rule: a buy cover rests at the bid, every step →
@@ -776,3 +857,246 @@ LOCKED (bid = ask, the listing venue's indicative) or EMPTY (0 / 0).**
   the locked price = the indicative.** The user's design: any exit leg (L2 target 0) on a halted ticker → the reopening-
   auction order (its type to ask the broker on Monday 11-23: MOO / LOO-style during a halt?), no need to know a stop
   fired. To verify live: the Oms's quote feed delivers the locked / wiped NBBO in a halt (Massive WS Q).
+
+## GH-16 — the 10:00 entry: halts and the plunge from 09:30 (2026-11-23, user: "we need to at least avoid entering stocks like ZJYL that are being halted. In ZJYL's case in particular we need to avoid entering stocks that have plunged down too much. Maybe we'll introduce a slope and a z score filter from 9:30 to 10 ET")
+
+`scripts/equity/gaphv_entry10.py` → `data/equity/gaphv/entry10.{parquet,md}`. ZJYL 2023-12-18 missed U1000 only by its gap
+(3.5 % < 4 %): −50 % from the open at 10:00, halted (09:58:54 → 10:13:28). Features from the 1s bars BEFORE 10:00 (knowable at
+the entry): the longest silence; HALTED AT 10:00 (the silence running into 10:00 ≥ 60 s); the HALTS (silences ≥ 290 s); the
+SLOPE (OLS of ln 30 s slot vwap, bp / min); Z (the last slot's ln vwap vs the window's mean, in sd); ret30, volat30. The
+trades: GH-6 exit + today's stop from 10:00.
+
+- **An ABSOLUTE plunge is the best short, not the worst**: U1000's steepest-falling 1 % (slope < −69 bp/min) +4.26 % · PF 1.98;
+  ret30 < −19 % +2.54 % · PF 1.52 (D1000 alike: +3.15 % / +3.78 %). A slope or ret30 floor would cut the most profitable
+  trades.
+- **Z — the price STRETCHED to the bottom of its own 30 minutes — is the losing band in both variants and both halves**:
+
+| skip | U1000: n · mean (halves) · Σ after | D1000: n · mean (halves) · Σ after |
+|---|---|---|
+| z < −2.5 | 154 · −1.24 % (−1.89 / −0.75) · 8,160 (+2.4 %) | 118 · −0.67 % (−0.73 / −0.63) · 7,734 (+1.0 %) |
+| **z < −2.35** | 234 · −1.04 % (−1.78 / −0.53) · 8,211 (+3.0 %) | 161 · −0.75 % (−1.18 / −0.48) · 7,776 (+1.6 %) |
+| z < −2.0 | 605 · −0.28 % (−1.02 / +0.18) · 8,135 (+2.1 %) | 425 · −0.29 % (−0.31 / −0.28) · 7,779 (+1.6 %) |
+| halted at 10:00 | 226 · −0.64 % (−0.90 / −0.37) · 8,113 (+1.8 %) | 161 · +0.98 % (−0.29 / +1.66) · 7,497 (−2.1 %) |
+| z < −2.35 or halted at 10:00 | 448 · −1.00 % (−1.55 / −0.55) · 8,416 (+5.6 %) | 318 · +0.13 % · 7,613 (−0.6 %) |
+
+- **The cut-off** (user: "z < −2.0 — let's gate these trades out. What about z < −1.5?"): the band [−2.0, −1.5) is
+  PROFITABLE in both variants (U1000 [−2.0, −1.75) +0.76 %, [−1.75, −1.5) +0.73 % with both halves positive; D1000 +0.17 % /
+  +1.26 %). z < −1.5 skips 2,010 / 1,389 trades at +0.43 % / +0.51 % and costs −11.0 % / −9.3 % of the profit; z < −2.0
+  adds +2.1 % / +1.6 %. ⭐ **Ruling: skip z < −2.0** on both 10:00 variants.
+- **Halts are a GAP-UP problem**: U1000 halted at 10:00 after ≥ 2 halts — the ZJYL / PGHL profile (both: halted at 10:00, 3
+  halts; z −1.79 / −0.20, so z alone misses them) — 36 trades, −2.98 %, PF 0.66, both halves negative. D1000's halting
+  stocks are good shorts (2+ halts: +3.49 % / +2.85 %).
+- None of these filters moves the worst trade (U1000 −77 % LIFW, D1000 −107 % XELA: neither plunged nor halted).
+- ⚠ The backtest drops a 10:00 trade with no fill to the close (U1000 4, D1000 1 — PGHL 2024-11-26: halted 09:48 → close);
+  live it would be an order waiting for the reopen (the Oms's halt freeze: HaltWait).
+- ⚠ "Halted at 10:00" here is a 60 s silence (a thin name's quiet minute counts); live, the Oms's haltOf (quote rule + LULD) is
+  the real thing.
+
+## GH-17 — the 10:00-eligible stocks shorted at the FIRST NEW SESSION HIGH after 10:00 (2026-11-23, user: "how a system that shorts 10 ET eligible stocks at the session highs would do?")
+
+`scripts/equity/gaphv_newhigh.py` → `data/equity/gaphv/newhigh.{parquet,md}`. The user's choices: one trade per stock-day at the
+first 1s bar after 10:00 above the 09:30–10:00 high (the 1s-vwap high; the premarket ignored), to 15:00; the \$5k fill from the
+next second; the variant's GH-6 rule at the marks after the entry + the 350 bp stop from the entry.
+
+| book | U1000: n · PF · mean · Σ · worst · PF halves | D1000: same |
+|---|---|---|
+| the 10:00 entry (today) | 22,814 · 1.18 · +0.35 % · 7,968 · −77 % · 1.14 / 1.20 | 16,267 · 1.20 · +0.47 % · 7,655 · −107 % · 1.22 / 1.19 |
+| **the first new high after 10:00** | 10,440 · 1.06 · +0.11 % · 1,134 · −86 % · 0.92 / 1.12 | 6,627 · 1.10 · +0.21 % · 1,392 · −215 % · 1.03 / 1.13 |
+| new highs from 10:00–10:30 only | 6,137 · 1.23 · +0.44 % · 2,708 · −86 % | 3,605 · 1.16 · +0.37 % · 1,320 · −102 % |
+| (hindsight split) the 10:00 entry on the stock-days that later make a new high | 10,440 · 0.22 · −2.44 % · −25,514 | 6,627 · 0.26 · −3.27 % · −21,683 |
+| (hindsight split) … on those that never do | 12,374 · 3.94 · +2.71 % · 33,483 | 9,640 · 4.23 · +3.04 % · 29,339 |
+
+- **Shorting the new high is a much weaker system**: 46 % / 41 % of the stock-days break their 09:30–10:00 high, and a short
+  there makes +0.11 % / +0.21 % a trade — a seventh / a fifth of the 10:00 entry's Σ. Only the breakouts of the first half
+  hour pay (PF 1.23 / 1.16); from 10:30 on U1000 loses in 9 of 10 half hours. A new high after the first half hour is
+  momentum, not exhaustion. D1000 adds COSM 2022-12-16 at −215 %.
+- The hindsight split (NOT tradeable — it conditions on the rest of the day) shows where the 10:00 entry's edge lives: the
+  stock-days that never take out their first-half-hour high (PF ~4); those that do lose −2.4 % / −3.3 % from 10:00.
+
+## GH-18 — the 10:00 shorts with a STOP AT THE RUNNING SESSION HIGH (2026-11-23, user: "If it has a low or a negative PF1 we could use that justification to put a stop at the session high past 10:30 ET")
+
+The justification (GH-17): the first-new-high shorts entered 10:30–15:00 — the path a 10:00 short holds through such a break —
+U1000 4,303 · PF 0.78 (0.69 / 0.83), D1000 3,022 · PF 1.01 (1.00 / 1.02; 0.92 from 11:00). `scripts/equity/gaphv_histop.py` →
+`data/equity/gaphv/histop.{parquet,md}`: today's 10:00 book + a cover when a 1s bar from the arming time trades above the
+session high so far (the bars before) by more than a buffer; the \$5k fill from the next second; the first exit wins.
+
+| book | U1000: Σ · PF (halves) · worst · CVaR 1 % · fired | D1000: same |
+|---|---|---|
+| today | 7,968 · 1.18 (1.14 / 1.20) · −77 % · −25.4 % | 7,655 · 1.20 (1.22 / 1.19) · −107 % · −34.1 % |
+| armed 10:00 | 7,087 (−11.1 %) · 1.18 · −38 % · −18.2 % · 31 % | 5,954 (−22.2 %) · 1.18 · −54 % · −20.9 % · 42 % |
+| **armed 10:30** | 8,061 (+1.2 %) · 1.18 (1.15 / 1.20) · −77 % · −24.2 % · 5 % | 6,606 (−13.7 %) · 1.18 (1.21 / 1.16) · −54 % · −24.4 % · 33 % |
+| armed 11:00 | 8,079 (+1.4 %) · 1.18 · −77 % · −24.8 % · 2 % | 7,056 (−7.8 %) · 1.19 · −64 % · −27.0 % · 28 % |
+| armed 10:30, buffer 1 % | 7,764 (−2.6 %) · 1.18 · −77 % · −24.9 % · 1 % | 6,588 (−13.9 %) · 1.17 · −65 % · −30.5 % · 4 % |
+
+- **U1000: nearly free and nearly idle** — it fires on 5 % (the VWAP rule has usually exited first): +1.2 %, the covered
+  trades −6.57 % against −6.66 % held; the worst (LIFW −77 %) is not touched (no new high after 10:30).
+- **D1000: a TAIL stop that costs profit** — a gap-down stock makes a new session high after 10:30 on a third of the days
+  (the bounce from a low open), and covering there costs ~0.2 % a covered trade (−5.03 % against −4.84 % held): −13.7 % of the
+  profit. It halves the tail: worst −107 → −54 %, CVaR 1 % −34.1 → −24.4 %; XELA −107 → −6 %, CLDX −91 → −2 %, ENTA −68 → −18 %.
+- The 1 % buffer is worse in every cell (it fires late, after the break has run). Arming at 10:00 cuts the tail most but
+  costs −11 % / −22 %.
+
+## GH-19 — STOP METHODS on the new baseline (2026-11-23, user: "we should test out different stop methods ... Exiting past 10 ET or 10:30 ET if the stock is higher than the 30m high or the 60m high. The 10:30 ET variant that exits if the 30m high hasn't been breached between 10 and 10:30 ET ... is a genuine long momentum setup")
+
+`scripts/equity/gaphv_stops.py` → `data/equity/gaphv/stops.{parquet,md}`. **The baseline** (the user's): each variant's GH-6 rule +
+the volatility stop — 09:30 entries off · 700 · 500 · 350 by the clock (GH-13g), 10:00 entries 350 from the entry — + the
+10:00 variants only when z > −2 (GH-16). It reconciles: U0930 + D0930 = 35,417 (GH-13g's ∞·700·500), U1000 / D1000 = GH-16's
+z < −2.0 rows. Each method adds an exit (the first wins; the \$5k fill). H30 = the 09:30–10:00 high, H1000 = the 10:00–10:30
+high (1s vwap): **A** above H30 from 10:00 · **B** above H30 from 10:30 · **C** above the 60m high max(H30, H1000) from 10:30
+· **D** as B only when the 10:00 bar did NOT breach H30 (then the 60m high is H30: D = C on those days) · **E** at a mark the
+bar just completed has a higher vwap than the bar before (the user's idea) · **F** out at 10:30 when the 10:00 bar breached
+H30 · **D+F**. Σ (the worst trade):
+
+| variant | baseline | + A | + B | + C | **+ D** | + E | + F | + D+F |
+|---|---|---|---|---|---|---|---|---|
+| U0930 | 23,173 (−128) | 20,761 (−104) | 22,718 (−128) | 23,524 (−128) | **23,636 (−128)** | 19,391 | 21,486 | 21,949 |
+| D0930 | 12,244 (−129) | 10,746 (−77) | 11,280 (−106) | 11,662 (−106) | **12,289 (−129)** | 8,050 | 10,596 | 10,641 |
+| U1000 | 8,135 (−77) | 7,255 (−38) | 8,210 (−77) | 8,241 (−77) | **8,248 (−77)** | 5,133 | 7,842 | 7,954 |
+| D1000 | 7,779 (−107) | 6,036 (−54) | 6,251 (−54) | 6,674 (−54) | **7,427 (−107)** | 1,919 | 6,076 | 5,724 (−54) |
+| all four | 51,332 | 44,798 (−12.7 %) | 48,459 (−5.6 %) | 50,101 (−2.4 %) | **51,599 (+0.5 %)** | 34,492 (−32.8 %) | 46,001 (−10.4 %) | 46,268 (−9.9 %) |
+
+- **The 10:00 bar's breach of H30 splits every book** (known at 10:30): breached 23–28 % of the stock-days, baseline PF
+  0.14 / 0.18 / 0.27 / 0.48 (U0930 / D0930 / U1000 / D1000); not breached 3.89 / 2.50 / 2.00 / 1.60. But the breached days'
+  loss is mostly in BEFORE 10:30: covering them at 10:30 (F) is worse than holding (U0930's covered −7.55 % vs −6.92 % held).
+- **D (the user's) is the only method that adds**: +2.0 % U0930, +0.4 % D0930, +1.4 % U1000, −4.5 % D1000; PF up in both
+  halves on three; CVaR 1 % better (D0930 −46.8 → −41.6 %, D1000 −33.2 → −29.0 %); no worst trade moves. On the not-breached
+  days a first break of H30 after 10:30 is the momentum GH-17 measured (the shorts at it: PF 0.78 on U1000).
+- **A is the tail cutter** (worst −104 / −77 / −38 / −54 %) at −12.7 % of the profit; C sits between (U-variants +1.3–1.5 %,
+  D-variants −4.8 / −14.2 %).
+- **E (a bar's vwap above the previous bar's) fires on 46–99 % of the trades and costs a third of the profit** — a rising bar
+  is ordinary noise in a fading stock. Rejected.
+- The halt proxy on the new baseline: U1000 +2.1 %, D1000 −1.8 % (unvalidated, GH-16).
+
+## GH-20 — the break of the 10 ET high after 10:30, from the LONG side (2026-11-23, user: "Let's consider this from the long side ... look for the first break above the 10 ET high past the 10:30 ET period and look back whether that level was also breached during 10-10:30 ET")
+
+`scripts/equity/gaphv_break30.py` → `data/equity/gaphv/break30.{parquet,md}`. The universe: the 10:00-eligible stock-days, kept
+when z > −2 and the 09:30 volatility stop (off · 700 · 500 · 350) has not fired before 10:00 (U1000 21,990, D1000 15,474).
+H30 = the 10 ET high (the 09:30–10:00 1s-vwap high). Groups: **fresh** (not above H30 during 10:00–10:30, first crossing
+after 10:30) · **re-break** (above it during 10:00–10:30, back below, crossing again after 10:30) · **still above** (above it
+during 10:00–10:30 and still at 10:30: entry 10:30) · never. The trade: LONG from the \$5k VWAP after the entry, out at
+15:30, ± the 350 bp stop from the entry. No VWAP rule.
+
+| group | U1000: share · n · PF (+ stop) · mean · PF halves | D1000: same |
+|---|---|---|
+| fresh | 19 % · 4,176 · 1.12 (1.15) · +0.27 % · 1.21 / 1.08 | 19 % · 2,895 · 0.97 (0.97) · −0.05 % · 1.01 / 0.95 |
+| re-break | 9 % · 2,047 · 1.09 (1.09) · +0.24 % · 1.20 / 1.05 | 8 % · 1,194 · 1.04 (1.05) · +0.07 % · 1.12 / 1.01 |
+| still above | 14 % · 3,012 · 1.00 (0.99) · +0.00 % · 1.07 / 0.97 | 11 % · 1,751 · **0.73** (0.74) · −0.70 % · 0.76 / 0.72 |
+| never | 58 % | 62 % |
+
+- **On the gap-ups a fresh break after 10:30 is mild momentum**: the long makes +0.27 % (+0.33 % with the stop), PF 1.12–1.15,
+  both halves > 1; a re-break about the same (1.09); a break still in force at 10:30 nothing (1.00).
+- **On the gap-downs none is momentum**: fresh 0.97, re-break 1.04 — and a break still in force at 10:30 FADES (the long
+  −0.70 %, PF 0.73, both halves): a short held there makes +0.70 %.
+- For the shorts' stops this is the forward path a short holds through each break: on U1000 a fresh break costs a held
+  short ~0.3 % (GH-19's D: +1.4 %), on D1000 nothing (D −4.5 %), and the still-above days should NOT be stopped (A / C cost
+  D1000 14–22 %).
+
+## GH-21 — when the "still above the 10 ET high" short plays out, and when being above H30 turns neutral (2026-11-23, user: "For gap downs, maybe the stop simply needs to be a bit further out in time ... how long does it take for it to play out. Maybe if the stock is still above the 30m high by 11 ET or 11:30 ET the expectancy becomes neutral and that is the point to stop out?")
+
+`scripts/equity/gaphv_still_above.py` → `data/equity/gaphv/still_above.md` (no tape pass: the marks' prices and \$5k fills, H30
+from GH-20). GH-20's eligible universe; forward SHORT returns, no stop, no exit rule.
+
+**The still-above group's short from 10:30** (mean to each mark): D1000 (1,751) +0.12 % 11:00 · +0.29 % 11:30 · +0.37 % 12:00 ·
++0.51 % 13:30 · +0.70 % 15:30 (PF 1.37) — it plays out steadily all day (≈ half by 11:30–12:00). U1000 (3,012) +0.28 % 11:00 ·
++0.38 % 11:30 · then decays to −0.01 % by 15:00: an hour's fade, then nothing.
+
+**Above H30 at a mark → the short from that mark to 15:30** (mean · PF · halves):
+
+| mark | D1000 above H30 | D1000 not above | U1000 above H30 | U1000 not above |
+|---|---|---|---|---|
+| 10:30 | +0.70 % · 1.37 · +0.50 / +0.82 | +0.35 % · 1.17 | −0.01 % · 1.00 · −0.19 / +0.10 | +0.10 % · 1.04 |
+| 11:00 | +0.59 % · 1.34 · +0.34 / +0.74 | +0.33 % · 1.18 | **−0.31 % · 0.90 · −0.32 / −0.31** | +0.11 % · 1.05 |
+| 11:30 | +0.57 % · 1.35 · +0.27 / +0.75 | +0.25 % · 1.15 | −0.27 % · 0.90 · −0.29 / −0.26 | +0.08 % · 1.04 |
+| 12:00 | +0.31 % · 1.20 | +0.24 % · 1.16 | −0.18 % · 0.92 | +0.10 % · 1.06 |
+| 13:00 | +0.26 % · 1.21 | +0.18 % · 1.14 | −0.10 % · 0.95 | +0.10 % · 1.07 |
+| 13:30 | +0.13 % · 1.12 · −0.01 / +0.22 | +0.15 % · 1.14 | −0.17 % · 0.91 | +0.08 % · 1.07 |
+| 14:30 | +0.00 % · 1.00 · −0.11 / +0.07 | +0.11 % · 1.15 | −0.13 % · 0.90 | +0.05 % · 1.06 |
+
+- **Gap-DOWNS: above the 10 ET high is the short's FRIEND until ~13:00** (a bounce into resistance that fades: better than
+  the rest at every mark to 13:00), and only neutral after ~14:00 — never negative. There is no point at which a stop above
+  H30 pays: the user's "neutral by 11 / 11:30" does not happen on D1000; the neutral point is ~14:00.
+- **Gap-UPS: above the 10 ET high from 11:00 on is a losing short** (−0.31 % at 11:00, PF 0.90, both halves; negative at every
+  mark to 14:30), neutral at 10:30. ⇒ a mark-based stop — at 11:00 or any later mark, cover when above H30 — fits U1000.
+
+## GH-22 — the stop's REFERENCE (the 30m high vs the 30m VWAP) and TRIGGER (1s break vs the mark's last price vs the 30m bar's VWAP) (2026-11-23, user: "whether using the 30m VWAP price as the reference instead of the 30m high might work better? Also, instead of using 1s breaks as the triggers, what if we used the 30m bar VWAP prices as the triggers instead?")
+
+`scripts/equity/gaphv_refs.py` → `data/equity/gaphv/refs.{parquet,md}`. H30 = the 09:30–10:00 high; V30 = the 09:30–10:00 bar's
+VWAP. Triggers: BRK (a 1s break), LAST (the last price at a half-hour mark), BAR (the VWAP of the 30-minute bar ending at the
+mark). Armed from 10:30 or 11:00. THE BOOK: GH-20's eligible universe (z > −2, the 09:30 stepped stop not fired before 10:00);
+the 10:00 short held to 15:30 with the 350 bp stop — NO VWAP rule (user: "forget the VWAP rule") — plus one cover.
+
+| U1000 book | Σ | PF (halves) | worst | CVaR 1 % | fired |
+|---|---|---|---|---|---|
+| baseline (to 15:30 + the stop) | 6,014 | 1.10 (1.06 / 1.11) | −249 % | −54.5 % | |
+| (for reference: GH-19's baseline WITH the GH-6 VWAP rule, z > −2) | 8,135 | 1.19 (1.17 / 1.21) | −77 % | −25.3 % | |
+| H30 · BRK · from 10:30 | 7,703 (+28 %) | 1.15 | −77 % | −24.4 % | 43 % |
+| H30 · BRK · from 11:00 | 8,591 (+43 %) | 1.16 | −111 % | −28.6 % | 40 % |
+| H30 · LAST / BAR · from 11:00 | 7,658 / 7,342 | 1.14 / 1.13 | −111 % | −31.5 / −32.5 % | 33 % |
+| V30 · BRK · from 10:30 | 7,058 (+17 %) | 1.19 | −77 % | −21.9 % | 73 % |
+| **V30 · LAST · from 10:30** | 8,378 (+39 %) | 1.20 (1.17 / 1.22) | −77 % | −23.9 % | 65 % |
+| V30 · BAR · from 10:30 | 7,969 (+33 %) | 1.19 | −77 % | −24.3 % | 66 % |
+| **V30 · BAR · from 11:00** | 9,108 (+51 %) | 1.20 (1.17 / 1.21) | −111 % | −28.5 % | 62 % |
+| GH-19 D | 7,352 (+22 %) | 1.13 | −249 % | −44.5 % | 20 % |
+
+- **Without the VWAP rule U1000 needs a replacement**: held to 15:30 it is PF 1.10, worst −249 %, CVaR −54.5 % (the GH-6 VWAP
+  rule — out when the last half hour was mostly above the SESSION VWAP — had been doing that job). Every level stop helps.
+- **The 30m VWAP is the better reference on the gap-ups**: above V30 at a mark the forward short loses in both halves from
+  10:30 (−0.14 to −0.24 %, PF 0.90–0.95, 44 % of the trades); V30 · LAST from 10:30 matches the VWAP-rule book (8,378 · 1.20 ·
+  −77 % vs 8,135 · 1.19 · −77 %), V30 · BAR from 11:00 makes the most (9,108) for a worse tail (−111 %).
+- **The trigger depends on the level**: on V30 a mark (LAST / BAR) beats a 1s break (the price crosses its 30m VWAP all the
+  time: BRK fires on 73 % and covers early); on H30 a 1s break beats a mark (a break of the high is a real event).
+- **D1000: no stop of either kind helps** — every row costs 17–48 % (baseline 7,280 · 1.20 · −107 %; GH-19's D −2.6 %). Above
+  the 30m VWAP or high, a gap-down short keeps its edge (Part 1: +0.30 to +0.70 % at 10:30–11:00) — GH-21's finding.
+- ⚠ The eligibility filter "the 09:30 stop not fired before 10:00" removes 227 / 380 stock-days that GH-13h found PROFITABLE
+  (D1000's baseline here 7,280 vs 7,779 with the z filter alone).
+- **The stop's EWMA from 09:30 instead of restarted at 10:00** (user: "I'd like it if we used the same EWMA of volatility from
+  9:30 throughout instead of restarting it at 10 ET"; `--ew0930` → `data/equity/gaphv/refs_ew0930.md`; the universe already
+  excludes a 09:30 stop fired before 10:00, so the one EWMA's first firing is the cover). It hardly matters: U1000 baseline
+  6,048 vs 6,014, V30 · LAST from 10:30 8,411 vs 8,378, V30 · BAR from 11:00 9,059 vs 9,108 (worst −84 / −119 % vs −77 / −111 %);
+  D1000 baseline 7,419 vs 7,280 (+1.9 %), every row within ±2 %. ⭐ Ruling: ONE EWMA per ticker from 09:30 for every variant.
+
+## GH-23 — D1000: a stop above the MAX of the first half-hour bars' VWAPs (2026-11-23, user: "Let's focus on D1000 for now. What if we used the max of 9:30 ET and 10 ET bars' VWAPs as the reference? Or even added 10:30 ET to that? Does absolutely no stop at least turn pf1 neutral")
+
+⭐ User ruling first: **U1000's default stop = V30 · the 30m bar's VWAP from 11:00** (GH-22; to be retested as features are added).
+`scripts/equity/gaphv_d1000.py` → `data/equity/gaphv/d1000.{parquet,md}`. M2 = max(the 09:30 and 10:00 bars' VWAPs; known 10:30),
+M3 = with the 10:30 bar (known 11:00); triggers BRK / LAST / BAR (GH-22); armed 10:30 / 11:00 / 12:00 / 13:00. The book: GH-20's
+eligible D1000 (15,474), the 10:00 short to 15:30 + the one volatility-stop EWMA from 09:30.
+
+| D1000 book | Σ | PF (halves) | worst | CVaR 1 % | fired |
+|---|---|---|---|---|---|
+| baseline (no level stop) | 7,419 | 1.21 (1.21 / 1.21) | −107 % | −32.4 % | |
+| M2 · BRK · from 10:30 | 4,309 (−41.9 %) | 1.18 | −48 % | −17.7 % | 74 % |
+| M3 · BAR · from 11:00 | 6,119 (−17.5 %) | 1.19 | −60 % | −26.0 % | 48 % |
+| M2 · BRK · from 12:00 | 6,713 (−9.5 %) | 1.22 (1.21 / 1.22) | −80 % | −24.9 % | 59 % |
+| **M2 · BRK · from 13:00** | 7,266 (−2.1 %) | **1.22 (1.22 / 1.23)** | **−63 %** | −27.8 % | 54 % |
+| M3 · BRK · from 13:00 | 7,235 (−2.5 %) | 1.22 (1.21 / 1.22) | −63 % | −28.1 % | 50 % |
+| M2 · LAST / BAR · from 13:00 | 7,023 / 7,008 (−5 %) | 1.21 | −63 % | −28 % | 47 % |
+
+- **No level stop adds profit on D1000** — but late ones are neutral: armed at 13:00, a 1s break of M2 (or M3) costs −2 % of Σ,
+  keeps / lifts the PF in both halves (1.22 / 1.23 vs 1.21 / 1.21) and cuts the worst −107 → −63 %, CVaR 1 % −32.4 → −27.8 %.
+  Armed earlier every variant costs 10–42 %.
+- The forward view agrees: above M2 at a mark the gap-down short still earns +0.42 % (10:30) → +0.12 % (12:00) to 15:30, and
+  is neutral from 12:30 (+0.04 / +0.08 / +0.00 %); above M3 alike. The bounce above the first bars' VWAP is the short's friend
+  until about noon.
+- The break (BRK) beats the mark triggers here (unlike V30 on U1000, GH-22): by 13:00 a crossing of the morning's VWAP max is
+  a real event.
+- **The mark triggers around noon** (user: "What about M2 last mark/bar from 12 to 13 ET?"): from 12:00 −11.7 / −12.1 %
+  (LAST / BAR), from 13:00 −5.3 / −5.5 %; checked ONLY at the marks 12:00 / 12:30 / 13:00 −9.8 / −9.4 %, only 12:30 / 13:00
+  −3.5 / −4.2 % (PF 1.21, worst −66 %). The 12:00 mark is the expensive one (above M2 the short still earns +0.12 % from
+  there); none beats the 13:00 break (−2.1 %, PF 1.22, worst −63 %).
+
+**GH-23b — the 13:00 triggers YEAR BY YEAR** (user: "Does it perform better than `bar VWAP, from 13:00` and `last price, from
+13:00` for all the years?"; `data/equity/gaphv/d1000_years.md`): **no.** The 1s break beats the last price in 5 of 11 years and
+the bar VWAP in 5 of 11; its whole lead (+242 / +258 Σ) is 2021 (+201 / +198) — without 2021 +41 / +60, noise. Against NO stop
+it wins in 3 of 11 years (2019, 2021, 2023) and costs in 8; but it shrinks the year's worst trade in 10 of 11 (2017 −97 → −29,
+2020 −91 → −58, 2023 −107 → −63; 2026 the exception −46 → −54). ⇒ The three 13:00 triggers are indistinguishable; the stop is
+tail insurance that costs ~2 % — consistently a smaller worst trade, inconsistently the sum.
+
+**GH-23c — why 2021** (user: "Why was its lead so big in 2021?"): SPEED in fast afternoon squeezes. The 1s break covers at the
+crossing, the mark triggers at the next half hour: RFL 2021-10-28 crossed M2 at 13:25:51 (break −0.5 %), by the 14:00 mark it had
+run (−30.2 %); IMTE 2021-03-22 spiked above it between marks and was back below at each (the mark trigger never fired: −29.1 %
+vs −4.8 %); PRPO, TRKA, OLB, BTBT (the January crypto run), AMC / KOSS / EXPR on the 2021-06-03 meme day. The lead is positive
+in 10 of 2021's 12 months (the top 10 trades +147 of +201): the retail-mania regime had far more fast afternoon squeezes in
+gap-down small caps. In calm years the break's speed buys nothing and its sensitivity to brief pokes costs a little. ⭐ **User
+ruling 2026-11-23: D1000's default stop = the 1s break of M2 (max of the 09:30 and 10:00 bars' VWAPs) from 13:00** — the trigger
+that works in the bad regime, as tail insurance (~2 % of the profit).
