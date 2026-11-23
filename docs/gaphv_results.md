@@ -1100,3 +1100,96 @@ in 10 of 2021's 12 months (the top 10 trades +147 of +201): the retail-mania reg
 gap-down small caps. In calm years the break's speed buys nothing and its sensitivity to brief pokes costs a little. ⭐ **User
 ruling 2026-11-23: D1000's default stop = the 1s break of M2 (max of the 09:30 and 10:00 bars' VWAPs) from 13:00** — the trigger
 that works in the bad regime, as tail insurance (~2 % of the profit).
+
+## GH-24 — level stops for the 09:30 variants (2026-11-23, user: "Let's move on to researching the stops for these variants next. Maybe the same stops we have now will work well on them")
+
+`scripts/equity/gaphv_stops0930.py` → `data/equity/gaphv/stops0930.{parquet,md}`; the years `stops0930_years.md`. Every U0930 /
+D0930 trade (the open), the ONE volatility-stop EWMA from 09:30 (off · 700 · 500 · 350); held to 15:30 or with the GH-6 rule;
+the GH-22 / GH-23 grid of level stops (H30 / V30 / M2 × BRK / LAST / BAR × the arming). The baselines reconcile with GH-19.
+
+| U0930 book | Σ | PF (halves) | worst | CVaR 1 % |
+|---|---|---|---|---|
+| held to 15:30 | 22,130 | 1.47 (1.65 / 1.42) | −265 % | −84.4 % |
+| the GH-6 rule (LOSER) | 23,173 | 1.61 (1.97 / 1.52) | −128 % | −53.2 % |
+| **held + V30 · BAR from 11:00 (U1000's default)** | **23,637** | **1.62 (1.98 / 1.53)** | −128 % | −53.4 % |
+| held + H30 · BRK from 11:00 | 23,643 | 1.57 (1.90 / 1.49) | −128 % | −54.7 % |
+| held + M2 · BRK from 13:00 (D1000's default) | 22,412 | 1.52 | −207 % | −71.3 % |
+| LOSER + any level stop | 22,248 … 23,326 (−4.0 … +0.7 %) | 1.58–1.64 | −128 % | |
+
+| D0930 book (its GH-6 rule = 15:30) | Σ | PF (halves) | worst | CVaR 1 % |
+|---|---|---|---|---|
+| no level stop | 12,244 | 1.30 (1.35 / 1.29) | −129 % | −46.8 % |
+| **M2 · BRK from 13:00 (D1000's default)** | 11,563 (−5.6 %) | 1.30 (1.35 / 1.29) | −113 % | −41.1 % |
+| H30 · BRK from 10:30 | 11,280 (−7.9 %) | 1.30 (1.38 / 1.28) | −106 % | −33.5 % |
+| V30 · BAR from 11:00 (U1000's default) | 9,426 (−23.0 %) | 1.26 | −113 % | −36.1 % |
+
+- **U0930: U1000's default does the LOSER rule's job** — held + V30 · BAR from 11:00 = 23,637 · PF 1.62 · −128 % vs LOSER's 23,173
+  · 1.61 · −128 % (the worst trade identical in every year: the volatility stop sets the tail). Year by year it is ahead in 5
+  of 11 (its +463 is 2021 + 2023): equivalent, not better. On top of LOSER no level stop adds (−4.0 … +0.7 %).
+- **D0930: like D1000, no level stop adds**; the D1000 default costs more here (−5.6 %: ahead in 4 of 11 years, 2024–2025
+  −265 / −312) for the same insurance (the year's worst smaller in 8 of 11; 2023 −129 → −68 %, 2020 −103 → −66 %). The gap-ups'
+  VWAP stop does not travel to the gap-downs (−23 %): above the 30m VWAP a gap-down short keeps its edge (GH-21 / GH-22).
+
+⭐ **User rulings 2026-11-23 — ONE RULE PER SIDE:** U0930 switches from LOSER to the gap-up default (held to 15:30 + the 30m bar
+VWAP above V30 at a mark from 11:00); D0930 takes the gap-down default (the 1s break of M2 from 13:00), paying the −5.6 % as
+insurance. **The four variants' exits now:**
+
+| | U0930 | U1000 | D0930 | D1000 |
+|---|---|---|---|---|
+| entry | the open | 10:00, z > −2 | the open | 10:00, z > −2 |
+| volatility stop | one EWMA from 09:30: off · 700 · 500 · 350 from 09:45 | same | same | same |
+| level stop | the 30m bar VWAP > V30 at a mark from 11:00 | same | the 1s break of M2 from 13:00 | same |
+| otherwise | out at 15:30 | same | same | same |
+
+(V30 = the 09:30–10:00 bar's VWAP; M2 = max of the 09:30 and 10:00 bars' VWAPs.) Open: the "09:30 stop not fired before 10:00"
+eligibility of the 10:00 variants (GH-13h: it drops profitable trades) and the halt filter's validation (GH-16).
+
+⭐ **User ruling 2026-11-23: KEEP the "09:30 volatility stop not fired before 10:00" eligibility on the 10:00 variants** ("Without it
+we have no way of avoiding the worst of the losses ... ZJYL ... spiked to 400% after hours. An event like that could lead to a
+complete account wipeout"), despite GH-13h's cost (the skipped trades were profitable on average). Which disaster catches which
+day: PGHL 2024-11-26's 09:30 stop fired at 09:42:03 → no 10:00 entry; ZJYL 2023-12-18's fired only at 10:13:37 — ZJYL at 10:00 is
+caught by the HALT filter (halted 09:58:54 → 10:13:28), not by this rule. Both filters stay.
+
+## GH-25 — FlushFader's S40x halt detector on ZJYL and PGHL (2026-11-23, user: "I bet there would be all kinds of stock halts without sufficient activity to meet the last condition ... maybe it could be worth raising that to 20 or 30. We should test whether the halt detector as stated in FlushFader could detect the ZJYL halts")
+
+The GH-16 halt proxy was cruder: a silence ≥ 60 s running into 10:00, nothing else. The S40x detector (user design 2026-08-01,
+`TradingEdge.FlushFader/Intraday.fs`): a tradeless run ≥ 58 s whose pre-hole range ln(max/min) over the last 300 PRESENT 1s
+bars ≥ 4 % and whose pre-hole ADJUSTED gap60 < G — gap60 = the missing seconds of the 60 s wall-clock window (60 − the present
+bars), minus those inside earlier classified halts (back-to-back halts classify by recursion). FlushFader's G = 4.
+`scripts/equity/gaphv_haltdet.py` → `data/equity/gaphv/haltdet.md`:
+
+| day | G = 4 | G = 20 | G = 30 | other runs ≥ 58 s classified |
+|---|---|---|---|---|
+| ZJYL 2023-12-18 (6 halts; 172 present bars all day) | 0 of 6 | 2 of 6 | **6 of 6** | none |
+| PGHL 2024-11-26 (3 halts) | 2 of 3 | **3 of 3** | **3 of 3** | none |
+
+- **G = 4 is an active-stock detector**: ZJYL traded so thinly before its first halt (27 of the minute's 60 seconds empty) that no
+  halt classifies — and without the first, the recursion never discounts the next ones (raw gap60 35 / 42 / 50). At G = 30 the
+  first classifies, and the recursion then brings the chained halts' adjusted gap60 down to 3–7.
+- PGHL's first halt starts at 09:32:01 in the bars (the quotes' last print 09:32:44 is a cond-32 late report, GH-15c) — it is
+  the real first halt, not a false one.
+- ⚠ Two days of truth, both halters: G = 30's false-alarm rate on thin stocks that are NOT halted (a 58 s silence after a 4 %
+  move) is the open question — the quote validation over the 10:00 universe.
+
+## GH-26 — the 10:00 halt filter: the S40x detector vs the bare proxy, checked against the QUOTES (2026-11-23, user: "Yes")
+
+`scripts/equity/gaphv_halt10.py` → `data/equity/gaphv/halt10.{parquet,md}` + `halt10_quotes.parquet` (383 Massive REST calls: the
+last NBBO before 10:00 for every stock-day any flag marks; 0 failed). "Really halted" = that quote locked / crossed / one-sided /
+empty, with no print for ≥ 58 s — the Oms's rule. S40x at 10:00 = GH-25's detector on the run in progress. The book: the 10:00
+defaults (U1000: to 15:30 + the 30m bar VWAP > V30 from 11:00; D1000: + the M2 1s break from 13:00; the one EWMA stop), the
+universe z > −2 and the 09:30 stop not fired before 10:00.
+
+| flag | U1000: flagged · really halted · flagged mean · skip → Σ | D1000: same |
+|---|---|---|
+| bare (GH-16) | 178 · 27 (15 %) · −1.11 % · +2.2 % | 107 · 25 (23 %) · +1.05 % · −1.6 % |
+| S40x G = 4 | 35 · 25 (71 %) · −2.98 % · +1.2 % | 17 · 15 (88 %) · +3.04 % · −0.7 % |
+| S40x G = 20 | 41 · 27 (66 %) · −3.59 % · +1.6 % | 28 · 22 (79 %) · +3.08 % · −1.2 % |
+| **S40x G = 30** | 41 · 27 (66 %) · −3.59 % · +1.6 % | 30 · 24 (80 %) · +3.34 % · −1.4 % |
+
+- **The bare proxy is mostly NOT halts**: 15 % / 23 % of its flags are halted in the quotes; S40x G = 30 is 66 % / 80 % and finds
+  every real halt the bare proxy finds (27 / 24 of 27 / 25). G = 30 ≥ G = 20 ≥ G = 4 in halts found.
+- **The real 10:00 halts are not bad trades in the backtest**: U1000 27 · +0.53 % · PF 1.10 (halves +4.13 / +0.24 %), D1000 25 ·
+  +3.38 % · PF 1.64. GH-16's "halted at 10:00 loses on U1000" was the THIN stocks: the bare proxy's non-halted U1000 flags (151)
+  −1.41 %, PF 0.54 — but halves −2.30 / +0.02 %: a 2016–2020 effect.
+- The filter stays as the user's wipeout protection (ZJYL is the case the backtest's sample lacks); with S40x G = 30 it costs
+  +1.6 % / −1.4 % — free. Live it is the Oms's quote rule (haltOf), which S40x G = 30 approximates in the backtest.
