@@ -5,7 +5,7 @@
 //   2. RECOVERY — a price that is ln-linear in the SLOT's time (constant within each minute) reads that slope exactly.
 //   3. CONTROL — the 60s slope is NOT the 1s time slope (TimeOlsSlopeMa) on the same bars: the slot choice matters.
 // Run:  dotnet build TradingEdge.RollingMa -c Release && dotnet fsi TradingEdge.RollingMa/GridTimeOls_Test.fsx
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 

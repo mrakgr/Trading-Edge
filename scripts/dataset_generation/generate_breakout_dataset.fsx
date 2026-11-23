@@ -1,4 +1,4 @@
-#r "../TradingEdge.Orb/bin/Debug/net10.0/TradingEdge.Orb.dll"
+#r "../TradingEdge.Orb/bin/Debug/net11.0/TradingEdge.Orb.dll"
 
 open System
 open System.IO

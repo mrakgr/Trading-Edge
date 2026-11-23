@@ -1,4 +1,4 @@
-#r "bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "bin/Release/net11.0/TradingEdge.RollingMa.dll"
 // ⭐ TimeSumMa / TimeLagMa / gap-aware EmaHlMa oracle (2026-08-27 clock review).
 //   1. TimeSumMa ORACLE — on a random sparse stream (gaps 0..600 incl. halt-sized
 //      jumps), the windowed sum must equal the brute-force sum over records whose

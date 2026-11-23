@@ -8,7 +8,7 @@
 // Also pins the S35 finding that motivated the modes: the Zero weight and the
 // Empty weight are the SAME number on gap-0 streams and 17× apart on sparse
 // tape — mixing them across num/den reads a "mean price" below every print.
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 

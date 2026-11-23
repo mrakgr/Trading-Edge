@@ -6,7 +6,7 @@ Independent parts: the 60-bar channel by slicing (strict max / min of the PRIOR 
 and the causal volume reference (volume per present bar over the previous 20 sessions). The 236 PitFader features are
 the sealed blocks (PIT-3/4) called in PitFader's order and are not re-derived here.
 
-  cd research && ./TradingEdge.Breakout/bin/Release/net10.0/TradingEdge.Breakout --window momentum --roots ES --limit-days 40 -o data/futures/breakout/test_mom
+  cd research && ./TradingEdge.Breakout/bin/Release/net11.0/TradingEdge.Breakout --window momentum --roots ES --limit-days 40 -o data/futures/breakout/test_mom
   cd research && python -u scripts/futures/breakout_check_mom.py --run data/futures/breakout/test_mom --root ES --limit-days 40 > logs/breakout_check_mom.log 2> logs/breakout_check_mom.err; echo exit $?
 """
 import argparse

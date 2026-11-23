@@ -1,4 +1,4 @@
-#r "bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "bin/Release/net11.0/TradingEdge.RollingMa.dll"
 // ⭐ SlotVarRatioMa oracle — validated four ways:
 //   1. ORACLE — at every completed slot, Ratio(k, lag) must equal the DIRECT
 //      numpy-style computation (mean of per-slot population variances over the

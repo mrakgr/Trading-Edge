@@ -5,7 +5,7 @@ Independent parts: the window's σ from PREFIX SUMS (σ of bars [l, r] exactly, 
 edge by a plain greedy loop; the window high/low by slicing; the 1m low/high by a brute-force scan; the causal volume
 reference re-derived from the bars and the fronts. The state machine is re-coded from the rules (Engine.fs header).
 
-  cd research && ./TradingEdge.Breakout/bin/Release/net10.0/TradingEdge.Breakout --window sigma --roots ES --limit-days 40 -o data/futures/breakout/test_es
+  cd research && ./TradingEdge.Breakout/bin/Release/net11.0/TradingEdge.Breakout --window sigma --roots ES --limit-days 40 -o data/futures/breakout/test_es
   cd research && python -u scripts/futures/breakout_check.py --run data/futures/breakout/test_es --root ES > logs/breakout_check.log 2> logs/breakout_check.err; echo exit $?
 """
 import argparse

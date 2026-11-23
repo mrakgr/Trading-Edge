@@ -6,7 +6,7 @@
 //      OLS slope over the same history.
 //   3. RECOVERY — on a planted noiseless linear trend y = a + b·i it must read
 //      slope = b (any positive weighting recovers an exact line) with |r| = 1.
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 

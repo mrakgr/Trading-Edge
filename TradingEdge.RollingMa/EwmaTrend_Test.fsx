@@ -1,4 +1,4 @@
-#r "bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "bin/Release/net11.0/TradingEdge.RollingMa.dll"
 // ⭐ The EWMA trend statistics are validated three ways, because "it produced a
 // number" is not validation:
 //   1. IDENTITY — EwmaEffMa at a huge half-life must converge to the plain

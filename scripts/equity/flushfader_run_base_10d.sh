@@ -5,7 +5,7 @@
 # ticker that clears dv >= $2M & n_bars >= 200 in-stream and the comparison must cover the whole promoted set.
 cd /home/mrakgr/Trading-Edge/research
 OUT=data/equity/flushfader/base_10d
-DOTNET_GCHeapHardLimitPercent=55 ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader --base-run \
+DOTNET_GCHeapHardLimitPercent=55 ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader --base-run \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
   --start-date 2026-07-27 --end-date 2026-08-07 --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 \
   --out-dir $OUT > data/equity/flushfader/base_10d.log 2>&1

@@ -45,13 +45,13 @@ print(f'NEW in-sample rows passing barnum>=22: {n:,}')
 " 2>&1 | tee logs/oos_barnum_after.txt
 
 echo "[$(date +%H:%M:%S)] OOS run 1/2 — backward 2016-08-08 -> 2019-12-31"
-TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
   --start-date 2016-08-08 --end-date 2019-12-31 \
   -o data/equity/flushfader/oos_back > logs/flushfader_oos_back.log 2>&1
 tail -12 logs/flushfader_oos_back.log
 
 echo "[$(date +%H:%M:%S)] OOS run 2/2 — forward 2026-07-18 -> 2026-08-07"
-TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
   --start-date 2026-07-18 --end-date 2026-08-07 \
   -o data/equity/flushfader/oos_fwd > logs/flushfader_oos_fwd.log 2>&1
 tail -12 logs/flushfader_oos_fwd.log

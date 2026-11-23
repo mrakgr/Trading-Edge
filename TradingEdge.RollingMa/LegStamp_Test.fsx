@@ -1,5 +1,5 @@
 // Oracle for the S44 LegCounters first-event stamp.
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 let mutable fails = 0

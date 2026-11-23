@@ -1,4 +1,4 @@
-#r "bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "bin/Release/net11.0/TradingEdge.RollingMa.dll"
 // ⭐ EwmaVarMa oracle — validated four ways:
 //   1. ORACLE — at every step, Mean/Var must equal the DIRECT weighted
 //      computation over the full pushed history with weights α(1−α)^(n−1−i).

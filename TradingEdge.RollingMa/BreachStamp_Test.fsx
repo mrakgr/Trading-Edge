@@ -1,5 +1,5 @@
 // Oracle for the S44 BreachCounter stamp (price + ET second of the last breach).
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 

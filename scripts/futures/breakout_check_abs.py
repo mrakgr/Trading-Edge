@@ -5,7 +5,7 @@ the session medians and the causal references (volume per present bar, |N-bar mo
 the exits and stops by scanning, d30 / d60 on slices. The detection, the refractory rule, the FADE and LEVEL families and
 the bar order (open trips → armed levels → detections) are re-coded from the rules (AbsEngine.fs header).
 
-  cd research && ./TradingEdge.Breakout/bin/Release/net10.0/TradingEdge.Breakout --window absorption --roots ES --limit-days 40 -o data/futures/breakout/test_abs
+  cd research && ./TradingEdge.Breakout/bin/Release/net11.0/TradingEdge.Breakout --window absorption --roots ES --limit-days 40 -o data/futures/breakout/test_abs
   cd research && python -u scripts/futures/breakout_check_abs.py --run data/futures/breakout/test_abs --root ES --limit-days 40 > logs/breakout_check_abs.log 2> logs/breakout_check_abs.err; echo exit $?
 """
 import argparse

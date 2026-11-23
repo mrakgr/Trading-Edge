@@ -10,7 +10,7 @@ if [ "$1" = control ]; then
 else
   CANDS=data/equity/flushfader/young/cands_b11_21.parquet; OUT=data/equity/flushfader/young/base_v19_young; S=2020-01-02; E=2026-08-21; MB=11
 fi
-DOTNET_GCHeapHardLimitPercent=55 ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader --candidates $CANDS --base-run \
+DOTNET_GCHeapHardLimitPercent=55 ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader --candidates $CANDS --base-run \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
   --start-date $S --end-date $E --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 --min-barnum $MB \
   --out-dir $OUT > $OUT.log 2>&1

@@ -1161,7 +1161,7 @@ clips on dq4, either vq wing) is future book-construction work.
 **⏭ THE PLANNED RERUN — SUPERSEDED by S19 (2026-07-29):** the whole stack (and more:
 SPEC v1.2) is now BAKED into the engine with stops off by default, and prev-close
 gating was rejected in favor of post-hoc `entry_px/adj_ratio >= 1` (S19). The
-full-universe production rerun is now just `bin/Release/net10.0/TradingEdge.FlushFader
+full-universe production rerun is now just `bin/Release/net11.0/TradingEdge.FlushFader
 -o <dir>` (~80 min on all tkds; 75 s on the `FF_CANDIDATE_TABLE=flushfader_spec_v11_tkds`
 restricted table). Still pending from this list: (1) mc=1 + `--min-lows-into-leg 26`
 book run; (2) distinct-leg count vs adds; (3) the TradeZero limit-fill question.
@@ -3989,7 +3989,7 @@ gates off; entry window 09:45-15:00 and volat >= 40bp stay baked):
 
 ```
 FF_CANDIDATE_TABLE=flushfader_base_tkds \
-./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
   --max-speed-1m 0 --k-band-lo 0 --k-band-hi 0 \
   --eff20-lo -Infinity --eff20-hi Infinity --min-abs-eff-10m 0 \
   --dist-hi-lo -Infinity --dist-hi-hi 0 --min-vol10-rate 0 \
@@ -8518,12 +8518,12 @@ Everything needed to reproduce the current system. Supersedes the v2.2
 
     # THE BASE (every spec gate OFF — signal definition only)
     FF_CANDIDATE_TABLE=flushfader_base_tkds \
-      ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+      ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
       --base-run --out-dir data/equity/flushfader/base_vNN
 
     # THE REFERENCE (full v2.5 spec = every default)
     FF_CANDIDATE_TABLE=flushfader_base_tkds \
-      ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+      ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
       --out-dir data/equity/flushfader/v26_reference
 
     # mc replay (mc=1 is the decider; mc=3 is the trading target)

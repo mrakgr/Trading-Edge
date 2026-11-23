@@ -31,7 +31,7 @@ else
 fi
 
 echo "$(date '+%F %T') base_v25 starting"
-DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
   --candidates data/equity/flushfader/v24/cands_b11.parquet --base-run --min-barnum 11 \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/$BARS \
   --start-date 2020-01-02 --end-date 2026-08-21 --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 \

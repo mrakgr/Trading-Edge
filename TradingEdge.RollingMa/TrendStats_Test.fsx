@@ -1,4 +1,4 @@
-#r "bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "bin/Release/net11.0/TradingEdge.RollingMa.dll"
 // ⭐ ORACLE TEST for AutoCorrMa / VarianceRatioMa / SignPersistMa.
 //
 // Each streaming class is compared, AT EVERY PUSH, against a naive O(n)

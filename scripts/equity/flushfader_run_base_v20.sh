@@ -4,7 +4,7 @@
 # base_v19. The old 335 columns are bit-identical to the committed engine's (the 2024-03-04..08 control: 21,441 = 21,441).
 cd /home/mrakgr/Trading-Edge/research
 OUT=data/equity/flushfader/base_v20
-DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader --candidates flushfader_v17tkd_cand --base-run \
+DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader --candidates flushfader_v17tkd_cand --base-run \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
   --start-date 2020-01-02 --end-date 2026-08-21 --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 \
   --out-dir $OUT

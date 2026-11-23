@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
   <!-- VwapReclaimV2: fork of VwapReclaim (SMB VWAP x 9-EMA reclaim scalp, long-only).

@@ -6,7 +6,7 @@
 # was the old full-universe run's trip-producing ticker-days, a speedup that is stale on the marker-free bars.
 # The candidate file: data/equity/flushfader/v24/cands_b11.parquet (1,183,355 ticker-days, written 2026-11-04).
 cd /home/mrakgr/Trading-Edge/research
-DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
   --candidates data/equity/flushfader/v24/cands_b11.parquet --base-run --min-barnum 11 \
   --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
   --start-date 2020-01-02 --end-date 2026-08-21 --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 \

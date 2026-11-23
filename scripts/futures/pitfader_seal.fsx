@@ -8,14 +8,14 @@
 // Build first: dotnet build TradingEdge.{PitFader,FlushFader,SpikeFader} -c Release.
 //
 //   cd research && dotnet fsi scripts/futures/pitfader_seal.fsx -- <bars.csv> > logs/pitfader_seal.log 2>&1; echo exit $?
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/TradingEdge.RollingMa.dll"
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/Nito.Collections.Deque.dll"
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/DuckDB.NET.Bindings.dll"
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/DuckDB.NET.Data.dll"
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/TradingEdge.Orb.dll"
-#r "../../TradingEdge.SpikeFader/bin/Release/net10.0/TradingEdge.SpikeFader.dll"
-#r "../../TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader.dll"
-#r "../../TradingEdge.PitFader/bin/Release/net10.0/TradingEdge.PitFader.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/TradingEdge.RollingMa.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/Nito.Collections.Deque.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/DuckDB.NET.Bindings.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/DuckDB.NET.Data.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/TradingEdge.Orb.dll"
+#r "../../TradingEdge.SpikeFader/bin/Release/net11.0/TradingEdge.SpikeFader.dll"
+#r "../../TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader.dll"
+#r "../../TradingEdge.PitFader/bin/Release/net11.0/TradingEdge.PitFader.dll"
 
 open System
 open System.IO

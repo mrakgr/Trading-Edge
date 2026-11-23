@@ -8,7 +8,7 @@
 cd /home/mrakgr/Trading-Edge/research
 run() {  # $1 start, $2 end, $3 out-dir
   echo "$(date '+%F %T') $3: $1 .. $2"
-  DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net10.0/TradingEdge.FlushFader \
+  DOTNET_GCHeapHardLimitPercent=55 /usr/bin/time -v ./TradingEdge.FlushFader/bin/Release/net11.0/TradingEdge.FlushFader \
     --candidates data/equity/flushfader/v24/cands_b11.parquet --base-run --min-barnum 11 \
     --db-path /home/mrakgr/Trading-Edge/research/data/trading.db --sec-dir /home/mrakgr/Trading-Edge/research/data/intraday_1s_slim \
     --start-date "$1" --end-date "$2" --min-volat-20m 0.002 --entry-end-sec 57600 --entry-end-sec-short 46800 \

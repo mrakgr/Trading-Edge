@@ -5,7 +5,7 @@ DIRECTLY on the slice (the partial bar weighted by the remainder; no prefix-sum 
 causal reference σ (the mean of the previous 20 sessions' medians), the 1m low/high by a brute-force scan, the volume
 reference from the bars and the fronts. The state machine is re-coded from the rules (VolEngine.fs header).
 
-  cd research && ./TradingEdge.Breakout/bin/Release/net10.0/TradingEdge.Breakout --window volume --roots ES --limit-days 60 -o data/futures/breakout/test_vol
+  cd research && ./TradingEdge.Breakout/bin/Release/net11.0/TradingEdge.Breakout --window volume --roots ES --limit-days 60 -o data/futures/breakout/test_vol
   cd research && python -u scripts/futures/breakout_check_vol.py --run data/futures/breakout/test_vol --root ES > logs/breakout_check_vol.log 2> logs/breakout_check_vol.err; echo exit $?
 """
 import argparse

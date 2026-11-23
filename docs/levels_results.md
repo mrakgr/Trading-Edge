@@ -15,7 +15,7 @@ rulings are in the engine's header.
 - **Scope:** RTH; no signal in the first 5 min, no entry after 15:00, flat at 16:00. Every root, 2015–2026 (fit
   2015–22 / holdout 2023–26).
 
-Run: `dotnet TradingEdge.Breakout/bin/Debug/net10.0/TradingEdge.Breakout.dll --window level` (2 min 10 s, 1.5 GB) →
+Run: `dotnet TradingEdge.Breakout/bin/Debug/net11.0/TradingEdge.Breakout.dll --window level` (2 min 10 s, 1.5 GB) →
 `data/futures/levels/run_lv1` (1,215,435 trips). Report: `scripts/futures/levels_report.py` →
 `data/futures/levels/report_lv1.md`.
 

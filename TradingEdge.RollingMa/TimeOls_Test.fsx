@@ -4,7 +4,7 @@
 //   3. ORACLE — on gappy x (1s bars with silent seconds) both equal a two-pass CENTERED OLS of the window to 1e-9.
 //   4. RECOVERY — a noiseless line y = a + b·x on gappy x reads slope b.
 // Run:  dotnet build TradingEdge.RollingMa -c Release && dotnet fsi TradingEdge.RollingMa/TimeOls_Test.fsx
-#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net10.0/TradingEdge.RollingMa.dll"
+#r "/home/mrakgr/Trading-Edge/research/TradingEdge.RollingMa/bin/Release/net11.0/TradingEdge.RollingMa.dll"
 open TradingEdge.RollingMa
 open System
 
