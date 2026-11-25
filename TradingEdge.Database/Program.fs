@@ -135,6 +135,7 @@ type BackfillDailyArgs =
     | Skip_V2
     | V2_Dir of string
     | Events_Since_Days of int
+    | V2_Threads of int
 
     interface IArgParserTemplate with
         member this.Usage =
@@ -149,6 +150,7 @@ type BackfillDailyArgs =
             | Skip_V2 -> "Do not rebuild data v2 after the v1 ingest."
             | V2_Dir _ -> "Data v2 directory (default: data/v2)."
             | Events_Since_Days _ -> "Splits and dividends: download only the N days up to the end date, on top of the existing files — their older rows kept, every row from then on replaced (later ones dropped: the live Oms reads the trading day's events only), nothing carried over. The production VPS runs this (user 2026-10-29). Default: the full range and the year ahead, the files rewritten whole (research)."
+            | V2_Threads _ -> "DuckDB threads for the v2 build (default: all cores). Its peak memory grows with them, beyond the 4GB memory_limit: 16 threads ~7.2 GB, 4 ~4.9 GB (home PC 2026-11-25)."
 
 type DownloadTickersArgs =
     | [<AltCommandLine("-o")>] Output_File of string
@@ -839,7 +841,7 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
         else
             printfn ""
             printfn "v2 build -> %s" v2Dir
-            V2Build.build { RawDir = "data"; OutDir = v2Dir; MemoryLimit = "4GB"; TempDir = Some (Path.Combine(defaultBulkTempDir (), "v2_duck_tmp")); SeedTickers = None; Threads = None } |> ignore
+            V2Build.build { RawDir = "data"; OutDir = v2Dir; MemoryLimit = "4GB"; TempDir = Some (Path.Combine(defaultBulkTempDir (), "v2_duck_tmp")); SeedTickers = None; Threads = args.TryGetResult BackfillDailyArgs.V2_Threads } |> ignore
 
     printfn ""
     printfn "=== backfill-daily %s ===" (if ok then "COMPLETE" else "FINISHED WITH ERRORS")
