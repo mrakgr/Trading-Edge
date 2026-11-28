@@ -140,7 +140,8 @@ SELECT
     sv.session_raw_volume::DOUBLE                                    AS session_raw_volume,
     sv.session_volume_rvol::DOUBLE                                   AS rvol
 FROM priced p
-JOIN ticker_reference tr ON tr.ticker = p.ticker AND tr.type IN ('CS', 'ADRC')
+-- the DATED type (2026-11-28, data v2 ticker_types, one row per ticker per day: no fan-out, no reused-symbol ETF days)
+JOIN read_parquet('data/v2/ticker_types.parquet') tr ON tr.ticker = p.ticker AND p.date BETWEEN tr.from_date AND tr.to_date AND tr.is_stock
 JOIN stock_volume_4w sd ON sd.ticker = p.ticker AND sd.date = p.date
 LEFT JOIN session_volume_4w sv ON sv.ticker = p.ticker AND sv.date = p.date
 {breakoutJoin}

@@ -9,6 +9,7 @@ day's open (daily_adjusted) — descriptive, not a gate (it is the future). Brea
     cd research && python3 scripts/equity/highflyer_v2_2026.py > data/equity/highflyer_repro/v2_2026.md
 """
 import duckdb, numpy as np, pandas as pd
+import data_v2
 con = duckdb.connect(); con.execute("SET memory_limit='2GB'"); con.execute("ATTACH 'data/trading.db' AS db (READ_ONLY)")
 T = pd.read_parquet("data/equity/highflyer_repro/v2port_partial_causal_to1030.parquet")
 T["entry_date"] = pd.to_datetime(T.entry_date); T["exit_date"] = pd.to_datetime(T.exit_date)
@@ -19,8 +20,7 @@ M = con.execute("""
   SELECT t.symbol, t.entry_date, median(p.dv) dv60_med FROM t JOIN s x ON x.ticker = t.symbol AND x.date = t.entry_date
   JOIN s p ON p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1 GROUP BY 1, 2""").df()
 T = T.merge(M, on=["symbol", "entry_date"], how="left")
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM db.ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(ty, on="symbol", how="left")
+T = data_v2.with_stock_type(con, T)   # the DATED type (2026-11-28)
 for etf in ("SPY", "IWM"):
     E = con.execute(f"SELECT date, open o, close c, n, cum_div cd FROM db.daily_adjusted WHERE ticker = '{etf}' ORDER BY date").df()
     E["date"] = pd.to_datetime(E.date); E = E.set_index("date")

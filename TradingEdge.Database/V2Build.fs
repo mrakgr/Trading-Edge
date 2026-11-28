@@ -6,12 +6,17 @@ module TradingEdge.V2Build
 // (on the VPS) run this same command, so both get the same bytes from the same
 // code; trading.db (v1) stays for the legacy systems.
 //
-//   raw files (data/daily_aggregates/*.csv.gz, data/splits.csv, data/dividends.csv, data/fx/eurofxref-hist.csv, data/tickers.csv)
+//   raw files (data/daily_aggregates/*.csv.gz, data/splits.csv, data/dividends.csv, data/fx/eurofxref-hist.csv, data/tickers.csv,
+//    data/ticker_eras.csv)
 //     -> a SCRATCH DuckDB file (disk, not RAM: 50M rows must fit an 8 GB VPS)
 //        daily_prices / splits / dividends  = Database.*Source (the v1 ingest's own SQL)
 //        ticker_reference                   = the previous v2 list UPSERTED with tickers.csv (v1 never
 //                                             deletes a ticker: the API drops delisted/reclassified names,
 //                                             and the research universe must keep their history)
+//        ticker_eras                        = data/ticker_eras.csv (backfill-daily, TickerEras.fs): a REUSED symbol's
+//                                             type by date (RAM: a SPAC, then since 2026-06-24 a 2X ETF)
+//        ticker_types                       = THE DATED TYPE every reader joins on (ticker, date): the eras over
+//                                             ticker_reference, one row per day (see the CREATE below)
 //        split_corrections, daily_adjusted  = sql/schema/materialized/02_, 03_ UNCHANGED
 //     -> <out>.building/*.parquet + manifest.json -> swapped in as <out>/ (the old one kept as <out>.prev/)
 //
@@ -37,12 +42,13 @@ type V2Config =
       SeedTickers: string option }   // the FIRST build's ticker_reference (a parquet exported from v1)
 
 /// the tables a v2 build writes, in the order they are written
-let tables = [ "daily_prices"; "splits"; "dividends"; "ticker_reference"; "split_corrections"; "daily_adjusted" ]
+let tables = [ "daily_prices"; "splits"; "dividends"; "ticker_reference"; "ticker_eras"; "ticker_types"; "split_corrections"; "daily_adjusted" ]
 
 let private sortKey = function
     | "daily_prices" | "daily_adjusted" -> "ticker, date"
     | "splits" | "dividends" -> "id"
     | "ticker_reference" -> "ticker, type"
+    | "ticker_eras" | "ticker_types" -> "ticker, from_date"
     | _ -> "ticker, execution_date"
 
 let private exec (c: DuckDBConnection) (sql: string) =
@@ -84,7 +90,8 @@ let build (cfg: V2Config) : int =
     let dividendsCsv = Path.Combine(cfg.RawDir, "dividends.csv")
     let fxCsv = Path.Combine(cfg.RawDir, "fx", "eurofxref-hist.csv")   // the dividends' USD conversion (Database.dividendsSource)
     let tickersCsv = Path.Combine(cfg.RawDir, "tickers.csv")
-    for f in [ splitsCsv; dividendsCsv; fxCsv; tickersCsv ] do
+    let erasCsv = Path.Combine(cfg.RawDir, "ticker_eras.csv")        // backfill-daily's [4/4] (TickerEras.fs)
+    for f in [ splitsCsv; dividendsCsv; fxCsv; tickersCsv; erasCsv ] do
         if not (File.Exists f) then failwithf "v2: missing raw input %s" f
     let dayFiles = Directory.GetFiles(Path.Combine(cfg.RawDir, "daily_aggregates"), "*.csv.gz") |> Array.sort
     if dayFiles.Length = 0 then failwithf "v2: no day aggregates under %s" (Path.Combine(cfg.RawDir, "daily_aggregates"))
@@ -138,6 +145,55 @@ let build (cfg: V2Config) : int =
                     SELECT ticker, name, type FROM snap
                     UNION ALL
                     SELECT p.ticker, p.name, p.type FROM '{q tickerBase}' p ANTI JOIN snap s USING (ticker, type)""")
+        // ticker_eras: a REUSED symbol's type by date (to_date NULL = still listed; type '?' = Massive's old record
+        // carries none) — daily_episodes_causal drops a reused symbol's days in a known non-stock era
+        exec c ($"""CREATE TABLE ticker_eras AS
+                    SELECT * FROM read_csv('{q erasCsv}', header = true, quote = '"', escape = '"',
+                        columns = {{'ticker': 'VARCHAR', 'type': 'VARCHAR', 'name': 'VARCHAR', 'from_date': 'DATE', 'to_date': 'DATE'}})""")
+        // ⭐ ticker_types (2026-11-28): THE DATED TYPE, one row per ticker per interval, the intervals of a ticker
+        // non-overlapping and covering every day (0001-01-01 .. 9999-12-31) — so `JOIN ticker_types t ON t.ticker = x.ticker
+        // AND x.date BETWEEN t.from_date AND t.to_date` finds exactly ONE row (no CS+ADRC fan-out: ASND has both rows).
+        //   a known era (ticker_eras, type <> '?'): its type; is_stock = type IN ('CS','ADRC')
+        //   every other day (a '?' era, the days around the eras, a ticker never reused): the undated rule — the ticker's
+        //   stock types joined ('CS', 'ADRC/CS'), else all its types; is_stock = it ever had a CS/ADRC row
+        exec c """CREATE TABLE ticker_types AS
+                  WITH ref AS (
+                      SELECT ticker,
+                             bool_or(type IN ('CS','ADRC')) AS ever_stock,
+                             CASE WHEN bool_or(type IN ('CS','ADRC'))
+                                  THEN string_agg(DISTINCT type, '/' ORDER BY type) FILTER (WHERE type IN ('CS','ADRC'))
+                                  ELSE string_agg(DISTINCT type, '/' ORDER BY type) END AS types,
+                             arg_min(name, CASE type WHEN 'CS' THEN 0 WHEN 'ADRC' THEN 1 ELSE 2 END) AS name
+                      FROM ticker_reference GROUP BY ticker),
+                  known AS (
+                      SELECT ticker, from_date, coalesce(to_date, DATE '9999-12-31') AS to_date, type, name
+                      FROM ticker_eras WHERE type <> '?'),
+                  edges AS (   -- each known era with the end of the one before it
+                      SELECT *, lag(to_date) OVER (PARTITION BY ticker ORDER BY from_date) AS prev_to,
+                                row_number() OVER (PARTITION BY ticker ORDER BY from_date DESC) AS from_last
+                      FROM known),
+                  gaps AS (
+                      SELECT ticker, coalesce(prev_to + 1, DATE '0001-01-01') AS from_date, from_date - 1 AS to_date FROM edges
+                      UNION ALL
+                      SELECT ticker, to_date + 1, DATE '9999-12-31' FROM edges WHERE from_last = 1 AND to_date < DATE '9999-12-31'),
+                  undated AS (
+                      SELECT g.ticker, g.from_date, g.to_date, r.types AS type, r.name, r.ever_stock AS is_stock
+                      FROM gaps g JOIN ref r USING (ticker) WHERE g.from_date <= g.to_date
+                      UNION ALL
+                      SELECT r.ticker, DATE '0001-01-01', DATE '9999-12-31', r.types, r.name, r.ever_stock
+                      FROM ref r ANTI JOIN known k USING (ticker))
+                  SELECT ticker, from_date, to_date, type, name, type IN ('CS','ADRC') AS is_stock FROM known
+                  UNION ALL
+                  SELECT * FROM undated"""
+        let overlaps =
+            scalar<int64> c """SELECT count(*) FROM (SELECT ticker, from_date, to_date,
+                                       lead(from_date) OVER (PARTITION BY ticker ORDER BY from_date) AS next_from FROM ticker_types)
+                               WHERE next_from <= to_date OR next_from > to_date + 1"""
+        let uncovered =
+            scalar<int64> c """SELECT count(*) FROM (SELECT ticker FROM ticker_types GROUP BY ticker
+                               HAVING min(from_date) <> DATE '0001-01-01' OR max(to_date) <> DATE '9999-12-31')"""
+        if overlaps > 0L || uncovered > 0L then
+            failwithf "v2: ticker_types: %d overlapping or gapped intervals, %d tickers not covering every day (ticker_eras overlap?)" overlaps uncovered
         say "raw files loaded"
 
         // the guards v1's primary keys and replaceFromCsv gave us
@@ -181,6 +237,7 @@ let build (cfg: V2Config) : int =
                   dividends_sha256 = sha256 dividendsCsv
                   fx_sha256 = sha256 fxCsv
                   tickers_sha256 = sha256 tickersCsv
+                  ticker_eras_sha256 = sha256 erasCsv
                   ticker_base = Path.GetFullPath tickerBase |}
            outputs = Collections.Generic.Dictionary<string, string>(tables |> List.map (fun t -> Collections.Generic.KeyValuePair(t, sha256 (Path.Combine(staging, t + ".parquet"))))) |}
     File.WriteAllText(Path.Combine(staging, "manifest.json"), JsonSerializer.Serialize(manifest, JsonSerializerOptions(WriteIndented = true)))

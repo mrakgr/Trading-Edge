@@ -246,21 +246,18 @@ let run (dbPath: string) (cfg: Config) (startDate: DateOnly) (endDate: DateOnly)
      pragma.ExecuteNonQuery() |> ignore)
 
     use cmd = conn.CreateCommand()
-    // Universe = common stock + ADRs only (v0's tradableOnly default:
-    // ticker_reference.type IN ('CS','ADRC')). Excludes ETFs, units, warrants,
-    // preferreds, etc. — without this v1 trades ~3x more tickers than v0.
-    // NOTE the SEMI-JOIN (EXISTS), not an inner JOIN: a few tickers (e.g. ASND)
-    // have BOTH a 'CS' and an 'ADRC' row in ticker_reference, and an inner join
-    // on that would FAN OUT every price bar into two identical consecutive rows —
-    // the per-ticker engine would then fold those tickers' bars in twice (only ~3
-    // names, so immaterial to the aggregate, but wrong). EXISTS filters without
-    // multiplying.
+    // Universe = common stock + ADRs only (v0's tradableOnly default). Excludes ETFs, units, warrants, preferreds, etc.
+    // — without this v1 trades ~3x more tickers than v0.
+    // BY DATE (2026-11-28): data v2's ticker_types has one row per ticker per
+    // day (non-overlapping intervals), so the join neither fans out (ASND has both a CS and an ADRC row in the undated
+    // ticker_reference — the reason this was a semi-join before) nor lets a reused symbol through on its non-stock days
+    // (RAM: a SPAC, then since 2026-06-24 a 2X ETF). The path is relative: run from research/.
     cmd.CommandText <-
         "SELECT p.ticker, p.date, p.adj_open, p.adj_high, p.adj_low, p.adj_close, p.adj_volume
          FROM split_adjusted_prices p
-         WHERE EXISTS (SELECT 1 FROM ticker_reference r
-                       WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
-           AND p.date >= $start AND p.date <= $end
+         JOIN read_parquet('data/v2/ticker_types.parquet') t
+           ON t.ticker = p.ticker AND p.date BETWEEN t.from_date AND t.to_date AND t.is_stock
+         WHERE p.date >= $start AND p.date <= $end
          ORDER BY p.ticker, p.date"
     let pStart = cmd.CreateParameter() in pStart.ParameterName <- "start"; pStart.Value <- startDate; cmd.Parameters.Add pStart |> ignore
     let pEnd   = cmd.CreateParameter() in pEnd.ParameterName   <- "end";   pEnd.Value   <- endDate;   cmd.Parameters.Add pEnd   |> ignore

@@ -19,6 +19,7 @@
     <Compile Include="QuotesDownload.fs" />
     <Compile Include="NewsDownload.fs" />
     <Compile Include="TickersDownload.fs" />
+    <Compile Include="TickerEras.fs" />
     <Compile Include="TickerEventsDownload.fs" />
   </ItemGroup>
 

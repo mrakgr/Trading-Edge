@@ -10,6 +10,7 @@ CS) and the full 10:00 book; production exit (k = 6) and the day-3 exit (k = 3).
     cd research && python3 scripts/equity/highflyer_v2_return_rule.py > data/equity/highflyer_repro/v2_return_rule.md
 """
 import duckdb, numpy as np, pandas as pd
+import data_v2
 from scipy.optimize import brentq
 rng = np.random.default_rng(20261105)
 con = duckdb.connect(); con.execute("SET memory_limit='2GB'"); con.execute("ATTACH 'data/trading.db' AS db (READ_ONLY)")
@@ -22,8 +23,7 @@ X = con.execute("""
   SELECT t.tid, ((y.open * y.n - t.raw_close_1000 * x.n) + (y.cd - x.cd)) / (t.raw_close_1000 * x.n) ret3,
          (SELECT median(p.close * p.volume) FROM s p WHERE p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1) dv60_med
   FROM t JOIN s x ON x.ticker = t.symbol AND x.date = t.entry_date JOIN s y ON y.ticker = t.symbol AND y.i = x.i + 3""").df()
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM db.ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(X, on="tid", how="left").merge(ty, on="symbol", how="left").sort_values(["entry_date", "symbol"])
+T = data_v2.with_stock_type(con, T.merge(X, on="tid", how="left")).sort_values(["entry_date", "symbol"])   # the DATED type (2026-11-28)
 T["proxy"] = (T.dv60_med < 2e6) & (T.typ == "CS")
 
 def pf(r, axis=None):

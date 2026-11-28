@@ -33,8 +33,7 @@ def enrich(T):
       SELECT t.symbol, t.entry_date, median(p.dv) dv60_med FROM t JOIN s x ON x.ticker = t.symbol AND x.date = t.entry_date
       JOIN s p ON p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1 GROUP BY 1, 2""").df()
     M['entry_date'] = pd.to_datetime(M.entry_date)
-    ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-    T = T.merge(M, on=K, how='left').merge(ty, on='symbol', how='left')
+    T = data_v2.with_stock_type(con, T.merge(M, on=K, how='left'))   # the DATED type (2026-11-28)
     T['proxy'] = (T.dv60_med < 2e6) & (T.typ == 'CS'); T['yr'] = T.entry_date.dt.year
     return T
 

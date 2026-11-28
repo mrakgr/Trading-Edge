@@ -22,7 +22,7 @@ re-implements its production entry and exit exactly (TradingEdge.HighFlyer/Types
                   prices compared across time (the channel, ATR, tightness, runner) on P·n
                   the move and the trade's return = the HOLDER's return [(P2·n2 − P1·n1) + (C2 − C1)] / (P1·n1)
                   volume in original shares v / n (rvol); dollar volume P·v (raw); the $1 floor and the fade on raw P
-Universe: ticker_reference type CS / ADRC (semi-join), dates 2003-09-10 .. --end.
+Universe: the days data v2 ticker_types calls a stock (CS / ADRC, dated since 2026-11-28), dates 2003-09-10 .. --end.
 
   cd research && python -u scripts/equity/highflyer_port.py --scale back > logs/highflyer_port_back.log 2>&1; echo exit $?
 """
@@ -44,9 +44,12 @@ con.execute("set memory_limit='3GB'; set threads=4")
 SRC = ("SELECT ticker, date, adj_open o, adj_high h, adj_low l, adj_close c, adj_volume::DOUBLE v, 1.0 n, 0.0 cd "
        "FROM split_adjusted_prices p" if a.scale == "back" else
        "SELECT ticker, date, open o, high h, low l, close c, volume v, n, cum_div cd FROM daily_adjusted p")
+# the DATED type (2026-11-28, data v2 ticker_types): a ticker's rows only on the days it was a stock — an undated
+# ticker_reference let a reused symbol (RAM: a SPAC, then a 2X ETF) through on all its days
+SRC = (f"SELECT p.* FROM ({SRC}) p JOIN read_parquet('data/v2/ticker_types.parquet') t "
+       "ON t.ticker = p.ticker AND p.date BETWEEN t.from_date AND t.to_date AND t.is_stock")
 tickers = [r[0] for r in con.execute(f"""
     SELECT DISTINCT p.ticker FROM ({SRC}) p
-    WHERE EXISTS (SELECT 1 FROM ticker_reference r WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
     ORDER BY 1""").fetchall()]
 log(f"{a.scale}: {len(tickers):,} CS/ADRC tickers")
 

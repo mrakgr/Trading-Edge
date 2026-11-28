@@ -727,6 +727,63 @@ let private runTickersDownload (apiKey: string) (outputPath: string) : bool =
         eprintfn "Error downloading tickers: %s" msg
         false
 
+/// THE TICKER ERAS (2026-11-28, TickerEras.fs): for every REUSED symbol — one with a CS/ADRC row and a non-CS row in
+/// the reference (`tickersCsv` and the previous v2 build's ticker_reference) — the type it had on the days it traded,
+/// from Massive's point-in-time ticker details, -> `outputPath` (ticker,type,name,from_date,to_date; an empty to_date =
+/// still listed). The runs of bars come from the previous v2 build's daily_adjusted (a day stale: the newest days are
+/// the current listing's, which is asked for today directly).
+let private runTickerEras (apiKey: string) (tickersCsv: string) (v2Dir: string) (outputPath: string) : bool =
+    try
+        let q (p: string) = Path.GetFullPath(p).Replace("'", "''")
+        let prevRef = Path.Combine(v2Dir, "ticker_reference.parquet")
+        let prevDaily = Path.Combine(v2Dir, "daily_adjusted.parquet")
+        use conn = new DuckDB.NET.Data.DuckDBConnection("Data Source=:memory:")
+        conn.Open()
+        let rows (sql: string) (read: Data.IDataRecord -> 'T) =
+            use cmd = conn.CreateCommand()
+            cmd.CommandText <- sql
+            cmd.UseStreamingMode <- true
+            use r = cmd.ExecuteReader()
+            [ while r.Read() do yield read r ]
+        let refs =
+            $"SELECT ticker, type FROM ({tickersSource (q tickersCsv)})"
+            + (if File.Exists prevRef then $" UNION ALL SELECT ticker, type FROM '{q prevRef}'" else "")
+        let reused =
+            rows $"""SELECT ticker FROM ({refs}) GROUP BY ticker
+                     HAVING bool_or(type IN ('CS','ADRC')) AND bool_or(type NOT IN ('CS','ADRC')) ORDER BY ticker"""
+                 (fun r -> r.GetString 0)
+        let runs =
+            if not (File.Exists prevDaily) || reused.IsEmpty then Map.empty
+            else
+                let inList = reused |> List.map (fun t -> "'" + t.Replace("'", "''") + "'") |> String.concat ","
+                rows $"""WITH a AS (SELECT ticker, date,
+                                       CASE WHEN date - lag(date) OVER (PARTITION BY ticker ORDER BY date) > 45 THEN 1 ELSE 0 END AS b
+                                FROM '{q prevDaily}' WHERE ticker IN ({inList})),
+                          e AS (SELECT ticker, date, sum(b) OVER (PARTITION BY ticker ORDER BY date) AS run FROM a)
+                         SELECT ticker, min(date), max(date) FROM e GROUP BY ticker, run ORDER BY ticker, 2"""
+                     (fun r -> r.GetString 0, DateOnly.FromDateTime(r.GetDateTime 1), DateOnly.FromDateTime(r.GetDateTime 2))
+                |> List.groupBy (fun (t, _, _) -> t)
+                |> List.map (fun (t, xs) -> t, xs |> List.map (fun (_, a, b) -> a, b))
+                |> Map.ofList
+        printfn "Ticker eras: %d reused symbols, %d runs of bars" reused.Length (runs |> Map.toSeq |> Seq.sumBy (snd >> List.length))
+        use http = new HttpClient()
+        let today = DateOnly.FromDateTime DateTime.Today
+        let eras =
+            reused
+            |> List.collect (fun t ->
+                (TickerEras.erasOf http apiKey t (runs |> Map.tryFind t |> Option.defaultValue []) today CancellationToken.None).GetAwaiter().GetResult())
+        let iso (d: DateOnly) = d.ToString("yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture)
+        use writer = new StreamWriter(outputPath)
+        writer.WriteLine "ticker,type,name,from_date,to_date"
+        for e in eras do
+            writer.WriteLine($"{csvQuote e.Ticker},{csvQuote e.Type},{csvQuote e.Name},{iso e.From},{e.To |> Option.map iso |> Option.defaultValue String.Empty}")
+        let notStock = eras |> List.filter (fun e -> e.Type <> "CS" && e.Type <> "ADRC" && e.Type <> "?")
+        printfn "Saved %d eras (%d not a stock) to %s" eras.Length notStock.Length (Path.GetFullPath outputPath)
+        true
+    with ex ->
+        eprintfn "Ticker eras failed: %s" ex.Message
+        false
+
 let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<BackfillDailyArgs>) =
     ensureDataDir ()
     let dbPath = args.GetResult(BackfillDailyArgs.Database, defaultValue = "data/trading.db")
@@ -823,6 +880,8 @@ let private handleBackfillDaily (config: MassiveConfig) (args: ParseResults<Back
     else
         printfn "[4/4] reference tickers"
         if not (runTickersDownload config.ApiKey "data/tickers.csv") then ok <- false
+        elif not (runTickerEras config.ApiKey "data/tickers.csv" (args.GetResult(BackfillDailyArgs.V2_Dir, defaultValue = "data/v2")) "data/ticker_eras.csv") then
+            ok <- false
 
     // --- ingest + materialize
     printfn ""

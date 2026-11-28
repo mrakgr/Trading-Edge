@@ -183,10 +183,10 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, p
     member val StartDate = startDate
     member val EndDate = endDate
 
-    // Universe = common stock + ADRs only. NOTE the SEMI-JOIN (EXISTS), not an
-    // inner JOIN: a few tickers (e.g. ASND) have BOTH a 'CS' and an 'ADRC' row in
-    // ticker_reference; an inner join would FAN OUT every price row into two
-    // identical consecutive rows. EXISTS filters without multiplying.
+    // Universe = common stock + ADRs only, BY DATE (2026-11-28): data v2's ticker_types has one row per ticker per
+    // day (non-overlapping intervals), so the join neither fans out (ASND has both a CS and an ADRC row in the undated
+    // ticker_reference — the reason this was a semi-join before) nor lets a reused symbol through on its non-stock days
+    // (RAM: a SPAC, then since 2026-06-24 a 2X ETF). The path is relative: run from research/.
     //
     // The partial checkpoint candle LEFT-JOINs in (partial_candle_HHMM, RAW minute
     // prices). d.close is the raw daily close, so adjRatio = adj_close/raw_close
@@ -203,9 +203,9 @@ type DbEmitter(conn: DuckDBConnection, startDate: DateOnly, endDate: DateOnly, p
              FROM split_adjusted_prices p
              JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date
              LEFT JOIN %s pc ON pc.ticker = p.ticker AND pc.date = p.date
-             WHERE EXISTS (SELECT 1 FROM ticker_reference r
-                           WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
-               AND p.date >= $start AND p.date <= $end
+             JOIN read_parquet('data/v2/ticker_types.parquet') t
+               ON t.ticker = p.ticker AND p.date BETWEEN t.from_date AND t.to_date AND t.is_stock
+             WHERE p.date >= $start AND p.date <= $end
              ORDER BY p.ticker, p.date" partialTable
 
     /// Stream every daily row, pushing (ticker, dailyBar, partialBar) downstream in

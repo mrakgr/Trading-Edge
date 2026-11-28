@@ -16,6 +16,7 @@ Cohorts: the whole book; the proxy book (dv60_med < $2M, CS); the proxy A+ (+ th
 """
 import sys, time
 import duckdb, numpy as np, pandas as pd
+import data_v2
 T0 = time.time()
 def log(*x): print(f"[{time.time()-T0:7.1f}s]", *x, file=sys.stderr, flush=True)
 con = duckdb.connect(); con.execute("SET memory_limit='2GB'; SET threads=4")
@@ -31,8 +32,7 @@ M = con.execute("""SELECT t.symbol, t.entry_date, median(p.dv) dv60_med, any_val
     LEFT JOIN s z ON z.ticker = t.symbol AND z.date = t.exit_date
     JOIN s p ON p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1 GROUP BY 1, 2""").df()
 T = T.merge(M, on=["symbol", "entry_date"], how="left")
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM db.ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(ty, on="symbol", how="left")
+T = data_v2.with_stock_type(con, T)   # the DATED type (2026-11-28)
 log(f"{len(T):,} closed trips 2016-08+")
 
 # the 1s windows: entry day [09:30, 10:00) and [10:00, 10:15); exit day [09:30, 09:45)

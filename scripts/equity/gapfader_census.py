@@ -23,7 +23,7 @@ Intraday part (data/intraday_1s_slim, raw 1s vwap bars 04:00–20:00, the whole 
   hi_before_fill / lo_…   the adverse excursion before the fill (gap up: the max vwap before it — the pain of a fade)
 plus close(D) (official) and open(D+1) (in D's terms: open(D+1) × n(D+1)/n(D) + dividend cash) for the overnight leg.
 
-Universe: ticker_reference type CS / ADRC minus the Oms's mislabel exclusions (warrants, rights, SPAC units, preferred
+Universe: the days data v2 ticker_types calls a stock (CS / ADRC, dated since 2026-11-28) minus the Oms's mislabel exclusions (warrants, rights, SPAC units, preferred
 issues, the CEF list — TradingEdge.Oms/Universe.fs, mirrored below), raw open >= $0.50 (bands later), dv20_prior >= $250k.
 
 Run from research/:
@@ -61,11 +61,14 @@ def excluded(t: str, name: str):
     if RX["preferred"].search(name) and not RX["adr"].search(name): return "preferred"
     if t.endswith(".U") or (RX["units"].search(name) and not RX["equity_units"].search(name)): return "units"
     return None
-ref = con.execute("SELECT ticker, any_value(coalesce(name,'')) AS name FROM 'data/v2/ticker_reference.parquet' WHERE type IN ('CS','ADRC') GROUP BY ticker").df()
+# the DATED type (2026-11-28, data v2 ticker_types): a ticker's stock intervals, each with that listing's name — an
+# undated ticker_reference let a reused symbol (RAM: a SPAC, then a 2X ETF) through on all its days
+ref = con.execute("SELECT ticker, from_date, to_date, coalesce(name,'') AS name FROM 'data/v2/ticker_types.parquet' WHERE is_stock").df()
 ref["why"] = [excluded(t, n) for t, n in zip(ref.ticker, ref.name)]
-UNI = ref[ref.why.isna()].ticker
-log(f"universe: {len(ref):,} CS/ADRC tickers, {ref.why.notna().sum():,} excluded, {len(UNI):,} kept")
-con.register("uni", pd.DataFrame({"ticker": UNI}))
+UNI = ref[ref.why.isna()][["ticker", "from_date", "to_date"]]
+log(f"universe: {ref.ticker.nunique():,} CS/ADRC tickers ({len(ref):,} dated intervals), "
+    f"{ref[ref.why.notna()].ticker.nunique():,} excluded, {UNI.ticker.nunique():,} kept")
+con.register("uni", UNI)
 
 # ---------------------------------------------------------------- 1. the daily gaps
 G = con.execute(f"""
@@ -73,7 +76,8 @@ G = con.execute(f"""
     -- rows starts a new one — scripts/equity/build_daily_episodes_causal_view.sql, the Oms's barnums / volume20s), so a
     -- recycled ticker's window cannot reach into an earlier listing (ARIA 2026-08 had 17 of ARIAD's 2017 rows)
     WITH e0 AS (SELECT a.*, CASE WHEN a.date - lag(a.date) OVER (PARTITION BY a.ticker ORDER BY a.date) > 45 THEN 1 ELSE 0 END AS brk
-                FROM 'data/v2/daily_adjusted.parquet' a JOIN uni USING (ticker)),
+                FROM 'data/v2/daily_adjusted.parquet' a
+                JOIN uni u ON u.ticker = a.ticker AND a.date BETWEEN u.from_date AND u.to_date),
     ep AS (SELECT *, sum(brk) OVER (PARTITION BY ticker ORDER BY date) AS episode FROM e0),
     d AS (
       SELECT a.ticker, a.date, a.open, a.high, a.low, a.close, a.volume, a.n, a.cum_div,

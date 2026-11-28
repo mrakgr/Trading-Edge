@@ -35,8 +35,7 @@ M = con.execute("""
   JOIN s p ON p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1 GROUP BY 1, 2""").df()
 M["entry_date"] = pd.to_datetime(M.entry_date); M["prev_date"] = pd.to_datetime(M.prev_date)
 T = T.merge(M, on=["symbol", "entry_date"], how="left")
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(ty, on="symbol", how="left")
+T = data_v2.with_stock_type(con, T)   # the DATED type (2026-11-28)
 T["proxy"] = (T.dv60_med < 2e6) & (T.typ == "CS")
 T["yr"] = T.entry_date.dt.year
 

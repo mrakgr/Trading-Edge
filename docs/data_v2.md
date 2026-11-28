@@ -9,7 +9,7 @@ production must build their data **the same way** (user). v2 is parquet built fr
 | what | where | built by | run time |
 |---|---|---|---|
 | raw inputs | `data/daily_aggregates/*.csv.gz`, `data/{splits,dividends,tickers}.csv`, `data/fx/eurofxref-hist.csv` (the ECB rates the dividends are converted to USD with, 2026-10-21; docs/price_adjustment.md §4b) | `backfill-daily` downloads | — |
-| daily set | `data/v2/{daily_prices,splits,dividends,ticker_reference,split_corrections,daily_adjusted}.parquet` + `manifest.json` (previous build: `data/v2.prev/`) | `TradingEdge.Database build-v2`, or `backfill-daily` (after the v1 ingest) / `backfill-daily --v2-only` (VPS: no trading.db) | ~50 s (16 threads); 67 s / 4.2 GB peak at 4 threads |
+| daily set | `data/v2/{daily_prices,splits,dividends,ticker_reference,ticker_eras,split_corrections,daily_adjusted}.parquet` + `manifest.json` (previous build: `data/v2.prev/`) | `TradingEdge.Database build-v2`, or `backfill-daily` (after the v1 ingest) / `backfill-daily --v2-only` (VPS: no trading.db) | ~50 s (16 threads); 67 s / 4.2 GB peak at 4 threads |
 | research universe | `data/v2_candidates/mr_candidate_1s_v2/date=…/` (hive) + `liq_cache/` | `dotnet fsi scripts/equity/build_mr_candidate_1s.fsx -- --v2 data/v2` | full 2.5 min (2,534 slim days), cached rerun 11 s |
 | reference corpora | `data/v2_candidates/corpora/{flushfader_v49tkd_cand,flushfader_v17tkd_cand,spikefader_s44_whitelist,lowfader_wide_whitelist}.parquet` | exported once from v1 | — |
 
@@ -32,6 +32,30 @@ Readers:
 - `ticker_reference` **accumulates** (the previous v2 list upserted with tickers.csv), as v1 never deletes: the API drops
   delisted / reclassified names whose history the universe still needs. Seeded once from v1
   (`data/v2_seed/ticker_reference_v1_2026-09-29.parquet`).
+- ⭐ **`ticker_eras` (2026-11-28): a reused symbol's type by date.** `ticker_reference` has no dates, so a symbol that
+  was ever CS/ADRC passed `type IN ('CS','ADRC')` on all its days — RAM (Aries I Acquisition, a SPAC, 2021–23; the
+  Roundhill 2X DRAM ETF since 2026-06-24) reached the research universe as a stock while the live engine, on Massive's
+  CURRENT list, never saw it. For the 72 symbols with both a CS/ADRC and a non-CS row, `backfill-daily` [4/4] asks
+  Massive's point-in-time ticker details (`/v3/reference/tickers/{T}?date=D`) on the first and last day of each run of
+  bars (a > 45-day gap starts a run) and bisects where the type changes (`TickerEras.fs`) → `data/ticker_eras.csv` →
+  `data/v2/ticker_eras.parquet` (ticker, type, name, from_date, to_date; NULL = still listed; `?` = an old record with no
+  type). `daily_episodes_causal` drops the days of a known non-stock era (an ANTI JOIN; a correlated NOT EXISTS became a
+  DELIM join over 27M rows and pushed the candidate build past 8 GB). The first build dropped 290 candidate rows (CBRG
+  115, RAM 110, SPCM 53, SPCX 8 — the SPAC ETF in 2020–21, SpaceX stock since 2026-06-12 — ANSS 2, LAZR 2) and added
+  none. An old listing need not leave an inactive row with a delisting date (Aries I has none under RAM), so the walk is
+  driven by our own bars, not by delistings.
+- ⭐ **`ticker_types` — THE DATED TYPE every reader joins on (2026-11-28).** One row per ticker per interval, a ticker's
+  intervals non-overlapping and covering every day (0001-01-01 .. 9999-12-31; the build refuses an overlap or a gap), so
+  `JOIN ticker_types t ON t.ticker = x.ticker AND x.date BETWEEN t.from_date AND t.to_date AND t.is_stock` finds exactly
+  ONE row — no CS+ADRC fan-out (ASND), no reused symbol's non-stock days. A known era gives its type; every other day the
+  undated rule (`type` = the ticker's stock types joined, `CS` / `ADRC/CS`; `is_stock` = it ever had a CS/ADRC row).
+  20,782 rows, 0.3 MB. Readers: `daily_episodes_causal` (candidates identical to the ANTI JOIN version in every column),
+  the HighFlyer / HighFlyerV2 / TideFlyer engines and highflyer_port / highflyer_v2_port (`trading.db` + the parquet:
+  run from research/), gapfader_census / gapfader_preopen_quotes (dated intervals with that listing's name), the
+  highflyer_v2_* trip tags (`data_v2.with_stock_type`), build_breadth_and_heat.sql / breadth_cum_floor.sql /
+  generate_gap_up_universe.fsx, and the Oms's replay universe (`Reference.csAdrRows conn date`; a data dir without the
+  file falls back to the undated table). Left undated on purpose: lists of every ticker that was ever a stock
+  (download_float.py, resolve_cik.py) and the options scripts' own type cache.
 - A (ticker, date) in two day files: the file that owns that session wins (2019-08-12's file stamps 29 thin ETFs 08-13).
 - Guards: duplicate keys refuse; splits / dividends shrinking > 10 % against the previous build refuse.
 - The universe's expensive liquidity scan is cached per slim day (thresholds pinned in `params.json`; `--full` redoes

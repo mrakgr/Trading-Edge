@@ -312,7 +312,7 @@ match parsed.TryGetResult V2 with
     let scalar (x: string) = (use c = conn.CreateCommand() in c.CommandText <- x; c.ExecuteScalar())
     exec "SET memory_limit='8GB'"
     exec "SET preserve_insertion_order=false"
-    for t in [ "daily_adjusted"; "ticker_reference" ] do
+    for t in [ "daily_adjusted"; "ticker_types" ] do
         let path = q (IO.Path.Combine(v2Dir, t + ".parquet"))
         exec $"CREATE VIEW {t} AS SELECT * FROM '{path}'"
     exec (IO.File.ReadAllText(IO.Path.Combine(__SOURCE_DIRECTORY__, "build_daily_episodes_causal_view.sql")))

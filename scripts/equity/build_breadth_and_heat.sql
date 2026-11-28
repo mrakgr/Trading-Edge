@@ -17,7 +17,8 @@
 --       the bar is $1M (decided 2026-06-20, applies to BOTH filters).
 --       NOTE: use 30-cal-day ADV, NOT same-day dollar volume.
 --   * BREADTH additionally restricts to common stock + ADRs:
---       ticker_reference.type IN ('CS','ADRC')   (NOT ETF/ETN/funds — ~43% of
+--       data v2 ticker_types.is_stock ON THAT DAY (CS/ADRC; dated 2026-11-28, was the undated
+--       ticker_reference.type IN ('CS','ADRC'))   (NOT ETF/ETN/funds — ~43% of
 --       the raw price table is non-CS/ADRC and must be excluded from breadth).
 --     (The HEAT universe does NOT apply the CS/ADRC filter — top-gainer "heat"
 --      reads the whole liquid tape; CS/ADRC-only changes it negligibly.)
@@ -73,18 +74,20 @@ COPY (
       AVG(s.adj_close*s.adj_volume) OVER (PARTITION BY s.ticker ORDER BY s.date
                              RANGE BETWEEN INTERVAL 30 DAYS PRECEDING AND CURRENT ROW) AS adv30,
       ROW_NUMBER() OVER (PARTITION BY s.ticker ORDER BY s.date)                    AS rn,
-      r.type
+      t.is_stock
     FROM split_adjusted_prices s
-    LEFT JOIN ticker_reference r ON r.ticker = s.ticker
+    -- the DATED type (2026-11-28, data v2 ticker_types, one row per ticker per day): a reused symbol (RAM: a SPAC, then a
+    -- 2X ETF) counts only on its stock days; and no fan-out (the undated join doubled ASND's rows, a CS and an ADRC row)
+    LEFT JOIN read_parquet('data/v2/ticker_types.parquet') t ON t.ticker = s.ticker AND s.date BETWEEN t.from_date AND t.to_date
     WHERE s.adj_close > 0
   ),
   univ AS (
     SELECT * FROM base
     WHERE rn >= 20                       -- need a full 20d MA window
-      AND type IN ('CS','ADRC')          -- common stock + ADRs only
+      AND is_stock                       -- common stock + ADRs only, on that day
       AND adv30 >= 1000000               -- 30-cal-day ADV >= $1M
-      -- (no explicit test-ticker block needed: `type IN ('CS','ADRC')` already
-      --  drops the NASDAQ test symbols, which have NO ticker_reference row.)
+      -- (no explicit test-ticker block needed: `is_stock` is NULL for the NASDAQ test
+      --  symbols, which have NO ticker_reference row and so no ticker_types row.)
   )
   SELECT date,
     COUNT(*)                                            AS n,
@@ -120,8 +123,9 @@ COPY (
       AVG(p.adj_close*p.adj_volume) OVER (PARTITION BY p.ticker ORDER BY p.date
                              RANGE BETWEEN INTERVAL 30 DAYS PRECEDING AND CURRENT ROW) AS adv30
     FROM split_adjusted_prices p
-    JOIN ticker_reference tr ON tr.ticker = p.ticker     -- INNER join => test tickers (no ref row) dropped for free
-    WHERE p.adj_close > 0 AND tr.type IN ('CS','ADRC')   -- CS/ADRC only (unified with breadth + engine)
+    JOIN read_parquet('data/v2/ticker_types.parquet') tr                                          -- INNER join => test tickers (no ref row) dropped for free
+      ON tr.ticker = p.ticker AND p.date BETWEEN tr.from_date AND tr.to_date AND tr.is_stock   -- CS/ADRC on that day (dated 2026-11-28)
+    WHERE p.adj_close > 0
   ),
   q AS (
     SELECT date, ret
@@ -154,5 +158,5 @@ COPY (
 -- If data/trading.db must remain read-only (can't COPY out of an attached RO db),
 -- run instead from an in-memory duckdb:
 --   duckdb :memory: -c "ATTACH 'data/trading.db' AS db (READ_ONLY); <paste the two
---   COPY blocks, prefixing split_adjusted_prices/ticker_reference with db.>"
+--   COPY blocks, prefixing split_adjusted_prices with db.> (ticker_types is read from data/v2's parquet: run from research/)"
 -- =============================================================================

@@ -58,10 +58,13 @@ if a.scale == "back":
                     1.0 n, 0.0 cd, d.close raw_c FROM split_adjusted_prices p JOIN daily_prices d ON d.ticker = p.ticker AND d.date = p.date"""
 else:
     SRC = "SELECT ticker, date, open o, high h, low l, close c, volume::DOUBLE v, n, cum_div cd, close raw_c FROM daily_adjusted p"
+# the DATED type (2026-11-28, data v2 ticker_types): a ticker's rows only on the days it was a stock — an undated
+# ticker_reference let a reused symbol (RAM: a SPAC, then a 2X ETF) through on all its days
+SRC = (f"SELECT p.* FROM ({SRC}) p JOIN read_parquet('data/v2/ticker_types.parquet') t "
+       "ON t.ticker = p.ticker AND p.date BETWEEN t.from_date AND t.to_date AND t.is_stock")
 tickers = [r[0] for r in con.execute(f"""
     SELECT DISTINCT p.ticker FROM ({SRC}) p
-    WHERE EXISTS (SELECT 1 FROM ticker_reference r WHERE r.ticker = p.ticker AND r.type IN ('CS','ADRC'))
-      AND p.date >= DATE '{a.start}' AND p.date <= DATE '{a.end}' ORDER BY 1""").fetchall()]
+    WHERE p.date >= DATE '{a.start}' AND p.date <= DATE '{a.end}' ORDER BY 1""").fetchall()]
 log(f"{a.scale} / {a.entry}: {len(tickers):,} CS/ADRC tickers, rvol >= {RVMIN}, move >= {a.up}")
 
 def prior(s): return s.shift(1).values

@@ -3,9 +3,11 @@ CREATE OR REPLACE TEMP TABLE brlag AS
 WITH base AS (SELECT s.ticker,s.date,s.adj_close,
   AVG(s.adj_close) OVER (PARTITION BY s.ticker ORDER BY s.date ROWS BETWEEN 19 PRECEDING AND CURRENT ROW) ma20,
   AVG(s.adj_close*s.adj_volume) OVER (PARTITION BY s.ticker ORDER BY s.date RANGE BETWEEN INTERVAL 30 DAYS PRECEDING AND CURRENT ROW) adv30,
-  ROW_NUMBER() OVER (PARTITION BY s.ticker ORDER BY s.date) rn, r.type
-  FROM db.split_adjusted_prices s LEFT JOIN db.ticker_reference r ON r.ticker=s.ticker WHERE s.adj_close>0),
-u AS (SELECT date, AVG(CASE WHEN adj_close>ma20 THEN 1.0 ELSE 0.0 END) b20 FROM base WHERE rn>=20 AND type IN ('CS','ADRC') AND adv30>=1000000 GROUP BY date)
+  ROW_NUMBER() OVER (PARTITION BY s.ticker ORDER BY s.date) rn, t.is_stock
+  FROM db.split_adjusted_prices s
+  -- the DATED type (2026-11-28, data v2 ticker_types: run from research/)
+  LEFT JOIN read_parquet('data/v2/ticker_types.parquet') t ON t.ticker=s.ticker AND s.date BETWEEN t.from_date AND t.to_date WHERE s.adj_close>0),
+u AS (SELECT date, AVG(CASE WHEN adj_close>ma20 THEN 1.0 ELSE 0.0 END) b20 FROM base WHERE rn>=20 AND is_stock AND adv30>=1000000 GROUP BY date)
 SELECT date, LAG(b20) OVER (ORDER BY date) b20 FROM u;
 
 CREATE OR REPLACE TEMP TABLE t AS

@@ -11,6 +11,7 @@ A+ (Run 17) = low float + a red 10:00 candle −1..−6 % from the open; here th
     cd research && python3 -u scripts/equity/highflyer_v2_float_proxy.py > data/equity/highflyer_repro/v2_float_proxy.md 2> logs/highflyer_v2_float_proxy.log
 """
 import duckdb, numpy as np, pandas as pd
+import data_v2
 
 con = duckdb.connect(); con.execute("SET memory_limit='3GB'; SET threads=4")
 con.execute("ATTACH 'data/trading.db' AS db (READ_ONLY)")
@@ -98,8 +99,7 @@ for x in (1e6, 2e6, 3e6, 5e6, 10e6):
 print(row("red dip · dv60_med ≥ \\$5M", R[R.dv60_med >= 5e6]))
 print()
 print("## 5. Like for like: where the float data exists (2013+, the SEC frames' era) and by listing type\n")
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM db.ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(ty, on="symbol", how="left")
+T = data_v2.with_stock_type(con, T)   # the DATED type (2026-11-28)
 print("float coverage by type and era: " + ", ".join(
     f"{t} {e}: {100 * T[(T.typ.str.contains(t)) & m].dollar_float.notna().mean():.0f} % of {int(((T.typ.str.contains(t)) & m).sum())}"
     for t in ("CS", "ADRC") for e, m in (("2005–12", T.yr <= 2012), ("2013+", T.yr >= 2013))) + "\n")

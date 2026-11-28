@@ -45,8 +45,9 @@ def excluded(t, name):
     if t.endswith(".U") or (RX["units"].search(name) and not RX["equity_units"].search(name)): return True
     return False
 con = duckdb.connect()
-ref = con.execute("SELECT ticker, any_value(coalesce(name,'')) AS name FROM 'data/v2/ticker_reference.parquet' WHERE type IN ('CS','ADRC') GROUP BY ticker").df()
-con.register("uni", pd.DataFrame({"ticker": [t for t, n in zip(ref.ticker, ref.name) if not excluded(t, n)]}))
+# the DATED type (2026-11-28, data v2 ticker_types): the stock intervals whose listing's name is not excluded
+ref = con.execute("SELECT ticker, from_date, to_date, coalesce(name,'') AS name FROM 'data/v2/ticker_types.parquet' WHERE is_stock").df()
+con.register("uni", ref[[not excluded(t, n) for t, n in zip(ref.ticker, ref.name)]][["ticker", "from_date", "to_date"]])
 if a.dates:
     dates = a.dates.split(",")
 else:
@@ -95,7 +96,7 @@ async def main():
         for d in dates:
             path = os.path.join(a.out_dir, f"{d}.parquet")
             if os.path.exists(path): log(f"{d}: exists, skipped"); continue
-            tickers = [t for (t,) in con.execute(f"SELECT DISTINCT ticker FROM 'data/v2/daily_adjusted.parquet' JOIN uni USING (ticker) WHERE date = '{d}' ORDER BY 1").fetchall()]
+            tickers = [t for (t,) in con.execute(f"SELECT DISTINCT a.ticker FROM 'data/v2/daily_adjusted.parquet' a JOIN uni u ON u.ticker = a.ticker AND a.date BETWEEN u.from_date AND u.to_date WHERE a.date = '{d}' ORDER BY 1").fetchall()]
             if a.tickers: tickers = [t for t in tickers if t in a.tickers.split(",")]
             w0, w1, pm0 = ns(d, a.from_et), ns(d, a.to_et), ns(d, "04:00")
             stats = {"retry": 0, "pages": 0}

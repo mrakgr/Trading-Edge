@@ -28,7 +28,8 @@
 -- (build_mr_candidate_1s.fsx), not here. Re-apply BOTH view files after any such
 -- change: this one and build_daily_episodes_view.sql.
 --
--- Apply:  duckdb data/trading.db < scripts/equity/build_daily_episodes_causal_view.sql
+-- Apply:  via scripts/equity/data_v2.py (attach) or build_mr_candidate_1s.fsx --v2 — it needs data v2's ticker_types
+--         (2026-11-28); trading.db has none (ATTACH the parquet as ticker_types first).
 
 CREATE OR REPLACE VIEW daily_episodes_causal AS
 WITH marked AS (
@@ -46,8 +47,12 @@ WITH marked AS (
         -- The first bar of each ticker has a NULL LAG => is_break = 0.
         CASE WHEN a.date - LAG(a.date) OVER w > 45 THEN 1 ELSE 0 END AS is_break
     FROM daily_adjusted a
-    WHERE EXISTS (SELECT 1 FROM ticker_reference r
-                  WHERE r.ticker = a.ticker AND r.type IN ('CS','ADRC'))
+    -- ⭐ 2026-11-28: THE DATED TYPE. A ticker is in the universe on the days ticker_types (data v2) says it is a stock.
+    -- Until then an undated EXISTS on ticker_reference let every once-CS symbol through on ALL its days: RAM (Aries I
+    -- Acquisition, a SPAC, then since 2026-06-24 the Roundhill 2X DRAM ETF) traded in the research universe as a stock.
+    -- ticker_types has one row per ticker per day (non-overlapping intervals), so the join cannot fan out.
+    JOIN ticker_types t
+      ON t.ticker = a.ticker AND a.date BETWEEN t.from_date AND t.to_date AND t.is_stock
     WINDOW w AS (PARTITION BY a.ticker ORDER BY a.date)
 )
 SELECT

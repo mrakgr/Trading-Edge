@@ -6,6 +6,7 @@ dropped for that k). The exit morning's liquidity: the 1s bars' dollar volume 09
     cd research && python3 -u scripts/equity/highflyer_v2_exit_day.py > data/equity/highflyer_repro/v2_exit_day.md 2> logs/highflyer_v2_exit_day.log
 """
 import sys, duckdb, numpy as np, pandas as pd
+import data_v2
 con = duckdb.connect(); con.execute("SET memory_limit='2GB'; SET threads=4"); con.execute("ATTACH 'data/trading.db' AS db (READ_ONLY)")
 T = pd.read_parquet("data/equity/highflyer_repro/v2port_partial_causal_to1030.parquet")
 T["entry_date"] = pd.to_datetime(T.entry_date); T = T.reset_index(drop=True); T["tid"] = T.index
@@ -21,8 +22,7 @@ M = con.execute("""
              WHERE ticker IN (SELECT DISTINCT symbol FROM t))
   SELECT t.tid, median(p.dv) dv60_med FROM t JOIN s x ON x.ticker = t.symbol AND x.date = t.entry_date
   JOIN s p ON p.ticker = t.symbol AND p.i BETWEEN x.i - 60 AND x.i - 1 GROUP BY 1""").df()
-ty = con.execute("SELECT ticker symbol, string_agg(DISTINCT type, '/') typ FROM db.ticker_reference WHERE type IN ('CS','ADRC') GROUP BY 1").df()
-T = T.merge(M, on="tid", how="left").merge(ty, on="symbol", how="left")
+T = data_v2.with_stock_type(con, T.merge(M, on="tid", how="left"))   # the DATED type (2026-11-28)
 T["proxy"] = (T.dv60_med < 2e6) & (T.typ == "CS")
 T["aplus"] = T.proxy & (T.raw_close_1000 / T.raw_open_1000 - 1).between(-0.06, -0.01)
 X = X.merge(T[["tid", "symbol", "entry_date", "proxy", "aplus"]], on="tid")
